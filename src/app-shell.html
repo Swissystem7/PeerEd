@@ -345,7 +345,10 @@
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
       catch (err) { say('checkStatus', 'נדחה: ' + err.message, true); $('findings').innerHTML = ''; return; }
-      say('checkStatus', 'נקי. הטקסט שיישמר: "' + cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
+      // Nothing here is stored: the app keeps the participants list and nothing else, so the status
+      // says so and then shows what cleanText() made of the input.
+      say('checkStatus', 'נקי. הטקסט לא נשמר — האפליקציה שומרת רק את רשימת המשתתפים. אחרי ניקוי רווחים: "' +
+        cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
       return;
     }

@@ -47,3 +47,14 @@ test('the app stores no name, no contact detail and no free text', () => {
     assert.equal(/name|email|phone|text|note/i.test(call), false, 'must not store personal text: ' + call);
   }
 });
+
+test('the text gate neither stores the checked text nor promises to', () => {
+  const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  const handler = shell.slice(shell.indexOf("$('checkBtn')"), shell.indexOf("$('gateBtn')"));
+  assert.ok(handler.length > 100, 'the checkBtn handler should be findable');
+  // The text path holds the text in a variable and throws it away. A screen that says otherwise is a lie
+  // in the one app whose whole claim is that it stores nothing identifying.
+  assert.equal(/save\(\)|localStorage|state\./.test(handler), false, 'the text path must store nothing');
+  assert.equal(/יישמר|נשמור|ישמור/.test(handler), false, 'the status must not promise a save no code performs');
+  assert.ok(handler.includes('לא נשמר'), 'the clean status must say the text is not saved');
+});
