@@ -52,8 +52,10 @@
   .status.bad { color:var(--bad); }
   .hint { color:var(--muted); font-size:.78rem; line-height:1.6; margin:6px 0 0; }
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
-  .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
-            border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
+  .gaps { border-color:rgba(255,178,124,.35); }
+  .gaps h2 { color:var(--warm); }
+  .gaps ul { margin:0; padding-inline-start:17px; color:var(--muted); font-size:.79rem; line-height:1.6; }
+  .gaps li { margin:5px 0; }
   .flag { background:rgba(255,143,143,.1); border:1px solid rgba(255,143,143,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
 </style>
@@ -62,15 +64,11 @@
 <main class="wrap">
   <header>
     <h1>PeerEd</h1>
-    <p>מחבר סטודנטים לתלמידי תיכון לפי אזור, זמינות ומקצוע. בלי שם, בלי טלפון, בלי מייל.</p>
+    <p>מחבר סטודנטים לתלמידי תיכון לפי אזור, זמינות ומקצוע. בלי שם, טלפון או מייל.</p>
   </header>
 
   <!-- ============ אנשים ============ -->
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people">
-    <div class="banner">
-      הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות. כל שדה אחר — שם, טלפון, מייל, כתובת —
-      נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "טקסט".
-    </div>
     <div class="card">
       <h2>הוספת משתתף</h2>
       <div class="row">
@@ -81,7 +79,6 @@
       <label>מקצועות</label>
       <div class="chips" id="subjects"></div>
       <label>שעות פנויות</label>
-      <p class="hint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours"></div>
       <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
@@ -97,9 +94,7 @@
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" hidden>
     <div class="card">
       <h2>שידוך</h2>
-      <p class="hint">זוג נוצר רק כששניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים לפחות מקצוע אחד.
-        הדירוג לפי מספר השעות המשותפות, אחר כך מספר המקצועות. אותה קלט נותן תמיד אותה תוצאה — אין אקראיות
-        ואין קריאה לשעון.</p>
+      <p class="hint">זוג נוצר רק באותו אזור, עם שעה משותפת ומקצוע משותף.</p>
       <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button></div>
       <p class="status" id="matchStatus" role="status"></p>
     </div>
@@ -117,24 +112,37 @@
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" hidden>
     <div class="card">
       <h2>שער הטקסט</h2>
-      <p class="hint">כל יחידת העשרה או הודעה עוברת כאן לפני שהיא נשמרת. נסה להדביק טקסט עם טלפון, מייל,
-        תעודת זהות או קישור, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
+      <p class="hint">הדבק טקסט עם טלפון, מייל, ת"ז או קישור, ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
         <button type="button" class="act" id="checkBtn">בדוק</button>
-        <button type="button" class="ghost" id="badBtn">טען דוגמה עם פרטים אישיים</button>
+        <button type="button" class="ghost" id="badBtn">דוגמה עם פרטים אישיים</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
       <div id="findings"></div>
     </div>
     <div class="card">
       <h2>מה שדוחה שדה אסור</h2>
-      <p class="hint">אותו שער, על הרשומה עצמה ולא על הטקסט: מנסה לשמור משתתף עם שדה שאינו ברשימה.</p>
       <div class="actions"><button type="button" class="ghost" id="gateBtn">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
     </div>
   </section>
+
+  <!-- ============ מה לא עובד ============ -->
+  <div class="card gaps">
+    <h2>מה לא עובד כאן</h2>
+    <ul>
+      <li>השידוך חמדני: הזוג עם הכי הרבה שעות נלקח ראשון, ולכן לפעמים ייווצר זוג אחד במקום שניים.</li>
+      <li>אין ערוץ קשר. הזוג מוצג כמספרים, והחיבור נעשה מחוץ לאפליקציה.</li>
+      <li>שער הטקסט תופס תבניות, לא שמות: "אני דנה" עובר.</li>
+      <li>הרשימה נשמרת בדפדפן הזה בלבד ונמחקת עם נתוני הגלישה.</li>
+      <li>התפקיד נבחר מתפריט. אף מורה או בית ספר לא מאשר כלום.</li>
+      <li>בלוח אפשר לסמן 14:00 עד 20:00, אף שהמנוע מקבל 8:00 עד 22:00.</li>
+      <li>החישוב עובר על כל צמד ורץ במסך הראשי: באלפי משתתפים הדף נתקע לשניות.</li>
+      <li>אף בית ספר לא השתמש בזה.</li>
+    </ul>
+  </div>
 </main>
 
 <nav role="tablist" aria-label="ניווט">
@@ -316,7 +324,7 @@
       return '<div class="item"><b>' + x.who + '</b><span class="meta">' +
         esc(REGION_HE[x.p.region] || x.p.region) + ' · ' +
         x.p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        ' · אין באזור שלו מישהו עם שעה ומקצוע משותפים</span></div>';
+        '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
     say('matchStatus', pairs.length + ' זוגות מתוך ' + students.length + ' סטודנטים ו-' + pupils.length + ' תלמידים.');
   });
@@ -354,7 +362,7 @@
                             subjects: ['MATH'], phone: '' });
       say('gateStatus', 'נשמר — וזה היה באג.', true);
     } catch (err) {
-      say('gateStatus', 'נדחה עם ההודעה: "' + err.message + '". שים לב שהטלפון היה ריק לגמרי — ' +
+      say('gateStatus', 'נדחה עם ההודעה: "' + err.message + '". הטלפון היה ריק לגמרי — ' +
         'השדה עצמו נדחה, לא הערך.');
     }
   });
