@@ -311,8 +311,10 @@
     if (!r.students.length || !r.pupils.length) {
       say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return;
     }
-    var pairs = match.matchPairs(r.students.map(function (e) { return e.person; }),
-                                 r.pupils.map(function (e) { return e.person; }));
+    // profilesForMatch returns the profiles in the same order as r.students / r.pupils, so the
+    // indexes matchPairs hands back are positions in r - which is what the translation below needs.
+    var m = roster.profilesForMatch(state.people);
+    var pairs = match.matchPairs(m.students, m.pupils);
     var view = roster.pairsWithNumbers(state.people, pairs);
     $('pairs').innerHTML = view.length ? view.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +

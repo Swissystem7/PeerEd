@@ -17,9 +17,25 @@ function byRole(people, role) {
   return out;
 }
 
-// { students, pupils } - the two arrays matchPairs needs, with the list number kept alongside each person.
+// { students, pupils } - everyone with that role, in list order, as { number, person } entries.
+// These are NOT the arrays matchPairs takes. matchPairs reads .region off each element, and here the
+// profile sits under .person, so a roster entry has no .region of its own. Hand matchPairs the result of
+// profilesForMatch(people) instead; passing these entries is refused there with an error.
 function roster(people) {
   return { students: byRole(people, 'student'), pupils: byRole(people, 'pupil') };
+}
+
+function personOf(entry) {
+  return entry.person;
+}
+
+// { students, pupils } - the two plain profile arrays matchPairs takes, in exactly the order
+// roster(people).students / .pupils are in. That shared order is the whole point: the studentIndex /
+// pupilIndex matchPairs hands back are then positions in roster(people), which is what pairsWithNumbers
+// and unmatchedWithNumbers rely on to restate them as participants-list numbers.
+function profilesForMatch(people) {
+  const r = roster(people);
+  return { students: r.students.map(personOf), pupils: r.pupils.map(personOf) };
 }
 
 function usedIndexes(pairs) {
@@ -32,8 +48,8 @@ function usedIndexes(pairs) {
   return { students: students, pupils: pupils };
 }
 
-// pairs, as matchPairs returned them for roster(people).students / .pupils, restated in list numbers.
-// A pair whose index is out of range keeps a null number rather than inventing a person.
+// pairs, as matchPairs returned them for profilesForMatch(people).students / .pupils, restated in list
+// numbers. A pair whose index is out of range keeps a null number rather than inventing a person.
 function pairsWithNumbers(people, pairs) {
   const r = roster(people);
   return (Array.isArray(pairs) ? pairs : []).map(function (p) {
@@ -65,4 +81,4 @@ function unmatchedWithNumbers(people, pairs) {
   return out;
 }
 
-module.exports = { byRole, roster, pairsWithNumbers, unmatchedWithNumbers };
+module.exports = { byRole, roster, profilesForMatch, pairsWithNumbers, unmatchedWithNumbers };
