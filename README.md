@@ -9,7 +9,7 @@ deterministic tests only. The repository is on GitHub as `Swissystem7/PeerEd`.
 
 ## What works today
 
-`npm test` runs 30 deterministic tests (`node:test`, no dependencies).
+`npm test` runs 34 deterministic tests (`node:test`, no dependencies).
 
 `app.html` is the interface: one file, no server, no network call, opens from a phone or any static
 host. It is **generated** — `node scripts/build-app.js` inlines the modules below into
