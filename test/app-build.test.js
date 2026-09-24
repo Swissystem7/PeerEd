@@ -57,4 +57,16 @@ test('the text gate neither stores the checked text nor promises to', () => {
   assert.equal(/save\(\)|localStorage|state\./.test(handler), false, 'the text path must store nothing');
   assert.equal(/יישמר|נשמור|ישמור/.test(handler), false, 'the status must not promise a save no code performs');
   assert.ok(handler.includes('לא נשמר'), 'the clean status must say the text is not saved');
+  // The same goes for the gaps card's scale bullet (kept inside this test so the README's test count holds).
+  // Measured with node --expose-gc, 1000 x 1000 in one region, everyone overlapping: about 1 s and 420MB
+  // live heap when each person has one hour and one subject, about 10-12 s and 920MB when each marks all
+  // 49 hours on the grid with four subjects. The old bullet gave only the best case as if it were the cost.
+  const built = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
+  const li = /<li>החישוב מחזיק כל צמד אפשרי בזיכרון[^<]*<\/li>/.exec(built);
+  assert.ok(li, 'the scale bullet is on the gaps card');
+  assert.equal(/0\.8 שניות|450MB/.test(li[0]), false, 'the best case alone is not the cost: ' + li[0]);
+  assert.match(li[0], /כשנייה וכ-420MB/, 'the low end, with its condition');
+  assert.match(li[0], /כ-12 שניות וכ-920MB/, 'the high end, with its condition');
+  assert.match(li[0], /כל 49 השעות/, 'the high end names the grid that produces it');
+  assert.match(li[0], /בטלפון לא נמדד/, 'a phone was never measured, so the bullet says so');
 });
