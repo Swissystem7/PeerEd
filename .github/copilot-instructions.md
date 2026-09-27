@@ -7,7 +7,11 @@ tests and by a human who merges by hand. Optimise for a small, verifiable pull r
 
 - Run the whole suite: `node --test`
 - Run one test file: `node --test <path>` (Node's built-in runner; no other test framework)
-- There is no build step and there are no runtime dependencies to install.
+- There are no runtime dependencies to install. There is one build step: `app.html` is generated from
+  `src/app-shell.html` and `src/lib/*.js` by `node scripts/build-app.js`. After any change under `src/lib/`
+  or `src/app-shell.html`, run it and commit the regenerated `app.html`; `node scripts/build-app.js --check`
+  and `test/app-build.test.js` fail when `app.html` is stale. A new module in `src/lib/` also needs its
+  entry in `ORDER` in `scripts/build-app.js`.
 
 ## Where code lives
 
@@ -21,7 +25,8 @@ tests and by a human who merges by hand. Optimise for a small, verifiable pull r
 2. Test first: write the new test file so that it FAILS on the current code by an assertion (not by a missing
    function), then change the implementation until it passes.
 3. Run the whole suite; it must stay green.
-4. Touch only the named implementation file and the new test file. No other files, no new dependency, no build
+4. Touch only the named implementation file and the new test file (plus the regenerated `app.html`, and the
+   `ORDER` line for a new module, when the build step above requires them). No other files, no new dependency, no build
    tooling, no renames, no refactor of neighbouring code, no change to exports that the task does not name.
 5. Keep the pull request small (aim: under 80 changed lines, two files). Open it as a DRAFT against `master`.
    Summarise in Hebrew: what changed, how it was verified (commands and results), what was deliberately left out.
