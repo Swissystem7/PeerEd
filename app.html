@@ -192,6 +192,15 @@ const { isRegion } = require('./regions.js');
 
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
+const DAYS_HEBREW = Object.freeze({
+  SUN: 'א',
+  MON: 'ב',
+  TUE: 'ג',
+  WED: 'ד',
+  THU: 'ה',
+  FRI: 'ו',
+  SAT: 'ש'
+});
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS']);
 const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
@@ -205,6 +214,14 @@ function isSlot(slot) {
   if (!m || DAYS.indexOf(m[1]) === -1) return false;
   const hour = Number(m[2]);
   return Number.isInteger(hour) && hour >= HOUR_MIN && hour <= HOUR_MAX;
+}
+
+function formatSlotHebrew(slot) {
+  if (!isSlot(slot)) {
+    throw new Error('invalid slot: ' + String(slot));
+  }
+  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
+  return `${DAYS_HEBREW[m[1]]} ${m[2]}:00`;
 }
 
 function makeProfile(input) {
@@ -245,7 +262,7 @@ function makeProfile(input) {
   });
 }
 
-module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, isSlot, makeProfile };
+module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, isSlot, makeProfile, formatSlotHebrew };
   __registry["profile"] = module.exports;
 })();
 
