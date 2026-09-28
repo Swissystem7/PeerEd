@@ -19,7 +19,7 @@ approves publishing.
 | `src/lib/profile.js` | The only record the app keeps: role, region, availability slots (8:00-22:00), subjects. Any other key, even an empty one, is refused with `personal data is not accepted`. |
 | `src/lib/match.js` | Deterministic matching: same region, at least one shared hour, at least one shared subject, each person at most once, and the largest possible number of pairs (a greedy pass by shared hours, then augmenting paths). `explainUnmatched()` gives the true reason for each person left out. |
 | `src/lib/validator.js` | The free-text gate (email, Israeli phone, nine-digit id, links, handles). On screen it is a demo: the app stores no free text. |
-| `src/lib/contact.js` | The one place for a contact channel. `CONTACT` is empty until the owner fills it; until then the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
+| `src/lib/contact.js` | The one place for a contact channel. `CONTACT` is the owner's Google Form "משוב על האפליקציות", pre-filled with PeerEd (his decision, 28.9). If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
 
 On screen: add participants (or load a sample), compute the match, see who is left out and why, download
 the pairs as CSV (list numbers only, to line up with the coordinator's sheet), and a summary of pupils left

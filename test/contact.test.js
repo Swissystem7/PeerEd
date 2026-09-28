@@ -23,8 +23,13 @@ test('contactLink: email, https link, issue-form fallback, or nothing', () => {
   assert.equal(contact.contactLink('http://plain.example.org', form), null, 'https only');
 });
 
-test('the shipped config: CONTACT is empty (the owner fills it), the fallback is this repo\'s issue form', () => {
-  assert.equal(contact.CONTACT, '');
+// The owner decided on 28.9: the public contact channel for all his apps is his Google Form
+// "משוב על האפליקציות", with the app field pre-filled as PeerEd (an exact option of the form).
+const OWNER_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSdT8YduNx-VWKM3bWGUJdiSj4Sw9D-EA6R6c-oYVYCQmOVXxQ/viewform?usp=pp_url&entry.368039752=PeerEd';
+
+test('the shipped config: CONTACT is the owner\'s Google Form; the fallback is this repo\'s issue form', () => {
+  assert.equal(contact.CONTACT, OWNER_FORM);
+  assert.doesNotMatch(contact.CONTACT, /@|tel:|wa\.me/, 'no email or phone');
   assert.match(contact.ISSUE_FORM, /^https:\/\/github\.com\/Swissystem7\/PeerEd\/issues\/new\?template=pilot\.yml$/);
 });
 
@@ -39,6 +44,9 @@ test('the issue form exists, is Hebrew, and warns that the request is public', (
 test('the app shows the configured channel, and hides the box when there is none', () => {
   const $ = openApp();
   assert.equal($('contactBox').hidden, false);
-  assert.equal($('contactLink').href, contact.ISSUE_FORM);
-  assert.match($('contactNote').textContent, /ציבורי/);
+  assert.equal($('contactLink').href, OWNER_FORM, 'the app links to the form');
+  assert.match($('contactLink').textContent, /טופס/);
+  assert.doesNotMatch($('contactNote').textContent, /גיטהאב|GitHub/, 'no GitHub warning once CONTACT is set');
+  const built = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
+  assert.ok(built.includes("var CONTACT = '" + OWNER_FORM + "';"), 'app.html is rebuilt with the form link');
 });
