@@ -59,4 +59,4 @@ function makeProfile(input) {
   });
 }
 
-module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, isSlot, makeProfile };
+module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, HOUR_MIN, HOUR_MAX, isSlot, makeProfile };

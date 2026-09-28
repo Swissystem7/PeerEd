@@ -245,7 +245,7 @@ function makeProfile(input) {
   });
 }
 
-module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, isSlot, makeProfile };
+module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, HOUR_MIN, HOUR_MAX, isSlot, makeProfile };
   __registry["profile"] = module.exports;
 })();
 
@@ -496,7 +496,9 @@ module.exports = {
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש' };
-  var HOURS = [14, 15, 16, 17, 18, 19, 20];
+  // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
+  var HOURS = [];
+  for (var hh = profile.HOUR_MIN; hh <= profile.HOUR_MAX; hh += 1) HOURS.push(hh);
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
   var state = { people: [] };
