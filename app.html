@@ -98,8 +98,8 @@
     <div class="card">
       <h2>שידוך</h2>
       <p class="hint">זוג נוצר רק כששניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים לפחות מקצוע אחד.
-        הדירוג לפי מספר השעות המשותפות, אחר כך מספר המקצועות. אותה קלט נותן תמיד אותה תוצאה — אין אקראיות
-        ואין קריאה לשעון.</p>
+        קודם נלקחים הזוגות עם הכי הרבה שעות משותפות, ואז השיבוץ מתקן כך שייצא מספר הזוגות הגדול ביותר האפשרי.
+        אותו קלט נותן תמיד אותה תוצאה.</p>
       <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button></div>
       <p class="status" id="matchStatus" role="status"></p>
     </div>
@@ -279,12 +279,8 @@ function compareCandidates(x, y) {
     (x.pupilIndex - y.pupilIndex);
 }
 
-// students / pupils: arrays of profiles ({ region, availability, subjects }).
-// A pair needs the same region, >= 1 shared slot and >= 1 shared subject. Each participant is used at most once.
-// Candidates are sorted by shared slots desc, shared subjects desc, student index, pupil index, then taken greedily.
-function matchPairs(students, pupils) {
-  const S = Array.isArray(students) ? students : [];
-  const P = Array.isArray(pupils) ? pupils : [];
+// All valid (student, pupil) candidates, best first.
+function candidatesOf(S, P) {
   const candidates = [];
   for (let si = 0; si < S.length; si += 1) {
     const s = S[si];
@@ -305,21 +301,87 @@ function matchPairs(students, pupils) {
       });
     }
   }
-  candidates.sort(compareCandidates);
-  const usedStudents = new Set();
-  const usedPupils = new Set();
-  const pairs = [];
-  for (let i = 0; i < candidates.length; i += 1) {
-    const c = candidates[i];
-    if (usedStudents.has(c.studentIndex) || usedPupils.has(c.pupilIndex)) continue;
-    usedStudents.add(c.studentIndex);
-    usedPupils.add(c.pupilIndex);
-    pairs.push(c);
-  }
-  return pairs;
+  return candidates.sort(compareCandidates);
 }
 
-module.exports = { matchPairs, shared, compareCandidates };
+// students / pupils: arrays of profiles ({ region, availability, subjects }).
+// A pair needs the same region, >= 1 shared slot and >= 1 shared subject. Each participant is used at most once.
+// The result has the LARGEST POSSIBLE number of pairs: candidates are sorted by shared slots desc, shared
+// subjects desc, student index, pupil index and taken greedily; then, for every student still alone (in
+// index order), an augmenting path is searched in that same candidate order (Kuhn's algorithm), which can
+// only add a pair, never lose one. Pairs are returned in candidate order. No clock, no randomness.
+function matchPairs(students, pupils) {
+  const S = Array.isArray(students) ? students : [];
+  const P = Array.isArray(pupils) ? pupils : [];
+  const candidates = candidatesOf(S, P);
+  const byStudent = new Map();
+  for (let i = 0; i < candidates.length; i += 1) {
+    const c = candidates[i];
+    if (!byStudent.has(c.studentIndex)) byStudent.set(c.studentIndex, []);
+    byStudent.get(c.studentIndex).push(c);
+  }
+  const ofStudent = new Map();   // studentIndex -> candidate
+  const ofPupil = new Map();     // pupilIndex -> candidate
+  for (let i = 0; i < candidates.length; i += 1) {
+    const c = candidates[i];
+    if (ofStudent.has(c.studentIndex) || ofPupil.has(c.pupilIndex)) continue;
+    ofStudent.set(c.studentIndex, c);
+    ofPupil.set(c.pupilIndex, c);
+  }
+  function augment(si, seen) {
+    const list = byStudent.get(si) || [];
+    for (let i = 0; i < list.length; i += 1) {
+      const c = list[i];
+      if (seen.has(c.pupilIndex)) continue;
+      seen.add(c.pupilIndex);
+      const holder = ofPupil.get(c.pupilIndex);
+      if (!holder || augment(holder.studentIndex, seen)) {
+        ofStudent.set(si, c);
+        ofPupil.set(c.pupilIndex, c);
+        return true;
+      }
+    }
+    return false;
+  }
+  // A failed search leaves every pupil it visited unable to reach a free pupil until some search
+  // succeeds, so the visited set is kept across failures and cleared only after a success.
+  const reachablePupils = new Set(candidates.map((c) => c.pupilIndex)).size;
+  let seen = new Set();
+  for (let si = 0; si < S.length && ofPupil.size < reachablePupils; si += 1) {
+    if (ofStudent.has(si) || !byStudent.has(si)) continue;
+    if (augment(si, seen)) seen = new Set();
+  }
+  return Array.from(ofStudent.values()).sort(compareCandidates);
+}
+
+// Why each participant is not in `pairs`. One code per person, the first that is true:
+//   NO_ONE_IN_REGION               nobody of the other role in the same region
+//   NO_SHARED_HOUR                 somebody in the region, but never free at the same hour
+//   NO_SHARED_SUBJECT              somebody in the region, but no subject in common
+//   NO_HOUR_AND_SUBJECT_TOGETHER   one shares an hour, another a subject, nobody both
+//   PARTNERS_TAKEN                 had possible partners; the largest matching needed all of them elsewhere
+function explainUnmatched(students, pupils, pairs) {
+  const S = Array.isArray(students) ? students : [];
+  const P = Array.isArray(pupils) ? pupils : [];
+  const usedS = new Set(); const usedP = new Set();
+  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
+  function reason(me, others) {
+    const local = others.filter((o) => o && o.region === me.region);
+    if (local.length === 0) return 'NO_ONE_IN_REGION';
+    const hour = local.filter((o) => shared(me.availability, o.availability).length > 0);
+    const subject = local.filter((o) => shared(me.subjects, o.subjects).length > 0);
+    if (hour.length === 0) return 'NO_SHARED_HOUR';
+    if (subject.length === 0) return 'NO_SHARED_SUBJECT';
+    const both = hour.filter((o) => subject.indexOf(o) !== -1);
+    return both.length === 0 ? 'NO_HOUR_AND_SUBJECT_TOGETHER' : 'PARTNERS_TAKEN';
+  }
+  const out = { students: [], pupils: [] };
+  S.forEach((s, i) => { if (s && !usedS.has(i)) out.students.push({ index: i, reason: reason(s, P) }); });
+  P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S) }); });
+  return out;
+}
+
+module.exports = { matchPairs, explainUnmatched, shared, compareCandidates };
   __registry["match"] = module.exports;
 })();
 
@@ -588,6 +650,19 @@ module.exports = {
     return out;
   }
 
+  // One sentence per explainUnmatched() code. The other side is named by role.
+  function reasonHe(code, role) {
+    var other = role === 'student' ? 'תלמיד' : 'סטודנט';
+    switch (code) {
+      case 'NO_ONE_IN_REGION': return 'אין באזור הזה אף ' + other + '.';
+      case 'NO_SHARED_HOUR': return 'יש ' + other + ' באזור, אבל אף אחד לא פנוי באותה שעה.';
+      case 'NO_SHARED_SUBJECT': return 'יש ' + other + ' באזור, אבל בלי מקצוע משותף.';
+      case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש מי שפנוי באותה שעה ויש מי שחולק מקצוע, אבל לא אותו אחד.';
+      case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
+      default: return '';
+    }
+  }
+
   $('runMatch').addEventListener('click', function () {
     var r = splitByRole();
     if (!r.students.length || !r.pupils.length) {
@@ -604,17 +679,17 @@ module.exports = {
         '</span></div>';
     }).join('') : '<p class="empty">לא נוצר אף זוג.</p>';
 
-    var pairedStudents = {}, pairedPupils = {};
-    pairs.forEach(function (p) { pairedStudents[p.studentIndex] = true; pairedPupils[p.pupilIndex] = true; });
+    var why = match.explainUnmatched(r.students.map(function (e) { return e.person; }),
+                                     r.pupils.map(function (e) { return e.person; }), pairs);
     var left = [];
-    r.students.forEach(function (e, i) { if (!pairedStudents[i]) left.push({ role: 'student', e: e }); });
-    r.pupils.forEach(function (e, i) { if (!pairedPupils[i]) left.push({ role: 'pupil', e: e }); });
+    why.students.forEach(function (w) { left.push({ role: 'student', e: r.students[w.index], reason: w.reason }); });
+    why.pupils.forEach(function (w) { left.push({ role: 'pupil', e: r.pupils[w.index], reason: w.reason }); });
     left.sort(function (a, b) { return a.e.number - b.e.number; });
     $('unmatched').innerHTML = left.length ? left.map(function (x) {
       return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
         esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
         x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        ' · אין באזור שלו מישהו עם שעה ומקצוע משותפים</span></div>';
+        '<br>' + reasonHe(x.reason, x.role) + '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
     say('matchStatus', pairs.length + ' זוגות מתוך ' + r.students.length + ' סטודנטים ו-' + r.pupils.length +
       ' תלמידים. המספרים הם המקום ברשימת המשתתפים.');
