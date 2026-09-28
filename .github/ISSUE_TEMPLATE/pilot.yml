@@ -1,0 +1,36 @@
+name: פנייה לפיילוט שיבוץ
+description: רכז/ת חונכות שרוצה לנסות את PeerEd בסבב שיבוץ אחד
+title: "פיילוט: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **הפנייה הזאת ציבורית** — כל מי שנכנס לריפו יכול לקרוא אותה.
+        אל תכתבו כאן טלפון, מייל, שמות או כל פרט של סטודנט או תלמיד. נחזור אליכם בתגובה כאן, ומשם נתאם ערוץ פרטי.
+  - type: dropdown
+    id: framework
+    attributes:
+      label: באיזו מסגרת את/ה משבץ/ת?
+      options:
+        - מלגות מעורבות בקהילה של רשות מקומית
+        - פר"ח
+        - חונכות מדעית / מלגה של מכללה או אוניברסיטה
+        - עמותה או יוזמת מתנדבים
+        - אחר
+    validations:
+      required: true
+  - type: input
+    id: size
+    attributes:
+      label: בערך כמה סטודנטים וכמה תלמידים בסבב?
+      placeholder: "למשל: 40 סטודנטים, 60 תלמידים"
+  - type: input
+    id: when
+    attributes:
+      label: מתי השיבוץ הבא?
+      placeholder: "למשל: נובמבר"
+  - type: textarea
+    id: today
+    attributes:
+      label: איך את/ה משבץ/ת היום, ומה הכי מעכב?
+      placeholder: "למשל: טופס גוגל וגיליון, השוואת שעות ביד"

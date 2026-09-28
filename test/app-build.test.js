@@ -31,7 +31,11 @@ test('no module in src/lib can be forgotten', () => {
 });
 
 test('the app sends nothing anywhere: no network call, no third-party asset', () => {
-  const built = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
+  let built = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
+  // The one exception is the contact channel from src/lib/contact.js: a link the user clicks, which
+  // carries nothing from the list. Exactly those configured strings are removed before the scan.
+  const contact = require('../src/lib/contact.js');
+  for (const allowed of [contact.ISSUE_FORM, contact.CONTACT].filter(Boolean)) built = built.split(allowed).join('');
   // PeerEd handles data about minors. Anything that leaves the device would break that promise.
   for (const forbidden of ['http://', 'https://', 'fetch(', 'XMLHttpRequest', 'sendBeacon',
     'cdn.', 'googleapis', 'unpkg', 'jsdelivr', 'analytics', 'gtag(']) {
