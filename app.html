@@ -447,6 +447,28 @@ module.exports = {
     var parts = String(slot).split('_');
     return 'יום ' + (DAY_HE[parts[0]] || parts[0]) + ' ' + parts[1] + ':00';
   }
+  // The engine's messages stay English (tests and logs read them); the screen is Hebrew, so every
+  // message is translated here before a status line shows it. test/ui-hebrew-errors.test.js fails if
+  // a module gains a message that has no line in this table.
+  var ERROR_HE = [
+    ['personal data is not accepted', 'פרטים אישיים לא מתקבלים'],
+    ['profile input must be an object with role, region, availability, subjects', 'הרשומה לא בנויה נכון'],
+    ['invalid role:', 'תפקיד לא מוכר'],
+    ['invalid region:', 'אזור לא מוכר'],
+    ['invalid availability:', 'צריך לסמן לפחות שעה פנויה אחת'],
+    ['invalid availability slot:', 'שעה שאינה בלוח'],
+    ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
+    ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    ['text too long', 'הטקסט ארוך מדי'],
+    ['text too short', 'אין טקסט לבדוק']
+  ];
+  function errorHe(err) {
+    var msg = String(err && err.message || '');
+    for (var i = 0; i < ERROR_HE.length; i += 1) {
+      if (msg.indexOf(ERROR_HE[i][0]) === 0) return ERROR_HE[i][1];
+    }
+    return 'הקלט נדחה';
+  }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* private mode */ } }
   function load() {
     try {
@@ -520,7 +542,7 @@ module.exports = {
     };
     var made;
     try { made = profile.makeProfile(candidate); }
-    catch (err) { say('addStatus', 'נדחה: ' + err.message, true); return; }
+    catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     state.people.push(made);
     clearDraft();
     renderPeople();
@@ -597,7 +619,7 @@ module.exports = {
     if (!hits.length) {
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
-      catch (err) { say('checkStatus', 'נדחה: ' + err.message, true); $('findings').innerHTML = ''; return; }
+      catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
       say('checkStatus', 'נקי. הטקסט שיישמר: "' + cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
       return;
@@ -615,7 +637,7 @@ module.exports = {
                             subjects: ['MATH'], phone: '' });
       say('gateStatus', 'נשמר — וזה היה באג.', true);
     } catch (err) {
-      say('gateStatus', 'נדחה עם ההודעה: "' + err.message + '". שים לב שהטלפון היה ריק לגמרי — ' +
+      say('gateStatus', 'נדחה עם ההודעה: "' + errorHe(err) + '". שים לב שהטלפון היה ריק לגמרי — ' +
         'השדה עצמו נדחה, לא הערך.');
     }
   });
