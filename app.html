@@ -207,6 +207,14 @@ function isSlot(slot) {
   return Number.isInteger(hour) && hour >= HOUR_MIN && hour <= HOUR_MAX;
 }
 
+function getSlotHour(slot) {
+  if (!isSlot(slot)) {
+    throw new Error('invalid slot: ' + String(slot));
+  }
+  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
+  return Number(m[2]);
+}
+
 function makeProfile(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('profile input must be an object with role, region, availability, subjects');
@@ -245,7 +253,7 @@ function makeProfile(input) {
   });
 }
 
-module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, isSlot, makeProfile };
+module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, isSlot, makeProfile, getSlotHour };
   __registry["profile"] = module.exports;
 })();
 
