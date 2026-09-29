@@ -41,7 +41,7 @@ test('the summary for a funder counts unmatched pupils by region and subject', (
   roster($);
   $('runMatch').fire('click');
   const s = text($('summary').innerHTML);
-  assert.match(s, /1 זוגות/, s);
+  assert.match(s, /זוג אחד\./, s);
   assert.match(s, /2 תלמידים בלי סטודנט/, s);
   assert.match(s, /צפון · היסטוריה: 1/, s);
   assert.match(s, /מרכז · מתמטיקה: 1/, s);

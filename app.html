@@ -745,6 +745,9 @@ module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contac
     };
   }
 
+  // Hebrew counts: one of anything is "X אחד" (all nouns counted here are masculine); other counts keep the number.
+  function countHe(n, one, many) { return n === 1 ? one + ' אחד' : n + ' ' + many; }
+
   function renderSummary(m) {
     var shortPupils = m.left.filter(function (x) { return x.role === 'pupil'; });
     var shortStudents = m.left.length - shortPupils.length;
@@ -757,8 +760,9 @@ module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contac
       });
     });
     keys.sort(function (a, b) { return (counts[b] - counts[a]) || (a < b ? -1 : a > b ? 1 : 0); });
-    $('summary').innerHTML = '<p class="hint">' + m.pairs.length + ' זוגות. ' + shortPupils.length +
-      ' תלמידים בלי סטודנט, ' + shortStudents + ' סטודנטים בלי תלמיד.</p>' +
+    $('summary').innerHTML = '<p class="hint">' + countHe(m.pairs.length, 'זוג', 'זוגות') + '. ' +
+      countHe(shortPupils.length, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
+      countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.</p>' +
       (keys.length ? '<p class="hint">חסרים סטודנטים (תלמיד עם כמה מקצועות נספר בכל אחד):</p>' +
         keys.map(function (k) { return '<div class="item"><span class="meta">' + esc(k) + ': ' + counts[k] +
           '</span></div>'; }).join('') : '');
@@ -782,8 +786,9 @@ module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contac
         '<br>' + reasonHe(x.reason, x.role) + '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
     renderSummary(m);
-    say('matchStatus', m.pairs.length + ' זוגות מתוך ' + m.students + ' סטודנטים ו-' + m.pupils +
-      ' תלמידים. המספרים הם המקום ברשימת המשתתפים.');
+    say('matchStatus', countHe(m.pairs.length, 'זוג', 'זוגות') + ' מתוך ' +
+      countHe(m.students, 'סטודנט', 'סטודנטים') + ' ו-' + countHe(m.pupils, 'תלמיד', 'תלמידים') +
+      '. המספרים הם המקום ברשימת המשתתפים.');
   });
 
   function csvCell(v) {
@@ -814,7 +819,8 @@ module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contac
     a.click();
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
-    say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + last.pairs.length + ' זוגות ו-' + last.left.length + ' שלא שובצו.');
+    say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
+      (last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
 
   // ---------- text gate ----------
@@ -839,7 +845,8 @@ module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contac
       $('findings').innerHTML = '';
       return;
     }
-    say('checkStatus', 'נחסם. נמצאו ' + hits.length + ' פרטים אישיים.', true);
+    say('checkStatus', 'נחסם. ' + (hits.length === 1 ? 'נמצא פרט אישי אחד.' :
+      'נמצאו ' + hits.length + ' פרטים אישיים.'), true);
     $('findings').innerHTML = hits.map(function (h) {
       return '<div class="flag"><b>' + esc(KIND_HE[h.kind] || h.kind) + '</b> — "' + esc(h.match) +
         '" (תו ' + h.index + ')</div>';
