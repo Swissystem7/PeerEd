@@ -14,24 +14,45 @@ const ROOT = path.join(__dirname, '..');
 const ORDER = ['regions', 'profile', 'match', 'validator'];
 const MARKER = '<!--MODULES-->';
 
-function moduleBlock(name) {
-  const code = fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8').replace(/\s+$/, '');
+function moduleBlock(name, code) {
   return [
     '/* ===== src/lib/' + name + '.js ===== */',
     '(function () {',
     '  var module = { exports: {} };',
     '  var exports = module.exports;',
-    code,
+    code.replace(/\s+$/, ''),
     '  __registry[' + JSON.stringify(name) + '] = module.exports;',
     '})();'
   ].join('\n');
 }
 
-function build() {
+function build(opts = {}) {
   const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
   if (shell.indexOf(MARKER) === -1) throw new Error('src/app-shell.html has no ' + MARKER + ' marker');
   const banner = '/* Built by scripts/build-app.js from src/lib/*.js - do not edit this block by hand. */';
-  return shell.replace(MARKER, banner + '\n' + ORDER.map(moduleBlock).join('\n\n'));
+  
+  const overrides = opts.modules || {};
+  
+  const blocks = ORDER.map((name, index) => {
+    const code = overrides[name] !== undefined ? overrides[name] : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8');
+    
+    const reqRe = /require\(['"]\.\/([^'"]+)\.js['"]\)/g;
+    let m;
+    while ((m = reqRe.exec(code)) !== null) {
+      const dep = m[1];
+      const depIdx = ORDER.indexOf(dep);
+      if (depIdx === -1) {
+        throw new Error(`Module '${name}' requires '${dep}', which is not in ORDER.`);
+      }
+      if (depIdx >= index) {
+        throw new Error(`Module '${name}' requires '${dep}', which is loaded after it in ORDER.`);
+      }
+    }
+    
+    return moduleBlock(name, code);
+  });
+
+  return shell.replace(MARKER, banner + '\n' + blocks.join('\n\n'));
 }
 
 function main() {
