@@ -1,6 +1,18 @@
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
+// Returns true if two string arrays share at least one common element.
+function hasOverlap(a, b) {
+  const right = new Set(Array.isArray(b) ? b : []);
+  const left = Array.isArray(a) ? a : [];
+  for (let i = 0; i < left.length; i += 1) {
+    if (right.has(left[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Sorted, de-duplicated intersection of two string arrays.
 function shared(a, b) {
   const right = new Set(Array.isArray(b) ? b : []);
@@ -37,8 +49,8 @@ function matchPairs(students, pupils) {
     for (let pi = 0; pi < P.length; pi += 1) {
       const p = P[pi];
       if (!p || p.region !== s.region) continue;
+      if (!hasOverlap(s.availability, p.availability)) continue;
       const slots = shared(s.availability, p.availability);
-      if (slots.length === 0) continue;
       const subjects = shared(s.subjects, p.subjects);
       if (subjects.length === 0) continue;
       candidates.push({
@@ -64,4 +76,4 @@ function matchPairs(students, pupils) {
   return pairs;
 }
 
-module.exports = { matchPairs, shared, compareCandidates };
+module.exports = { matchPairs, shared, compareCandidates, hasOverlap };
