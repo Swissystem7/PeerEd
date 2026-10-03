@@ -3,6 +3,7 @@
 // any key outside the accepted fields is rejected, even with an empty value.
 
 const { isRegion } = require('./regions.js');
+const { getRetentionPolicy } = require('./retention.js');
 
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
@@ -66,6 +67,12 @@ function makeProfile(input) {
   if (role === 'pupil' || input.parentConsent !== undefined) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
+
+  const policy = getRetentionPolicy();
+  profile.retention = Object.freeze({
+    dataCategory: 'profile',
+    maxAgeDays: policy.profile
+  });
 
   return Object.freeze(profile);
 }

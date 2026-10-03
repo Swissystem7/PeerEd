@@ -11,7 +11,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 // dependency order: a module may only require one listed before it
-const ORDER = ['regions', 'profile', 'match', 'validator'];
+const ORDER = ['regions', 'retention', 'profile', 'match', 'validator'];
 const MARKER = '<!--MODULES-->';
 
 function moduleBlock(name, code) {
