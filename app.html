@@ -186,14 +186,14 @@ module.exports = { REGIONS, isRegion, normalizeRegion };
   var exports = module.exports;
 'use strict';
 // PeerEd - the ONLY record shape the system stores. It is impossible to store personal data of a minor:
-// any key outside the four accepted fields is rejected, even with an empty value.
+// any key outside the accepted fields is rejected, even with an empty value.
 
 const { isRegion } = require('./regions.js');
 
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
@@ -237,15 +237,55 @@ function makeProfile(input) {
       throw new Error('invalid subjects entry: ' + String(subjects[i]));
     }
   }
-  return Object.freeze({
+
+  if (input.parentConsent !== undefined && typeof input.parentConsent !== 'boolean') {
+    throw new Error('invalid parentConsent: expected boolean');
+  }
+
+  const profile = {
     role: role,
     region: region,
     availability: Object.freeze(availability.slice()),
     subjects: Object.freeze(subjects.slice())
-  });
+  };
+
+  if (role === 'pupil' || input.parentConsent !== undefined) {
+    profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
+  }
+
+  return Object.freeze(profile);
 }
 
-module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, isSlot, makeProfile };
+function setParentConsent(profile, consent) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  const consentValue = consent === undefined ? true : Boolean(consent);
+  return Object.freeze(Object.assign({}, profile, {
+    parentConsent: consentValue
+  }));
+}
+
+function grantParentConsent(profile) {
+  return setParentConsent(profile, true);
+}
+
+function revokeParentConsent(profile) {
+  return setParentConsent(profile, false);
+}
+
+module.exports = {
+  ROLES,
+  DAYS,
+  SUBJECTS,
+  ACCEPTED_FIELDS,
+  PERSONAL_DATA_ERROR,
+  isSlot,
+  makeProfile,
+  setParentConsent,
+  grantParentConsent,
+  revokeParentConsent
+};
   __registry["profile"] = module.exports;
 })();
 
@@ -255,6 +295,18 @@ module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, 
   var exports = module.exports;
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
+
+// Returns true if two string arrays share at least one common element.
+function hasOverlap(a, b) {
+  const right = new Set(Array.isArray(b) ? b : []);
+  const left = Array.isArray(a) ? a : [];
+  for (let i = 0; i < left.length; i += 1) {
+    if (right.has(left[i])) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // Sorted, de-duplicated intersection of two string arrays.
 function shared(a, b) {
@@ -292,8 +344,8 @@ function matchPairs(students, pupils) {
     for (let pi = 0; pi < P.length; pi += 1) {
       const p = P[pi];
       if (!p || p.region !== s.region) continue;
+      if (!hasOverlap(s.availability, p.availability)) continue;
       const slots = shared(s.availability, p.availability);
-      if (slots.length === 0) continue;
       const subjects = shared(s.subjects, p.subjects);
       if (subjects.length === 0) continue;
       candidates.push({
@@ -319,7 +371,7 @@ function matchPairs(students, pupils) {
   return pairs;
 }
 
-module.exports = { matchPairs, shared, compareCandidates };
+module.exports = { matchPairs, shared, compareCandidates, hasOverlap };
   __registry["match"] = module.exports;
 })();
 
