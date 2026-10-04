@@ -42,9 +42,22 @@ jobs:
       - name: Commit and open draft PR
         env: {GH_TOKEN: '${{ github.token }}'}
         run: |
-          git add -A && git diff --cached --check; if git diff --cached --quiet; then echo No changes; exit 0; fi; git commit -m 'ai: apply local Qwen task'; git push --set-upstream origin "$AI_AGENT_BRANCH"
-          python3 - <<'PY'
-          import json,os,urllib.request
-          repo=os.environ['GITHUB_REPOSITORY']; data=json.dumps({'title':'ai: local Qwen task','head':os.environ['AI_AGENT_BRANCH'],'base':os.environ.get('GITHUB_BASE_REF') or 'master','draft':True,'body':'Draft PR from private local Qwen/Aider lane; tests ran on a factory runner.'}).encode(); req=urllib.request.Request(f'https://api.github.com/repos/{repo}/pulls',data=data,method='POST',headers={'Accept':'application/vnd.github+json','Authorization':'Bearer '+os.environ['GH_TOKEN'],'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'});
-          with urllib.request.urlopen(req) as r: print('Draft PR created: '+json.load(r).get('html_url',''))
-          PY
+          git add -A
+          while IFS= read -r -d '' path; do
+            [ -f "$path" ] || continue
+            nums="$(git diff --cached --numstat -- "$path" | awk '{print $1, $2}')"
+            [ "$nums" = "- -" ] && continue
+            sed -i 's/[[:blank:]]*$//' "$path"
+          done < <(git diff --cached --name-only -z --diff-filter=ACM)
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then echo No changes; exit 0; fi
+          git commit -m 'ai: apply local Qwen task'
+          git push --set-upstream origin "$AI_AGENT_BRANCH"
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$AI_AGENT_BRANCH" \
+            --base master \
+            --draft \
+            --title "ai: local Qwen task" \
+            --body $'Draft PR from private local Qwen/Aider lane; tests ran on a factory runner.'
