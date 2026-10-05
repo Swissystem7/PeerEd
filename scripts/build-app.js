@@ -52,7 +52,10 @@ function build(opts = {}) {
     return moduleBlock(name, code);
   });
 
-  return shell.replace(MARKER, banner + '\n' + blocks.join('\n\n'));
+  // A function replacer, not a replacement string: module code is arbitrary JavaScript, and a "$&" or
+  // "$'" inside a regex or a string literal would otherwise be expanded here and inline the wrong text.
+  const payload = banner + '\n' + blocks.join('\n\n');
+  return shell.replace(MARKER, () => payload);
 }
 
 function main() {

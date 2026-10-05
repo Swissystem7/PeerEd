@@ -24,6 +24,16 @@ test('every module is inlined exactly once, in dependency order', () => {
   assert.equal(built.indexOf(MARKER), -1);
 });
 
+test('module code is inlined verbatim, even a regex holding a replacement pattern', () => {
+  // A "$&" or "$'" in module source must not be expanded by the build. It used to be, and the result
+  // was an app.html that still passed the staleness check while holding the shell twice.
+  const code = "var RE = new RegExp('^' + 'a' + ')$', 'i'); var AMP = '$&'; var TICK = '$`';";
+  const built = build({ modules: { validator: code } });
+  assert.ok(built.includes(code), 'module source was rewritten while being inlined');
+  assert.equal(built.split('<script>').length, fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8')
+    .split('<script>').length, 'the shell was duplicated');
+});
+
 test('no module in src/lib can be forgotten', () => {
   const files = fs.readdirSync(path.join(ROOT, 'src', 'lib'))
     .filter((f) => f.endsWith('.js')).map((f) => f.replace(/\.js$/, '')).sort();
