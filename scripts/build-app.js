@@ -14,6 +14,13 @@ const ROOT = path.join(__dirname, '..');
 const ORDER = ['regions', 'profile', 'match', 'validator'];
 const MARKER = '<!--MODULES-->';
 
+// Every input is normalized to LF before it is joined. On a Windows checkout (git autocrlf) the shell and
+// the modules arrive with CRLF while the blocks are joined with LF, so the build was a mixed-ending file
+// that never equalled the app.html on disk: the staleness test failed on every laptop and passed on CI.
+function lf(text) {
+  return String(text).replace(/\r\n?/g, '\n');
+}
+
 function moduleBlock(name, code) {
   return [
     '/* ===== src/lib/' + name + '.js ===== */',
@@ -27,14 +34,16 @@ function moduleBlock(name, code) {
 }
 
 function build(opts = {}) {
-  const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  const shell = lf(fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8'));
   if (shell.indexOf(MARKER) === -1) throw new Error('src/app-shell.html has no ' + MARKER + ' marker');
   const banner = '/* Built by scripts/build-app.js from src/lib/*.js - do not edit this block by hand. */';
   
   const overrides = opts.modules || {};
   
   const blocks = ORDER.map((name, index) => {
-    const code = overrides[name] !== undefined ? overrides[name] : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8');
+    const code = lf(overrides[name] !== undefined
+      ? overrides[name]
+      : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8'));
     
     const reqRe = /require\(['"]\.\/([^'"]+)\.js['"]\)/g;
     let m;
@@ -62,7 +71,7 @@ function main() {
   const target = path.join(ROOT, 'app.html');
   const built = build();
   if (process.argv.includes('--check')) {
-    const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
+    const current = fs.existsSync(target) ? lf(fs.readFileSync(target, 'utf8')) : '';
     if (current !== built) {
       process.stderr.write('app.html is stale - run: node scripts/build-app.js\n');
       process.exit(1);
@@ -75,4 +84,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { build, ORDER, MARKER };
+module.exports = { build, lf, ORDER, MARKER };
