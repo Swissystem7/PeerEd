@@ -70,14 +70,15 @@ function makeProfile(input) {
   return Object.freeze(profile);
 }
 
+// Returns a new frozen profile with parentConsent set. The result goes through makeProfile again, so
+// the privacy gate holds here too: a plain object with a name or a phone cannot be turned into a
+// "profile" by asking for consent on it, and a stale or hand-built record is re-validated on the way.
 function setParentConsent(profile, consent) {
   if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
     throw new Error('profile must be an object');
   }
   const consentValue = consent === undefined ? true : Boolean(consent);
-  return Object.freeze(Object.assign({}, profile, {
-    parentConsent: consentValue
-  }));
+  return makeProfile(Object.assign({}, profile, { parentConsent: consentValue }));
 }
 
 function grantParentConsent(profile) {
