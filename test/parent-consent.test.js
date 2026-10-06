@@ -59,3 +59,37 @@ test('pupil profile parentConsent defaults to false and updates to true upon par
   });
   assert.strictEqual(preApproved.parentConsent, true);
 });
+
+test('setParentConsent keeps the privacy gate: a record with personal data is refused, not copied', () => {
+  // Before this test the function copied any object it was given, so a name or a phone number could
+  // enter the system through the consent path without ever meeting makeProfile.
+  assert.throws(
+    () => profileLib.setParentConsent({ name: 'x', phone: '0501234567' }, true),
+    { message: profileLib.PERSONAL_DATA_ERROR }
+  );
+  assert.throws(
+    () => profileLib.grantParentConsent({
+      role: 'pupil', region: getValidRegion(), availability: ['SUN_16'], subjects: ['MATH'], email: 'a@b.co'
+    }),
+    { message: profileLib.PERSONAL_DATA_ERROR }
+  );
+  // A broken record is re-validated on the way, with the same error makeProfile gives.
+  assert.throws(
+    () => profileLib.revokeParentConsent({ role: 'pupil', region: 'NOWHERE', availability: ['SUN_16'], subjects: ['MATH'] }),
+    { message: /invalid region/ }
+  );
+});
+
+test('setParentConsent returns a frozen profile with copied arrays, like makeProfile', () => {
+  const pupil = makeProfile({ role: 'pupil', region: getValidRegion(), availability: ['SUN_16'], subjects: ['MATH'] });
+  const approved = profileLib.grantParentConsent(pupil);
+  assert.ok(Object.isFrozen(approved));
+  assert.ok(Object.isFrozen(approved.availability));
+  assert.notStrictEqual(approved.availability, pupil.availability);
+  assert.deepStrictEqual(approved.availability, pupil.availability);
+  assert.deepStrictEqual(Object.keys(approved).sort(), ['availability', 'parentConsent', 'region', 'role', 'subjects']);
+  // a student gets an explicit flag too, and nothing else changes
+  const student = makeProfile({ role: 'student', region: getValidRegion(), availability: ['SUN_16'], subjects: ['MATH'] });
+  assert.strictEqual(student.parentConsent, undefined);
+  assert.strictEqual(profileLib.revokeParentConsent(student).parentConsent, false);
+});
