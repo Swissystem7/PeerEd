@@ -705,6 +705,10 @@ module.exports = {
   }
 
   function renderPeople() {
+    $('pairs').innerHTML = '';
+    $('unmatched').innerHTML = '';
+    say('matchStatus', '');
+
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
       return '<div class="item"><b>' + (p.role === 'student' ? 'סטודנט מלמד' : 'תלמיד') + ' #' + (i + 1) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
