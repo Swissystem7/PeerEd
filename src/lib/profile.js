@@ -1,13 +1,13 @@
 'use strict';
 // PeerEd - the ONLY record shape the system stores. It is impossible to store personal data of a minor:
-// any key outside the four accepted fields is rejected, even with an empty value.
+// any key outside the accepted fields is rejected, even with an empty value.
 
 const { isRegion } = require('./regions.js');
 
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
@@ -59,12 +59,54 @@ function makeProfile(input) {
       throw new Error('invalid subjects entry: ' + String(subjects[i]));
     }
   }
-  return Object.freeze({
+
+  if (input.parentConsent !== undefined && typeof input.parentConsent !== 'boolean') {
+    throw new Error('invalid parentConsent: expected boolean');
+  }
+
+  const profile = {
     role: role,
     region: region,
     availability: Object.freeze(availability.slice()),
     subjects: Object.freeze(subjects.slice())
-  });
+  };
+
+  if (role === 'pupil' || input.parentConsent !== undefined) {
+    profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
+  }
+
+  return Object.freeze(profile);
 }
 
-module.exports = { ROLES, DAYS, SUBJECTS, ACCEPTED_FIELDS, PERSONAL_DATA_ERROR, isSlot, makeProfile, getSlotHour };
+// Returns a new frozen profile with parentConsent set. The result goes through makeProfile again, so
+// the privacy gate holds here too: a plain object with a name or a phone cannot be turned into a
+// "profile" by asking for consent on it, and a stale or hand-built record is re-validated on the way.
+function setParentConsent(profile, consent) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  const consentValue = consent === undefined ? true : Boolean(consent);
+  return makeProfile(Object.assign({}, profile, { parentConsent: consentValue }));
+}
+
+function grantParentConsent(profile) {
+  return setParentConsent(profile, true);
+}
+
+function revokeParentConsent(profile) {
+  return setParentConsent(profile, false);
+}
+
+module.exports = {
+  ROLES,
+  DAYS,
+  SUBJECTS,
+  ACCEPTED_FIELDS,
+  PERSONAL_DATA_ERROR,
+  isSlot,
+  makeProfile,
+  getSlotHour,
+  setParentConsent,
+  grantParentConsent,
+  revokeParentConsent
+};
