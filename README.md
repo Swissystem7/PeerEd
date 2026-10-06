@@ -9,7 +9,7 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 ## What works today
 
-`npm test` runs 73 tests. There is **no user interface yet** — this is the core.
+`npm test` runs 85 tests. `app.html` is a one-file demo shell over the core (people, matching, the text gate); the approval queue and the session log have no screen yet.
 
 | Module | What it does |
 |---|---|
@@ -23,9 +23,11 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 `PURPOSE.md` carries the research this is grounded in (35 sources) and the owner's decisions.
 
+| `src/lib/store.js` | Local-only storage (MVP item 7). The whole state — roster, approval queue, session log — is one JSON document under one key in a Web Storage shaped backend (the browser's localStorage, or an in-memory fallback when storage is blocked). Loading re-validates everything: every person through `makeProfile`, the queue through `loadQueue`, the log through `loadLog`, so a record edited in devtools cannot bring a name or a forged status in. A document that fails comes back as an empty state plus the reason, never as half a roster. `test/offline.test.js` is a static check that no module and neither HTML file can reach the network. |
+
 ## What does not exist yet
 
-No interface, no storage, no reports for a
+No screen for the approval queue or the session log, no reports for a
 municipality beyond the session counts, no accessibility work, no Arabic or Russian. Nothing here has been used by a real school.
 
 ## Why the profile is so narrow

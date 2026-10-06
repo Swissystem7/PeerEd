@@ -60,9 +60,14 @@ test('the app sends nothing anywhere: no network call, no third-party asset', ()
 
 test('the app stores no name, no contact detail and no free text', () => {
   const built = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
-  const stores = built.match(/localStorage\.setItem\([^)]*\)/g) || [];
+  // The shell never touches localStorage itself: the single writer is src/lib/store.js, whose
+  // serialize() only emits the re-validated state (store.test.js covers what that state may hold).
+  assert.equal(/localStorage\.setItem/.test(built), false, 'the shell must write through the store module');
+  const stores = built.match(/\.setItem\([^)]*\)/g) || [];
   assert.ok(stores.length > 0, 'the app does save something');
   for (const call of stores) {
-    assert.equal(/name|email|phone|text|note/i.test(call), false, 'must not store personal text: ' + call);
+    assert.equal(/name|email|phone|note/i.test(call), false, 'must not store personal text: ' + call);
   }
+  assert.ok(stores.some((call) => /setItem\(storageKey, text\)/.test(call)), 'the store writes serialize() output');
+  assert.ok(built.indexOf('__registry["store"] = module.exports') !== -1, 'store.js is inlined');
 });

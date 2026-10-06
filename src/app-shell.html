@@ -161,9 +161,8 @@
 (function () {
   'use strict';
   var regions = __registry.regions, profile = __registry.profile,
-      match = __registry.match, validator = __registry.validator;
+      match = __registry.match, validator = __registry.validator, storeLib = __registry.store;
   var $ = function (id) { return document.getElementById(id); };
-  var KEY = 'peered_app_v1';
 
   var REGION_HE = { NORTH: 'צפון', HAIFA: 'חיפה', CENTER: 'מרכז', TEL_AVIV: 'תל אביב',
                     JERUSALEM: 'ירושלים', SOUTH: 'דרום' };
@@ -175,8 +174,16 @@
   var HOURS = [14, 15, 16, 17, 18, 19, 20];
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
-  var state = { people: [] };
+  // The roster lives in this browser only (MVP item 7): one localStorage key, no server, and a stored
+  // record is re-validated by src/lib/store.js on every load, so devtools cannot smuggle a name in.
+  var state = { people: [], queue: null, log: null };
   var draft = { subjects: [], availability: [] };
+  var store = (function () {
+    var backend;
+    try { backend = window.localStorage; backend.getItem(storeLib.DEFAULT_KEY); }
+    catch (e) { backend = storeLib.memoryBackend(); /* private mode: this visit only */ }
+    return storeLib.createStore(backend || storeLib.memoryBackend());
+  })();
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -187,13 +194,15 @@
     var parts = String(slot).split('_');
     return 'יום ' + (DAY_HE[parts[0]] || parts[0]) + ' ' + parts[1] + ':00';
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* private mode */ } }
+  function save() {
+    if (!store.save(state)) say('addStatus', 'נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי?).', true);
+  }
+  // load() never throws. A document that fails the privacy gate - an extra key, an unapproved unit -
+  // comes back as an empty roster plus the reason, and the screen says so instead of guessing.
   function load() {
-    try {
-      var p = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (p && Array.isArray(p.people)) return p;
-    } catch (e) { /* a corrupt store must not brick the app */ }
-    return { people: [] };
+    var loaded = store.load();
+    state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
+    if (loaded.problem) say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + loaded.problem, true);
   }
 
   function buildInputs() {
@@ -385,8 +394,8 @@
     });
   });
 
-  state = load();
   buildInputs();
+  load();
   renderPeople();
 })();
 </script>
