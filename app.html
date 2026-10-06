@@ -136,12 +136,52 @@
       <p class="status" id="gateStatus" role="status"></p>
     </div>
   </section>
+
+  <!-- ============ יחידות ============ -->
+  <section role="tabpanel" id="tab-units" aria-labelledby="nav-units" hidden>
+    <div class="banner">
+      יחידת העשרה היא שיעור טקסט קצר שמורה מגיש. היא לא מגיעה לאף תלמיד עד שהמאשר קרא אותה ואישר.
+      התור שומר רק שהתפקיד החליט, לא מי. אותה כותרת, מקצוע ומשך — אותו מזהה, גם אם הטקסט תוקן.
+    </div>
+    <div class="card">
+      <h2>הגשת יחידה (מורה)</h2>
+      <div class="row">
+        <div><label for="unitSubject">מקצוע</label><select id="unitSubject"></select></div>
+        <div><label for="unitDuration">משך בדקות (5–60)</label>
+          <input id="unitDuration" type="number" min="5" max="60" step="1" value="20"></div>
+      </div>
+      <label for="unitTitle">כותרת (שורה אחת)</label>
+      <input id="unitTitle" type="text" maxlength="120" placeholder="שברים פשוטים: חיבור וחיסור">
+      <label for="unitBody">תוכן היחידה</label>
+      <textarea id="unitBody" placeholder="פתחו בדוגמה אחת מהחיים, אחר כך 3 תרגילים מפרק 12..."></textarea>
+      <div class="actions">
+        <button type="button" class="act" id="submitUnit">הגש לאישור</button>
+        <button type="button" class="ghost" id="unitDemoBtn">טען דוגמה</button>
+      </div>
+      <p class="status" id="unitStatus" role="status"></p>
+    </div>
+    <div class="card">
+      <h2>ממתינות לאישור</h2>
+      <p class="hint">המאשר ב-MVP הוא אבירן. דחייה דורשת סיבה שעוברת את שער הטקסט — היא מוצגת למורה.</p>
+      <div id="pendingList"></div>
+      <p class="status" id="decideStatus" role="status"></p>
+    </div>
+    <div class="card">
+      <h2>מאושרות — מה שתלמיד רואה</h2>
+      <div id="approvedList"></div>
+    </div>
+    <div class="card">
+      <h2>נדחו</h2>
+      <div id="rejectedList"></div>
+    </div>
+  </section>
 </main>
 
 <nav role="tablist" aria-label="ניווט">
   <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true">אנשים</button>
   <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false">שידוך</button>
   <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false">טקסט</button>
+  <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false">יחידות</button>
 </nav>
 
 <script>
@@ -1110,7 +1150,8 @@ module.exports = {
 (function () {
   'use strict';
   var regions = __registry.regions, profile = __registry.profile,
-      match = __registry.match, validator = __registry.validator, storeLib = __registry.store;
+      match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
+      unitLib = __registry.unit, approval = __registry.approval;
   var $ = function (id) { return document.getElementById(id); };
 
   var REGION_HE = { NORTH: 'צפון', HAIFA: 'חיפה', CENTER: 'מרכז', TEL_AVIV: 'תל אביב',
@@ -1173,6 +1214,9 @@ module.exports = {
       });
     });
     $('hours').innerHTML = cells.join('');
+    $('unitSubject').innerHTML = profile.SUBJECTS.map(function (s) {
+      return '<option value="' + s + '">' + esc(SUBJECT_HE[s] || s) + '</option>';
+    }).join('');
   }
 
   function renderPeople() {
@@ -1329,6 +1373,93 @@ module.exports = {
     }
   });
 
+  // ---------- units and approval ----------
+  // The screen never builds a queue entry itself: a unit goes through makeUnit, then approval.submit,
+  // and every decision is approve()/reject() on the stored queue. What is shown is what the queue
+  // holds - title, subject, duration, body, status, revision - and nothing about who wrote or decided.
+
+  function unitCard(entry, extraHtml) {
+    var u = entry.unit;
+    return '<div class="item' + (entry.status === 'approved' ? ' pair' : '') + '"><b>' + esc(u.title) + '</b>' +
+      '<span class="meta">' + esc(SUBJECT_HE[u.subject] || u.subject) + ' · ' + u.durationMinutes + ' דקות · ' +
+      'גרסה ' + entry.revision + ' · <span class="pill">' + esc(u.id) + '</span><br>' +
+      esc(u.body.length > 160 ? u.body.slice(0, 160) + '…' : u.body) + '</span>' + (extraHtml || '') + '</div>';
+  }
+
+  function renderUnits() {
+    var q = state.queue;
+    var pending = approval.listPending(q);
+    $('pendingList').innerHTML = pending.length ? pending.map(function (entry) {
+      var id = esc(entry.unit.id);
+      return unitCard(entry,
+        '<label for="reason-' + id + '">סיבת דחייה (חובה רק לדחייה)</label>' +
+        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '">' +
+        '<div class="actions"><button type="button" class="act small" data-approve="' + id + '">אשר</button>' +
+        '<button type="button" class="ghost small" data-reject="' + id + '">דחה</button></div>');
+    }).join('') : '<p class="empty">אין יחידות שממתינות. אפשר להגיש אחת למעלה או לטעון דוגמה.</p>';
+
+    var approved = approval.approvedUnits(q).map(function (u) { return q.entries[u.id]; });
+    $('approvedList').innerHTML = approved.length ? approved.map(function (entry) {
+      return unitCard(entry);
+    }).join('') : '<p class="empty">עדיין לא אושרה אף יחידה, אז תלמיד לא רואה כלום.</p>';
+
+    var rejected = Object.keys(q.entries).map(function (id) { return q.entries[id]; })
+      .filter(function (e) { return e.status === 'rejected'; })
+      .sort(function (a, b) { return a.seq - b.seq; });
+    $('rejectedList').innerHTML = rejected.length ? rejected.map(function (entry) {
+      return unitCard(entry, '<div class="flag">סיבה: ' + esc(entry.reason) + '</div>');
+    }).join('') : '<p class="empty">אין יחידות שנדחו.</p>';
+  }
+
+  function submitUnit(input) {
+    var made;
+    try {
+      made = unitLib.makeUnit(input);
+      var before = approval.statusOf(state.queue, made.id);
+      var next = approval.submit(state.queue, made);
+      if (next === state.queue) { say('unitStatus', 'כבר בתור, ללא שינוי: אותה יחידה בדיוק כבר הוגשה.'); return; }
+      state.queue = next;
+    } catch (err) { say('unitStatus', 'נדחה: ' + err.message, true); return; }
+    renderUnits(); save();
+    say('unitStatus', before === null ? 'הוגש וממתין לאישור. מזהה: ' + made.id
+      : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + state.queue.entries[made.id].revision + '.');
+  }
+
+  $('submitUnit').addEventListener('click', function () {
+    submitUnit({
+      title: $('unitTitle').value,
+      subject: $('unitSubject').value,
+      durationMinutes: Number($('unitDuration').value),
+      body: $('unitBody').value
+    });
+  });
+
+  $('unitDemoBtn').addEventListener('click', function () {
+    $('unitSubject').value = 'MATH';
+    $('unitDuration').value = '20';
+    $('unitTitle').value = 'שברים פשוטים: חיבור וחיסור';
+    $('unitBody').value = 'מתחילים בפיצה שחולקה ל-8. כמה זה 3/8 ועוד 2/8? אחר כך 3 תרגילים עם מכנה שונה: ' +
+      '1/2 + 1/4, 2/3 - 1/6, 3/5 + 1/10. מי שסיים מנסה לכתוב תרגיל משלו לחבר.';
+    say('unitStatus', 'הדוגמה מולאה. לחץ "הגש לאישור".');
+  });
+
+  $('pendingList').addEventListener('click', function (ev) {
+    var approveId = ev.target.getAttribute('data-approve');
+    var rejectId = ev.target.getAttribute('data-reject');
+    if (approveId === null && rejectId === null) return;
+    try {
+      if (approveId !== null) {
+        state.queue = approval.approve(state.queue, approveId);
+        say('decideStatus', 'אושר. מעכשיו תלמידים רואים את היחידה.');
+      } else {
+        var reasonBox = document.querySelector('[data-reason="' + rejectId + '"]');
+        state.queue = approval.reject(state.queue, rejectId, reasonBox ? reasonBox.value : '');
+        say('decideStatus', 'נדחה עם סיבה. המורה יכול לתקן ולהגיש שוב - זה יחזור לתור כגרסה חדשה.');
+      }
+    } catch (err) { say('decideStatus', 'לא בוצע: ' + err.message, true); return; }
+    renderUnits(); save();
+  });
+
   // ---------- tabs ----------
 
   var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
@@ -1346,6 +1477,7 @@ module.exports = {
   buildInputs();
   load();
   renderPeople();
+  renderUnits();
 })();
 </script>
 </body>
