@@ -144,3 +144,21 @@ test('approval: stored data that was edited on disk cannot smuggle personal data
   const renamed = loadQueue(edit((s) => { s.entries[A.id].decidedBy = 'Aviran'; }));
   assert.equal(renamed.entries[A.id].decidedBy, APPROVER_ROLE);
 });
+
+test('approval: a stored entry with a key the flow never writes is refused, not quietly dropped', () => {
+  let q = submit(submit(emptyQueue(), A), B);
+  q = reject(q, B.id, 'חסר');
+  const stored = JSON.parse(JSON.stringify(q));
+  const edit = (fn) => { const copy = JSON.parse(JSON.stringify(stored)); fn(copy); return copy; };
+  // a name or a note next to the unit is personal data, with the same message as a name inside it
+  for (const key of ['teacher', 'note', 'email', 'school']) {
+    assert.throws(() => loadQueue(edit((s) => { s.entries[A.id][key] = 'x'; })), { message: PERSONAL_DATA_ERROR });
+  }
+  // a reason is a rejection's; on a pending unit it is not a record the flow could have written
+  assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].reason = 'חסר'; })), /reason on a unit that was not rejected/);
+  // every stored key the flow does write still loads, decidedBy included
+  const loaded = loadQueue(edit((s) => { s.entries[B.id].decidedBy = APPROVER_ROLE; }));
+  assert.deepEqual(loaded, q);
+  // the counter is the order of the queue on every device: two entries cannot share one number
+  assert.throws(() => loadQueue(edit((s) => { s.entries[B.id].seq = s.entries[A.id].seq; })), /seq already used/);
+});
