@@ -9,7 +9,7 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 ## What works today
 
-`npm test` runs 89 tests. `app.html` is a one-file demo shell over the core: people, matching, the text gate, and a units screen where a teacher submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason. The session log has no screen yet.
+`npm test` runs 93 tests. `app.html` is a one-file demo shell over the core: people, matching, the text gate, a units screen where a teacher submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason, and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome; never who) and a municipality sees counts only.
 
 | Module | What it does |
 |---|---|
@@ -26,8 +26,7 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 ## What does not exist yet
 
-No screen for the session log, no reports for a
-municipality beyond the session counts, no accessibility work, no Arabic or Russian. Nothing here has been used by a real school.
+No reports for a municipality beyond the session counts on the sessions screen, no export of those counts, no accessibility work, no Arabic or Russian. Nothing here has been used by a real school.
 
 ## Why the profile is so narrow
 
