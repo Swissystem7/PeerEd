@@ -11,8 +11,15 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 // dependency order: a module may only require one listed before it
-const ORDER = ['regions', 'retention', 'profile', 'match', 'validator'];
+const ORDER = ['regions', 'retention', 'profile', 'match', 'validator', 'unit'];
 const MARKER = '<!--MODULES-->';
+
+// Every input is normalized to LF before it is joined. On a Windows checkout (git autocrlf) the shell and
+// the modules arrive with CRLF while the blocks are joined with LF, so the build was a mixed-ending file
+// that never equalled the app.html on disk: the staleness test failed on every laptop and passed on CI.
+function lf(text) {
+  return String(text).replace(/\r\n?/g, '\n');
+}
 
 function moduleBlock(name, code) {
   return [
@@ -27,14 +34,16 @@ function moduleBlock(name, code) {
 }
 
 function build(opts = {}) {
-  const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  const shell = lf(fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8'));
   if (shell.indexOf(MARKER) === -1) throw new Error('src/app-shell.html has no ' + MARKER + ' marker');
   const banner = '/* Built by scripts/build-app.js from src/lib/*.js - do not edit this block by hand. */';
   
   const overrides = opts.modules || {};
   
   const blocks = ORDER.map((name, index) => {
-    const code = overrides[name] !== undefined ? overrides[name] : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8');
+    const code = lf(overrides[name] !== undefined
+      ? overrides[name]
+      : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8'));
     
     const reqRe = /require\(['"]\.\/([^'"]+)\.js['"]\)/g;
     let m;
@@ -52,14 +61,17 @@ function build(opts = {}) {
     return moduleBlock(name, code);
   });
 
-  return shell.replace(MARKER, banner + '\n' + blocks.join('\n\n'));
+  // A function replacer, not a replacement string: module code is arbitrary JavaScript, and a "$&" or
+  // "$'" inside a regex or a string literal would otherwise be expanded here and inline the wrong text.
+  const payload = banner + '\n' + blocks.join('\n\n');
+  return shell.replace(MARKER, () => payload);
 }
 
 function main() {
   const target = path.join(ROOT, 'app.html');
   const built = build();
   if (process.argv.includes('--check')) {
-    const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
+    const current = fs.existsSync(target) ? lf(fs.readFileSync(target, 'utf8')) : '';
     if (current !== built) {
       process.stderr.write('app.html is stale - run: node scripts/build-app.js\n');
       process.exit(1);
@@ -72,4 +84,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { build, ORDER, MARKER };
+module.exports = { build, lf, ORDER, MARKER };

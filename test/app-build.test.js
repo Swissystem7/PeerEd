@@ -5,12 +5,21 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { build, ORDER, MARKER } = require('../scripts/build-app.js');
+const { build, lf, ORDER, MARKER } = require('../scripts/build-app.js');
 const ROOT = path.join(__dirname, '..');
 
 test('app.html is a fresh build of the current modules', () => {
-  const current = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
+  // lf(): a Windows checkout (git autocrlf) hands us CRLF; the build itself is LF either way.
+  const current = lf(fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8'));
   assert.equal(current, build(), 'app.html is stale - run: node scripts/build-app.js');
+});
+
+test('the build is byte-identical whether its inputs arrive with LF or CRLF', () => {
+  // The staleness check used to fail on every Windows laptop and pass on CI, for the same source.
+  const code = lf(fs.readFileSync(path.join(ROOT, 'src', 'lib', 'regions.js'), 'utf8'));
+  const crlf = code.replace(/\n/g, '\r\n');
+  assert.equal(build({ modules: { regions: crlf } }), build({ modules: { regions: code } }));
+  assert.equal(build().includes('\r'), false, 'the build must never contain a carriage return');
 });
 
 test('every module is inlined exactly once, in dependency order', () => {
@@ -22,6 +31,16 @@ test('every module is inlined exactly once, in dependency order', () => {
   const positions = ORDER.map((n) => built.indexOf('/* ===== src/lib/' + n + '.js ===== */'));
   assert.deepEqual(positions, positions.slice().sort((a, b) => a - b));
   assert.equal(built.indexOf(MARKER), -1);
+});
+
+test('module code is inlined verbatim, even a regex holding a replacement pattern', () => {
+  // A "$&" or "$'" in module source must not be expanded by the build. It used to be, and the result
+  // was an app.html that still passed the staleness check while holding the shell twice.
+  const code = "var RE = new RegExp('^' + 'a' + ')$', 'i'); var AMP = '$&'; var TICK = '$`';";
+  const built = build({ modules: { validator: code } });
+  assert.ok(built.includes(code), 'module source was rewritten while being inlined');
+  assert.equal(built.split('<script>').length, fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8')
+    .split('<script>').length, 'the shell was duplicated');
 });
 
 test('no module in src/lib can be forgotten', () => {
