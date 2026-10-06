@@ -201,6 +201,14 @@
     <div class="card">
       <h2>סיכום לרשות — ספירות בלבד</h2>
       <div id="sessionSummary"></div>
+      <p class="hint">הייצוא הוא אותן ספירות כקובץ CSV: מדד, קוד, כמות. אין בו שורות של היומן, אין שעה, אין
+        מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
+      <div class="actions"><button type="button" class="ghost" id="exportReport">ייצא דוח CSV</button></div>
+      <div id="reportBox" hidden>
+        <label for="reportText">הדוח (לקריאה בלבד)</label>
+        <textarea id="reportText" readonly dir="ltr" spellcheck="false"></textarea>
+      </div>
+      <p class="status" id="reportStatus" role="status"></p>
     </div>
     <div class="card">
       <h2>היומן</h2>
@@ -1002,6 +1010,31 @@ function summarize(log) {
   });
 }
 
+// The export of that summary: one CSV text a municipality can paste into a spreadsheet. It is built from
+// summarize() only, so it holds exactly the counts the screen shows - no row, no pair, no position -
+// and the same log always gives the same text: measures in a fixed order, codes sorted, LF line ends.
+// Every code is an enum value or a unit id, so there is nothing to quote; a code that would need
+// quoting is a bug upstream and is refused here rather than written.
+const REPORT_HEADER = 'measure,code,count';
+const REPORT_MEASURES = Object.freeze([
+  ['outcome', 'byOutcome'], ['region', 'byRegion'], ['subject', 'bySubject'], ['unit', 'byUnit']
+]);
+
+function reportCsv(log) {
+  const s = summarize(log);
+  const lines = [REPORT_HEADER, 'sessions,,' + s.sessions];
+  for (let m = 0; m < REPORT_MEASURES.length; m += 1) {
+    const measure = REPORT_MEASURES[m][0];
+    const counts = s[REPORT_MEASURES[m][1]];
+    const codes = Object.keys(counts).sort();
+    for (let i = 0; i < codes.length; i += 1) {
+      if (!/^[A-Za-z0-9_-]+$/.test(codes[i])) throw new Error('invalid report code: ' + codes[i]);
+      lines.push(measure + ',' + codes[i] + ',' + counts[codes[i]]);
+    }
+  }
+  return lines.join('\n') + '\n';
+}
+
 // Rebuild a log from stored JSON. Every row is re-checked against the queue it is loaded with, so a
 // row edited on disk cannot bring an extra key, an unapproved unit or a foreign region into the app.
 // A stored row carries its own region and no pair, so the slot and subject are checked for shape and
@@ -1044,6 +1077,8 @@ module.exports = {
   emptyLog,
   logSession,
   summarize,
+  reportCsv,
+  REPORT_HEADER,
   loadLog
 };
   __registry["session"] = module.exports;
@@ -1576,7 +1611,32 @@ module.exports = {
     $('sessionList').innerHTML = state.log.entries.length
       ? state.log.entries.slice().reverse().map(sessionRow).join('')
       : '<p class="empty">היומן ריק. רושמים שיעור בטופס למעלה אחרי שנוצר זוג ואושרה יחידה.</p>';
+    // An export that is already open follows the log, so a stale report is never on the screen.
+    if (!$('reportBox').hidden) $('reportText').value = session.reportCsv(state.log);
   }
+
+  // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
+  // the file can hold nothing the summary card does not already show. The text lands in a read-only
+  // box and is selected; the clipboard is tried on top of that, never instead of it (a phone browser
+  // may refuse it, and a refused copy must not look like a copy).
+  $('exportReport').addEventListener('click', function () {
+    var text;
+    try { text = session.reportCsv(state.log); } catch (err) { say('reportStatus', 'לא יוצא: ' + err.message, true); return; }
+    var box = $('reportText');
+    box.value = text;
+    $('reportBox').hidden = false;
+    box.focus();
+    box.select();
+    var lines = text.split('\n').length - 2;
+    var done = 'הדוח מוכן: ' + lines + ' שורות של ספירות, מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        say('reportStatus', done + ' הועתק גם ללוח.');
+      }, function () { say('reportStatus', done); });
+    } else {
+      say('reportStatus', done);
+    }
+  });
 
   $('sessionPair').addEventListener('change', function () { renderSessionChoices(currentPairs()); });
   $('sessionSubject').addEventListener('change', renderSessionUnits);
