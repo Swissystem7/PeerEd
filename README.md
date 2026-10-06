@@ -9,7 +9,7 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 ## What works today
 
-`npm test` runs 95 tests. `app.html` is a one-file demo shell over the core: people, matching, the text gate, a units screen where a teacher submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason, and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome; never who) and a municipality sees counts only.
+`npm test` runs 102 tests. `app.html` is a one-file demo shell over the core: people, matching, the text gate, a units screen where a teacher submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason, and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome; never who) and a municipality sees counts only.
 
 | Module | What it does |
 |---|---|
@@ -21,12 +21,13 @@ deterministic tests only. Local repository until the owner approves publishing.
 | `src/lib/approval.js` | The approval flow (MVP item 5). A submitted unit is pending and invisible to pupils until the approver role decides; the queue records the role, never a person. A rejection needs a reason that passes the free-text gate. Resubmitting the same text changes nothing; a revised body goes back to pending with its revision number raised. The queue is a frozen JSON value and every operation returns a new one, so it can be stored locally; loading it re-runs every unit and reason through the gates. |
 | `src/lib/session.js` | The session log (MVP item 6). A session is logged for a pair from matchPairs, but only what the pair shares is written: region, slot, subject, plus the id of the approved unit that was taught and the outcome (held, missed, cut short). The roster positions of the pair never reach the log, any other key is refused as personal data, and a unit that is not approved in the queue cannot be logged. The summary for a municipality is counts only, and `reportCsv` exports exactly that summary as CSV (measure, code, count; fixed order, sorted codes, same log same text) so it can be pasted into a spreadsheet; the sessions screen shows it in a read-only box and offers the clipboard, never a download. Loading a stored log re-checks every row against the approval queue. |
 | `src/lib/store.js` | Local-only storage (MVP item 7). The whole state — roster, approval queue, session log — is one JSON document under one key in a Web Storage shaped backend (the browser's localStorage, or an in-memory fallback when storage is blocked). Loading re-validates everything: every person through `makeProfile`, the queue through `loadQueue`, the log through `loadLog`, so a record edited in devtools cannot bring a name or a forged status in. A document that fails comes back as an empty state plus the reason, never as half a roster. `test/offline.test.js` is a static check that no module and neither HTML file can reach the network. |
+| `src/lib/tabnav.js` | Keyboard navigation of the tab bar, the WAI-ARIA tabs pattern: the bar is one tab stop, and `stepTab` says which tab an arrow key lands on. The screen is right-to-left, so ArrowLeft goes forward and ArrowRight back, both wrap, Home and End are the ends, and any other key is left to the browser. The shell only asks the module and moves focus. |
 
 `PURPOSE.md` carries the research this is grounded in (35 sources) and the owner's decisions.
 
 ## What does not exist yet
 
-No reports for a municipality beyond the session counts on the sessions screen and their CSV export, no accessibility work, no Arabic or Russian. Nothing here has been used by a real school.
+No reports for a municipality beyond the session counts on the sessions screen and their CSV export, no accessibility work beyond keyboard navigation of the tab bar (no screen-reader pass, no contrast audit), no Arabic or Russian. Nothing here has been used by a real school.
 
 ## Why the profile is so narrow
 
