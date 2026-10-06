@@ -9,7 +9,7 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 ## What works today
 
-`npm test` runs 112 tests. `app.html` is a one-file demo shell over the core: people, matching, the text gate, a units screen where a teacher submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason, and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome; never who) and a municipality sees counts only.
+`npm test` runs 120 tests, among them a contrast audit of the screen: `scripts/contrast.js` reads every text-on-background pair out of the stylesheet (variables resolved, translucent tints painted over their parent) and `test/contrast.test.js` fails the suite if one drops under WCAG AA, 4.5:1 for text and 3:1 for the focus ring and the selected-tab line. `node scripts/contrast.js` prints the table. `app.html` is a one-file demo shell over the core: people, matching, the text gate, a units screen where a teacher submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason, and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome; never who) and a municipality sees counts only.
 
 | Module | What it does |
 |---|---|
@@ -27,7 +27,7 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 ## What does not exist yet
 
-No reports for a municipality beyond the session counts on the sessions screen and their CSV export, no accessibility work beyond keyboard navigation of the tab bar (no screen-reader pass, no contrast audit), no Arabic or Russian. Nothing here has been used by a real school.
+No reports for a municipality beyond the session counts on the sessions screen and their CSV export, no accessibility work beyond keyboard navigation of the tab bar and the text contrast audit (no screen-reader pass; the card and field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.11, and the audit does not cover borders because lightening them is a look the owner decides on), no Arabic or Russian. Nothing here has been used by a real school.
 
 ## Why the profile is so narrow
 
