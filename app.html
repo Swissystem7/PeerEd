@@ -52,6 +52,8 @@
   .status { min-height:1.2em; color:var(--ok); font-size:.84rem; margin-top:8px; line-height:1.5; }
   .status.bad { color:var(--bad); }
   .hint { color:var(--muted); font-size:.78rem; line-height:1.6; margin:6px 0 0; }
+  label.check { display:flex; align-items:center; gap:9px; color:var(--ink); font-size:.92rem; margin-top:12px; }
+  label.check input { width:auto; margin:0; accent-color:var(--key); }
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
   .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
@@ -69,8 +71,8 @@
   <!-- ============ אנשים ============ -->
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people">
     <div class="banner">
-      הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות. כל שדה אחר — שם, טלפון, מייל, כתובת —
-      נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "טקסט".
+      הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות, ולתלמיד גם האם התקבל אישור הורה (כן/לא
+      בלבד). כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "טקסט".
     </div>
     <div class="card">
       <h2>הוספת משתתף</h2>
@@ -78,6 +80,11 @@
         <div><label for="role">תפקיד</label><select id="role">
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region"></select></div>
+      </div>
+      <div id="consentRow" hidden>
+        <label class="check"><input type="checkbox" id="consent"> התקבל אישור הורה לשידוך</label>
+        <p class="hint">נשמר רק כן או לא: בלי שם ההורה, בלי תאריך, בלי מסמך. תלמיד בלי אישור נשמר ברשימה אבל לא נכנס
+          לשידוך בכלל, עד שמסמנים לו אישור.</p>
       </div>
       <label>מקצועות</label>
       <div class="chips" id="subjects"></div>
@@ -98,7 +105,8 @@
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" hidden>
     <div class="card">
       <h2>שידוך</h2>
-      <p class="hint">זוג נוצר רק כששניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים לפחות מקצוע אחד.
+      <p class="hint">זוג נוצר רק כשלתלמיד יש אישור הורה, שניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים
+        לפחות מקצוע אחד.
         הדירוג לפי מספר השעות המשותפות, אחר כך מספר המקצועות. אותה קלט נותן תמיד אותה תוצאה — אין אקראיות
         ואין קריאה לשעון.</p>
       <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button></div>
@@ -408,6 +416,16 @@ function shared(a, b) {
   return out.sort();
 }
 
+// A pupil is a minor: a text session with a student is contact, and contact needs the consent of a
+// parent (PURPOSE.md, the regulation section). The profile records consent as one boolean and nothing
+// else - no name, no date - and makeProfile sets it to false on every pupil that did not get it. The
+// engine reads the flag here and nowhere else: a pupil without it is not in the pool, however well the
+// region, the hours and the subjects fit, so no screen and no stored roster can pair a pupil whose
+// parent has not said yes. Only an explicit true counts; a missing flag is treated as no.
+function hasParentConsent(pupil) {
+  return pupil !== null && typeof pupil === 'object' && pupil.parentConsent === true;
+}
+
 function compareCandidates(x, y) {
   return (y.sharedSlots.length - x.sharedSlots.length) ||
     (y.sharedSubjects.length - x.sharedSubjects.length) ||
@@ -415,9 +433,10 @@ function compareCandidates(x, y) {
     (x.pupilIndex - y.pupilIndex);
 }
 
-// students / pupils: arrays of profiles ({ region, availability, subjects }).
-// A pair needs the same region, >= 1 shared slot and >= 1 shared subject. Each participant is used at most once.
-// Candidates are sorted by shared slots desc, shared subjects desc, student index, pupil index, then taken greedily.
+// students / pupils: arrays of profiles ({ region, availability, subjects }, pupils also parentConsent).
+// A pair needs a pupil with parent consent, the same region, >= 1 shared slot and >= 1 shared subject.
+// Each participant is used at most once. Candidates are sorted by shared slots desc, shared subjects
+// desc, student index, pupil index, then taken greedily.
 function matchPairs(students, pupils) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
@@ -427,7 +446,8 @@ function matchPairs(students, pupils) {
     if (!s || typeof s.region !== 'string') continue;
     for (let pi = 0; pi < P.length; pi += 1) {
       const p = P[pi];
-      if (!p || p.region !== s.region) continue;
+      if (!hasParentConsent(p)) continue;
+      if (p.region !== s.region) continue;
       if (!hasOverlap(s.availability, p.availability)) continue;
       const slots = shared(s.availability, p.availability);
       const subjects = shared(s.subjects, p.subjects);
@@ -455,29 +475,42 @@ function matchPairs(students, pupils) {
   return pairs;
 }
 
-// Why a participant is left without a pair. The coordinator needs this to act: recruit in a region,
-// ask for more availability hours, or accept that the other side ran out. The reasons are checked in
-// the same order matchPairs filters - region, then slot, then subject - and the first gate that nobody
-// on the other side passes is the reason. TAKEN means at least one compatible counterpart exists but
-// every one of them was paired with someone else, so the roster, not the profile, is what is short.
-const REASONS = Object.freeze(['NO_ONE_IN_REGION', 'NO_SHARED_SLOT', 'NO_SHARED_SUBJECT', 'TAKEN']);
+// Why a participant is left without a pair. The coordinator needs this to act: obtain a parent's
+// consent, recruit in a region, ask for more availability hours, or accept that the other side ran
+// out. The reasons are checked in the same order matchPairs filters - consent, region, slot, subject -
+// and the first gate that nobody on the other side passes is the reason. For a pupil,
+// NO_PARENT_CONSENT is about the pupil alone: without consent the pupil is not in the pool, so the
+// other side is not even looked at. For a student it means pupils exist in the region but none of
+// them has consent yet. TAKEN means at least one compatible counterpart exists but every one of them
+// was paired with someone else, so the roster, not the profile, is what is short.
+const REASONS = Object.freeze(['NO_PARENT_CONSENT', 'NO_ONE_IN_REGION', 'NO_SHARED_SLOT', 'NO_SHARED_SUBJECT', 'TAKEN']);
 
-function whyUnmatched(me, others) {
+// side is 'student' or 'pupil': which array of matchPairs `me` came from. It decides where the consent
+// gate applies - on me when I am the pupil, on each of the others when they are. When omitted it is
+// read from me.role, and a record without a role is treated as a student.
+function whyUnmatched(me, others, side) {
   const O = Array.isArray(others) ? others : [];
+  const mine = side === undefined ? (me && me.role === 'pupil' ? 'pupil' : 'student') : side;
+  if (mine !== 'student' && mine !== 'pupil') throw new Error('invalid side: expected student or pupil');
+  if (mine === 'pupil' && !hasParentConsent(me)) return { reason: 'NO_PARENT_CONSENT', compatible: 0 };
   if (!me || typeof me.region !== 'string') return { reason: 'NO_ONE_IN_REGION', compatible: 0 };
   let inRegion = 0;
+  let withConsent = 0;
   let withSlot = 0;
   let compatible = 0;
   for (let i = 0; i < O.length; i += 1) {
     const o = O[i];
     if (!o || o.region !== me.region) continue;
     inRegion += 1;
+    if (mine === 'student' && !hasParentConsent(o)) continue;
+    withConsent += 1;
     if (!hasOverlap(me.availability, o.availability)) continue;
     withSlot += 1;
     if (!hasOverlap(me.subjects, o.subjects)) continue;
     compatible += 1;
   }
   if (inRegion === 0) return { reason: 'NO_ONE_IN_REGION', compatible: 0 };
+  if (withConsent === 0) return { reason: 'NO_PARENT_CONSENT', compatible: 0 };
   if (withSlot === 0) return { reason: 'NO_SHARED_SLOT', compatible: 0 };
   if (compatible === 0) return { reason: 'NO_SHARED_SUBJECT', compatible: 0 };
   return { reason: 'TAKEN', compatible: compatible };
@@ -502,19 +535,21 @@ function explainUnmatched(students, pupils, pairs) {
     pairedStudents.add(c.studentIndex);
     pairedPupils.add(c.pupilIndex);
   }
-  const side = (mine, theirs, paired) => {
+  const side = (mine, theirs, paired, which) => {
     const out = [];
     for (let i = 0; i < mine.length; i += 1) {
       if (paired.has(i)) continue;
-      const why = whyUnmatched(mine[i], theirs);
+      const why = whyUnmatched(mine[i], theirs, which);
       out.push({ index: i, reason: why.reason, compatible: why.compatible });
     }
     return out;
   };
-  return { students: side(S, P, pairedStudents), pupils: side(P, S, pairedPupils) };
+  return { students: side(S, P, pairedStudents, 'student'), pupils: side(P, S, pairedPupils, 'pupil') };
 }
 
-module.exports = { matchPairs, shared, compareCandidates, hasOverlap, REASONS, whyUnmatched, explainUnmatched };
+module.exports = {
+  matchPairs, shared, compareCandidates, hasOverlap, hasParentConsent, REASONS, whyUnmatched, explainUnmatched
+};
   __registry["match"] = module.exports;
 })();
 
@@ -1330,6 +1365,10 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
   var HOURS = [14, 15, 16, 17, 18, 19, 20];
   // One sentence per reason code of match.explainUnmatched; "other" is the side that is missing.
   var REASON_HE = {
+    NO_PARENT_CONSENT: function (other) {
+      return other === 'סטודנט' ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים"'
+        : 'יש ' + other + 'ים באזור, אבל לאף אחד אין עדיין אישור הורה';
+    },
     NO_ONE_IN_REGION: function (other) { return 'אין אף ' + other + ' באזור הזה'; },
     NO_SHARED_SLOT: function (other) { return 'יש ' + other + ' באזור, אבל בלי שעה פנויה משותפת'; },
     NO_SHARED_SUBJECT: function (other) { return 'יש ' + other + ' באזור עם שעה משותפת, אבל בלי מקצוע משותף'; },
@@ -1394,11 +1433,18 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
 
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
-      return '<div class="item"><b>' + (p.role === 'student' ? 'סטודנט מלמד' : 'תלמיד') + ' #' + (i + 1) +
+      var pupil = p.role === 'pupil';
+      var consented = match.hasParentConsent(p);
+      return '<div class="item"><b>' + (pupil ? 'תלמיד' : 'סטודנט מלמד') + ' #' + (i + 1) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
-        p.availability.length + ' שעות פנויות</span>' +
-        '<div class="actions"><button type="button" class="ghost small" data-del="' + i + '">מחק</button></div></div>';
+        p.availability.length + ' שעות פנויות' +
+        (pupil ? ' · אישור הורה: ' + (consented ? 'יש' : 'אין') : '') + '</span>' +
+        (pupil && !consented ? '<div class="flag">בלי אישור הורה התלמיד לא נכנס לשידוך.</div>' : '') +
+        '<div class="actions">' +
+        (pupil ? '<button type="button" class="ghost small" data-consent="' + i + '">' +
+          (consented ? 'בטל אישור הורה' : 'סמן אישור הורה') + '</button>' : '') +
+        '<button type="button" class="ghost small" data-del="' + i + '">מחק</button></div></div>';
     }).join('') : '<p class="empty">אין עדיין משתתפים. אפשר לטעון דוגמה.</p>';
   }
 
@@ -1418,8 +1464,13 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
     ev.target.setAttribute('aria-pressed', at === -1 ? 'true' : 'false');
   });
 
+  $('role').addEventListener('change', function () {
+    $('consentRow').hidden = $('role').value !== 'pupil';
+  });
+
   function clearDraft() {
     draft = { subjects: [], availability: [] };
+    $('consent').checked = false;
     Array.prototype.forEach.call($('subjects').children, function (b) { b.setAttribute('aria-pressed', 'false'); });
     Array.prototype.forEach.call($('hours').children, function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', 'false');
@@ -1433,6 +1484,7 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
       availability: draft.availability.slice(),
       subjects: draft.subjects.slice()
     };
+    if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
     catch (err) { say('addStatus', 'נדחה: ' + err.message, true); return; }
@@ -1444,6 +1496,19 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
   });
 
   $('peopleList').addEventListener('click', function (ev) {
+    var c = ev.target.getAttribute('data-consent');
+    if (c !== null) {
+      var who = state.people[Number(c)];
+      var flipped;
+      try {
+        flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(who) : profile.grantParentConsent(who);
+      } catch (err) { say('addStatus', 'לא בוצע: ' + err.message, true); return; }
+      state.people[Number(c)] = flipped;
+      renderPeople(); save();
+      say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
+        : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.');
+      return;
+    }
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
@@ -1456,14 +1521,14 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
       { role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18', 'TUE_16'], subjects: ['MATH', 'CS'] },
       { role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] },
       { role: 'student', region: 'SOUTH', availability: ['TUE_17', 'WED_17'], subjects: ['PHYSICS', 'ENGLISH'] },
-      { role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'] },
-      { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'] },
-      { role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'] },
+      { role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'], parentConsent: true },
+      { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'], parentConsent: true },
+      { role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'], parentConsent: true },
       { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
     renderPeople(); save();
-    say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה. עבור למסך "שידוך".');
+    say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה, אחד מהתלמידים בלי אישור הורה. עבור למסך "שידוך".');
   });
 
   // ---------- match ----------

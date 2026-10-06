@@ -23,7 +23,7 @@ const QUEUE = reject(
 );
 
 const STUDENT = makeProfile({ role: 'student', region: 'SOUTH', availability: ['SUN_16', 'MON_18'], subjects: ['MATH', 'PHYSICS'] });
-const PUPIL = makeProfile({ role: 'pupil', region: 'SOUTH', availability: ['MON_18', 'TUE_17'], subjects: ['MATH', 'CS'] });
+const PUPIL = makeProfile({ role: 'pupil', region: 'SOUTH', availability: ['MON_18', 'TUE_17'], subjects: ['MATH', 'CS'], parentConsent: true });
 const PAIR = matchPairs([STUDENT], [PUPIL])[0];
 const HELD = { slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held' };
 

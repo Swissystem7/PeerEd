@@ -18,11 +18,11 @@ function student(region, availability, subjects) {
   return makeProfile({ role: 'student', region, availability, subjects });
 }
 function pupil(region, availability, subjects) {
-  return makeProfile({ role: 'pupil', region, availability, subjects });
+  return makeProfile({ role: 'pupil', region, availability, subjects, parentConsent: true });
 }
 
-test('explain: the four reasons are the gates of matchPairs in order, plus TAKEN', () => {
-  assert.deepEqual(REASONS, ['NO_ONE_IN_REGION', 'NO_SHARED_SLOT', 'NO_SHARED_SUBJECT', 'TAKEN']);
+test('explain: the five reasons are the gates of matchPairs in order, plus TAKEN', () => {
+  assert.deepEqual(REASONS, ['NO_PARENT_CONSENT', 'NO_ONE_IN_REGION', 'NO_SHARED_SLOT', 'NO_SHARED_SUBJECT', 'TAKEN']);
   assert.ok(Object.isFrozen(REASONS));
 });
 
@@ -68,7 +68,7 @@ test('explain: TAKEN when a compatible counterpart exists but was paired with so
   assert.deepEqual(explainUnmatched(s, p), explainUnmatched(s, p, pairs), 'omitting pairs computes them');
 });
 
-test('explain: the count of compatible counterparts is how many passed all three gates', () => {
+test('explain: the count of compatible counterparts is how many passed all four gates', () => {
   const me = student('CENTER', ['SUN_16', 'MON_18'], ['MATH', 'CS']);
   const others = [
     pupil('CENTER', ['SUN_16'], ['MATH']),
