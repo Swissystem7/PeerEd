@@ -105,11 +105,11 @@
     </div>
     <div class="card">
       <h2>הזוגות</h2>
-      <div id="pairs"></div>
+      <div id="pairs"><p class="empty">טרם חושב שידוך.</p></div>
     </div>
     <div class="card">
       <h2>מי נשאר בלי זוג</h2>
-      <div id="unmatched"></div>
+      <div id="unmatched"><p class="empty">טרם חושב שידוך.</p></div>
     </div>
   </section>
 
@@ -738,6 +738,12 @@ module.exports = {
     });
   }
 
+  function resetMatchTab() {
+    $('pairs').innerHTML = '<p class="empty">הנתונים השתנו, יש לחשב מחדש.</p>';
+    $('unmatched').innerHTML = '<p class="empty">הנתונים השתנו, יש לחשב מחדש.</p>';
+    say('matchStatus', '');
+  }
+
   $('addPerson').addEventListener('click', function () {
     var candidate = {
       role: $('role').value,
@@ -751,6 +757,7 @@ module.exports = {
     state.people.push(made);
     clearDraft();
     renderPeople();
+    resetMatchTab();
     save();
     say('addStatus', 'נוסף. סך הכול ' + state.people.length + ' משתתפים.');
   });
@@ -759,7 +766,9 @@ module.exports = {
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
-    renderPeople(); save();
+    renderPeople();
+    resetMatchTab();
+    save();
     say('addStatus', 'נמחק.');
   });
 
@@ -774,7 +783,9 @@ module.exports = {
       { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
-    renderPeople(); save();
+    renderPeople();
+    resetMatchTab();
+    save();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה. עבור למסך "שידוך".');
   });
 
@@ -784,6 +795,9 @@ module.exports = {
     var students = state.people.filter(function (p) { return p.role === 'student'; });
     var pupils = state.people.filter(function (p) { return p.role === 'pupil'; });
     if (!students.length || !pupils.length) {
+      resetMatchTab();
+      $('pairs').innerHTML = '<p class="empty">לא ניתן לחשב שידוך — חסר סטודנט או תלמיד.</p>';
+      $('unmatched').innerHTML = '<p class="empty">לא ניתן לחשב שידוך — חסר סטודנט או תלמיד.</p>';
       say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return;
     }
     var pairs = match.matchPairs(students, pupils);
