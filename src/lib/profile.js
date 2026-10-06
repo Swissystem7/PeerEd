@@ -13,12 +13,30 @@ const HOUR_MIN = 8;
 const HOUR_MAX = 22;
 
 // A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
-function isSlot(slot) {
-  if (typeof slot !== 'string') return false;
+// The canonical spelling has no leading zero on the hour: 'SUN_8', never 'SUN_08'. The engine compares
+// slots as strings (match.js hasOverlap / shared), so two spellings of one hour would never meet.
+// normalizeSlot returns the canonical string for any accepted spelling, or null.
+function normalizeSlot(slot) {
+  if (typeof slot !== 'string') return null;
   const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
-  if (!m || DAYS.indexOf(m[1]) === -1) return false;
+  if (!m || DAYS.indexOf(m[1]) === -1) return null;
   const hour = Number(m[2]);
-  return Number.isInteger(hour) && hour >= HOUR_MIN && hour <= HOUR_MAX;
+  if (!Number.isInteger(hour) || hour < HOUR_MIN || hour > HOUR_MAX) return null;
+  return m[1] + '_' + String(hour);
+}
+
+function isSlot(slot) {
+  return normalizeSlot(slot) !== null;
+}
+
+// Order kept, repeats dropped: the people screen counts availability.length as free hours and the
+// match screen counts shared subjects, so a slot ticked twice (or stored twice) must not count twice.
+function unique(list) {
+  const out = [];
+  for (let i = 0; i < list.length; i += 1) {
+    if (out.indexOf(list[i]) === -1) out.push(list[i]);
+  }
+  return out;
 }
 
 function makeProfile(input) {
@@ -40,8 +58,11 @@ function makeProfile(input) {
   if (!Array.isArray(availability) || availability.length === 0) {
     throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
   }
+  const slots = [];
   for (let i = 0; i < availability.length; i += 1) {
-    if (!isSlot(availability[i])) throw new Error('invalid availability slot: ' + String(availability[i]));
+    const slot = normalizeSlot(availability[i]);
+    if (slot === null) throw new Error('invalid availability slot: ' + String(availability[i]));
+    slots.push(slot);
   }
   if (!Array.isArray(subjects) || subjects.length === 0) {
     throw new Error('invalid subjects: expected a non-empty array');
@@ -59,8 +80,8 @@ function makeProfile(input) {
   const profile = {
     role: role,
     region: region,
-    availability: Object.freeze(availability.slice()),
-    subjects: Object.freeze(subjects.slice())
+    availability: Object.freeze(unique(slots)),
+    subjects: Object.freeze(unique(subjects))
   };
 
   if (role === 'pupil' || input.parentConsent !== undefined) {
@@ -96,6 +117,7 @@ module.exports = {
   ACCEPTED_FIELDS,
   PERSONAL_DATA_ERROR,
   isSlot,
+  normalizeSlot,
   makeProfile,
   setParentConsent,
   grantParentConsent,
