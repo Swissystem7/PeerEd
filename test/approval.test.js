@@ -161,4 +161,8 @@ test('approval: a stored entry with a key the flow never writes is refused, not 
   assert.deepEqual(loaded, q);
   // the counter is the order of the queue on every device: two entries cannot share one number
   assert.throws(() => loadQueue(edit((s) => { s.entries[B.id].seq = s.entries[A.id].seq; })), /seq already used/);
+  // the same holds one level up: a name beside the entries is refused, not dropped
+  for (const key of ['coordinator', 'school', 'note']) {
+    assert.throws(() => loadQueue(edit((s) => { s[key] = 'x'; })), { message: PERSONAL_DATA_ERROR });
+  }
 });
