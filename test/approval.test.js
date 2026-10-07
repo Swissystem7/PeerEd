@@ -156,6 +156,10 @@ test('approval: a stored entry with a key the flow never writes is refused, not 
   }
   // a reason is a rejection's; on a pending unit it is not a record the flow could have written
   assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].reason = 'חסר'; })), /reason on a unit that was not rejected/);
+  // nor is a decider on it: nobody has decided a pending unit yet
+  for (const who of [APPROVER_ROLE, 'Aviran']) {
+    assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].decidedBy = who; })), /decidedBy on a unit that is still pending/);
+  }
   // every stored key the flow does write still loads, decidedBy included
   const loaded = loadQueue(edit((s) => { s.entries[B.id].decidedBy = APPROVER_ROLE; }));
   assert.deepEqual(loaded, q);

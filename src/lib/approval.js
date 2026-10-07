@@ -162,7 +162,13 @@ function loadQueue(data) {
       throw new Error('invalid stored entry: bad revision or seq for ' + ids[i]);
     }
     const entry = { unit: unit, status: raw.status, revision: raw.revision, seq: raw.seq };
-    if (raw.status !== 'pending') entry.decidedBy = APPROVER_ROLE;
+    if (raw.status !== 'pending') {
+      entry.decidedBy = APPROVER_ROLE;
+    } else if (raw.decidedBy !== undefined) {
+      // nobody has decided a pending unit; a decider on one is a record the flow never writes, refused
+      // like a reason on it, so a forged half-decision does not load as an ordinary pending unit
+      throw new Error('invalid stored entry: decidedBy on a unit that is still pending: ' + ids[i]);
+    }
     if (raw.status === 'rejected') {
       if (typeof raw.reason !== 'string') {
         throw new Error('invalid stored entry: rejected without a reason: ' + ids[i]);

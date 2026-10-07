@@ -52,7 +52,9 @@ test('store: an unknown top-level key is refused with the personal-data message'
 
 test('store: a session row for a unit the stored queue did not approve is refused', () => {
   const doc = JSON.parse(serialize(STATE));
+  // a well-formed pending entry: no decider, so the refusal comes from the log, not the queue
   doc.queue.entries[MATH.id].status = 'pending';
+  delete doc.queue.entries[MATH.id].decidedBy;
   assert.throws(() => deserialize(JSON.stringify(doc)), /not approved/);
 });
 
