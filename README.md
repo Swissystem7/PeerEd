@@ -9,7 +9,7 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 ## What works today
 
-`npm test` runs 85 tests. `app.html` is a one-file demo shell over the core (people, matching, the text gate); the approval queue and the session log have no screen yet.
+`npm test` runs 89 tests. `app.html` is a one-file demo shell over the core: people, matching, the text gate, and a units screen where a teacher submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason. The session log has no screen yet.
 
 | Module | What it does |
 |---|---|
@@ -20,14 +20,13 @@ deterministic tests only. Local repository until the owner approves publishing.
 | `src/lib/unit.js` | An enrichment unit, the short text-only lesson a teacher submits (MVP item 4). Title and body pass the free-text gate; any other key is refused like personal data. The id is a hash of title + subject + duration, computed in plain JavaScript so it is the same in Node and in the browser: resubmitting the same unit, or fixing a typo in its body, gives the same id. |
 | `src/lib/approval.js` | The approval flow (MVP item 5). A submitted unit is pending and invisible to pupils until the approver role decides; the queue records the role, never a person. A rejection needs a reason that passes the free-text gate. Resubmitting the same text changes nothing; a revised body goes back to pending with its revision number raised. The queue is a frozen JSON value and every operation returns a new one, so it can be stored locally; loading it re-runs every unit and reason through the gates. |
 | `src/lib/session.js` | The session log (MVP item 6). A session is logged for a pair from matchPairs, but only what the pair shares is written: region, slot, subject, plus the id of the approved unit that was taught and the outcome (held, missed, cut short). The roster positions of the pair never reach the log, any other key is refused as personal data, and a unit that is not approved in the queue cannot be logged. The summary for a municipality is counts only. Loading a stored log re-checks every row against the approval queue. |
+| `src/lib/store.js` | Local-only storage (MVP item 7). The whole state — roster, approval queue, session log — is one JSON document under one key in a Web Storage shaped backend (the browser's localStorage, or an in-memory fallback when storage is blocked). Loading re-validates everything: every person through `makeProfile`, the queue through `loadQueue`, the log through `loadLog`, so a record edited in devtools cannot bring a name or a forged status in. A document that fails comes back as an empty state plus the reason, never as half a roster. `test/offline.test.js` is a static check that no module and neither HTML file can reach the network. |
 
 `PURPOSE.md` carries the research this is grounded in (35 sources) and the owner's decisions.
 
-| `src/lib/store.js` | Local-only storage (MVP item 7). The whole state — roster, approval queue, session log — is one JSON document under one key in a Web Storage shaped backend (the browser's localStorage, or an in-memory fallback when storage is blocked). Loading re-validates everything: every person through `makeProfile`, the queue through `loadQueue`, the log through `loadLog`, so a record edited in devtools cannot bring a name or a forged status in. A document that fails comes back as an empty state plus the reason, never as half a roster. `test/offline.test.js` is a static check that no module and neither HTML file can reach the network. |
-
 ## What does not exist yet
 
-No screen for the approval queue or the session log, no reports for a
+No screen for the session log, no reports for a
 municipality beyond the session counts, no accessibility work, no Arabic or Russian. Nothing here has been used by a real school.
 
 ## Why the profile is so narrow
