@@ -788,8 +788,10 @@ module.exports = {
     }
     var pairs = match.matchPairs(students, pupils);
     $('pairs').innerHTML = pairs.length ? pairs.map(function (p, i) {
+      var origS = state.people.indexOf(students[p.studentIndex]);
+      var origP = state.people.indexOf(pupils[p.pupilIndex]);
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
-        '<span class="meta">סטודנט #' + (p.studentIndex + 1) + ' עם תלמיד #' + (p.pupilIndex + 1) + '<br>' +
+        '<span class="meta">סטודנט #' + (origS + 1) + ' עם תלמיד #' + (origP + 1) + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
@@ -798,8 +800,8 @@ module.exports = {
     var pairedStudents = {}, pairedPupils = {};
     pairs.forEach(function (p) { pairedStudents[p.studentIndex] = true; pairedPupils[p.pupilIndex] = true; });
     var left = [];
-    students.forEach(function (s, i) { if (!pairedStudents[i]) left.push({ who: 'סטודנט #' + (i + 1), p: s }); });
-    pupils.forEach(function (p, i) { if (!pairedPupils[i]) left.push({ who: 'תלמיד #' + (i + 1), p: p }); });
+    students.forEach(function (s, i) { if (!pairedStudents[i]) left.push({ who: 'סטודנט #' + (state.people.indexOf(s) + 1), p: s }); });
+    pupils.forEach(function (p, i) { if (!pairedPupils[i]) left.push({ who: 'תלמיד #' + (state.people.indexOf(p) + 1), p: p }); });
     $('unmatched').innerHTML = left.length ? left.map(function (x) {
       return '<div class="item"><b>' + x.who + '</b><span class="meta">' +
         esc(REGION_HE[x.p.region] || x.p.region) + ' · ' +
