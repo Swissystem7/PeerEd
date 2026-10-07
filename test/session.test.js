@@ -170,6 +170,23 @@ test('session: a stored log round-trips through JSON and is re-checked against t
   assert.equal(loadLog({ entries: JSON.parse(JSON.stringify(l.entries)) }, QUEUE).nextSeq, 3);
 });
 
+test('session: a seq or nextSeq past the safe integers is refused, so two rows can never share a seq', () => {
+  const row = { region: 'SOUTH', slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held', seq: 1 };
+  const top = Number.MAX_SAFE_INTEGER - 1;
+  // past 2^53, seq + 1 === seq: such a row would make the next one a duplicate and the log unloadable
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { seq: 2 ** 53 })] }, QUEUE), /seq out of order/);
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { seq: 1e300 })] }, QUEUE), /seq out of order/);
+  // a nextSeq out of range is repaired from the rows, like a missing or stale one
+  assert.equal(loadLog({ nextSeq: 2 ** 53, entries: [row] }, QUEUE).nextSeq, 2);
+  // the last usable seq is still written and reloads; after it the log refuses to grow instead of repeating
+  const full = loadLog({ entries: [Object.assign({}, row, { seq: top })] }, QUEUE);
+  assert.equal(full.nextSeq, top + 1);
+  assert.deepEqual(loadLog(JSON.parse(JSON.stringify(full)), QUEUE), full);
+  assert.throws(() => logSession(full, QUEUE, PAIR, HELD), /session log is full/);
+  const last = loadLog({ entries: [Object.assign({}, row, { seq: top - 1 })] }, QUEUE);
+  assert.equal(logSession(last, QUEUE, PAIR, HELD).entries[1].seq, top);
+});
+
 test('session: a row edited on disk cannot bring an extra key, a bad region or a reordered seq into the app', () => {
   const row = { region: 'SOUTH', slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held', seq: 1 };
   assert.throws(() => loadLog({ entries: [Object.assign({}, row, { pupil: 'x' })] }, QUEUE), { message: PERSONAL_DATA_ERROR });
