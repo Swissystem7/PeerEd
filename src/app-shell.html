@@ -251,6 +251,12 @@
     });
   }
 
+  function clearMatch() {
+    $('pairs').innerHTML = '<p class="empty">יש ללחוץ על "חשב שידוך" כדי לראות תוצאות.</p>';
+    $('unmatched').innerHTML = '';
+    say('matchStatus', '');
+  }
+
   $('addPerson').addEventListener('click', function () {
     var candidate = {
       role: $('role').value,
@@ -264,6 +270,7 @@
     state.people.push(made);
     clearDraft();
     renderPeople();
+    clearMatch();
     save();
     say('addStatus', 'נוסף. סך הכול ' + state.people.length + ' משתתפים.');
   });
@@ -272,7 +279,7 @@
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
-    renderPeople(); save();
+    renderPeople(); clearMatch(); save();
     say('addStatus', 'נמחק.');
   });
 
@@ -287,7 +294,7 @@
       { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
-    renderPeople(); save();
+    renderPeople(); clearMatch(); save();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה. עבור למסך "שידוך".');
   });
 
@@ -388,6 +395,7 @@
   state = load();
   buildInputs();
   renderPeople();
+  clearMatch();
 })();
 </script>
 </body>
