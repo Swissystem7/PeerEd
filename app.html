@@ -1431,11 +1431,23 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
     }).join('');
   }
 
+  // A participant is numbered within its role, in roster order: the third pupil is "תלמיד #3" however
+  // many students were added before it. The match screen, the unmatched list and the pair dropdown
+  // count the same way (matchPairs sees students and pupils as two lists), so "תלמיד #3" there is
+  // this card here. The roster position stays in data-del / data-consent only and is never shown.
+  function roleOrdinal(index) {
+    var n = 0;
+    for (var k = 0; k <= index; k += 1) if (state.people[k].role === state.people[index].role) n += 1;
+    return n;
+  }
+  function roleLabel(p, index) {
+    return (p.role === 'pupil' ? 'תלמיד' : 'סטודנט מלמד') + ' #' + roleOrdinal(index);
+  }
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
       var pupil = p.role === 'pupil';
       var consented = match.hasParentConsent(p);
-      return '<div class="item"><b>' + (pupil ? 'תלמיד' : 'סטודנט מלמד') + ' #' + (i + 1) +
+      return '<div class="item"><b>' + roleLabel(p, i) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
         p.availability.length + ' שעות פנויות' +
@@ -1492,7 +1504,8 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
     clearDraft();
     renderPeople();
     save();
-    say('addStatus', 'נוסף. סך הכול ' + state.people.length + ' משתתפים.');
+    say('addStatus', 'נוסף כ' + roleLabel(made, state.people.length - 1) + ' (זה המספר שיופיע במסך "שידוך"). סך הכול ' +
+      state.people.length + ' משתתפים.');
   });
 
   $('peopleList').addEventListener('click', function (ev) {
@@ -1513,7 +1526,7 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
     if (i === null) return;
     state.people.splice(Number(i), 1);
     renderPeople(); save();
-    say('addStatus', 'נמחק.');
+    say('addStatus', 'נמחק. מי שאחריו באותו תפקיד ירד במספר אחד, גם במסך "שידוך".');
   });
 
   $('demoBtn').addEventListener('click', function () {
