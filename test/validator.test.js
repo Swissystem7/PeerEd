@@ -77,3 +77,22 @@ test('validator: assertCleanText returns trimmed, collapsed text and keeps a sin
     'control characters are stripped, not turned into spaces');
   assert.equal(assertCleanText('טקסט\tעם\tטאב'), 'טקסט עם טאב');
 });
+
+test('validator: an invisible character inside a phone, an email, an id or a word does not hide it', () => {
+  // RLM, LRM, zero-width space, zero-width joiner, soft hyphen, word joiner, BOM, bidi isolate
+  assert.deepEqual(kindsIn('call 050‏1234567'), ['phone']);
+  assert.deepEqual(kindsIn('call 050-‎123-4567'), ['phone']);
+  assert.deepEqual(kindsIn('mail a​@b.com'), ['email']);
+  assert.deepEqual(kindsIn('id 12345­6789'), ['id_number']);
+  assert.deepEqual(kindsIn('see www.⁠example.com'), ['url']);
+  assert.deepEqual(kindsIn('﻿@dana⁦_teacher'), ['handle']);
+  assert.deepEqual(kindsIn('זו‍נה'), ['profanity']);
+  assert.throws(() => assertCleanText('הנה 050‏1234567'), { message: PERSONAL_DATA_ERROR });
+});
+
+test('validator: invisible characters alone do not make clean text dirty, and are kept as written', () => {
+  const text = 'שיעור ‏(שברים)‏ במתמטיקה';
+  assert.deepEqual(findPersonalData(text), []);
+  assert.equal(assertCleanText(text), text);
+  assert.deepEqual(findPersonalData('​‏'), []);
+});
