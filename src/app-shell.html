@@ -256,6 +256,13 @@
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
   var HOURS = [14, 15, 16, 17, 18, 19, 20];
+  // One sentence per reason code of match.explainUnmatched; "other" is the side that is missing.
+  var REASON_HE = {
+    NO_ONE_IN_REGION: function (other) { return 'אין אף ' + other + ' באזור הזה'; },
+    NO_SHARED_SLOT: function (other) { return 'יש ' + other + ' באזור, אבל בלי שעה פנויה משותפת'; },
+    NO_SHARED_SUBJECT: function (other) { return 'יש ' + other + ' באזור עם שעה משותפת, אבל בלי מקצוע משותף'; },
+    TAKEN: function (other, n) { return 'התאים ל-' + n + ' ' + other + (n === 1 ? '' : 'ים') + ', אבל כולם שובצו לאחרים'; }
+  };
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
   // The roster lives in this browser only (MVP item 7): one localStorage key, no server, and a stored
@@ -404,16 +411,20 @@
         '</span></div>';
     }).join('') : '<p class="empty">לא נוצר אף זוג.</p>';
 
-    var pairedStudents = {}, pairedPupils = {};
-    pairs.forEach(function (p) { pairedStudents[p.studentIndex] = true; pairedPupils[p.pupilIndex] = true; });
+    // The reason comes from the module, one sentence per reason code, so the coordinator knows what to
+    // do: recruit in the region, ask for more hours, or add a subject. TAKEN says the profile is fine
+    // and the other side simply ran out.
+    var why = match.explainUnmatched(students, pupils, pairs);
     var left = [];
-    students.forEach(function (s, i) { if (!pairedStudents[i]) left.push({ who: 'סטודנט #' + (i + 1), p: s }); });
-    pupils.forEach(function (p, i) { if (!pairedPupils[i]) left.push({ who: 'תלמיד #' + (i + 1), p: p }); });
+    why.students.forEach(function (x) { left.push({ who: 'סטודנט #' + (x.index + 1), p: students[x.index], why: x }); });
+    why.pupils.forEach(function (x) { left.push({ who: 'תלמיד #' + (x.index + 1), p: pupils[x.index], why: x }); });
     $('unmatched').innerHTML = left.length ? left.map(function (x) {
+      var other = x.p.role === 'student' ? 'תלמיד' : 'סטודנט';
+      var reason = REASON_HE[x.why.reason](other, x.why.compatible);
       return '<div class="item"><b>' + x.who + '</b><span class="meta">' +
         esc(REGION_HE[x.p.region] || x.p.region) + ' · ' +
         x.p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        ' · אין באזור שלו מישהו עם שעה ומקצוע משותפים</span></div>';
+        ' · ' + esc(reason) + '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
     say('matchStatus', pairs.length + ' זוגות מתוך ' + students.length + ' סטודנטים ו-' + pupils.length + ' תלמידים.');
   });
