@@ -201,6 +201,14 @@
     <div class="card">
       <h2>סיכום לרשות — ספירות בלבד</h2>
       <div id="sessionSummary"></div>
+      <p class="hint">הייצוא הוא אותן ספירות כקובץ CSV: מדד, קוד, כמות. אין בו שורות של היומן, אין שעה, אין
+        מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
+      <div class="actions"><button type="button" class="ghost" id="exportReport">ייצא דוח CSV</button></div>
+      <div id="reportBox" hidden>
+        <label for="reportText">הדוח (לקריאה בלבד)</label>
+        <textarea id="reportText" readonly dir="ltr" spellcheck="false"></textarea>
+      </div>
+      <p class="status" id="reportStatus" role="status"></p>
     </div>
     <div class="card">
       <h2>היומן</h2>
@@ -627,7 +635,32 @@
     $('sessionList').innerHTML = state.log.entries.length
       ? state.log.entries.slice().reverse().map(sessionRow).join('')
       : '<p class="empty">היומן ריק. רושמים שיעור בטופס למעלה אחרי שנוצר זוג ואושרה יחידה.</p>';
+    // An export that is already open follows the log, so a stale report is never on the screen.
+    if (!$('reportBox').hidden) $('reportText').value = session.reportCsv(state.log);
   }
+
+  // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
+  // the file can hold nothing the summary card does not already show. The text lands in a read-only
+  // box and is selected; the clipboard is tried on top of that, never instead of it (a phone browser
+  // may refuse it, and a refused copy must not look like a copy).
+  $('exportReport').addEventListener('click', function () {
+    var text;
+    try { text = session.reportCsv(state.log); } catch (err) { say('reportStatus', 'לא יוצא: ' + err.message, true); return; }
+    var box = $('reportText');
+    box.value = text;
+    $('reportBox').hidden = false;
+    box.focus();
+    box.select();
+    var lines = text.split('\n').length - 2;
+    var done = 'הדוח מוכן: ' + lines + ' שורות של ספירות, מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        say('reportStatus', done + ' הועתק גם ללוח.');
+      }, function () { say('reportStatus', done); });
+    } else {
+      say('reportStatus', done);
+    }
+  });
 
   $('sessionPair').addEventListener('change', function () { renderSessionChoices(currentPairs()); });
   $('sessionSubject').addEventListener('change', renderSessionUnits);

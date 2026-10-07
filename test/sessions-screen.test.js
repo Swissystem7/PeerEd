@@ -108,6 +108,29 @@ test('sessions screen: the replayed flow - demo roster, approved unit, log, summ
   assert.deepEqual(pairsOf(loaded.people), pairs);
 });
 
+test('sessions screen: the CSV export is session.reportCsv over the stored log, never assembled on the screen', () => {
+  for (const id of ['exportReport', 'reportBox', 'reportText', 'reportStatus']) {
+    assert.ok(shell.indexOf('id="' + id + '"') !== -1, 'missing #' + id);
+  }
+  assert.ok(/<textarea id="reportText" readonly/.test(shell), 'the report box is read-only');
+  assert.ok(sessionsBlock.indexOf('session.reportCsv(') !== -1, 'the export must come from the module');
+  assert.equal(/measure|join\(','\)|','\s*\+/.test(sessionsBlock), false, 'the screen must not build a CSV line itself');
+  // The export cannot leave the device by itself: no download link, no object URL, no send.
+  assert.equal(/createObjectURL|download|Blob\(/.test(sessionsBlock), false);
+  // Replay: the same log the summary card shows gives the same report, with the counts and nothing else.
+  let state = { people: DEMO.map(makeProfile), queue: emptyState().queue, log: emptyState().log };
+  const pair = pairsOf(state.people)[0];
+  const unit = makeUnit({ title: 'שברים פשוטים', subject: 'MATH', durationMinutes: 20, body: 'פיצה שחולקה ל-8.' });
+  state.queue = approval.approve(approval.submit(state.queue, unit), unit.id);
+  state.log = session.logSession(state.log, state.queue, pair,
+    { slot: pair.sharedSlots[0], subject: 'MATH', unitId: unit.id, outcome: 'held' });
+  const text = session.reportCsv(state.log);
+  assert.equal(text, 'measure,code,count\nsessions,,1\noutcome,held,1\nregion,CENTER,1\nsubject,MATH,1\nunit,' + unit.id + ',1\n');
+  // The status line counts the rows of counts: the lines minus the header and the trailing newline.
+  assert.equal(text.split('\n').length - 2, 5);
+  assert.equal(session.reportCsv(deserialize(serialize(state)).log), text, 'the export survives a save and a load');
+});
+
 test('sessions screen: a pending unit, a foreign subject or an extra key never reaches the log', () => {
   const state = { people: DEMO.map(makeProfile), queue: emptyState().queue, log: emptyState().log };
   const pair = pairsOf(state.people)[0];
