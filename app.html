@@ -78,11 +78,11 @@
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region"></select></div>
       </div>
-      <label>מקצועות</label>
-      <div class="chips" id="subjects"></div>
-      <label>שעות פנויות</label>
-      <p class="hint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
-      <div class="grid-hours" id="hours"></div>
+      <label id="lbl-subjects">מקצועות</label>
+      <div class="chips" id="subjects" role="group" aria-labelledby="lbl-subjects"></div>
+      <label id="lbl-hours">שעות פנויות</label>
+      <p class="hint" id="hint-hours">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
+      <div class="grid-hours" id="hours" role="group" aria-labelledby="lbl-hours" aria-describedby="hint-hours"></div>
       <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -655,7 +655,7 @@ module.exports = {
   var REGION_HE = { NORTH: 'צפון', HAIFA: 'חיפה', CENTER: 'מרכז', TEL_AVIV: 'תל אביב',
                     JERUSALEM: 'ירושלים', SOUTH: 'דרום' };
   var SUBJECT_HE = { MATH: 'מתמטיקה', PHYSICS: 'פיזיקה', CHEMISTRY: 'כימיה', BIOLOGY: 'ביולוגיה',
-                     ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב' };
+                     ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב', CIVICS: 'אזרחות' };
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
