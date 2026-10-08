@@ -601,11 +601,17 @@ module.exports = {
 var PATTERNS = Object.freeze({
   // name@host.tld - deliberately narrow, we only need to detect, not to validate deliverability
   email: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
-  // Israeli mobile and landline: 050-1234567, 0501234567, 03-1234567, +972-50-1234567, +972501234567
-  phone: /(?:\+972[-\s]?|0)(?:5\d|7[2-9]|[23489])[-\s]?\d{3}[-\s]?\d{4}/g,
-  // exactly nine digits, not part of a longer run (an Israeli id number)
-  id_number: /(?<!\d)\d{9}(?!\d)/g,
-  url: /(?:https?:\/\/|www\.)[^\s<>"']+/g,
+  // Israeli mobile and landline, in the ways people write them: 050-1234567, 0501234567, 03-1234567,
+  // 050-123-45-67, 050.123.4567, (050) 1234567, 054 12 34 567, +972-50-1234567, +972 (50) 123-4567,
+  // 972501234567. The seven subscriber digits may be split 3-4, 3-2-2 or 2-2-3, never digit by digit,
+  // so a list such as "0 2 4 6 8 10 12" stays a list. A date (03.12.2024) has too few digits to fit.
+  phone: /(?:(?:\+|00)?972[-\s.]?\(?0?|\(?0)(?:5\d|7[2-9]|[23489])\)?[-\s.–—]?(?:\d{3}[-\s.–—]?\d{4}|\d{3}[-\s.–—]?\d{2}[-\s.–—]?\d{2}|\d{2}[-\s.–—]?\d{2}[-\s.–—]?\d{3})/g,
+  // an Israeli id number: nine digits not part of a longer run, also as written on forms with the check
+  // digit apart (12345678-9) or in threes (123-456-789)
+  id_number: /(?<!\d)(?:\d{9}|\d{8}[-–]\d|\d{3}-\d{3}-\d{3})(?!\d)/g,
+  // a link with a scheme or www, or a bare domain on a common top-level domain: wa.me/972..., t.me/name,
+  // instagram.com/name, gov.il. Not after a letter, a dot or an @, so the host of an email is the email.
+  url: /(?:https?:\/\/|www\.)[^\s<>"']+|(?<![A-Za-z0-9.@_-])(?:[A-Za-z0-9-]+\.)+(?:com|net|org|il|me|io|gg|ly|ee|co|app|tv|info)(?![A-Za-z0-9-])(?:\/[^\s<>"']*)?/g,
   handle: /@\w{3,}/g
 });
 
@@ -664,6 +670,14 @@ var CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f]/g;
 // reader does not see them, so "050<RLM>1234567" is a phone number to a reader and to nobody else.
 var INVISIBLE_RE = /[­᠎​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
 
+// Digits a phone keyboard can type that NFKC leaves alone: Arabic-Indic and Eastern Arabic-Indic.
+// Both blocks start at a code point ending in 0, so the low four bits are the digit's value.
+var OTHER_DIGIT_RE = /[٠-٩۰-۹]/g;
+
+function asciiDigit(d) {
+  return String.fromCharCode(48 + (d.charCodeAt(0) & 15));
+}
+
 // Longest alternative first, so "מטומטמת" is never reported as the shorter "מטומטם".
 function profanityRegex() {
   var alts = PROFANITY.slice()
@@ -696,11 +710,13 @@ function contains(outer, inner) {
 // nine-digit run inside a phone number is reported once as phone, the "@host" of an email is never
 // also reported as a social handle, and a word inside a url is the url and nothing else.
 // The text is read the way a reader sees it: invisible characters are dropped first, so a phone, an
-// email or an offensive word cannot be hidden by a zero-width character or a bidi mark inside it. Each
-// match and index refers to that visible text; the text the gate stores is not changed by this.
+// email or an offensive word cannot be hidden by a zero-width character or a bidi mark inside it, and
+// look-alike characters are folded to the plain ones (NFKC: full-width digits and @, mathematical
+// digits; then Arabic-Indic digits to 0-9), so a number does not pass because of the keyboard it was
+// typed on. Each match and index refers to that folded text; the text the gate stores is not changed.
 function findPersonalData(text) {
   if (typeof text !== 'string') return [];
-  text = text.replace(INVISIBLE_RE, '');
+  text = text.replace(INVISIBLE_RE, '').normalize('NFKC').replace(OTHER_DIGIT_RE, asciiDigit);
   if (text === '') return [];
   var raw = findProfanity(text);
   Object.keys(PATTERNS).forEach(function (kind) {
