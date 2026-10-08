@@ -15,6 +15,8 @@ const STATUSES = Object.freeze(['pending', 'approved', 'rejected']);
 // gate for the record around it, so a teacher name or a note written next to a unit on disk is refused
 // with the same message as everywhere else, not dropped on the way in.
 const ENTRY_FIELDS = Object.freeze(['unit', 'status', 'revision', 'seq', 'decidedBy', 'reason']);
+// the queue itself is only ever written with these two keys
+const QUEUE_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const APPROVER_ROLE = 'owner';
 const REASON_MAX_LENGTH = 300;
 const NOT_PENDING_ERROR = 'unit is not pending: only a pending unit can be approved or rejected';
@@ -136,6 +138,11 @@ function loadQueue(data) {
   if (data === null || typeof data !== 'object' || Array.isArray(data)
     || data.entries === null || typeof data.entries !== 'object' || Array.isArray(data.entries)) {
     throw new Error('invalid stored queue');
+  }
+  // a key next to the entries (a coordinator name, a school) is refused like one inside an entry
+  const queueKeys = Object.keys(data);
+  for (let k = 0; k < queueKeys.length; k += 1) {
+    if (QUEUE_FIELDS.indexOf(queueKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   const ids = Object.keys(data.entries);
   const entries = {};
