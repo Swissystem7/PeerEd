@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { makeUnit, unitId, DURATION_MIN, DURATION_MAX, TITLE_MAX_LENGTH } = require('../src/lib/unit.js');
+const { makeUnit, unitId, DURATION_MIN, DURATION_MAX, TITLE_MAX_LENGTH, BODY_MAX_LENGTH } = require('../src/lib/unit.js');
 const { PERSONAL_DATA_ERROR, PROFANITY_ERROR } = require('../src/lib/validator.js');
 
 const GOOD = Object.freeze({
@@ -80,6 +80,18 @@ test('unit: subject, duration, title and body are validated', () => {
   assert.throws(() => makeUnit(Object.assign({}, GOOD, { body: '   ' })), /too short/);
   assert.throws(() => makeUnit(Object.assign({}, GOOD, { body: 42 })), /invalid body/);
   for (const bad of [null, [], 'x', undefined]) assert.throws(() => makeUnit(bad), /unit input must be an object/);
+});
+
+test('unit: a length error names the field and the limit, so the teacher knows what to fix', () => {
+  // before: both said only 'text too short' / 'text too long'
+  assert.throws(() => makeUnit(Object.assign({}, GOOD, { title: ' \t ' })),
+    { message: 'invalid title: text too short, it is empty' });
+  assert.throws(() => makeUnit(Object.assign({}, GOOD, { body: '' })),
+    { message: 'invalid body: text too short, it is empty' });
+  assert.throws(() => makeUnit(Object.assign({}, GOOD, { title: 'a'.repeat(TITLE_MAX_LENGTH + 1) })),
+    { message: 'invalid title: text too long, at most ' + TITLE_MAX_LENGTH + ' characters' });
+  assert.throws(() => makeUnit(Object.assign({}, GOOD, { body: 'a'.repeat(BODY_MAX_LENGTH + 1) })),
+    { message: 'invalid body: text too long, at most ' + BODY_MAX_LENGTH + ' characters' });
 });
 
 test('unit: the stored text is the cleaned text, so the id is computed on what is kept', () => {
