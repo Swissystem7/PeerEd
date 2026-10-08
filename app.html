@@ -690,8 +690,8 @@ function asciiDigit(d) {
 // Longest alternative first, so "מטומטמת" is never reported as the shorter "מטומטם".
 // Every letter may repeat, so a word stretched to get past a filter (fuuuck, חרררא, shiiit) is the same
 // word. No ordinary word in the list's languages is a listed word with a letter doubled.
-function profanityRegex() {
-  var alts = PROFANITY.slice()
+function profanityAlternatives() {
+  return PROFANITY.slice()
     .sort(function (a, b) { return b.length - a.length; })
     // a function replacer, not a replacement string: scripts/build-app.js inlines this file with
     // String.replace, so a dollar-ampersand group reference in here is expanded as the app is built
@@ -701,7 +701,43 @@ function profanityRegex() {
       }).join('');
     })
     .join('|');
-  return new RegExp('(?<!' + LETTER + ')' + HEBREW_PREFIX + '(?:' + alts + ')(?!' + LETTER + ')', 'gi');
+}
+
+function profanityRegex() {
+  return new RegExp('(?<!' + LETTER + ')' + HEBREW_PREFIX + '(?:' + profanityAlternatives() + ')(?!' + LETTER + ')', 'gi');
+}
+
+// A word spelled one letter at a time with the same mark between every letter: f.u.c.k, s h i t,
+// ז-ו-נ-ה, b*i*t*c*h. A run of single letters is read without its marks and every stretch of four
+// letters or more in it is checked whole, so "I f u c k" still yields "fuck". Four, not three: a
+// grammar lesson writes a Hebrew root this way (ש.מ.ר, ח-ר-א), and a root has three letters.
+var SPELLED_RE = new RegExp('(?<!' + LETTER + ')' + LETTER + '([-.*_\\u00b7\\s])' + LETTER +
+  '(?:\\1' + LETTER + ')+(?!' + LETTER + '|\\1' + LETTER + ')', 'g');
+var SPELLED_MIN_LETTERS = 4;
+
+function findSpelledProfanity(text) {
+  var whole = new RegExp('^' + HEBREW_PREFIX + '(?:' + profanityAlternatives() + ')$', 'i');
+  var re = new RegExp(SPELLED_RE.source, 'g');
+  var hits = [];
+  var m;
+  while ((m = re.exec(text)) !== null) {
+    var run = m[0];
+    // the position of every letter in the run: letters sit at even offsets, one mark between each two
+    var letters = [];
+    for (var k = 0; k < run.length; k += 2) letters.push(k);
+    for (var i = 0; i + SPELLED_MIN_LETTERS <= letters.length; i++) {
+      for (var j = letters.length; j - i >= SPELLED_MIN_LETTERS; j--) {
+        var word = '';
+        for (var n = i; n < j; n++) word += run.charAt(letters[n]);
+        if (!whole.test(word)) continue;
+        // a cleared word ("מזונות") takes its letters with it, so the "זונות" inside is not tried next
+        if (!NOT_PROFANITY_RE.test(word)) hits.push({ kind: 'profanity', match: run.slice(letters[i], letters[j - 1] + 1), index: m.index + letters[i] });
+        i = j - 1;
+        break;
+      }
+    }
+  }
+  return hits;
 }
 
 function findProfanity(text) {
@@ -712,7 +748,7 @@ function findProfanity(text) {
     if (NOT_PROFANITY_RE.test(m[0])) continue;
     hits.push({ kind: 'profanity', match: m[0], index: m.index });
   }
-  return hits;
+  return hits.concat(findSpelledProfanity(text)).sort(function (a, b) { return a.index - b.index; });
 }
 
 function contains(outer, inner) {
