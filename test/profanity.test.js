@@ -111,3 +111,15 @@ test('profanity: clean lesson text still passes the gate unchanged', () => {
   assert.equal(assertCleanText('  שיעור   על   שברים  '), 'שיעור על שברים');
   assert.equal(assertCleanText('התלמיד אחראי על תזונה נכונה'), 'התלמיד אחראי על תזונה נכונה');
 });
+
+test('profanity: a word stretched with repeated letters is still the word', () => {
+  for (const text of ['fuuuuck you', 'this is SHIIIT', 'אתה מניאאאק', 'חררררא של שיעור', 'והמטומטםםם']) {
+    assert.deepEqual(kindsIn(text), ['profanity'], text);
+    assert.throws(() => assertCleanText(text), { message: PROFANITY_ERROR }, text);
+  }
+  assert.equal(findProfanity('fuuuuck you')[0].match, 'fuuuuck');
+  // a doubled letter in an ordinary word is not a stretch of a listed one
+  for (const text of ['meet at noon in the hall', 'אחראי על המטלה', 'מזונות', 'a class of assessment']) {
+    assert.deepEqual(kindsIn(text), [], text);
+  }
+});
