@@ -78,11 +78,11 @@
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region"></select></div>
       </div>
-      <label>מקצועות</label>
-      <div class="chips" id="subjects"></div>
-      <label>שעות פנויות</label>
+      <label id="lbl-subjects">מקצועות</label>
+      <div class="chips" id="subjects" role="group" aria-labelledby="lbl-subjects"></div>
+      <label id="lbl-hours">שעות פנויות</label>
       <p class="hint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
-      <div class="grid-hours" id="hours"></div>
+      <div class="grid-hours" id="hours" role="group" aria-labelledby="lbl-hours"></div>
       <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -217,6 +217,12 @@
     $('hours').innerHTML = cells.join('');
   }
 
+  function clearMatch() {
+    $('pairs').innerHTML = '<p class="empty">לחץ על "חשב שידוך" כדי לראות תוצאות.</p>';
+    $('unmatched').innerHTML = '<p class="empty">לחץ על "חשב שידוך" כדי לראות מי נשאר.</p>';
+    say('matchStatus', '');
+  }
+
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
       return '<div class="item"><b>' + (p.role === 'student' ? 'סטודנט מלמד' : 'תלמיד') + ' #' + (i + 1) +
@@ -225,6 +231,7 @@
         p.availability.length + ' שעות פנויות</span>' +
         '<div class="actions"><button type="button" class="ghost small" data-del="' + i + '">מחק</button></div></div>';
     }).join('') : '<p class="empty">אין עדיין משתתפים. אפשר לטעון דוגמה.</p>';
+    clearMatch();
   }
 
   $('subjects').addEventListener('click', function (ev) {
