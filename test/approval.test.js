@@ -170,3 +170,30 @@ test('approval: a stored entry with a key the flow never writes is refused, not 
     assert.throws(() => loadQueue(edit((s) => { s[key] = 'x'; })), { message: PERSONAL_DATA_ERROR });
   }
 });
+
+test('approval: a seq or nextSeq past the safe integers is refused, so two units can never share a seq', () => {
+  const stored = (seq, nextSeq) => {
+    const s = JSON.parse(JSON.stringify(submit(emptyQueue(), A)));
+    s.entries[A.id].seq = seq;
+    if (nextSeq === undefined) delete s.nextSeq; else s.nextSeq = nextSeq;
+    return s;
+  };
+  const top = Number.MAX_SAFE_INTEGER - 1;
+  // past 2^53, seq + 1 === seq: the next unit would repeat it and the saved queue could not load again
+  assert.throws(() => loadQueue(stored(2 ** 53)), /bad revision or seq/);
+  assert.throws(() => loadQueue(stored(1e300)), /bad revision or seq/);
+  // a nextSeq out of range is repaired from the entries, like a missing or stale one
+  assert.equal(loadQueue(stored(1, 2 ** 53)).nextSeq, 2);
+  // the last usable seq is still written and reloads; after it a new unit is refused instead of repeating
+  const full = loadQueue(stored(top));
+  assert.equal(full.nextSeq, top + 1);
+  assert.deepEqual(loadQueue(JSON.parse(JSON.stringify(full))), full);
+  assert.throws(() => submit(full, B), /approval queue is full/);
+  // a full queue still takes a revision of a unit it holds: that reuses the unit's own seq
+  const revised = makeUnit({ title: A.title, subject: A.subject, durationMinutes: A.durationMinutes, body: 'גרסה מתוקנת.' });
+  assert.equal(submit(full, revised).entries[A.id].revision, 2);
+  const last = loadQueue(stored(top - 1));
+  assert.equal(submit(last, B).entries[B.id].seq, top);
+  // a hand-built queue whose counter is already past the bound is not a queue
+  assert.throws(() => submit({ nextSeq: 2 ** 53 + 2, entries: {} }, B), /invalid queue/);
+});
