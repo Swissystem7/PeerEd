@@ -674,6 +674,12 @@ var INVISIBLE_RE = /[­᠎​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
 // Both blocks start at a code point ending in 0, so the low four bits are the digit's value.
 var OTHER_DIGIT_RE = /[٠-٩۰-۹]/g;
 
+// Hebrew vowel points (niqqud), shin/sin dots, dagesh and cantillation: a phone keyboard types them on a
+// long press and they sit between the letters, so "חָרָא" is the same word to a reader and not to the
+// matcher. The maqaf, paseq and sof pasuq (05be, 05c0, 05c3, 05c6) take space and stay. Dropped after
+// NFKC, which spreads a pointed presentation form (U+FB2A...) into letter + points.
+var HEBREW_POINT_RE = /[֑-ׇֽֿׁׂׅׄ]/g;
+
 function asciiDigit(d) {
   return String.fromCharCode(48 + (d.charCodeAt(0) & 15));
 }
@@ -710,13 +716,14 @@ function contains(outer, inner) {
 // nine-digit run inside a phone number is reported once as phone, the "@host" of an email is never
 // also reported as a social handle, and a word inside a url is the url and nothing else.
 // The text is read the way a reader sees it: invisible characters are dropped first, so a phone, an
-// email or an offensive word cannot be hidden by a zero-width character or a bidi mark inside it, and
+// email or an offensive word cannot be hidden by a zero-width character, a bidi mark or niqqud inside it, and
 // look-alike characters are folded to the plain ones (NFKC: full-width digits and @, mathematical
 // digits; then Arabic-Indic digits to 0-9), so a number does not pass because of the keyboard it was
 // typed on. Each match and index refers to that folded text; the text the gate stores is not changed.
 function findPersonalData(text) {
   if (typeof text !== 'string') return [];
-  text = text.replace(INVISIBLE_RE, '').normalize('NFKC').replace(OTHER_DIGIT_RE, asciiDigit);
+  text = text.replace(INVISIBLE_RE, '').normalize('NFKC').replace(HEBREW_POINT_RE, '')
+    .replace(OTHER_DIGIT_RE, asciiDigit);
   if (text === '') return [];
   var raw = findProfanity(text);
   Object.keys(PATTERNS).forEach(function (kind) {
