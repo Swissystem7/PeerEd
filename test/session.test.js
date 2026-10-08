@@ -175,6 +175,10 @@ test('session: a row edited on disk cannot bring an extra key, a bad region or a
   assert.throws(() => loadLog({ entries: [Object.assign({}, row, { pupil: 'x' })] }, QUEUE), { message: PERSONAL_DATA_ERROR });
   assert.throws(() => loadLog({ entries: [Object.assign({}, row, { region: 'MARS' })] }, QUEUE), /bad region/);
   assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'MON_7' })] }, QUEUE), /invalid slot/);
+  // logSession only writes the canonical spelling of an hour, so a stored 'MON_018' or 'SUN_08' is refused
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'MON_018' })] }, QUEUE), /invalid slot/);
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'SUN_08' })] }, QUEUE), /invalid slot/);
+  assert.equal(loadLog({ entries: [Object.assign({}, row, { slot: 'SUN_8' })] }, QUEUE).entries[0].slot, 'SUN_8');
   assert.throws(() => loadLog({ entries: [Object.assign({}, row, { outcome: 'x' })] }, QUEUE), /invalid outcome/);
   assert.throws(() => loadLog({ entries: [row, Object.assign({}, row, { seq: 1 })] }, QUEUE), /seq out of order/);
   assert.throws(() => loadLog({ entries: [null] }, QUEUE), /invalid stored session/);
