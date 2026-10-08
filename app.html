@@ -22,9 +22,12 @@
   section[role="tabpanel"][hidden] { display:none; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
   .card h2 { font-size:1rem; margin:0 0 8px; }
-  label { display:block; color:var(--muted); font-size:.78rem; margin:9px 0 4px; }
+  label, .group-label { display:block; color:var(--muted); font-size:.78rem; margin:9px 0 4px; }
   input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);
                             background:#0d0f15; color:var(--ink); font:inherit; font-size:1rem; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline:2px solid var(--key); outline-offset:2px;
+  }
   textarea { min-height:110px; resize:vertical; font-size:.92rem; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px; }
   button.act { background:var(--key); color:#0b0d13; border:0; border-radius:9px; padding:11px 15px;
@@ -78,11 +81,11 @@
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region"></select></div>
       </div>
-      <label>מקצועות</label>
-      <div class="chips" id="subjects"></div>
-      <label>שעות פנויות</label>
-      <p class="hint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
-      <div class="grid-hours" id="hours"></div>
+      <div class="group-label" id="lbl-subjects">מקצועות</div>
+      <div class="chips" id="subjects" role="group" aria-labelledby="lbl-subjects"></div>
+      <div class="group-label" id="lbl-hours">שעות פנויות</div>
+      <p class="hint" id="hint-hours">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
+      <div class="grid-hours" id="hours" role="group" aria-labelledby="lbl-hours" aria-describedby="hint-hours"></div>
       <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
