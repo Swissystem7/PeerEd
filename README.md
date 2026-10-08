@@ -31,3 +31,14 @@ municipality, no accessibility work, no Arabic or Russian. Nothing here has been
 The matching only needs region, availability and subject. Every additional field would be personal data
 about a minor, so the code refuses it outright rather than trusting a future caller to be careful. That
 refusal is the feature an examiner or a municipality will ask about first.
+
+## Quickstart
+
+To get started with PeerEd:
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Run tests: `npm test`
+4. Build the application: `npm run start`
+
+The build process creates an `app.html` file that contains all the necessary code.

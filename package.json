@@ -1,5 +1,10 @@
 {
   "name": "peered",
   "private": true,
-  "scripts": { "test": "node --test" }
+  "scripts": {
+    "test": "node --test",
+    "start": "node scripts/build-app.js",
+    "prepare": "npm run build",
+    "build": "node scripts/build-app.js"
+  }
 }
