@@ -3,10 +3,11 @@
 // any key outside the accepted fields is rejected, even with an empty value.
 
 const { isRegion } = require('./regions.js');
+const { getRetentionPolicy } = require('./retention.js');
 
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
-const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS']);
+const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
 const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
@@ -19,6 +20,14 @@ function isSlot(slot) {
   if (!m || DAYS.indexOf(m[1]) === -1) return false;
   const hour = Number(m[2]);
   return Number.isInteger(hour) && hour >= HOUR_MIN && hour <= HOUR_MAX;
+}
+
+function getSlotHour(slot) {
+  if (!isSlot(slot)) {
+    throw new Error('invalid slot: ' + String(slot));
+  }
+  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
+  return Number(m[2]);
 }
 
 function makeProfile(input) {
@@ -67,17 +76,27 @@ function makeProfile(input) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
 
+  const policy = getRetentionPolicy();
+  profile.retention = Object.freeze({
+    dataCategory: 'profile',
+    maxAgeDays: policy.profile
+  });
+
   return Object.freeze(profile);
 }
 
+// Returns a new frozen profile with parentConsent set. The result goes through makeProfile again, so
+// the privacy gate holds here too: a plain object with a name or a phone cannot be turned into a
+// "profile" by asking for consent on it, and a stale or hand-built record is re-validated on the way.
 function setParentConsent(profile, consent) {
   if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
     throw new Error('profile must be an object');
   }
   const consentValue = consent === undefined ? true : Boolean(consent);
-  return Object.freeze(Object.assign({}, profile, {
-    parentConsent: consentValue
-  }));
+  // retention is derived by makeProfile itself, not an input field: drop it before re-validating.
+  const input = Object.assign({}, profile);
+  delete input.retention;
+  return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
 
 function grantParentConsent(profile) {
@@ -96,6 +115,7 @@ module.exports = {
   PERSONAL_DATA_ERROR,
   isSlot,
   makeProfile,
+  getSlotHour,
   setParentConsent,
   grantParentConsent,
   revokeParentConsent

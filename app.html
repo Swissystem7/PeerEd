@@ -118,12 +118,13 @@
     <div class="card">
       <h2>שער הטקסט</h2>
       <p class="hint">כל יחידת העשרה או הודעה עוברת כאן לפני שהיא נשמרת. נסה להדביק טקסט עם טלפון, מייל,
-        תעודת זהות או קישור, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
+        תעודת זהות, קישור או מילה גסה, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
         <button type="button" class="act" id="checkBtn">בדוק</button>
         <button type="button" class="ghost" id="badBtn">טען דוגמה עם פרטים אישיים</button>
+        <button type="button" class="ghost" id="rudeBtn">טען דוגמה עם שפה פוגענית</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
       <div id="findings"></div>
@@ -180,6 +181,28 @@ module.exports = { REGIONS, isRegion, normalizeRegion };
   __registry["regions"] = module.exports;
 })();
 
+/* ===== src/lib/retention.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd — explicit, immutable retention limits per data category (days). No category is retained indefinitely.
+
+const RETENTION_POLICY = Object.freeze({
+  profile: 365,
+  match: 180
+});
+
+function getRetentionPolicy() {
+  return RETENTION_POLICY;
+}
+
+module.exports = {
+  getRetentionPolicy
+};
+  __registry["retention"] = module.exports;
+})();
+
 /* ===== src/lib/profile.js ===== */
 (function () {
   var module = { exports: {} };
@@ -189,10 +212,11 @@ module.exports = { REGIONS, isRegion, normalizeRegion };
 // any key outside the accepted fields is rejected, even with an empty value.
 
 const { isRegion } = require('./regions.js');
+const { getRetentionPolicy } = require('./retention.js');
 
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
-const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS']);
+const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
 const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
@@ -205,6 +229,14 @@ function isSlot(slot) {
   if (!m || DAYS.indexOf(m[1]) === -1) return false;
   const hour = Number(m[2]);
   return Number.isInteger(hour) && hour >= HOUR_MIN && hour <= HOUR_MAX;
+}
+
+function getSlotHour(slot) {
+  if (!isSlot(slot)) {
+    throw new Error('invalid slot: ' + String(slot));
+  }
+  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
+  return Number(m[2]);
 }
 
 function makeProfile(input) {
@@ -253,17 +285,27 @@ function makeProfile(input) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
 
+  const policy = getRetentionPolicy();
+  profile.retention = Object.freeze({
+    dataCategory: 'profile',
+    maxAgeDays: policy.profile
+  });
+
   return Object.freeze(profile);
 }
 
+// Returns a new frozen profile with parentConsent set. The result goes through makeProfile again, so
+// the privacy gate holds here too: a plain object with a name or a phone cannot be turned into a
+// "profile" by asking for consent on it, and a stale or hand-built record is re-validated on the way.
 function setParentConsent(profile, consent) {
   if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
     throw new Error('profile must be an object');
   }
   const consentValue = consent === undefined ? true : Boolean(consent);
-  return Object.freeze(Object.assign({}, profile, {
-    parentConsent: consentValue
-  }));
+  // retention is derived by makeProfile itself, not an input field: drop it before re-validating.
+  const input = Object.assign({}, profile);
+  delete input.retention;
+  return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
 
 function grantParentConsent(profile) {
@@ -282,6 +324,7 @@ module.exports = {
   PERSONAL_DATA_ERROR,
   isSlot,
   makeProfile,
+  getSlotHour,
   setParentConsent,
   grantParentConsent,
   revokeParentConsent
@@ -381,7 +424,8 @@ module.exports = { matchPairs, shared, compareCandidates, hasOverlap };
   var exports = module.exports;
 'use strict';
 // PeerEd - the gate for FREE TEXT (enrichment units, messages). The structured-field gate is
-// src/lib/profile.js; this one refuses text that carries personal data before it is stored.
+// src/lib/profile.js; this one refuses text that carries personal data or offensive language before
+// it is stored - the same gate, because both are reasons a school may not pass the text on.
 // CommonJS on purpose. No clock, no randomness, no network, no dependencies.
 
 var PATTERNS = Object.freeze({
@@ -395,23 +439,91 @@ var PATTERNS = Object.freeze({
   handle: /@\w{3,}/g
 });
 
+// Offensive language. Data, not a pattern: these are literal words, so the list grows without the
+// matcher changing. Hebrew forms are spelled out (feminine, plural) instead of guessed with a suffix
+// rule - a wrong suffix rule flags ordinary lesson words, and a quiet false positive is worse here
+// than a missed word. Lower case; the matcher is case insensitive.
+var PROFANITY = Object.freeze([
+  // Hebrew
+  'מניאק', 'מניאקית', 'מניאקים',
+  'חרא',
+  'שרמוטה', 'שרמוטות',
+  'זונה', 'זונות',
+  'מטומטם', 'מטומטמת', 'מטומטמים',
+  'מפגר', 'מפגרת', 'מפגרים',
+  'דביל', 'דבילה', 'דבילים',
+  'אידיוט', 'אידיוטית', 'אידיוטים',
+  'טמבל', 'טמבלים',
+  'אהבל',
+  'חלאה',
+  'תזדיין', 'תזדייני', 'הזדיין', 'מזדיין',
+  'כוסאמק', 'כוסאימק', 'כוסאמאק',
+  'פאק', 'פאקינג',
+  // English
+  'fuck', 'fucks', 'fucked', 'fucking', 'fucker', 'fuckers', 'motherfucker',
+  'shit', 'shits', 'shitty', 'bullshit',
+  'bitch', 'bitches',
+  'bastard', 'bastards',
+  'asshole', 'assholes',
+  'cunt', 'dickhead', 'slut', 'whore',
+  'retard', 'retarded', 'faggot', 'nigger', 'nigga'
+]);
+
+// A Hebrew or a Latin letter. \b is unusable here: JS word boundaries only know [A-Za-z0-9_], so to
+// them every Hebrew letter is a boundary, and "אחראי" would hand us the "חרא" sitting inside it.
+var LETTER = '[A-Za-z\\u05d0-\\u05ea]';
+// ו ה ש ל ב כ מ glue onto the next word in Hebrew ("והמניאק"), so up to two of them may lead a hit.
+// The quantifier backtracks, so a word that itself starts with one of them still matches.
+var HEBREW_PREFIX = '[\\u05d5\\u05d4\\u05e9\\u05dc\\u05d1\\u05db\\u05de]{0,2}';
+
+// Ordinary words that the prefix rule above turns into a hit: "מזונות" is "מ" + "זונות" to the matcher
+// and alimony to a reader. Matched against the whole hit, its own prefix included, so "המזונות" is
+// cleared too while a bare "זונות" is still refused.
+var NOT_PROFANITY = Object.freeze(['מזונות']);
+// not global, so it has no lastIndex to carry between calls
+var NOT_PROFANITY_RE = new RegExp('^' + HEBREW_PREFIX + '(?:' + NOT_PROFANITY.join('|') + ')$', 'i');
+
 var PERSONAL_DATA_ERROR = 'personal data is not accepted';
+var PROFANITY_ERROR = 'offensive language is not accepted';
 var DEFAULT_MAX_LENGTH = 4000;
 var DEFAULT_MIN_LENGTH = 1;
 // every C0 control character except \t (09) and \n (0a), plus DEL
 var CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f]/g;
+
+// Longest alternative first, so "מטומטמת" is never reported as the shorter "מטומטם".
+function profanityRegex() {
+  var alts = PROFANITY.slice()
+    .sort(function (a, b) { return b.length - a.length; })
+    // a function replacer, not a replacement string: scripts/build-app.js inlines this file with
+    // String.replace, so a dollar-ampersand group reference in here is expanded as the app is built
+    .map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, function (c) { return '\\' + c; }); })
+    .join('|');
+  return new RegExp('(?<!' + LETTER + ')' + HEBREW_PREFIX + '(?:' + alts + ')(?!' + LETTER + ')', 'gi');
+}
+
+function findProfanity(text) {
+  var re = profanityRegex();
+  var hits = [];
+  var m;
+  while ((m = re.exec(text)) !== null) {
+    if (NOT_PROFANITY_RE.test(m[0])) continue;
+    hits.push({ kind: 'profanity', match: m[0], index: m.index });
+  }
+  return hits;
+}
 
 function contains(outer, inner) {
   return inner.index >= outer.index &&
     (inner.index + inner.match.length) <= (outer.index + outer.match.length);
 }
 
-// Every hit of every pattern, ordered by index then kind. A hit fully inside a longer hit is dropped,
-// so a nine-digit run inside a phone number is reported once as phone, and the "@host" of an email is
-// never also reported as a social handle.
+// Every reason to refuse this text, ordered by index then kind: every hit of every pattern plus every
+// offensive word, which carries kind 'profanity'. A hit fully inside a longer hit is dropped, so a
+// nine-digit run inside a phone number is reported once as phone, the "@host" of an email is never
+// also reported as a social handle, and a word inside a url is the url and nothing else.
 function findPersonalData(text) {
   if (typeof text !== 'string' || text === '') return [];
-  var raw = [];
+  var raw = findProfanity(text);
   Object.keys(PATTERNS).forEach(function (kind) {
     var re = new RegExp(PATTERNS[kind].source, 'g');
     var m;
@@ -452,7 +564,11 @@ function assertCleanText(text, opts) {
   var maxLength = typeof opts.maxLength === 'number' ? opts.maxLength : DEFAULT_MAX_LENGTH;
   var minLength = typeof opts.minLength === 'number' ? opts.minLength : DEFAULT_MIN_LENGTH;
   var cleaned = cleanText(text);
-  if (findPersonalData(cleaned).length > 0) throw new Error(PERSONAL_DATA_ERROR);
+  var hits = findPersonalData(cleaned);
+  // Both refuse the text. Personal data is named first because exposing it cannot be taken back,
+  // so when a message carries both, that is the reason the writer is told about.
+  if (hits.some(function (h) { return h.kind !== 'profanity'; })) throw new Error(PERSONAL_DATA_ERROR);
+  if (hits.length > 0) throw new Error(PROFANITY_ERROR);
   if (cleaned.length > maxLength) throw new Error('text too long');
   if (cleaned.length < minLength) throw new Error('text too short');
   return cleaned;
@@ -460,12 +576,112 @@ function assertCleanText(text, opts) {
 
 module.exports = {
   PATTERNS: PATTERNS,
+  PROFANITY: PROFANITY,
   PERSONAL_DATA_ERROR: PERSONAL_DATA_ERROR,
+  PROFANITY_ERROR: PROFANITY_ERROR,
   findPersonalData: findPersonalData,
+  findProfanity: findProfanity,
   cleanText: cleanText,
   assertCleanText: assertCleanText
 };
   __registry["validator"] = module.exports;
+})();
+
+/* ===== src/lib/unit.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - an enrichment unit: the short, text-only lesson a teacher submits for approval (MVP item 4).
+// Its id is a hash of title + subject + duration, so the same unit submitted twice gets the same id and
+// a municipality can refer to a unit without any record of who wrote it. No clock, no randomness, no
+// network, no personal data: title and body go through the free-text gate before anything is kept.
+// CommonJS on purpose, and no node:crypto - this file is inlined into app.html and must run in a browser.
+
+const { SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
+const { assertCleanText } = require('./validator.js');
+
+const ACCEPTED_FIELDS = Object.freeze(['title', 'subject', 'durationMinutes', 'body']);
+const TITLE_MAX_LENGTH = 120;
+const BODY_MAX_LENGTH = 4000;
+// "short" is the point: a unit is one sitting of text, not a course
+const DURATION_MIN = 5;
+const DURATION_MAX = 60;
+const ID_PREFIX = 'u-';
+
+// FNV-1a over the UTF-16 code units of the string, 32 bits, with a caller-chosen offset basis so two
+// passes give 64 bits of id. Pure integer arithmetic: the same string hashes the same in Node and in
+// every browser. Math.imul keeps the multiply inside 32 bits.
+function fnv1a32(text, basis) {
+  let hash = basis >>> 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+function hex8(n) {
+  return ('00000000' + n.toString(16)).slice(-8);
+}
+
+// A title is compared the way a reader compares it: case and spacing do not make a new unit.
+function normalizeTitle(title) {
+  return String(title).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+// The id of a unit from the three fields that define it. Exported so a caller can ask whether a unit
+// already exists before building the whole record. The body is NOT part of the id on purpose: a teacher
+// who fixes a typo in the text resubmits the same unit, and the approval flow sees a revision, not a new
+// unit. The separator cannot occur in a cleaned title (control characters are stripped by the gate).
+function unitId(title, subject, durationMinutes) {
+  const key = [normalizeTitle(title), String(subject), String(durationMinutes)].join('\u0000');
+  return ID_PREFIX + hex8(fnv1a32(key, 0x811c9dc5)) + hex8(fnv1a32(key, 0x050c5d1f));
+}
+
+function makeUnit(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('unit input must be an object with title, subject, durationMinutes, body');
+  }
+  // Privacy gate first, same as the profile: an unknown key (author, school, email...) is refused
+  // before anything else is looked at, with the same message, so the rule reads the same everywhere.
+  const keys = Object.keys(input);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+  if (typeof input.subject !== 'string' || SUBJECTS.indexOf(input.subject) === -1) {
+    throw new Error('invalid subject: expected one of the SUBJECTS codes');
+  }
+  const duration = input.durationMinutes;
+  if (!Number.isInteger(duration) || duration < DURATION_MIN || duration > DURATION_MAX) {
+    throw new Error('invalid durationMinutes: expected an integer ' + DURATION_MIN + '..' + DURATION_MAX);
+  }
+  if (typeof input.title !== 'string') throw new Error('invalid title: expected a string');
+  if (typeof input.body !== 'string') throw new Error('invalid body: expected a string');
+  // The gate throws the personal-data or profanity error itself; a title is one line.
+  const title = assertCleanText(input.title, { maxLength: TITLE_MAX_LENGTH });
+  if (title.indexOf('\n') !== -1) throw new Error('invalid title: expected a single line');
+  const body = assertCleanText(input.body, { maxLength: BODY_MAX_LENGTH });
+
+  return Object.freeze({
+    id: unitId(title, input.subject, duration),
+    title: title,
+    subject: input.subject,
+    durationMinutes: duration,
+    body: body
+  });
+}
+
+module.exports = {
+  ACCEPTED_FIELDS,
+  TITLE_MAX_LENGTH,
+  BODY_MAX_LENGTH,
+  DURATION_MIN,
+  DURATION_MAX,
+  unitId,
+  makeUnit
+};
+  __registry["unit"] = module.exports;
 })();
 </script>
 
@@ -483,7 +699,7 @@ module.exports = {
                      ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב' };
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
-                  url: 'קישור', handle: 'שם משתמש' };
+                  url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
   var HOURS = [14, 15, 16, 17, 18, 19, 20];
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
@@ -643,6 +859,13 @@ module.exports = {
     $('findings').innerHTML = '';
   });
 
+  $('rudeBtn').addEventListener('click', function () {
+    $('checkText').value = 'אל תקשיב למטומטם הזה, הוא מניאק וכל השיעור שלו חרא. ' +
+      'התלמיד אחראי על תזונה נכונה - וזה נשאר נקי.';
+    say('checkStatus', 'לחץ "בדוק".');
+    $('findings').innerHTML = '';
+  });
+
   $('checkBtn').addEventListener('click', function () {
     var text = $('checkText').value;
     var hits = validator.findPersonalData(text);
@@ -654,7 +877,11 @@ module.exports = {
       $('findings').innerHTML = '';
       return;
     }
-    say('checkStatus', 'נחסם. נמצאו ' + hits.length + ' פרטים אישיים.', true);
+    var rude = hits.filter(function (h) { return h.kind === 'profanity'; }).length;
+    var parts = [];
+    if (hits.length - rude) parts.push((hits.length - rude) + ' פרטים אישיים');
+    if (rude) parts.push(rude + ' מילים פוגעניות');
+    say('checkStatus', 'נחסם. נמצאו ' + parts.join(' ו-') + '.', true);
     $('findings').innerHTML = hits.map(function (h) {
       return '<div class="flag"><b>' + esc(KIND_HE[h.kind] || h.kind) + '</b> — "' + esc(h.match) +
         '" (תו ' + h.index + ')</div>';
