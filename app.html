@@ -693,6 +693,8 @@ module.exports = {
   var $ = function (id) { return document.getElementById(id); };
   var KEY = 'peered_app_v1';
 
+  // One label per role, used by the participants list AND the match screen.
+  var ROLE_HE = { student: 'סטודנט מלמד', pupil: 'תלמיד' };
   var REGION_HE = { NORTH: 'צפון', HAIFA: 'חיפה', CENTER: 'מרכז', TEL_AVIV: 'תל אביב',
                     JERUSALEM: 'ירושלים', SOUTH: 'דרום' };
   var SUBJECT_HE = { MATH: 'מתמטיקה', PHYSICS: 'פיזיקה', CHEMISTRY: 'כימיה', BIOLOGY: 'ביולוגיה',
@@ -747,7 +749,7 @@ module.exports = {
 
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
-      return '<div class="item"><b>' + (p.role === 'student' ? 'סטודנט מלמד' : 'תלמיד') + ' #' + (i + 1) +
+      return '<div class="item"><b>' + ROLE_HE[p.role] + ' #' + (i + 1) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
         p.availability.length + ' שעות פנויות</span>' +
@@ -821,16 +823,28 @@ module.exports = {
 
   // ---------- match ----------
 
+  // The participants list numbers people by their place in state.people (#1 = first added, any role).
+  // matchPairs() indexes are positions among students / among pupils, so every index is translated
+  // back to that list number before it reaches the screen.
+  function splitByRole() {
+    var out = { students: [], pupils: [] };
+    state.people.forEach(function (p, i) {
+      (p.role === 'student' ? out.students : out.pupils).push({ number: i + 1, person: p });
+    });
+    return out;
+  }
+
   $('runMatch').addEventListener('click', function () {
-    var students = state.people.filter(function (p) { return p.role === 'student'; });
-    var pupils = state.people.filter(function (p) { return p.role === 'pupil'; });
-    if (!students.length || !pupils.length) {
+    var r = splitByRole();
+    if (!r.students.length || !r.pupils.length) {
       say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return;
     }
-    var pairs = match.matchPairs(students, pupils);
+    var pairs = match.matchPairs(r.students.map(function (e) { return e.person; }),
+                                 r.pupils.map(function (e) { return e.person; }));
     $('pairs').innerHTML = pairs.length ? pairs.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
-        '<span class="meta">סטודנט #' + (p.studentIndex + 1) + ' עם תלמיד #' + (p.pupilIndex + 1) + '<br>' +
+        '<span class="meta">' + ROLE_HE.student + ' #' + r.students[p.studentIndex].number + ' עם ' +
+        ROLE_HE.pupil + ' #' + r.pupils[p.pupilIndex].number + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
@@ -839,15 +853,17 @@ module.exports = {
     var pairedStudents = {}, pairedPupils = {};
     pairs.forEach(function (p) { pairedStudents[p.studentIndex] = true; pairedPupils[p.pupilIndex] = true; });
     var left = [];
-    students.forEach(function (s, i) { if (!pairedStudents[i]) left.push({ who: 'סטודנט #' + (i + 1), p: s }); });
-    pupils.forEach(function (p, i) { if (!pairedPupils[i]) left.push({ who: 'תלמיד #' + (i + 1), p: p }); });
+    r.students.forEach(function (e, i) { if (!pairedStudents[i]) left.push({ role: 'student', e: e }); });
+    r.pupils.forEach(function (e, i) { if (!pairedPupils[i]) left.push({ role: 'pupil', e: e }); });
+    left.sort(function (a, b) { return a.e.number - b.e.number; });
     $('unmatched').innerHTML = left.length ? left.map(function (x) {
-      return '<div class="item"><b>' + x.who + '</b><span class="meta">' +
-        esc(REGION_HE[x.p.region] || x.p.region) + ' · ' +
-        x.p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
+      return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
+        esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
+        x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         ' · אין באזור שלו מישהו עם שעה ומקצוע משותפים</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
-    say('matchStatus', pairs.length + ' זוגות מתוך ' + students.length + ' סטודנטים ו-' + pupils.length + ' תלמידים.');
+    say('matchStatus', pairs.length + ' זוגות מתוך ' + r.students.length + ' סטודנטים ו-' + r.pupils.length +
+      ' תלמידים. המספרים הם המקום ברשימת המשתתפים.');
   });
 
   // ---------- text gate ----------
