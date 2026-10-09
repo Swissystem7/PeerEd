@@ -3,6 +3,7 @@
 // any key outside the accepted fields is rejected, even with an empty value.
 
 const { isRegion } = require('./regions.js');
+const { getRetentionPolicy } = require('./retention.js');
 
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
@@ -75,6 +76,12 @@ function makeProfile(input) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
 
+  const policy = getRetentionPolicy();
+  profile.retention = Object.freeze({
+    dataCategory: 'profile',
+    maxAgeDays: policy.profile
+  });
+
   return Object.freeze(profile);
 }
 
@@ -86,7 +93,10 @@ function setParentConsent(profile, consent) {
     throw new Error('profile must be an object');
   }
   const consentValue = consent === undefined ? true : Boolean(consent);
-  return makeProfile(Object.assign({}, profile, { parentConsent: consentValue }));
+  // retention is derived by makeProfile itself, not an input field: drop it before re-validating.
+  const input = Object.assign({}, profile);
+  delete input.retention;
+  return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
 
 function grantParentConsent(profile) {

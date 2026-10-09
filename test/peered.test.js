@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 
 const { REGIONS, isRegion, normalizeRegion } = require('../src/lib/regions.js');
 const { makeProfile, PERSONAL_DATA_ERROR } = require('../src/lib/profile.js');
+const { getRetentionPolicy } = require('../src/lib/retention.js');
 const { matchPairs } = require('../src/lib/match.js');
 
 test('regions: isRegion accepts every REGIONS entry and rejects everything else', () => {
@@ -52,8 +53,14 @@ test('profile: invalid role / region / availability / slot / subjects name the o
 
 test('profile: a valid input yields a frozen four-field object that cannot be mutated', () => {
   const p = makeProfile(VALID);
-  assert.deepEqual(p, { role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['MATH', 'CS'] });
-  assert.deepEqual(Object.keys(p).sort(), ['availability', 'region', 'role', 'subjects']);
+  assert.equal(p.role, 'student');
+  assert.equal(p.region, 'CENTER');
+  assert.deepEqual(p.availability, ['SUN_16', 'MON_18']);
+  assert.deepEqual(p.subjects, ['MATH', 'CS']);
+  assert.equal(p.retention.dataCategory, 'profile');
+  assert.equal(p.retention.maxAgeDays, getRetentionPolicy().profile);
+  assert.ok(Object.isFrozen(p.retention));
+  assert.deepEqual(Object.keys(p).sort(), ['availability', 'region', 'retention', 'role', 'subjects']);
   assert.ok(Object.isFrozen(p));
   assert.throws(() => { 'use strict'; p.role = 'pupil'; }, TypeError);
   assert.throws(() => { 'use strict'; p.name = 'x'; }, TypeError);
