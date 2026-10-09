@@ -113,6 +113,8 @@ module.exports = {
   SUBJECTS,
   ACCEPTED_FIELDS,
   PERSONAL_DATA_ERROR,
+  HOUR_MIN,
+  HOUR_MAX,
   isSlot,
   makeProfile,
   getSlotHour,
