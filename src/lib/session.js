@@ -7,11 +7,13 @@
 // returns a new log: no clock, no randomness, no network, no personal data. Order is a counter.
 
 const { isRegion } = require('./regions.js');
-const { isSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
+const { isSlot, normalizeSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
 const { statusOf } = require('./approval.js');
 
 const OUTCOMES = Object.freeze(['held', 'missed', 'cut_short']);
 const ACCEPTED_FIELDS = Object.freeze(['slot', 'subject', 'unitId', 'outcome']);
+// the log itself is only ever written with these two keys
+const LOG_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const UNIT_NOT_APPROVED_ERROR = 'unit is not approved: only an approved unit can be taught';
 
 function emptyLog() {
@@ -126,10 +128,17 @@ function reportCsv(log) {
 // Rebuild a log from stored JSON. Every row is re-checked against the queue it is loaded with, so a
 // row edited on disk cannot bring an extra key, an unapproved unit or a foreign region into the app.
 // A stored row carries its own region and no pair, so the slot and subject are checked for shape and
-// the unit for approval and subject; the pair check happened when the row was written.
+// the unit for approval and subject; the pair check happened when the row was written. The slot must be
+// in its canonical spelling: the pair's slots come from makeProfile, so logSession only ever writes
+// 'SUN_8', and a stored 'SUN_08' is a row the app never wrote - refused, not quietly kept.
 function loadLog(data, queue) {
   if (data === null || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.entries)) {
     throw new Error('invalid stored log');
+  }
+  // a key next to the rows (a coordinator name, a school) is refused like one inside a row
+  const logKeys = Object.keys(data);
+  for (let k = 0; k < logKeys.length; k += 1) {
+    if (LOG_FIELDS.indexOf(logKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   const entries = [];
   let lastSeq = 0;
@@ -148,7 +157,7 @@ function loadLog(data, queue) {
     if (!Number.isInteger(raw.seq) || raw.seq <= lastSeq) {
       throw new Error('invalid stored session: seq out of order at ' + i);
     }
-    const clean = cleanEntry(queue, raw.region, [raw.slot], [raw.subject],
+    const clean = cleanEntry(queue, raw.region, [normalizeSlot(raw.slot)], [raw.subject],
       { slot: raw.slot, subject: raw.subject, unitId: raw.unitId, outcome: raw.outcome });
     clean.seq = raw.seq;
     entries.push(Object.freeze(clean));

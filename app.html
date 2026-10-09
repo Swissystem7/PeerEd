@@ -379,11 +379,16 @@ function makeProfile(input) {
 // Returns a new frozen profile with parentConsent set. The result goes through makeProfile again, so
 // the privacy gate holds here too: a plain object with a name or a phone cannot be turned into a
 // "profile" by asking for consent on it, and a stale or hand-built record is re-validated on the way.
+// consent must be a real boolean (or omitted, meaning true): a form value 'false' or 'no' is truthy, and
+// coercing it would record a parent's consent that was never given.
 function setParentConsent(profile, consent) {
   if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
     throw new Error('profile must be an object');
   }
-  const consentValue = consent === undefined ? true : Boolean(consent);
+  if (consent !== undefined && typeof consent !== 'boolean') {
+    throw new Error('invalid parentConsent: expected boolean');
+  }
+  const consentValue = consent === undefined ? true : consent;
   return makeProfile(Object.assign({}, profile, { parentConsent: consentValue }));
 }
 
@@ -790,9 +795,13 @@ function hex8(n) {
   return ('00000000' + n.toString(16)).slice(-8);
 }
 
-// A title is compared the way a reader compares it: case and spacing do not make a new unit.
+// A title is compared the way a reader compares it: case and spacing do not make a new unit, and neither
+// does the code-point order of the same letters. A Hebrew title with niqqud, or a Latin letter with an
+// accent, arrives composed or decomposed depending on the keyboard and the OS; NFC folds both spellings
+// into one, so the same title typed on a phone and on a laptop gets the same id. NFC leaves ASCII alone,
+// so no id already on file moves.
 function normalizeTitle(title) {
-  return String(title).replace(/\s+/g, ' ').trim().toLowerCase();
+  return String(title).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 // The id of a unit from the three fields that define it. Exported so a caller can ask whether a unit
@@ -861,10 +870,17 @@ module.exports = {
 // network, no personal data. Order is a submission counter, so a list of pending units is the same on
 // every device that replays the same submissions.
 
+const { PERSONAL_DATA_ERROR } = require('./profile.js');
 const { makeUnit } = require('./unit.js');
 const { assertCleanText } = require('./validator.js');
 
 const STATUSES = Object.freeze(['pending', 'approved', 'rejected']);
+// The keys a stored entry may carry. The unit inside has its own gate (assertUnit); this list is the
+// gate for the record around it, so a teacher name or a note written next to a unit on disk is refused
+// with the same message as everywhere else, not dropped on the way in.
+const ENTRY_FIELDS = Object.freeze(['unit', 'status', 'revision', 'seq', 'decidedBy', 'reason']);
+// the queue itself is only ever written with these two keys
+const QUEUE_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const APPROVER_ROLE = 'owner';
 const REASON_MAX_LENGTH = 300;
 const NOT_PENDING_ERROR = 'unit is not pending: only a pending unit can be approved or rejected';
@@ -987,12 +1003,22 @@ function loadQueue(data) {
     || data.entries === null || typeof data.entries !== 'object' || Array.isArray(data.entries)) {
     throw new Error('invalid stored queue');
   }
+  // a key next to the entries (a coordinator name, a school) is refused like one inside an entry
+  const queueKeys = Object.keys(data);
+  for (let k = 0; k < queueKeys.length; k += 1) {
+    if (QUEUE_FIELDS.indexOf(queueKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
   const ids = Object.keys(data.entries);
   const entries = {};
+  const seen = new Set();
   let maxSeq = 0;
   for (let i = 0; i < ids.length; i += 1) {
     const raw = data.entries[ids[i]];
     if (raw === null || typeof raw !== 'object') throw new Error('invalid stored entry: ' + ids[i]);
+    const rawKeys = Object.keys(raw);
+    for (let k = 0; k < rawKeys.length; k += 1) {
+      if (ENTRY_FIELDS.indexOf(rawKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+    }
     const unit = assertUnit(raw.unit);
     if (unit.id !== ids[i]) throw new Error('invalid stored entry: id mismatch for ' + ids[i]);
     if (STATUSES.indexOf(raw.status) === -1) throw new Error('invalid stored entry: bad status for ' + ids[i]);
@@ -1000,13 +1026,26 @@ function loadQueue(data) {
       throw new Error('invalid stored entry: bad revision or seq for ' + ids[i]);
     }
     const entry = { unit: unit, status: raw.status, revision: raw.revision, seq: raw.seq };
-    if (raw.status !== 'pending') entry.decidedBy = APPROVER_ROLE;
+    if (raw.status !== 'pending') {
+      entry.decidedBy = APPROVER_ROLE;
+    } else if (raw.decidedBy !== undefined) {
+      // nobody has decided a pending unit; a decider on one is a record the flow never writes, refused
+      // like a reason on it, so a forged half-decision does not load as an ordinary pending unit
+      throw new Error('invalid stored entry: decidedBy on a unit that is still pending: ' + ids[i]);
+    }
     if (raw.status === 'rejected') {
       if (typeof raw.reason !== 'string') {
         throw new Error('invalid stored entry: rejected without a reason: ' + ids[i]);
       }
       entry.reason = assertCleanText(raw.reason, { maxLength: REASON_MAX_LENGTH });
+    } else if (raw.reason !== undefined) {
+      // a reason belongs to a rejection only; one on a pending or approved unit is not a record the
+      // flow could have written, so it is refused rather than dropped
+      throw new Error('invalid stored entry: reason on a unit that was not rejected: ' + ids[i]);
     }
+    // the counter is the order every device shows the queue in, so two entries cannot share a number
+    if (seen.has(raw.seq)) throw new Error('invalid stored entry: seq already used: ' + ids[i]);
+    seen.add(raw.seq);
     entries[unit.id] = Object.freeze(entry);
     if (raw.seq > maxSeq) maxSeq = raw.seq;
   }
@@ -1044,11 +1083,13 @@ module.exports = {
 // returns a new log: no clock, no randomness, no network, no personal data. Order is a counter.
 
 const { isRegion } = require('./regions.js');
-const { isSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
+const { isSlot, normalizeSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
 const { statusOf } = require('./approval.js');
 
 const OUTCOMES = Object.freeze(['held', 'missed', 'cut_short']);
 const ACCEPTED_FIELDS = Object.freeze(['slot', 'subject', 'unitId', 'outcome']);
+// the log itself is only ever written with these two keys
+const LOG_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const UNIT_NOT_APPROVED_ERROR = 'unit is not approved: only an approved unit can be taught';
 
 function emptyLog() {
@@ -1163,10 +1204,17 @@ function reportCsv(log) {
 // Rebuild a log from stored JSON. Every row is re-checked against the queue it is loaded with, so a
 // row edited on disk cannot bring an extra key, an unapproved unit or a foreign region into the app.
 // A stored row carries its own region and no pair, so the slot and subject are checked for shape and
-// the unit for approval and subject; the pair check happened when the row was written.
+// the unit for approval and subject; the pair check happened when the row was written. The slot must be
+// in its canonical spelling: the pair's slots come from makeProfile, so logSession only ever writes
+// 'SUN_8', and a stored 'SUN_08' is a row the app never wrote - refused, not quietly kept.
 function loadLog(data, queue) {
   if (data === null || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.entries)) {
     throw new Error('invalid stored log');
+  }
+  // a key next to the rows (a coordinator name, a school) is refused like one inside a row
+  const logKeys = Object.keys(data);
+  for (let k = 0; k < logKeys.length; k += 1) {
+    if (LOG_FIELDS.indexOf(logKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   const entries = [];
   let lastSeq = 0;
@@ -1185,7 +1233,7 @@ function loadLog(data, queue) {
     if (!Number.isInteger(raw.seq) || raw.seq <= lastSeq) {
       throw new Error('invalid stored session: seq out of order at ' + i);
     }
-    const clean = cleanEntry(queue, raw.region, [raw.slot], [raw.subject],
+    const clean = cleanEntry(queue, raw.region, [normalizeSlot(raw.slot)], [raw.subject],
       { slot: raw.slot, subject: raw.subject, unitId: raw.unitId, outcome: raw.outcome });
     clean.seq = raw.seq;
     entries.push(Object.freeze(clean));
