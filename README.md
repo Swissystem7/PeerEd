@@ -9,7 +9,7 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 ## What works today
 
-`npm test` runs 52 tests. There is **no user interface yet** — this is the core.
+`npm test` runs 61 tests. There is **no user interface yet** — this is the core.
 
 | Module | What it does |
 |---|---|
@@ -18,12 +18,13 @@ deterministic tests only. Local repository until the owner approves publishing.
 | `src/lib/match.js` | Deterministic matching: same region, at least one shared availability slot, at least one shared subject. Candidates are ranked by shared slots, then shared subjects, then input order, and taken greedily; each participant is used at most once. No clock, no randomness, no network. |
 | `src/lib/validator.js` | The gate for free text: refuses email addresses, Israeli phone numbers, nine-digit id numbers, links and social handles, with the same error message as the profile gate. Ordinary Hebrew lesson text with numbers passes. |
 | `src/lib/unit.js` | An enrichment unit, the short text-only lesson a teacher submits (MVP item 4). Title and body pass the free-text gate; any other key is refused like personal data. The id is a hash of title + subject + duration, computed in plain JavaScript so it is the same in Node and in the browser: resubmitting the same unit, or fixing a typo in its body, gives the same id. |
+| `src/lib/approval.js` | The approval flow (MVP item 5). A submitted unit is pending and invisible to pupils until the approver role decides; the queue records the role, never a person. A rejection needs a reason that passes the free-text gate. Resubmitting the same text changes nothing; a revised body goes back to pending with its revision number raised. The queue is a frozen JSON value and every operation returns a new one, so it can be stored locally; loading it re-runs every unit and reason through the gates. |
 
 `PURPOSE.md` carries the research this is grounded in (35 sources) and the owner's decisions.
 
 ## What does not exist yet
 
-No interface, no storage, no teacher approval flow, no reports for a
+No interface, no storage, no reports for a
 municipality, no accessibility work, no Arabic or Russian. Nothing here has been used by a real school.
 
 ## Why the profile is so narrow
