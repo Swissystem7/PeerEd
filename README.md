@@ -21,6 +21,15 @@ deterministic tests only. Local repository until the owner approves publishing.
 
 `PURPOSE.md` carries the research this is grounded in (35 sources) and the owner's decisions.
 
+## Quickstart
+
+To get started with PeerEd:
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Run tests: `npm test`
+4. Build the application: `npm run build`
+
 ## What does not exist yet
 
 No interface, no storage, no teacher approval flow, no reports for a
