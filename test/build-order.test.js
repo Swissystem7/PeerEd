@@ -24,3 +24,8 @@ test('build-app validates dependency order', () => {
   const buildWithMatch = build({ modules: { match: matchCode } });
   assert.strictEqual(buildWithMatch, defaultBuild);
 });
+
+test('the real modules pass the order check, with or without the .js suffix', () => {
+  assert.doesNotThrow(() => build());
+  assert.throws(() => build({ modules: { regions: "require('./contact')" } }), /regions.*contact.*after/);
+});

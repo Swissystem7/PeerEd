@@ -54,6 +54,7 @@
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
   .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
+  a { color:var(--key); }
   .flag { background:rgba(255,143,143,.1); border:1px solid rgba(255,143,143,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
 </style>
@@ -136,6 +137,12 @@
       <p class="status" id="gateStatus" role="status"></p>
     </div>
   </section>
+  <!-- ============ קשר (src/lib/contact.js) ============ -->
+  <div class="card" id="contactBox" hidden>
+    <h2>רוצים לנסות בסבב השיבוץ שלכם?</h2>
+    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank"></a></p>
+    <p class="hint" id="contactNote"></p>
+  </div>
 </main>
 
 <nav role="tablist" aria-label="ניווט">
@@ -683,13 +690,48 @@ module.exports = {
 };
   __registry["unit"] = module.exports;
 })();
+
+/* ===== src/lib/contact.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - the ONE place for a contact channel. Nothing here is invented.
+//   CONTACT     an email (name@host.tld) or an https link to a form. Empty = use ISSUE_FORM. Since 28.9
+//               it is the Google Form "משוב על האפליקציות", pre-filled with PeerEd.
+//   ISSUE_FORM  the Hebrew GitHub issue form of this repository (.github/ISSUE_TEMPLATE/pilot.yml).
+// A malformed value shows NO contact rather than a broken one. The link is only ever an <a href> the
+// user clicks: the app itself still sends nothing anywhere (test/app-build.test.js).
+
+var CONTACT = 'https://docs.google.com/forms/d/e/1FAIpQLSdT8YduNx-VWKM3bWGUJdiSj4Sw9D-EA6R6c-oYVYCQmOVXxQ/viewform?usp=pp_url&entry.368039752=PeerEd';
+var ISSUE_FORM = 'https://github.com/Swissystem7/PeerEd/issues/new?template=pilot.yml';
+
+var EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+var HTTPS_RE = /^https:\/\/[^\s"'<>]+$/;
+
+// -> { kind: 'email' | 'link' | 'issue', href, label } or null
+function contactLink(contact, issueForm) {
+  var c = typeof contact === 'string' ? contact.trim() : '';
+  if (c !== '') {
+    if (EMAIL_RE.test(c)) return { kind: 'email', href: 'mailto:' + c, label: c };
+    if (HTTPS_RE.test(c)) return { kind: 'link', href: c, label: 'טופס יצירת קשר' };
+    return null;
+  }
+  var f = typeof issueForm === 'string' ? issueForm.trim() : '';
+  if (HTTPS_RE.test(f)) return { kind: 'issue', href: f, label: 'טופס פנייה ב-GitHub' };
+  return null;
+}
+
+module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contactLink };
+  __registry["contact"] = module.exports;
+})();
 </script>
 
 <script>
 (function () {
   'use strict';
   var regions = __registry.regions, profile = __registry.profile,
-      match = __registry.match, validator = __registry.validator;
+      match = __registry.match, validator = __registry.validator, contact = __registry.contact;
   var $ = function (id) { return document.getElementById(id); };
   var KEY = 'peered_app_v1';
 
@@ -913,7 +955,21 @@ module.exports = {
     });
   });
 
+  // ---------- contact ----------
+
+  function renderContact() {
+    var c = contact.contactLink(contact.CONTACT, contact.ISSUE_FORM);
+    $('contactBox').hidden = !c;
+    if (!c) return;
+    $('contactLink').href = c.href;
+    $('contactLink').textContent = c.label;
+    $('contactNote').textContent = c.kind === 'issue'
+      ? 'הפנייה בגיטהאב ציבורית ודורשת חשבון GitHub. אל תכתבו שם טלפון, מייל או פרטים של תלמידים.'
+      : 'אין צורך לשלוח שום פרט של תלמיד כדי לנסות.';
+  }
+
   state = load();
+  renderContact();
   buildInputs();
   renderPeople();
 })();
