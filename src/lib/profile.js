@@ -3,10 +3,11 @@
 // any key outside the accepted fields is rejected, even with an empty value.
 
 const { isRegion } = require('./regions.js');
+const { getRetentionPolicy } = require('./retention.js');
 
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
-const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS']);
+const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
 const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
@@ -37,6 +38,14 @@ function unique(list) {
     if (out.indexOf(list[i]) === -1) out.push(list[i]);
   }
   return out;
+}
+
+function getSlotHour(slot) {
+  if (!isSlot(slot)) {
+    throw new Error('invalid slot: ' + String(slot));
+  }
+  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
+  return Number(m[2]);
 }
 
 function makeProfile(input) {
@@ -88,6 +97,12 @@ function makeProfile(input) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
 
+  const policy = getRetentionPolicy();
+  profile.retention = Object.freeze({
+    dataCategory: 'profile',
+    maxAgeDays: policy.profile
+  });
+
   return Object.freeze(profile);
 }
 
@@ -104,7 +119,10 @@ function setParentConsent(profile, consent) {
     throw new Error('invalid parentConsent: expected boolean');
   }
   const consentValue = consent === undefined ? true : consent;
-  return makeProfile(Object.assign({}, profile, { parentConsent: consentValue }));
+  // retention is derived by makeProfile itself, not an input field: drop it before re-validating.
+  const input = Object.assign({}, profile);
+  delete input.retention;
+  return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
 
 function grantParentConsent(profile) {
@@ -124,6 +142,7 @@ module.exports = {
   isSlot,
   normalizeSlot,
   makeProfile,
+  getSlotHour,
   setParentConsent,
   grantParentConsent,
   revokeParentConsent
