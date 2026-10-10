@@ -9,6 +9,7 @@
   :root { --bg:#0f1117; --card:#171a23; --line:#2a2f3c; --ink:#f2f4f8; --muted:#9aa2b4;
           --key:#7cc4ff; --warm:#ffb27c; --bad:#ff8f8f; --ok:#8fe0a8; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  *:focus-visible { outline: 2px solid var(--key); outline-offset: 2px; }
   body { margin:0; background:var(--bg); color:var(--ink);
          font-family:Arial,"Segoe UI",sans-serif; min-height:100vh; padding-bottom:78px; }
   .wrap { max-width:820px; margin:auto; padding:16px 14px 24px; }
@@ -78,11 +79,11 @@
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region"></select></div>
       </div>
-      <label>מקצועות</label>
-      <div class="chips" id="subjects"></div>
-      <label>שעות פנויות</label>
-      <p class="hint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
-      <div class="grid-hours" id="hours"></div>
+      <label id="lbl-subjects">מקצועות</label>
+      <div class="chips" id="subjects" role="group" aria-labelledby="lbl-subjects"></div>
+      <label id="lbl-hours">שעות פנויות</label>
+      <p class="hint" id="hint-hours">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
+      <div class="grid-hours" id="hours" role="group" aria-labelledby="lbl-hours" aria-describedby="hint-hours"></div>
       <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -825,7 +826,10 @@ module.exports = {
     var students = state.people.filter(function (p) { return p.role === 'student'; });
     var pupils = state.people.filter(function (p) { return p.role === 'pupil'; });
     if (!students.length || !pupils.length) {
-      say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return;
+      say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true);
+      $('pairs').innerHTML = '<p class="empty">אין מספיק משתתפים לשידוך.</p>';
+      $('unmatched').innerHTML = '<p class="empty">אין מספיק משתתפים לשידוך.</p>';
+      return;
     }
     var pairs = match.matchPairs(students, pupils);
     $('pairs').innerHTML = pairs.length ? pairs.map(function (p, i) {
