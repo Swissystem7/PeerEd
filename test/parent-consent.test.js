@@ -87,7 +87,7 @@ test('setParentConsent returns a frozen profile with copied arrays, like makePro
   assert.ok(Object.isFrozen(approved.availability));
   assert.notStrictEqual(approved.availability, pupil.availability);
   assert.deepStrictEqual(approved.availability, pupil.availability);
-  assert.deepStrictEqual(Object.keys(approved).sort(), ['availability', 'parentConsent', 'region', 'role', 'subjects']);
+  assert.deepStrictEqual(Object.keys(approved).sort(), ['availability', 'parentConsent', 'region', 'retention', 'role', 'subjects']);
   // a student gets an explicit flag too, and nothing else changes
   const student = makeProfile({ role: 'student', region: getValidRegion(), availability: ['SUN_16'], subjects: ['MATH'] });
   assert.strictEqual(student.parentConsent, undefined);
