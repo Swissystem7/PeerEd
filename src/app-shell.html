@@ -118,13 +118,12 @@
     <div class="card">
       <h2>שער הטקסט</h2>
       <p class="hint">כל יחידת העשרה או הודעה עוברת כאן לפני שהיא נשמרת. נסה להדביק טקסט עם טלפון, מייל,
-        תעודת זהות, קישור או מילה גסה, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
+        תעודת זהות או קישור, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
         <button type="button" class="act" id="checkBtn">בדוק</button>
         <button type="button" class="ghost" id="badBtn">טען דוגמה עם פרטים אישיים</button>
-        <button type="button" class="ghost" id="rudeBtn">טען דוגמה עם שפה פוגענית</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
       <div id="findings"></div>
@@ -171,7 +170,7 @@
                      ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב' };
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
-                  url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
+                  url: 'קישור', handle: 'שם משתמש' };
   var HOURS = [14, 15, 16, 17, 18, 19, 20];
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
@@ -331,13 +330,6 @@
     $('findings').innerHTML = '';
   });
 
-  $('rudeBtn').addEventListener('click', function () {
-    $('checkText').value = 'אל תקשיב למטומטם הזה, הוא מניאק וכל השיעור שלו חרא. ' +
-      'התלמיד אחראי על תזונה נכונה - וזה נשאר נקי.';
-    say('checkStatus', 'לחץ "בדוק".');
-    $('findings').innerHTML = '';
-  });
-
   $('checkBtn').addEventListener('click', function () {
     var text = $('checkText').value;
     var hits = validator.findPersonalData(text);
@@ -349,11 +341,7 @@
       $('findings').innerHTML = '';
       return;
     }
-    var rude = hits.filter(function (h) { return h.kind === 'profanity'; }).length;
-    var parts = [];
-    if (hits.length - rude) parts.push((hits.length - rude) + ' פרטים אישיים');
-    if (rude) parts.push(rude + ' מילים פוגעניות');
-    say('checkStatus', 'נחסם. נמצאו ' + parts.join(' ו-') + '.', true);
+    say('checkStatus', 'נחסם. נמצאו ' + hits.length + ' פרטים אישיים.', true);
     $('findings').innerHTML = hits.map(function (h) {
       return '<div class="flag"><b>' + esc(KIND_HE[h.kind] || h.kind) + '</b> — "' + esc(h.match) +
         '" (תו ' + h.index + ')</div>';
