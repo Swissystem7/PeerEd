@@ -865,6 +865,157 @@ module.exports = {
 };
   __registry["approval"] = module.exports;
 })();
+
+/* ===== src/lib/session.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - the session log (MVP item 6): the record that a text session took place, with nothing in it
+// that points at a person. A session is logged for a pair from matchPairs, but the log keeps only what
+// the pair shares - region, slot, subject - plus the id of the approved unit that was taught and how
+// the session ended. The pair's roster positions are never written: a position is an identity once a
+// municipality sees the roster. The log is a frozen, JSON-serializable value and every operation
+// returns a new log: no clock, no randomness, no network, no personal data. Order is a counter.
+
+const { isRegion } = require('./regions.js');
+const { isSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
+const { statusOf } = require('./approval.js');
+
+const OUTCOMES = Object.freeze(['held', 'missed', 'cut_short']);
+const ACCEPTED_FIELDS = Object.freeze(['slot', 'subject', 'unitId', 'outcome']);
+const UNIT_NOT_APPROVED_ERROR = 'unit is not approved: only an approved unit can be taught';
+
+function emptyLog() {
+  return Object.freeze({ nextSeq: 1, entries: Object.freeze([]) });
+}
+
+function assertLog(log) {
+  if (log === null || typeof log !== 'object' || Array.isArray(log)
+    || !Number.isInteger(log.nextSeq) || log.nextSeq < 1 || !Array.isArray(log.entries)) {
+    throw new Error('invalid log: expected a value from emptyLog() or loadLog()');
+  }
+}
+
+// A pair is what matchPairs returns: region plus the shared slots and subjects. Only those three are
+// read; the roster positions on the pair are ignored on purpose and never reach the entry.
+function assertPair(pair) {
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)
+    || !isRegion(pair.region) || !Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) {
+    throw new Error('invalid pair: expected a pair from matchPairs');
+  }
+}
+
+// The checks shared by a live report and a stored record: the slot and subject are ones the pair
+// shares, the unit is approved in the queue, and the subject is the unit's own subject.
+function cleanEntry(queue, region, sharedSlots, sharedSubjects, input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('session input must be an object with slot, subject, unitId, outcome');
+  }
+  // Privacy gate first, same as the profile and the unit: an unknown key (pupil, student, note,
+  // studentIndex...) is refused before anything else is looked at, with the same message.
+  const keys = Object.keys(input);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+  if (!isSlot(input.slot) || sharedSlots.indexOf(input.slot) === -1) {
+    throw new Error('invalid slot: expected a slot the pair shares');
+  }
+  if (SUBJECTS.indexOf(input.subject) === -1 || sharedSubjects.indexOf(input.subject) === -1) {
+    throw new Error('invalid subject: expected a subject the pair shares');
+  }
+  if (OUTCOMES.indexOf(input.outcome) === -1) {
+    throw new Error('invalid outcome: expected one of ' + OUTCOMES.join(', '));
+  }
+  if (typeof input.unitId !== 'string' || statusOf(queue, input.unitId) !== 'approved') {
+    throw new Error(UNIT_NOT_APPROVED_ERROR);
+  }
+  if (queue.entries[input.unitId].unit.subject !== input.subject) {
+    throw new Error('invalid subject: expected the subject of the unit');
+  }
+  return { region: region, slot: input.slot, subject: input.subject, unitId: input.unitId, outcome: input.outcome };
+}
+
+// Record one session of a matched pair. queue is the approval queue the unit was approved in.
+function logSession(log, queue, pair, input) {
+  assertLog(log);
+  assertPair(pair);
+  const clean = cleanEntry(queue, pair.region, pair.sharedSlots, pair.sharedSubjects, input);
+  clean.seq = log.nextSeq;
+  const entries = log.entries.slice();
+  entries.push(Object.freeze(clean));
+  return Object.freeze({ nextSeq: log.nextSeq + 1, entries: Object.freeze(entries) });
+}
+
+function countBy(entries, key) {
+  const out = {};
+  for (let i = 0; i < entries.length; i += 1) {
+    const v = entries[i][key];
+    out[v] = (out[v] || 0) + 1;
+  }
+  return Object.freeze(out);
+}
+
+// What a municipality gets: counts, never rows about anyone. Keys are sorted on output by JSON
+// consumers; here the counts are plain objects keyed by the enum codes.
+function summarize(log) {
+  assertLog(log);
+  const entries = log.entries;
+  return Object.freeze({
+    sessions: entries.length,
+    byRegion: countBy(entries, 'region'),
+    bySubject: countBy(entries, 'subject'),
+    byOutcome: countBy(entries, 'outcome'),
+    byUnit: countBy(entries, 'unitId')
+  });
+}
+
+// Rebuild a log from stored JSON. Every row is re-checked against the queue it is loaded with, so a
+// row edited on disk cannot bring an extra key, an unapproved unit or a foreign region into the app.
+// A stored row carries its own region and no pair, so the slot and subject are checked for shape and
+// the unit for approval and subject; the pair check happened when the row was written.
+function loadLog(data, queue) {
+  if (data === null || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.entries)) {
+    throw new Error('invalid stored log');
+  }
+  const entries = [];
+  let lastSeq = 0;
+  for (let i = 0; i < data.entries.length; i += 1) {
+    const raw = data.entries[i];
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error('invalid stored session: ' + i);
+    }
+    const keys = Object.keys(raw);
+    for (let k = 0; k < keys.length; k += 1) {
+      if (keys[k] !== 'region' && keys[k] !== 'seq' && ACCEPTED_FIELDS.indexOf(keys[k]) === -1) {
+        throw new Error(PERSONAL_DATA_ERROR);
+      }
+    }
+    if (!isRegion(raw.region)) throw new Error('invalid stored session: bad region at ' + i);
+    if (!Number.isInteger(raw.seq) || raw.seq <= lastSeq) {
+      throw new Error('invalid stored session: seq out of order at ' + i);
+    }
+    const clean = cleanEntry(queue, raw.region, [raw.slot], [raw.subject],
+      { slot: raw.slot, subject: raw.subject, unitId: raw.unitId, outcome: raw.outcome });
+    clean.seq = raw.seq;
+    entries.push(Object.freeze(clean));
+    lastSeq = raw.seq;
+  }
+  const nextSeq = Number.isInteger(data.nextSeq) && data.nextSeq > lastSeq ? data.nextSeq : lastSeq + 1;
+  return Object.freeze({ nextSeq: nextSeq, entries: Object.freeze(entries) });
+}
+
+module.exports = {
+  OUTCOMES,
+  ACCEPTED_FIELDS,
+  UNIT_NOT_APPROVED_ERROR,
+  emptyLog,
+  logSession,
+  summarize,
+  loadLog
+};
+  __registry["session"] = module.exports;
+})();
 </script>
 
 <script>
