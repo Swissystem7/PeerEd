@@ -16,6 +16,8 @@ test('retention: policy is frozen and maps profile and match to finite day limit
   assert.ok(Number.isFinite(policy.match) && policy.match > 0);
   assert.notEqual(policy.profile, Infinity);
   assert.notEqual(policy.match, Infinity);
+  assert.equal(policy.profile, 730);
+  assert.equal(policy.match, 365);
 });
 
 test('retention: new profiles carry the profile category limit from the active policy', () => {
