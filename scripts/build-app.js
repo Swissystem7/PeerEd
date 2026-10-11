@@ -11,7 +11,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 // dependency order: a module may only require one listed before it
-const ORDER = ['regions', 'retention', 'profile', 'match', 'validator', 'unit'];
+const ORDER = ['regions', 'retention', 'profile', 'match', 'validator', 'unit', 'contact'];
 const MARKER = '<!--MODULES-->';
 
 // Every input is normalized to LF before it is joined. On a Windows checkout (git autocrlf) the shell and
@@ -45,7 +45,8 @@ function build(opts = {}) {
       ? overrides[name]
       : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8'));
     
-    const reqRe = /require\(['"]\.\/([^'"]+)\.js['"]\)/g;
+    // with or without the .js suffix: require('./contact') resolves in Node just like require('./contact.js')
+    const reqRe = /require\(\s*['"]\.\/([^'"]+?)(?:\.js)?['"]\s*\)/g;
     let m;
     while ((m = reqRe.exec(code)) !== null) {
       const dep = m[1];
