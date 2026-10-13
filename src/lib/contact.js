@@ -25,4 +25,13 @@ function contactLink(contact, issueForm) {
   return null;
 }
 
-module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contactLink };
+function isValidEmail(email) {
+  return EMAIL_RE.test(email);
+}
+
+module.exports = {
+  CONTACT: CONTACT,
+  ISSUE_FORM: ISSUE_FORM,
+  contactLink: contactLink,
+  isValidEmail: isValidEmail
+};
