@@ -33,24 +33,16 @@ function moduleBlock(name, code) {
   ].join('\n');
 }
 
-function build(opts = {}) {
-  const shell = lf(fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8'));
-  if (shell.indexOf(MARKER) === -1) throw new Error('src/app-shell.html has no ' + MARKER + ' marker');
-  const banner = '/* Built by scripts/build-app.js from src/lib/*.js - do not edit this block by hand. */';
-  
-  const overrides = opts.modules || {};
-  
-  const blocks = ORDER.map((name, index) => {
-    const code = lf(overrides[name] !== undefined
-      ? overrides[name]
-      : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8'));
-    
-    // with or without the .js suffix: require('./contact') resolves in Node just like require('./contact.js')
+// with or without the .js suffix: require('./contact') resolves in Node just like require('./contact.js')
+function assertOrder(modules, order = ORDER) {
+  for (let index = 0; index < order.length; index += 1) {
+    const name = order[index];
+    const code = modules[name];
     const reqRe = /require\(\s*['"]\.\/([^'"]+?)(?:\.js)?['"]\s*\)/g;
     let m;
     while ((m = reqRe.exec(code)) !== null) {
       const dep = m[1];
-      const depIdx = ORDER.indexOf(dep);
+      const depIdx = order.indexOf(dep);
       if (depIdx === -1) {
         throw new Error(`Module '${name}' requires '${dep}', which is not in ORDER.`);
       }
@@ -58,9 +50,24 @@ function build(opts = {}) {
         throw new Error(`Module '${name}' requires '${dep}', which is loaded after it in ORDER.`);
       }
     }
-    
-    return moduleBlock(name, code);
-  });
+  }
+}
+
+function build(opts = {}) {
+  const shell = lf(fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8'));
+  if (shell.indexOf(MARKER) === -1) throw new Error('src/app-shell.html has no ' + MARKER + ' marker');
+  const banner = '/* Built by scripts/build-app.js from src/lib/*.js - do not edit this block by hand. */';
+
+  const overrides = opts.modules || {};
+  const modules = {};
+  for (const name of ORDER) {
+    modules[name] = lf(overrides[name] !== undefined
+      ? overrides[name]
+      : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8'));
+  }
+  assertOrder(modules);
+
+  const blocks = ORDER.map((name) => moduleBlock(name, modules[name]));
 
   // A function replacer, not a replacement string: module code is arbitrary JavaScript, and a "$&" or
   // "$'" inside a regex or a string literal would otherwise be expanded here and inline the wrong text.
