@@ -210,6 +210,60 @@ module.exports = {
   __registry["retention"] = module.exports;
 })();
 
+/* ===== src/lib/cycle-manager.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd — drop stored match and profile records that exceeded their retention window. Inputs are never mutated.
+
+function toUtcDayIndex(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error('invalid date: ' + String(value));
+  }
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+function ageInDays(recordedAt, currentDate) {
+  const recorded = toUtcDayIndex(recordedAt);
+  const asOf = toUtcDayIndex(currentDate);
+  return Math.floor((asOf - recorded) / 86400000);
+}
+
+function isRetained(record, currentDate) {
+  if (record === null || typeof record !== 'object') {
+    throw new Error('retention record must be an object');
+  }
+  if (!record.retention || typeof record.retention.maxAgeDays !== 'number') {
+    throw new Error('retention record is missing maxAgeDays');
+  }
+  if (record.recordedAt === undefined || record.recordedAt === null) {
+    throw new Error('retention record is missing recordedAt');
+  }
+  return ageInDays(record.recordedAt, currentDate) <= record.retention.maxAgeDays;
+}
+
+// { matches, profiles } are parallel arrays of stored records (each with recordedAt + retention metadata).
+function applyRetentionPolicy(stored, currentDate) {
+  if (stored === null || typeof stored !== 'object' || Array.isArray(stored)) {
+    throw new Error('stored input must be an object with matches and profiles arrays');
+  }
+  const matches = Array.isArray(stored.matches) ? stored.matches : [];
+  const profiles = Array.isArray(stored.profiles) ? stored.profiles : [];
+  return {
+    matches: matches.filter((r) => isRetained(r, currentDate)),
+    profiles: profiles.filter((r) => isRetained(r, currentDate))
+  };
+}
+
+module.exports = {
+  applyRetentionPolicy,
+  ageInDays
+};
+  __registry["cycle-manager"] = module.exports;
+})();
+
 /* ===== src/lib/profile.js ===== */
 (function () {
   var module = { exports: {} };
@@ -346,6 +400,8 @@ module.exports = {
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
+const { getRetentionPolicy } = require('./retention.js');
+
 // Returns true if two string arrays share at least one common element.
 function hasOverlap(a, b) {
   const right = new Set(Array.isArray(b) ? b : []);
@@ -456,7 +512,31 @@ function matchPairs(students, pupils) {
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
-module.exports = { matchPairs, shared, compareCandidates, hasOverlap };
+// Persisted match row: a matchPairs() candidate plus when it was stored and its retention category.
+function makeMatchRecord(pair, recordedAt) {
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) {
+    throw new Error('match pair must be an object');
+  }
+  if (recordedAt === undefined || recordedAt === null) {
+    throw new Error('recordedAt is required');
+  }
+  const policy = getRetentionPolicy();
+  const record = {
+    studentIndex: pair.studentIndex,
+    pupilIndex: pair.pupilIndex,
+    region: pair.region,
+    sharedSlots: Object.freeze(pair.sharedSlots.slice()),
+    sharedSubjects: Object.freeze(pair.sharedSubjects.slice()),
+    recordedAt: recordedAt instanceof Date ? recordedAt.toISOString() : String(recordedAt),
+    retention: Object.freeze({
+      dataCategory: 'match',
+      maxAgeDays: policy.match
+    })
+  };
+  return Object.freeze(record);
+}
+
+module.exports = { matchPairs, shared, compareCandidates, hasOverlap, makeMatchRecord };
   __registry["match"] = module.exports;
 })();
 
@@ -1058,7 +1138,12 @@ module.exports = {
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
     ['text too long', 'הטקסט ארוך מדי'],
-    ['text too short', 'אין טקסט לבדוק']
+    ['text too short', 'אין טקסט לבדוק'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך השיעור לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין']
   ];
   function errorHe(err) {
     var msg = String(err && err.message || '');

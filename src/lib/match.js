@@ -1,6 +1,8 @@
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
+const { getRetentionPolicy } = require('./retention.js');
+
 // Returns true if two string arrays share at least one common element.
 function hasOverlap(a, b) {
   const right = new Set(Array.isArray(b) ? b : []);
@@ -111,4 +113,28 @@ function matchPairs(students, pupils) {
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
-module.exports = { matchPairs, shared, compareCandidates, hasOverlap };
+// Persisted match row: a matchPairs() candidate plus when it was stored and its retention category.
+function makeMatchRecord(pair, recordedAt) {
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) {
+    throw new Error('match pair must be an object');
+  }
+  if (recordedAt === undefined || recordedAt === null) {
+    throw new Error('recordedAt is required');
+  }
+  const policy = getRetentionPolicy();
+  const record = {
+    studentIndex: pair.studentIndex,
+    pupilIndex: pair.pupilIndex,
+    region: pair.region,
+    sharedSlots: Object.freeze(pair.sharedSlots.slice()),
+    sharedSubjects: Object.freeze(pair.sharedSubjects.slice()),
+    recordedAt: recordedAt instanceof Date ? recordedAt.toISOString() : String(recordedAt),
+    retention: Object.freeze({
+      dataCategory: 'match',
+      maxAgeDays: policy.match
+    })
+  };
+  return Object.freeze(record);
+}
+
+module.exports = { matchPairs, shared, compareCandidates, hasOverlap, makeMatchRecord };
