@@ -21,6 +21,7 @@ approves publishing.
 | `src/lib/match.js` | Deterministic matching: same region, at least one shared hour, at least one shared subject, each person at most once, and the largest possible number of pairs (a greedy pass by shared hours, then augmenting paths). `explainUnmatched()` gives the true reason for each person left out. |
 | `src/lib/validator.js` | The free-text gate (email, Israeli phone, nine-digit id, links, handles). On screen it is a demo: the app stores no free text. |
 | `src/lib/unit.js` | An enrichment-unit record with a deterministic id (title and body pass the free-text gate). A module only: nothing on screen offers or stores units. |
+| `src/lib/approval.js` | The teacher-unit approval queue: a unit is `pending` until the approver role decides, a revision returns it to `pending`, and only approved units are listed for a pupil. The decision records the role, never a person. A module only: nothing on screen submits or approves. |
 | `src/lib/contact.js` | The one place for a contact channel. Since 28.9 `CONTACT` is the Google Form "משוב על האפליקציות", pre-filled with PeerEd. If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
 
 On screen: add participants (or load a sample), compute the match, see who is left out and why, download
