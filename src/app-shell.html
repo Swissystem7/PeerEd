@@ -212,6 +212,19 @@
     ['invalid availability slot:', 'שעה שאינה בלוח'],
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    // The enrichment-unit record. No screen offers a unit yet; the lines are here because the table
+    // must cover every message a module inlined into app.html can throw. Two modules build a unit and
+    // they name the fields differently - validator.js uses minutes/text, unit.js uses
+    // durationMinutes/body - so both wordings need a line. 'invalid subject:' and 'invalid title:' are
+    // shared; a key is matched as a prefix, so one line serves both callers.
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, durationMinutes, body', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך הזמן לא תקין'],
+    ['invalid durationMinutes:', 'משך הזמן לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין'],
+    ['invalid body:', 'טקסט לא תקין'],
     ['text too long', 'הטקסט ארוך מדי'],
     ['text too short', 'אין טקסט לבדוק']
   ];
