@@ -16,7 +16,8 @@ approves publishing.
 | File | What it does |
 |---|---|
 | `src/lib/regions.js` | The six region codes and their validation. |
-| `src/lib/retention.js` | How long each kind of record may be kept (profile 365 days, match 180); nothing is kept indefinitely. |
+| `src/lib/retention.js` | How long each kind of record may be kept (profile 730 days, match 365); nothing is kept indefinitely. |
+| `src/lib/cycle-manager.js` | The end-of-cycle sweep: splits stored rows into the ones the policy still allows and the ones to delete, by `retention.js`'s limit for the row's category as it stands today. The caller passes the date and writes the result back; nothing is mutated. A module only: no screen runs a sweep yet. |
 | `src/lib/profile.js` | The only record the app keeps: role, region, availability slots (8:00-22:00), subjects. Any other key, even an empty one, is refused with `personal data is not accepted`. |
 | `src/lib/match.js` | Deterministic matching: same region, at least one shared hour, at least one shared subject, each person at most once, and the largest possible number of pairs (a greedy pass by shared hours, then augmenting paths). `makeMatchRecord()` stamps a pair with the day it was kept and its retention category, so a stored pair carries its own expiry; the screen does not store pairs yet. |
 | `src/lib/validator.js` | The free-text gate (email, Israeli phone, nine-digit id, links, handles). On screen it is a demo: the app stores no free text. |
