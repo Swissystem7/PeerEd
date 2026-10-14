@@ -177,6 +177,10 @@ function isRegion(code) {
   return typeof code === 'string' && REGIONS.indexOf(code) !== -1;
 }
 
+function getValidRegions() {
+  return REGIONS;
+}
+
 // Trim + upper-case, then validate. Returns the code or null.
 function normalizeRegion(input) {
   if (typeof input !== 'string') return null;
@@ -184,7 +188,7 @@ function normalizeRegion(input) {
   return isRegion(code) ? code : null;
 }
 
-module.exports = { REGIONS, isRegion, normalizeRegion };
+module.exports = { REGIONS, isRegion, getValidRegions, normalizeRegion };
   __registry["regions"] = module.exports;
 })();
 
@@ -1058,7 +1062,12 @@ module.exports = {
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
     ['text too long', 'הטקסט ארוך מדי'],
-    ['text too short', 'אין טקסט לבדוק']
+    ['text too short', 'אין טקסט לבדוק'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך היחידה לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין']
   ];
   function errorHe(err) {
     var msg = String(err && err.message || '');
