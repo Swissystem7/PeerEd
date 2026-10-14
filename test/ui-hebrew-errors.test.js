@@ -81,7 +81,10 @@ test('the forbidden-field demo shows the refusal in Hebrew', () => {
 
 test('every error the modules can throw has a Hebrew line in the shell', () => {
   const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
-  const lib = ['profile.js', 'validator.js'].map((f) => fs.readFileSync(path.join(ROOT, 'src', 'lib', f), 'utf8')).join('\n');
+  // unit.js is inlined into app.html too, so its messages can reach a status line the moment a screen
+  // offers a unit. It builds a unit with its own field names (durationMinutes/body, where validator.js
+  // says minutes/text), so leaving it out let half the unit messages go untranslated unnoticed.
+  const lib = ['profile.js', 'validator.js', 'unit.js'].map((f) => fs.readFileSync(path.join(ROOT, 'src', 'lib', f), 'utf8')).join('\n');
   const literals = [...lib.matchAll(/new Error\('([^']+)'/g)].map((m) => m[1]);
   literals.push('personal data is not accepted');
   assert.ok(literals.length >= 9, 'found ' + literals.length + ' messages');
