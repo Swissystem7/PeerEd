@@ -1,6 +1,8 @@
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
+const { getRetentionPolicy } = require('./retention.js');
+
 // Returns true if two string arrays share at least one common element.
 function hasOverlap(a, b) {
   const right = new Set(Array.isArray(b) ? b : []);
@@ -111,4 +113,39 @@ function matchPairs(students, pupils) {
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
-module.exports = { matchPairs, shared, compareCandidates, hasOverlap };
+const PAIR_ERROR = 'match pair must be an object from matchPairs()';
+
+// The UTC calendar day of a timestamp, as YYYY-MM-DD. Retention is counted in days, so the day is
+// everything a stored row needs - and the hour at which a particular minor was matched says more about
+// the person than the policy ever asks.
+function utcDay(value) {
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+// A pair on its way into storage: a matchPairs() candidate plus the day it was kept and the retention
+// category a cycle sweep reads. Frozen and JSON-serializable, and with no clock of its own - the caller
+// passes recordedAt, so the same arguments always produce the same row. Still a module: nothing on
+// screen stores a match yet.
+function makeMatchRecord(pair, recordedAt) {
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) throw new Error(PAIR_ERROR);
+  if (!Number.isInteger(pair.studentIndex) || !Number.isInteger(pair.pupilIndex)) throw new Error(PAIR_ERROR);
+  if (!Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) throw new Error(PAIR_ERROR);
+  if (recordedAt === undefined || recordedAt === null) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
+  }
+  return Object.freeze({
+    studentIndex: pair.studentIndex,
+    pupilIndex: pair.pupilIndex,
+    region: pair.region,
+    sharedSlots: Object.freeze(pair.sharedSlots.slice()),
+    sharedSubjects: Object.freeze(pair.sharedSubjects.slice()),
+    recordedAt: utcDay(recordedAt),
+    retention: Object.freeze({ dataCategory: 'match', maxAgeDays: getRetentionPolicy().match })
+  });
+}
+
+module.exports = { matchPairs, shared, compareCandidates, hasOverlap, makeMatchRecord };
