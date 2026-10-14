@@ -79,9 +79,14 @@ test('the forbidden-field demo shows the refusal in Hebrew', () => {
   assert.doesNotMatch($('gateStatus').textContent, LATIN, $('gateStatus').textContent);
 });
 
+// profile.js, validator.js and unit.js are the modules a screen input reaches: the add-participant form,
+// the free-text gate and the unit record. approval.js is deliberately absent - its errors describe a
+// corrupt stored queue, and no screen runs the approval flow yet (see README).
+const SCREEN_MODULES = ['profile.js', 'validator.js', 'unit.js'];
+
 test('every error the modules can throw has a Hebrew line in the shell', () => {
   const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
-  const lib = ['profile.js', 'validator.js'].map((f) => fs.readFileSync(path.join(ROOT, 'src', 'lib', f), 'utf8')).join('\n');
+  const lib = SCREEN_MODULES.map((f) => fs.readFileSync(path.join(ROOT, 'src', 'lib', f), 'utf8')).join('\n');
   const literals = [...lib.matchAll(/new Error\('([^']+)'/g)].map((m) => m[1]);
   literals.push('personal data is not accepted');
   assert.ok(literals.length >= 9, 'found ' + literals.length + ' messages');
