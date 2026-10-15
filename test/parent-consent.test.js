@@ -93,3 +93,14 @@ test('setParentConsent returns a frozen profile with copied arrays, like makePro
   assert.strictEqual(student.parentConsent, undefined);
   assert.strictEqual(profileLib.revokeParentConsent(student).parentConsent, false);
 });
+
+test('setParentConsent takes a real boolean only: a form string never records consent', () => {
+  // Before this test the value went through Boolean(), so 'false', 'no' or '0' from a form
+  // recorded a consent the parent never gave.
+  const pupil = makeProfile({ role: 'pupil', region: getValidRegion(), availability: ['SUN_16'], subjects: ['MATH'] });
+  ['false', 'no', '0', 'true', 1, 0, null, {}].forEach((value) => {
+    assert.throws(() => profileLib.setParentConsent(pupil, value), { message: /invalid parentConsent/ });
+  });
+  // omitted still means grant, as before
+  assert.strictEqual(profileLib.setParentConsent(pupil).parentConsent, true);
+});

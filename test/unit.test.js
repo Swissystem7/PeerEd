@@ -35,6 +35,15 @@ test('unit: title spacing and case do not make a new unit; the body does not eit
   assert.equal(unitId('Quadratic Equations', 'MATH', 20), unitId('quadratic equations', 'MATH', 20));
 });
 
+test('unit: a composed and a decomposed spelling of the same title are the same unit', () => {
+  // e + combining acute vs the precomposed letter
+  assert.equal(unitId('Café chemistry', 'CHEMISTRY', 20), unitId('Café chemistry', 'CHEMISTRY', 20));
+  // shin with its dot and a qamats, the two marks typed in either order
+  assert.equal(unitId('שָׁלום', 'MATH', 20), unitId('שָׁלום', 'MATH', 20));
+  // the pinned ASCII id is untouched by the normalization
+  assert.equal(unitId('Quadratic equations', 'MATH', 20), 'u-e8281b3a2f2f8f08');
+});
+
 test('unit: a different title, subject or duration is a different unit', () => {
   const base = makeUnit(GOOD).id;
   assert.notEqual(makeUnit(Object.assign({}, GOOD, { title: GOOD.title + ' ב' })).id, base);

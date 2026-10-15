@@ -6,10 +6,17 @@
 // network, no personal data. Order is a submission counter, so a list of pending units is the same on
 // every device that replays the same submissions.
 
+const { PERSONAL_DATA_ERROR } = require('./profile.js');
 const { makeUnit } = require('./unit.js');
 const { assertCleanText } = require('./validator.js');
 
 const STATUSES = Object.freeze(['pending', 'approved', 'rejected']);
+// The keys a stored entry may carry. The unit inside has its own gate (assertUnit); this list is the
+// gate for the record around it, so a teacher name or a note written next to a unit on disk is refused
+// with the same message as everywhere else, not dropped on the way in.
+const ENTRY_FIELDS = Object.freeze(['unit', 'status', 'revision', 'seq', 'decidedBy', 'reason']);
+// the queue itself is only ever written with these two keys
+const QUEUE_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const APPROVER_ROLE = 'owner';
 const REASON_MAX_LENGTH = 300;
 const NOT_PENDING_ERROR = 'unit is not pending: only a pending unit can be approved or rejected';
@@ -132,12 +139,22 @@ function loadQueue(data) {
     || data.entries === null || typeof data.entries !== 'object' || Array.isArray(data.entries)) {
     throw new Error('invalid stored queue');
   }
+  // a key next to the entries (a coordinator name, a school) is refused like one inside an entry
+  const queueKeys = Object.keys(data);
+  for (let k = 0; k < queueKeys.length; k += 1) {
+    if (QUEUE_FIELDS.indexOf(queueKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
   const ids = Object.keys(data.entries);
   const entries = {};
+  const seen = new Set();
   let maxSeq = 0;
   for (let i = 0; i < ids.length; i += 1) {
     const raw = data.entries[ids[i]];
     if (raw === null || typeof raw !== 'object') throw new Error('invalid stored entry: ' + ids[i]);
+    const rawKeys = Object.keys(raw);
+    for (let k = 0; k < rawKeys.length; k += 1) {
+      if (ENTRY_FIELDS.indexOf(rawKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+    }
     const unit = assertUnit(raw.unit);
     if (unit.id !== ids[i]) throw new Error('invalid stored entry: id mismatch for ' + ids[i]);
     if (STATUSES.indexOf(raw.status) === -1) throw new Error('invalid stored entry: bad status for ' + ids[i]);
@@ -145,13 +162,26 @@ function loadQueue(data) {
       throw new Error('invalid stored entry: bad revision or seq for ' + ids[i]);
     }
     const entry = { unit: unit, status: raw.status, revision: raw.revision, seq: raw.seq };
-    if (raw.status !== 'pending') entry.decidedBy = APPROVER_ROLE;
+    if (raw.status !== 'pending') {
+      entry.decidedBy = APPROVER_ROLE;
+    } else if (raw.decidedBy !== undefined) {
+      // nobody has decided a pending unit; a decider on one is a record the flow never writes, refused
+      // like a reason on it, so a forged half-decision does not load as an ordinary pending unit
+      throw new Error('invalid stored entry: decidedBy on a unit that is still pending: ' + ids[i]);
+    }
     if (raw.status === 'rejected') {
       if (typeof raw.reason !== 'string') {
         throw new Error('invalid stored entry: rejected without a reason: ' + ids[i]);
       }
       entry.reason = assertCleanText(raw.reason, { maxLength: REASON_MAX_LENGTH });
+    } else if (raw.reason !== undefined) {
+      // a reason belongs to a rejection only; one on a pending or approved unit is not a record the
+      // flow could have written, so it is refused rather than dropped
+      throw new Error('invalid stored entry: reason on a unit that was not rejected: ' + ids[i]);
     }
+    // the counter is the order every device shows the queue in, so two entries cannot share a number
+    if (seen.has(raw.seq)) throw new Error('invalid stored entry: seq already used: ' + ids[i]);
+    seen.add(raw.seq);
     entries[unit.id] = Object.freeze(entry);
     if (raw.seq > maxSeq) maxSeq = raw.seq;
   }
