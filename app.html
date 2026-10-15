@@ -493,12 +493,30 @@ function assertPeerUserId(id) {
 }
 
 // A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
-function isSlot(slot) {
-  if (typeof slot !== 'string') return false;
+// The canonical spelling has no leading zero on the hour: 'SUN_8', never 'SUN_08'. The engine compares
+// slots as strings (match.js hasOverlap / shared), so two spellings of one hour would never meet.
+// normalizeSlot returns the canonical string for any accepted spelling, or null.
+function normalizeSlot(slot) {
+  if (typeof slot !== 'string') return null;
   const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
-  if (!m || DAYS.indexOf(m[1]) === -1) return false;
+  if (!m || DAYS.indexOf(m[1]) === -1) return null;
   const hour = Number(m[2]);
-  return Number.isInteger(hour) && hour >= HOUR_MIN && hour <= HOUR_MAX;
+  if (!Number.isInteger(hour) || hour < HOUR_MIN || hour > HOUR_MAX) return null;
+  return m[1] + '_' + String(hour);
+}
+
+function isSlot(slot) {
+  return normalizeSlot(slot) !== null;
+}
+
+// Order kept, repeats dropped: the people screen counts availability.length as free hours and the
+// match screen counts shared subjects, so a slot ticked twice (or stored twice) must not count twice.
+function unique(list) {
+  const out = [];
+  for (let i = 0; i < list.length; i += 1) {
+    if (out.indexOf(list[i]) === -1) out.push(list[i]);
+  }
+  return out;
 }
 
 function getSlotHour(slot) {
@@ -528,8 +546,11 @@ function makeProfile(input) {
   if (!Array.isArray(availability) || availability.length === 0) {
     throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
   }
+  const slots = [];
   for (let i = 0; i < availability.length; i += 1) {
-    if (!isSlot(availability[i])) throw new Error('invalid availability slot: ' + String(availability[i]));
+    const slot = normalizeSlot(availability[i]);
+    if (slot === null) throw new Error('invalid availability slot: ' + String(availability[i]));
+    slots.push(slot);
   }
   if (!Array.isArray(subjects) || subjects.length === 0) {
     throw new Error('invalid subjects: expected a non-empty array');
@@ -556,8 +577,8 @@ function makeProfile(input) {
   const profile = {
     role: role,
     region: region,
-    availability: Object.freeze(availability.slice()),
-    subjects: Object.freeze(subjects.slice())
+    availability: Object.freeze(unique(slots)),
+    subjects: Object.freeze(unique(subjects))
   };
 
   if (role === 'pupil' || input.parentConsent !== undefined) {
@@ -629,6 +650,7 @@ module.exports = {
   HOUR_MIN,
   HOUR_MAX,
   isSlot,
+  normalizeSlot,
   makeProfile,
   getSlotHour,
   setParentConsent,
@@ -1402,7 +1424,7 @@ module.exports = {
 // returns a new log: no clock, no randomness, no network, no personal data. Order is a counter.
 
 const { isRegion } = require('./regions.js');
-const { isSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
+const { isSlot, normalizeSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
 const { statusOf } = require('./approval.js');
 
 const OUTCOMES = Object.freeze(['held', 'missed', 'cut_short']);
@@ -1521,7 +1543,9 @@ function reportCsv(log) {
 // Rebuild a log from stored JSON. Every row is re-checked against the queue it is loaded with, so a
 // row edited on disk cannot bring an extra key, an unapproved unit or a foreign region into the app.
 // A stored row carries its own region and no pair, so the slot and subject are checked for shape and
-// the unit for approval and subject; the pair check happened when the row was written.
+// the unit for approval and subject; the pair check happened when the row was written. The slot must be
+// in its canonical spelling: the pair's slots come from makeProfile, so logSession only ever writes
+// 'SUN_8', and a stored 'SUN_08' is a row the app never wrote - refused, not quietly kept.
 function loadLog(data, queue) {
   if (data === null || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.entries)) {
     throw new Error('invalid stored log');
@@ -1543,7 +1567,7 @@ function loadLog(data, queue) {
     if (!Number.isInteger(raw.seq) || raw.seq <= lastSeq) {
       throw new Error('invalid stored session: seq out of order at ' + i);
     }
-    const clean = cleanEntry(queue, raw.region, [raw.slot], [raw.subject],
+    const clean = cleanEntry(queue, raw.region, [normalizeSlot(raw.slot)], [raw.subject],
       { slot: raw.slot, subject: raw.subject, unitId: raw.unitId, outcome: raw.outcome });
     clean.seq = raw.seq;
     entries.push(Object.freeze(clean));
