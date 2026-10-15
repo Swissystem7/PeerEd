@@ -73,7 +73,7 @@ test('cycle sweep: a match record from match.js sweeps with no adapter in betwee
   const slots = ['SUN_16'];
   const pair = matchPairs(
     [makeProfile({ role: 'student', region: 'CENTER', availability: slots, subjects: ['MATH'] })],
-    [makeProfile({ role: 'pupil', region: 'CENTER', availability: slots, subjects: ['MATH'] })]
+    [makeProfile({ role: 'pupil', region: 'CENTER', availability: slots, subjects: ['MATH'], parentConsent: true })]
   )[0];
   const fresh = makeMatchRecord(pair, daysBefore(1));
   const stale = makeMatchRecord(pair, daysBefore(POLICY.match + 1));
@@ -93,7 +93,7 @@ test('cycle sweep: ageInDays counts whole UTC days', () => {
 
 // applyRetentionPolicy(): the { matches, profiles } shape, judged by the maxAgeDays stamped on each row.
 const st = () => makeProfile({ role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] });
-const pu = () => makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] });
+const pu = () => makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'], parentConsent: true });
 
 function storedProfile(profile, recordedAt) {
   return Object.freeze(Object.assign({}, profile, { recordedAt }));

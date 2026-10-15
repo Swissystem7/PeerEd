@@ -76,14 +76,14 @@ test('profile: a valid input yields a frozen four-field object that cannot be mu
 
 test('match: deterministic, and [] when region, slots or subjects do not overlap', () => {
   const s = [makeProfile({ role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] })];
-  const p = [makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] })];
+  const p = [makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'], parentConsent: true })];
   const first = matchPairs(s, p);
   const second = matchPairs(s, p);
   assert.deepEqual(first, second);
   assert.deepEqual(first, [{ studentIndex: 0, pupilIndex: 0, region: 'CENTER', sharedSlots: ['SUN_16'], sharedSubjects: ['MATH'] }]);
-  assert.deepEqual(matchPairs(s, [makeProfile({ role: 'pupil', region: 'SOUTH', availability: ['SUN_16'], subjects: ['MATH'] })]), []);
-  assert.deepEqual(matchPairs(s, [makeProfile({ role: 'pupil', region: 'CENTER', availability: ['MON_16'], subjects: ['MATH'] })]), []);
-  assert.deepEqual(matchPairs(s, [makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['CS'] })]), []);
+  assert.deepEqual(matchPairs(s, [makeProfile({ role: 'pupil', region: 'SOUTH', availability: ['SUN_16'], subjects: ['MATH'], parentConsent: true })]), []);
+  assert.deepEqual(matchPairs(s, [makeProfile({ role: 'pupil', region: 'CENTER', availability: ['MON_16'], subjects: ['MATH'], parentConsent: true })]), []);
+  assert.deepEqual(matchPairs(s, [makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['CS'], parentConsent: true })]), []);
   assert.deepEqual(matchPairs([], p), []);
   assert.deepEqual(matchPairs(s, []), []);
 });
@@ -95,9 +95,9 @@ test('match: worked example — three students, three pupils, two regions, order
     makeProfile({ role: 'student', region: 'SOUTH', availability: ['TUE_17', 'WED_17'], subjects: ['PHYSICS', 'ENGLISH'] })
   ];
   const pupils = [
-    makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'] }),
-    makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'] }),
-    makeProfile({ role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'] })
+    makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'], parentConsent: true }),
+    makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'], parentConsent: true }),
+    makeProfile({ role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'], parentConsent: true })
   ];
   // candidates: s0-p0 (2 slots, 2 subjects) first; then the (1,1) ties by student index then pupil index:
   // s0-p1 (student 0 already used), s1-p0 (pupil 0 already used), s1-p1 taken, s2-p2 taken.
@@ -115,7 +115,7 @@ test('match: each participant appears at most once and the better-scored pair wi
     makeProfile({ role: 'student', region: 'NORTH', availability: ['SUN_16'], subjects: ['MATH'] }),
     makeProfile({ role: 'student', region: 'NORTH', availability: ['SUN_16', 'MON_16'], subjects: ['MATH'] })
   ];
-  const pupils = [makeProfile({ role: 'pupil', region: 'NORTH', availability: ['SUN_16', 'MON_16'], subjects: ['MATH'] })];
+  const pupils = [makeProfile({ role: 'pupil', region: 'NORTH', availability: ['SUN_16', 'MON_16'], subjects: ['MATH'], parentConsent: true })];
   const pairs = matchPairs(students, pupils);
   assert.equal(pairs.length, 1);
   assert.equal(pairs[0].studentIndex, 1, 'two shared slots beat one, even with a higher student index');

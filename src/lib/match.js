@@ -31,6 +31,16 @@ function shared(a, b) {
   return out.sort();
 }
 
+// A pupil is a minor: a text session with a student is contact, and contact needs the consent of a
+// parent (PURPOSE.md, the regulation section). The profile records consent as one boolean and nothing
+// else - no name, no date - and makeProfile sets it to false on every pupil that did not get it. The
+// engine reads the flag here and nowhere else: a pupil without it is not in the pool, however well the
+// region, the hours and the subjects fit, so no screen and no stored roster can pair a pupil whose
+// parent has not said yes. Only an explicit true counts; a missing flag is treated as no.
+function hasParentConsent(pupil) {
+  return pupil !== null && typeof pupil === 'object' && pupil.parentConsent === true;
+}
+
 function compareCandidates(x, y) {
   return (y.sharedSlots.length - x.sharedSlots.length) ||
     (y.sharedSubjects.length - x.sharedSubjects.length) ||
@@ -38,7 +48,7 @@ function compareCandidates(x, y) {
     (x.pupilIndex - y.pupilIndex);
 }
 
-// All valid (student, pupil) candidates, best first.
+// All valid (student, pupil) candidates, best first. A pupil without parent consent is in no candidate.
 function candidatesOf(S, P) {
   const candidates = [];
   for (let si = 0; si < S.length; si += 1) {
@@ -46,7 +56,8 @@ function candidatesOf(S, P) {
     if (!s || typeof s.region !== 'string') continue;
     for (let pi = 0; pi < P.length; pi += 1) {
       const p = P[pi];
-      if (!p || p.region !== s.region) continue;
+      if (!hasParentConsent(p)) continue;
+      if (p.region !== s.region) continue;
       if (!hasOverlap(s.availability, p.availability)) continue;
       const slots = shared(s.availability, p.availability);
       const subjects = shared(s.subjects, p.subjects);
@@ -63,12 +74,13 @@ function candidatesOf(S, P) {
   return candidates.sort(compareCandidates);
 }
 
-// students / pupils: arrays of profiles ({ region, availability, subjects }).
-// A pair needs the same region, >= 1 shared slot and >= 1 shared subject. Each participant is used at most once.
-// The result has the LARGEST POSSIBLE number of pairs: candidates are sorted by shared slots desc, shared
-// subjects desc, student index, pupil index and taken greedily; then, for every student still alone (in
-// index order), an augmenting path is searched in that same candidate order (Kuhn's algorithm), which can
-// only add a pair, never lose one. Pairs are returned in candidate order. No clock, no randomness.
+// students / pupils: arrays of profiles ({ region, availability, subjects }, pupils also parentConsent).
+// A pair needs a pupil with parent consent, the same region, >= 1 shared slot and >= 1 shared subject.
+// Each participant is used at most once. The result has the LARGEST POSSIBLE number of pairs: candidates
+// are sorted by shared slots desc, shared subjects desc, student index, pupil index and taken greedily;
+// then, for every student still alone (in index order), an augmenting path is searched in that same
+// candidate order (Kuhn's algorithm), which can only add a pair, never lose one. Pairs are returned in
+// candidate order. No clock, no randomness.
 function matchPairs(students, pupils) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
@@ -152,7 +164,8 @@ function makeMatchRecord(pair, recordedAt) {
 // free student (an evacuated town, a region whose students left) can still learn with a student from
 // another region. Only the people `pairs` left out take part; the region rule is the only one dropped
 // (a shared hour and a shared subject are still required), and the same largest-matching engine runs on
-// them. The local pairs are never touched, so this can only add pairs. Each result names both regions;
+// them, so the parent-consent gate holds here too. The local pairs are never touched, so this can only
+// add pairs. Each result names both regions;
 // indexes are positions in the original students / pupils arrays. Same input -> same output.
 function matchAcrossRegions(students, pupils, pairs) {
   const S = Array.isArray(students) ? students : [];
@@ -162,7 +175,7 @@ function matchAcrossRegions(students, pupils, pairs) {
   const freeS = []; const freeP = [];
   S.forEach((s, i) => { if (s && typeof s.region === 'string' && !usedS.has(i)) freeS.push(i); });
   P.forEach((p, i) => { if (p && typeof p.region === 'string' && !usedP.has(i)) freeP.push(i); });
-  const anywhere = (x) => ({ region: 'ANY', availability: x.availability, subjects: x.subjects });
+  const anywhere = (x) => ({ region: 'ANY', availability: x.availability, subjects: x.subjects, parentConsent: x.parentConsent });
   return matchPairs(freeS.map((i) => anywhere(S[i])), freeP.map((i) => anywhere(P[i]))).map((c) => ({
     studentIndex: freeS[c.studentIndex],
     pupilIndex: freeP[c.pupilIndex],
@@ -173,8 +186,10 @@ function matchAcrossRegions(students, pupils, pairs) {
   }));
 }
 
-module.exports = { matchPairs, explainUnmatched, matchAcrossRegions, shared, compareCandidates, hasOverlap, makeMatchRecord };
+module.exports = { matchPairs, explainUnmatched, matchAcrossRegions, shared, compareCandidates, hasOverlap, hasParentConsent, makeMatchRecord };
 // Why each participant is not in `pairs`. One code per person, the first that is true:
+//   NO_PARENT_CONSENT              a pupil: no parent consent, so not in the pool at all (nobody else is
+//                                  looked at); a student: pupils in the region, but none has consent yet
 //   NO_ONE_IN_REGION               nobody of the other role in the same region
 //   NO_SHARED_HOUR                 somebody in the region, but never free at the same hour
 //   NO_SHARED_SUBJECT              somebody in the region, but no subject in common
@@ -185,9 +200,13 @@ function explainUnmatched(students, pupils, pairs) {
   const P = Array.isArray(pupils) ? pupils : [];
   const usedS = new Set(); const usedP = new Set();
   (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
-  function reason(me, others) {
-    const local = others.filter((o) => o && o.region === me.region);
-    if (local.length === 0) return 'NO_ONE_IN_REGION';
+  function reason(me, others, isPupil) {
+    if (isPupil && !hasParentConsent(me)) return 'NO_PARENT_CONSENT';
+    const inRegion = others.filter((o) => o && o.region === me.region);
+    if (inRegion.length === 0) return 'NO_ONE_IN_REGION';
+    // the same gate candidatesOf applies: a pupil without consent is no partner for a student
+    const local = isPupil ? inRegion : inRegion.filter(hasParentConsent);
+    if (local.length === 0) return 'NO_PARENT_CONSENT';
     const hour = local.filter((o) => shared(me.availability, o.availability).length > 0);
     const subject = local.filter((o) => shared(me.subjects, o.subjects).length > 0);
     if (hour.length === 0) return 'NO_SHARED_HOUR';
@@ -196,8 +215,8 @@ function explainUnmatched(students, pupils, pairs) {
     return both.length === 0 ? 'NO_HOUR_AND_SUBJECT_TOGETHER' : 'PARTNERS_TAKEN';
   }
   const out = { students: [], pupils: [] };
-  S.forEach((s, i) => { if (s && !usedS.has(i)) out.students.push({ index: i, reason: reason(s, P) }); });
-  P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S) }); });
+  S.forEach((s, i) => { if (s && !usedS.has(i)) out.students.push({ index: i, reason: reason(s, P, false) }); });
+  P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S, true) }); });
   return out;
 }
 
