@@ -231,10 +231,10 @@ module.exports = {
 
 const { getRetentionPolicy } = require('./retention.js');
 
-function generateAuditReport() {
-  const policy = getRetentionPolicy();
-  const profileDays = policy.profile;
-  const matchDays = policy.match;
+function generateAuditReport(policy) {
+  const active = policy || getRetentionPolicy();
+  const profileDays = active.profile;
+  const matchDays = active.match;
 
   return [
     'הצהרת פרטיות ושמירת מידע — PeerEd',
@@ -265,22 +265,69 @@ module.exports = {
   var module = { exports: {} };
   var exports = module.exports;
 'use strict';
-// PeerEd — drop stored match and profile records that exceeded their retention window. Inputs are never mutated.
+// PeerEd - the end of a cycle: drop every stored row that has outlived its retention window.
+//
+// retention.js states the limits and match.js stamps a row with its category; this is the sweep that
+// acts on them, so "nothing is kept indefinitely" is something the code does and not only something the
+// README says. A row is anything carrying a day and a category:
+//
+//   { recordedAt: '2026-03-04', retention: { dataCategory: 'match' }, ... }
+//
+// Whatever sits beside those two fields is never read, so a caller wraps what it stores: a profile
+// record cannot hold a recordedAt of its own, since makeProfile() refuses every key it does not know.
+// The limit always comes from today's getRetentionPolicy() and never from the row - shortening a window
+// in retention.js must delete more at the next sweep, not leave old rows on their old terms. No clock
+// of its own either: the caller passes the day the cycle ends, and the caller's arrays are untouched.
+//
+// Two entry points share the same day arithmetic:
+//   sweep(rows, asOf)                 - one flat array, judged by the policy's limit for the row's category
+//   applyRetentionPolicy(stored, asOf) - { matches, profiles }, judged by the maxAgeDays stamped on the row
 
-function toUtcDayIndex(value) {
-  const d = value instanceof Date ? value : new Date(value);
+const { getRetentionPolicy } = require('./retention.js');
+
+const ROW_ERROR = 'stored row must be an object with recordedAt and retention.dataCategory';
+
+function utcMidnight(value, what) {
+  const d = value instanceof Date ? value : new Date(String(value));
   if (Number.isNaN(d.getTime())) {
-    throw new Error('invalid date: ' + String(value));
+    throw new Error('invalid ' + what + ': expected a Date or an ISO date string');
   }
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-function ageInDays(recordedAt, currentDate) {
-  const recorded = toUtcDayIndex(recordedAt);
-  const asOf = toUtcDayIndex(currentDate);
-  return Math.floor((asOf - recorded) / 86400000);
+// Whole days between two timestamps, on the UTC calendar, so an evening row is no older than a morning one.
+function ageInDays(recordedAt, asOf) {
+  return Math.floor((utcMidnight(asOf, 'asOf') - utcMidnight(recordedAt, 'recordedAt')) / 86400000);
 }
 
+// A row is kept through the last day of its window and dropped the day after. A category the policy
+// does not name is refused, not kept forever.
+function isExpired(record, asOf) {
+  if (record === null || typeof record !== 'object' || Array.isArray(record)) throw new Error(ROW_ERROR);
+  if (record.retention === null || typeof record.retention !== 'object') throw new Error(ROW_ERROR);
+  if (record.recordedAt === undefined || record.recordedAt === null) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
+  }
+  const limit = getRetentionPolicy()[record.retention.dataCategory];
+  if (!Number.isInteger(limit)) {
+    throw new Error('invalid retention: the policy has no limit for ' + String(record.retention.dataCategory));
+  }
+  return ageInDays(record.recordedAt, asOf) > limit;
+}
+
+// Split stored rows into the ones the policy still allows and the ones this cycle must delete. Both
+// halves come back, so a sweep can be shown to a coordinator before it is written back.
+function sweep(records, asOf) {
+  if (!Array.isArray(records)) throw new Error('sweep expects an array of stored rows');
+  const kept = [];
+  const dropped = [];
+  for (let i = 0; i < records.length; i += 1) {
+    (isExpired(records[i], asOf) ? dropped : kept).push(records[i]);
+  }
+  return Object.freeze({ kept: kept, dropped: dropped });
+}
+
+// The row-level check behind applyRetentionPolicy(): the limit is the maxAgeDays the row was stamped with.
 function isRetained(record, currentDate) {
   if (record === null || typeof record !== 'object') {
     throw new Error('retention record must be an object');
@@ -308,8 +355,10 @@ function applyRetentionPolicy(stored, currentDate) {
 }
 
 module.exports = {
-  applyRetentionPolicy,
-  ageInDays
+  applyRetentionPolicy: applyRetentionPolicy,
+  ageInDays: ageInDays,
+  isExpired: isExpired,
+  sweep: sweep
 };
   __registry["cycle-manager"] = module.exports;
 })();
@@ -608,28 +657,39 @@ function matchPairs(students, pupils) {
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
-// Persisted match row: a matchPairs() candidate plus when it was stored and its retention category.
+const PAIR_ERROR = 'match pair must be an object from matchPairs()';
+
+// The UTC calendar day of a timestamp, as YYYY-MM-DD. Retention is counted in days, so the day is
+// everything a stored row needs - and the hour at which a particular minor was matched says more about
+// the person than the policy ever asks.
+function utcDay(value) {
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+// A pair on its way into storage: a matchPairs() candidate plus the day it was kept and the retention
+// category a cycle sweep reads. Frozen and JSON-serializable, and with no clock of its own - the caller
+// passes recordedAt, so the same arguments always produce the same row. Still a module: nothing on
+// screen stores a match yet.
 function makeMatchRecord(pair, recordedAt) {
-  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) {
-    throw new Error('match pair must be an object');
-  }
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) throw new Error(PAIR_ERROR);
+  if (!Number.isInteger(pair.studentIndex) || !Number.isInteger(pair.pupilIndex)) throw new Error(PAIR_ERROR);
+  if (!Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) throw new Error(PAIR_ERROR);
   if (recordedAt === undefined || recordedAt === null) {
-    throw new Error('recordedAt is required');
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
   }
-  const policy = getRetentionPolicy();
-  const record = {
+  return Object.freeze({
     studentIndex: pair.studentIndex,
     pupilIndex: pair.pupilIndex,
     region: pair.region,
     sharedSlots: Object.freeze(pair.sharedSlots.slice()),
     sharedSubjects: Object.freeze(pair.sharedSubjects.slice()),
-    recordedAt: recordedAt instanceof Date ? recordedAt.toISOString() : String(recordedAt),
-    retention: Object.freeze({
-      dataCategory: 'match',
-      maxAgeDays: policy.match
-    })
-  };
-  return Object.freeze(record);
+    recordedAt: utcDay(recordedAt),
+    retention: Object.freeze({ dataCategory: 'match', maxAgeDays: getRetentionPolicy().match })
+  });
 }
 
 module.exports = { matchPairs, explainUnmatched, shared, compareCandidates, hasOverlap, makeMatchRecord };
