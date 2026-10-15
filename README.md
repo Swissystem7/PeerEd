@@ -17,6 +17,7 @@ approves publishing.
 |---|---|
 | `src/lib/regions.js` | The six region codes and their validation. |
 | `src/lib/retention.js` | How long each kind of record may be kept (profile 730 days, match 365); nothing is kept indefinitely. |
+| `src/lib/audit-report.js` | A Hebrew privacy and retention statement for audits, generated from the active retention policy (what is collected, how long it is kept, how it is deleted). |
 | `src/lib/cycle-manager.js` | Drops stored match and profile rows whose age exceeds the active retention policy; inputs are never mutated. |
 | `src/lib/profile.js` | The only record the app keeps: role, region, availability slots (8:00-22:00), subjects. Any other key, even an empty one, is refused with `personal data is not accepted`. |
 | `src/lib/match.js` | Deterministic matching: same region, at least one shared hour, at least one shared subject, each person at most once, and the largest possible number of pairs (a greedy pass by shared hours, then augmenting paths). `explainUnmatched()` gives the true reason for each person left out; `makeMatchRecord()` tags a pair for retention. |
