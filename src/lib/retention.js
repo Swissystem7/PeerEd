@@ -2,8 +2,8 @@
 // PeerEd — explicit, immutable retention limits per data category (days). No category is retained indefinitely.
 
 const RETENTION_POLICY = Object.freeze({
-  profile: 365,
-  match: 180
+  profile: 730,
+  match: 365
 });
 
 function getRetentionPolicy() {
