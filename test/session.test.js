@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  emptyLog, logSession, summarize, loadLog, OUTCOMES, ACCEPTED_FIELDS, UNIT_NOT_APPROVED_ERROR
+  emptyLog, logSession, summarize, reportCsv, REPORT_HEADER, loadLog, OUTCOMES, ACCEPTED_FIELDS, UNIT_NOT_APPROVED_ERROR
 } = require('../src/lib/session.js');
 const { emptyQueue, submit, approve, reject } = require('../src/lib/approval.js');
 const { makeUnit } = require('../src/lib/unit.js');
@@ -117,6 +117,44 @@ test('session: the summary is counts only and the same for the same log', () => 
   });
   assert.deepEqual(summarize(l), s);
   assert.deepEqual(summarize(emptyLog()), { sessions: 0, byRegion: {}, bySubject: {}, byOutcome: {}, byUnit: {} });
+});
+
+test('session: the CSV report is the summary and nothing else - fixed order, sorted codes, same text for the same log', () => {
+  const north = { region: 'NORTH', sharedSlots: ['TUE_17'], sharedSubjects: ['PHYSICS'] };
+  let l = emptyLog();
+  l = logSession(l, QUEUE, north, { slot: 'TUE_17', subject: 'PHYSICS', unitId: PHYSICS.id, outcome: 'held' });
+  l = logSession(l, QUEUE, PAIR, Object.assign({}, HELD, { outcome: 'missed' }));
+  l = logSession(l, QUEUE, PAIR, HELD);
+  const text = reportCsv(l);
+  assert.equal(REPORT_HEADER, 'measure,code,count');
+  // Unit ids are hashes, so their order in the report is the sorted order of the ids, not of the log.
+  const units = [['unit,' + MATH.id + ',2', MATH.id], ['unit,' + PHYSICS.id + ',1', PHYSICS.id]]
+    .sort((a, b) => (a[1] < b[1] ? -1 : 1)).map((u) => u[0]);
+  assert.deepEqual(text.split('\n'), [
+    'measure,code,count',
+    'sessions,,3',
+    'outcome,held,2',
+    'outcome,missed,1',
+    'region,NORTH,1',
+    'region,SOUTH,2',
+    'subject,MATH,2',
+    'subject,PHYSICS,1',
+    units[0],
+    units[1],
+    ''
+  ]);
+  assert.equal(reportCsv(l), text);
+  assert.equal(text.indexOf('\r'), -1, 'LF only, whatever the platform');
+  // Every number in the report is a count from summarize(): the rows of the log are not in it.
+  const s = summarize(l);
+  const counted = text.split('\n').filter((line) => line && line !== REPORT_HEADER).length;
+  assert.equal(counted, 1 + Object.keys(s.byOutcome).length + Object.keys(s.byRegion).length +
+    Object.keys(s.bySubject).length + Object.keys(s.byUnit).length);
+  assert.equal(/slot|seq|MON_|TUE_|Index|student|pupil|name|email|phone/i.test(text), false,
+    'no slot, no sequence number, nothing that points at a row or a person');
+  // An empty log still exports: the header and a zero, so a municipality sees "nothing yet", not an error.
+  assert.equal(reportCsv(emptyLog()), 'measure,code,count\nsessions,,0\n');
+  assert.throws(() => reportCsv({ entries: [] }), /invalid log/);
 });
 
 test('session: a stored log round-trips through JSON and is re-checked against the queue on load', () => {
