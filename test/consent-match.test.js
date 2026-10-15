@@ -116,7 +116,7 @@ test('consent: no session can be logged for a pupil without consent, because no 
   assert.equal(matchPairs([back.people[0]], [back.people[1]]).length, 1);
   assert.throws(() => deserialize(serialize(state).replace('"parentConsent":true', '"parentConsent":"true"')), /parentConsent/);
   // The flag is the only thing added to the record: no parent's name, no date, no document.
-  assert.deepEqual(Object.keys(pupil(true)).sort(), ['availability', 'parentConsent', 'region', 'role', 'subjects']);
+  assert.deepEqual(Object.keys(pupil(true)).sort(), ['availability', 'parentConsent', 'region', 'retention', 'role', 'subjects']);
   assert.throws(() => profile.makeProfile(Object.assign({}, pupil(true), { consentDate: '2026-10-06' })),
     { message: profile.PERSONAL_DATA_ERROR });
 });
