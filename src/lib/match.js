@@ -1,6 +1,8 @@
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
+const { getRetentionPolicy } = require('./retention.js');
+
 // Returns true if two string arrays share at least one common element.
 function hasOverlap(a, b) {
   const right = new Set(Array.isArray(b) ? b : []);
@@ -123,78 +125,72 @@ function matchPairs(students, pupils) {
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
-// Why a participant is left without a pair. The coordinator needs this to act: obtain a parent's
-// consent, recruit in a region, ask for more availability hours, or accept that the other side ran
-// out. The reasons are checked in the same order candidatesOf filters - consent, region, slot, subject -
-// and the first gate that nobody on the other side passes is the reason. For a pupil,
-// NO_PARENT_CONSENT is about the pupil alone: without consent the pupil is not in the pool, so the
-// other side is not even looked at. For a student it means pupils exist in the region but none of
-// them has consent yet. TAKEN means at least one compatible counterpart exists but every one of them
-// was paired with someone else, so the roster, not the profile, is what is short.
-const REASONS = Object.freeze(['NO_PARENT_CONSENT', 'NO_ONE_IN_REGION', 'NO_SHARED_SLOT', 'NO_SHARED_SUBJECT', 'TAKEN']);
+const PAIR_ERROR = 'match pair must be an object from matchPairs()';
 
-// side is 'student' or 'pupil': which array of matchPairs `me` came from. It decides where the consent
-// gate applies - on me when I am the pupil, on each of the others when they are. When omitted it is
-// read from me.role, and a record without a role is treated as a student.
-function whyUnmatched(me, others, side) {
-  const O = Array.isArray(others) ? others : [];
-  const mine = side === undefined ? (me && me.role === 'pupil' ? 'pupil' : 'student') : side;
-  if (mine !== 'student' && mine !== 'pupil') throw new Error('invalid side: expected student or pupil');
-  if (mine === 'pupil' && !hasParentConsent(me)) return { reason: 'NO_PARENT_CONSENT', compatible: 0 };
-  if (!me || typeof me.region !== 'string') return { reason: 'NO_ONE_IN_REGION', compatible: 0 };
-  let inRegion = 0;
-  let withConsent = 0;
-  let withSlot = 0;
-  let compatible = 0;
-  for (let i = 0; i < O.length; i += 1) {
-    const o = O[i];
-    if (!o || o.region !== me.region) continue;
-    inRegion += 1;
-    if (mine === 'student' && !hasParentConsent(o)) continue;
-    withConsent += 1;
-    if (!hasOverlap(me.availability, o.availability)) continue;
-    withSlot += 1;
-    if (!hasOverlap(me.subjects, o.subjects)) continue;
-    compatible += 1;
+// The UTC calendar day of a timestamp, as YYYY-MM-DD. Retention is counted in days, so the day is
+// everything a stored row needs - and the hour at which a particular minor was matched says more about
+// the person than the policy ever asks.
+function utcDay(value) {
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
   }
-  if (inRegion === 0) return { reason: 'NO_ONE_IN_REGION', compatible: 0 };
-  if (withConsent === 0) return { reason: 'NO_PARENT_CONSENT', compatible: 0 };
-  if (withSlot === 0) return { reason: 'NO_SHARED_SLOT', compatible: 0 };
-  if (compatible === 0) return { reason: 'NO_SHARED_SUBJECT', compatible: 0 };
-  return { reason: 'TAKEN', compatible: compatible };
+  return d.toISOString().slice(0, 10);
 }
 
-// students / pupils as given to matchPairs; pairs is its result for the same two arrays (computed here
-// when omitted). Returns the unmatched participants of each side, in roster order, each with the index
-// matchPairs would have used, the reason and the number of compatible counterparts (non-zero only for
-// TAKEN). Nothing about a person is copied into the answer: an index, a reason code, a count.
+// A pair on its way into storage: a matchPairs() candidate plus the day it was kept and the retention
+// category a cycle sweep reads. Frozen and JSON-serializable, and with no clock of its own - the caller
+// passes recordedAt, so the same arguments always produce the same row. Still a module: nothing on
+// screen stores a match yet.
+function makeMatchRecord(pair, recordedAt) {
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) throw new Error(PAIR_ERROR);
+  if (!Number.isInteger(pair.studentIndex) || !Number.isInteger(pair.pupilIndex)) throw new Error(PAIR_ERROR);
+  if (!Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) throw new Error(PAIR_ERROR);
+  if (recordedAt === undefined || recordedAt === null) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
+  }
+  return Object.freeze({
+    studentIndex: pair.studentIndex,
+    pupilIndex: pair.pupilIndex,
+    region: pair.region,
+    sharedSlots: Object.freeze(pair.sharedSlots.slice()),
+    sharedSubjects: Object.freeze(pair.sharedSubjects.slice()),
+    recordedAt: utcDay(recordedAt),
+    retention: Object.freeze({ dataCategory: 'match', maxAgeDays: getRetentionPolicy().match })
+  });
+}
+
+module.exports = { matchPairs, explainUnmatched, shared, compareCandidates, hasOverlap, hasParentConsent, makeMatchRecord };
+// Why each participant is not in `pairs`. One code per person, the first that is true:
+//   NO_PARENT_CONSENT              a pupil: no parent consent, so not in the pool at all (nobody else is
+//                                  looked at); a student: pupils in the region, but none has consent yet
+//   NO_ONE_IN_REGION               nobody of the other role in the same region
+//   NO_SHARED_HOUR                 somebody in the region, but never free at the same hour
+//   NO_SHARED_SUBJECT              somebody in the region, but no subject in common
+//   NO_HOUR_AND_SUBJECT_TOGETHER   one shares an hour, another a subject, nobody both
+//   PARTNERS_TAKEN                 had possible partners; the largest matching needed all of them elsewhere
 function explainUnmatched(students, pupils, pairs) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
-  const given = pairs === undefined ? matchPairs(S, P) : pairs;
-  if (!Array.isArray(given)) throw new Error('invalid pairs: expected the result of matchPairs');
-  const pairedStudents = new Set();
-  const pairedPupils = new Set();
-  for (let i = 0; i < given.length; i += 1) {
-    const c = given[i];
-    if (!c || !Number.isInteger(c.studentIndex) || !Number.isInteger(c.pupilIndex)) {
-      throw new Error('invalid pairs: expected the result of matchPairs');
-    }
-    pairedStudents.add(c.studentIndex);
-    pairedPupils.add(c.pupilIndex);
+  const usedS = new Set(); const usedP = new Set();
+  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
+  function reason(me, others, isPupil) {
+    if (isPupil && !hasParentConsent(me)) return 'NO_PARENT_CONSENT';
+    const inRegion = others.filter((o) => o && o.region === me.region);
+    if (inRegion.length === 0) return 'NO_ONE_IN_REGION';
+    // the same gate candidatesOf applies: a pupil without consent is no partner for a student
+    const local = isPupil ? inRegion : inRegion.filter(hasParentConsent);
+    if (local.length === 0) return 'NO_PARENT_CONSENT';
+    const hour = local.filter((o) => shared(me.availability, o.availability).length > 0);
+    const subject = local.filter((o) => shared(me.subjects, o.subjects).length > 0);
+    if (hour.length === 0) return 'NO_SHARED_HOUR';
+    if (subject.length === 0) return 'NO_SHARED_SUBJECT';
+    const both = hour.filter((o) => subject.indexOf(o) !== -1);
+    return both.length === 0 ? 'NO_HOUR_AND_SUBJECT_TOGETHER' : 'PARTNERS_TAKEN';
   }
-  const side = (mine, theirs, paired, which) => {
-    const out = [];
-    for (let i = 0; i < mine.length; i += 1) {
-      if (paired.has(i)) continue;
-      const why = whyUnmatched(mine[i], theirs, which);
-      out.push({ index: i, reason: why.reason, compatible: why.compatible });
-    }
-    return out;
-  };
-  return { students: side(S, P, pairedStudents, 'student'), pupils: side(P, S, pairedPupils, 'pupil') };
+  const out = { students: [], pupils: [] };
+  S.forEach((s, i) => { if (s && !usedS.has(i)) out.students.push({ index: i, reason: reason(s, P, false) }); });
+  P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S, true) }); });
+  return out;
 }
 
-module.exports = {
-  matchPairs, shared, compareCandidates, hasOverlap, hasParentConsent, REASONS, whyUnmatched, explainUnmatched
-};

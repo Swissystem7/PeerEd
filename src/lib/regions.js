@@ -9,6 +9,10 @@ function isRegion(code) {
   return typeof code === 'string' && REGIONS.indexOf(code) !== -1;
 }
 
+function getValidRegions() {
+  return REGIONS;
+}
+
 // Trim + upper-case, then validate. Returns the code or null.
 function normalizeRegion(input) {
   if (typeof input !== 'string') return null;
@@ -16,4 +20,4 @@ function normalizeRegion(input) {
   return isRegion(code) ? code : null;
 }
 
-module.exports = { REGIONS, isRegion, normalizeRegion };
+module.exports = { REGIONS, isRegion, getValidRegions, normalizeRegion };
