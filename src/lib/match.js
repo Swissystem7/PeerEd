@@ -111,4 +111,31 @@ function matchPairs(students, pupils) {
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
-module.exports = { matchPairs, shared, compareCandidates, hasOverlap };
+// Why each participant is not in `pairs`. One code per person, the first that is true:
+//   NO_ONE_IN_REGION               nobody of the other role in the same region
+//   NO_SHARED_HOUR                 somebody in the region, but never free at the same hour
+//   NO_SHARED_SUBJECT              somebody in the region, but no subject in common
+//   NO_HOUR_AND_SUBJECT_TOGETHER   one shares an hour, another a subject, nobody both
+//   PARTNERS_TAKEN                 had possible partners; the largest matching needed all of them elsewhere
+function explainUnmatched(students, pupils, pairs) {
+  const S = Array.isArray(students) ? students : [];
+  const P = Array.isArray(pupils) ? pupils : [];
+  const usedS = new Set(); const usedP = new Set();
+  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
+  function reason(me, others) {
+    const local = others.filter((o) => o && o.region === me.region);
+    if (local.length === 0) return 'NO_ONE_IN_REGION';
+    const hour = local.filter((o) => shared(me.availability, o.availability).length > 0);
+    const subject = local.filter((o) => shared(me.subjects, o.subjects).length > 0);
+    if (hour.length === 0) return 'NO_SHARED_HOUR';
+    if (subject.length === 0) return 'NO_SHARED_SUBJECT';
+    const both = hour.filter((o) => subject.indexOf(o) !== -1);
+    return both.length === 0 ? 'NO_HOUR_AND_SUBJECT_TOGETHER' : 'PARTNERS_TAKEN';
+  }
+  const out = { students: [], pupils: [] };
+  S.forEach((s, i) => { if (s && !usedS.has(i)) out.students.push({ index: i, reason: reason(s, P) }); });
+  P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S) }); });
+  return out;
+}
+
+module.exports = { matchPairs, explainUnmatched, shared, compareCandidates, hasOverlap };
