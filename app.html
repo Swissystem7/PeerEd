@@ -85,6 +85,10 @@
       <label>שעות פנויות</label>
       <p class="hint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours"></div>
+      <div id="consentRow" hidden>
+        <label><input type="checkbox" id="consent"> אישור הורה</label>
+        <p class="hint">תלמיד בלי אישור הורה לא משובץ. המפגשים בטקסט בלבד, וזה נחשב קשר שדורש אישור הורה.</p>
+      </div>
       <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -1903,10 +1907,21 @@ module.exports = {
 
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
+      var extra = '';
+      if (p.role === 'pupil') {
+        if (!match.hasParentConsent(p)) {
+          extra = '<div class="flag">אין עדיין אישור הורה — לא ניתן לשבץ.</div>';
+        }
+        extra += '<div class="actions">' +
+          (match.hasParentConsent(p)
+            ? '<button type="button" class="ghost small" data-consent-revoke="' + i + '">בטל אישור הורה</button>'
+            : '<button type="button" class="ghost small" data-consent-grant="' + i + '">אישור הורה</button>') +
+          '</div>';
+      }
       return '<div class="item"><b>' + ROLE_HE[p.role] + ' #' + (i + 1) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
-        p.availability.length + ' שעות פנויות</span>' +
+        p.availability.length + ' שעות פנויות</span>' + extra +
         '<div class="actions"><button type="button" class="ghost small" data-del="' + i + '">מחק</button></div></div>';
     }).join('') : '<p class="empty">אין עדיין משתתפים. אפשר לטעון דוגמה.</p>';
   }
@@ -1929,11 +1944,16 @@ module.exports = {
 
   function clearDraft() {
     draft = { subjects: [], availability: [] };
+    $('consent').checked = false;
     Array.prototype.forEach.call($('subjects').children, function (b) { b.setAttribute('aria-pressed', 'false'); });
     Array.prototype.forEach.call($('hours').children, function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', 'false');
     });
   }
+
+  $('role').addEventListener('change', function () {
+    $('consentRow').hidden = $('role').value !== 'pupil';
+  });
 
   $('addPerson').addEventListener('click', function () {
     var candidate = {
@@ -1942,6 +1962,7 @@ module.exports = {
       availability: draft.availability.slice(),
       subjects: draft.subjects.slice()
     };
+    if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
     catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
@@ -1954,6 +1975,24 @@ module.exports = {
   });
 
   $('peopleList').addEventListener('click', function (ev) {
+    var grant = ev.target.getAttribute('data-consent-grant');
+    if (grant !== null) {
+      var gi = Number(grant);
+      state.people[gi] = profile.grantParentConsent(state.people[gi]);
+      last = null;
+      renderPeople(); save();
+      say('addStatus', 'אושר אישור הורה.');
+      return;
+    }
+    var revoke = ev.target.getAttribute('data-consent-revoke');
+    if (revoke !== null) {
+      var ri = Number(revoke);
+      state.people[ri] = profile.revokeParentConsent(state.people[ri]);
+      last = null;
+      renderPeople(); save();
+      say('addStatus', 'אישור ההורה בוטל.');
+      return;
+    }
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
@@ -1967,9 +2006,9 @@ module.exports = {
       { role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18', 'TUE_16'], subjects: ['MATH', 'CS'] },
       { role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] },
       { role: 'student', region: 'SOUTH', availability: ['TUE_17', 'WED_17'], subjects: ['PHYSICS', 'ENGLISH'] },
-      { role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'] },
-      { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'] },
-      { role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'] },
+      { role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'], parentConsent: true },
+      { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'], parentConsent: true },
+      { role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'], parentConsent: true },
       { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
@@ -2000,6 +2039,8 @@ module.exports = {
       case 'NO_SHARED_SUBJECT': return 'יש ' + other + ' באזור, אבל בלי מקצוע משותף.';
       case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש מי שפנוי באותה שעה ויש מי שחולק מקצוע, אבל לא אותו אחד.';
       case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
+      case 'NO_PARENT_CONSENT':
+        return role === 'pupil' ? 'אין עדיין אישור הורה.' : 'יש תלמידים באזור, אבל לאף אחד מהם אין עדיין אישור הורה.';
       default: return '';
     }
   }
