@@ -16,10 +16,11 @@ const CALLS = [
   /\bimport\s*\(/, /require\(['"](node:)?(http|https|net|dns|tls|dgram|child_process)['"]\)/,
   /navigator\.onLine/, /serviceWorker/
 ];
-// Ways HTML can leave the file: anything with a src or href that is not a fragment, plus CSS url().
+// Ways HTML can leave the file: anything with a src or href that is not a fragment, plus CSS url()
+// (lower case on purpose: URL.createObjectURL(...) is the CSV download, it never leaves the page).
 const MARKUP = [
   /<script[^>]+src=/i, /<link\b/i, /<iframe/i, /<img/i, /<video/i, /<audio/i, /<object/i, /<embed/i,
-  /\bhref=["'](?!#)/i, /url\(/i, /@import/i, /https?:\/\/[a-z0-9]/i
+  /\bhref=["'](?!#)/i, /\burl\(/, /@import/i, /https?:\/\/[a-z0-9]/i
 ];
 
 function offenders(text, patterns) {

@@ -1,6 +1,7 @@
 'use strict';
-// The text gate is a demonstration: nothing in the app stores free text, and "enrichment units" do not
-// exist. The screen must not promise either. (test/app-build.test.js already proves no text is stored.)
+// The text gate is a demonstration: nothing in the app stores free text, and the screen must say so.
+// (test/app-build.test.js already proves no text is stored; the enrichment units live on their own tab
+// since the units screen landed, and test/units-screen.test.js covers that one.)
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -16,9 +17,8 @@ test('clean text is reported as not saved, because it is not', () => {
   assert.match(s, /לא נשמר/, s);
 });
 
-test('the screen does not sell enrichment units that do not exist, and calls the gate a demo', () => {
+test('the screen calls the gate a demo', () => {
   const html = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
   const visible = html.replace(/<script>[\s\S]*?<\/script>/g, '').replace(/<style>[\s\S]*?<\/style>/g, '');
-  assert.doesNotMatch(visible, /יחיד(ת|ות) העשרה/);
   assert.match(visible, /<h2>הדגמה: /);
 });
