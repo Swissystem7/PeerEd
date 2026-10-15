@@ -54,6 +54,7 @@
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
   .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
+  a { color:var(--key); }
   .flag { background:rgba(255,143,143,.1); border:1px solid rgba(255,143,143,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
 </style>
@@ -69,7 +70,7 @@
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people">
     <div class="banner">
       הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות. כל שדה אחר — שם, טלפון, מייל, כתובת —
-      נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "טקסט".
+      נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "פרטיות".
     </div>
     <div class="card">
       <h2>הוספת משתתף</h2>
@@ -124,9 +125,9 @@
   <!-- ============ טקסט ============ -->
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" hidden>
     <div class="card">
-      <h2>שער הטקסט</h2>
-      <p class="hint">כל יחידת העשרה או הודעה עוברת כאן לפני שהיא נשמרת. נסה להדביק טקסט עם טלפון, מייל,
-        תעודת זהות, קישור או מילה גסה, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
+      <h2>הדגמה: שער הטקסט</h2>
+      <p class="hint">האפליקציה לא שומרת שום טקסט חופשי — רק את רשימת המשתתפים. זה השער שכל טקסט יעבור בו
+        אם יתווסף בעתיד. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
@@ -138,18 +139,24 @@
       <div id="findings"></div>
     </div>
     <div class="card">
-      <h2>מה שדוחה שדה אסור</h2>
+      <h2>הדגמה: שדה אסור נדחה</h2>
       <p class="hint">אותו שער, על הרשומה עצמה ולא על הטקסט: מנסה לשמור משתתף עם שדה שאינו ברשימה.</p>
       <div class="actions"><button type="button" class="ghost" id="gateBtn">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
     </div>
   </section>
+  <!-- ============ קשר (src/lib/contact.js) ============ -->
+  <div class="card" id="contactBox" hidden>
+    <h2>רוצים לנסות בסבב השיבוץ שלכם?</h2>
+    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank"></a></p>
+    <p class="hint" id="contactNote"></p>
+  </div>
 </main>
 
 <nav role="tablist" aria-label="ניווט">
   <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true">אנשים</button>
   <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false">שידוך</button>
-  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false">טקסט</button>
+  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false">פרטיות</button>
 </nav>
 
 <script>
@@ -169,7 +176,7 @@
 (function () {
   'use strict';
   var regions = __registry.regions, profile = __registry.profile,
-      match = __registry.match, validator = __registry.validator;
+      match = __registry.match, validator = __registry.validator, contact = __registry.contact;
   var $ = function (id) { return document.getElementById(id); };
   var KEY = 'peered_app_v1';
 
@@ -182,7 +189,9 @@
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
-  var HOURS = [14, 15, 16, 17, 18, 19, 20];
+  // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
+  var HOURS = [];
+  for (var hh = profile.HOUR_MIN; hh <= profile.HOUR_MAX; hh += 1) HOURS.push(hh);
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
   var state = { people: [] };
@@ -196,6 +205,53 @@
   function slotHe(slot) {
     var parts = String(slot).split('_');
     return 'יום ' + (DAY_HE[parts[0]] || parts[0]) + ' ' + parts[1] + ':00';
+  }
+  // The engine's messages stay English (tests and logs read them); the screen is Hebrew, so every
+  // message is translated here before a status line shows it. test/ui-hebrew-errors.test.js fails if
+  // a module gains a message that has no line in this table.
+  var ERROR_HE = [
+    ['personal data is not accepted', 'פרטים אישיים לא מתקבלים'],
+    ['offensive language is not accepted', 'שפה פוגענית לא מתקבלת'],
+    ['profile input must be an object with role, region, availability, subjects', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['profile must be an object', 'הרשומה לא בנויה נכון'],
+    ['invalid parentConsent:', 'אישור ההורה לא תקין'],
+    ['invalid blockedUsers:', 'רשימת חסומים לא תקינה'],
+    ['invalid user id:', 'מזהה משתמש לא תקין'],
+    ['invalid slot:', 'שעה שאינה בלוח'],
+    ['invalid role:', 'תפקיד לא מוכר'],
+    ['invalid region:', 'אזור לא מוכר'],
+    ['invalid availability:', 'צריך לסמן לפחות שעה פנויה אחת'],
+    ['invalid availability slot:', 'שעה שאינה בלוח'],
+    ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
+    ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    // The enrichment-unit record. No screen offers a unit yet; the lines are here because the table
+    // must cover every message a module inlined into app.html can throw. Two modules build a unit and
+    // they name the fields differently - validator.js uses minutes/text, unit.js uses
+    // durationMinutes/body - so both wordings need a line. 'invalid subject:' and 'invalid title:' are
+    // shared; a key is matched as a prefix, so one line serves both callers.
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, durationMinutes, body', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך הזמן לא תקין'],
+    ['invalid durationMinutes:', 'משך הזמן לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין'],
+    ['invalid body:', 'טקסט לא תקין'],
+    ['text too long', 'הטקסט ארוך מדי'],
+    ['text too short', 'אין טקסט לבדוק'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך השיעור לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין']
+  ];
+  function errorHe(err) {
+    var msg = String(err && err.message || '');
+    for (var i = 0; i < ERROR_HE.length; i += 1) {
+      if (msg.indexOf(ERROR_HE[i][0]) === 0) return ERROR_HE[i][1];
+    }
+    return 'הקלט נדחה';
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* private mode */ } }
   function load() {
@@ -270,7 +326,7 @@
     };
     var made;
     try { made = profile.makeProfile(candidate); }
-    catch (err) { say('addStatus', 'נדחה: ' + err.message, true); return; }
+    catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     state.people.push(made);
     last = null;
     clearDraft();
@@ -457,8 +513,10 @@
     if (!hits.length) {
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
-      catch (err) { say('checkStatus', 'נדחה: ' + err.message, true); $('findings').innerHTML = ''; return; }
-      say('checkStatus', 'נקי. הטקסט שיישמר: "' + cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
+      catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
+      // Nothing stores this text: the app keeps the participants list only.
+      say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
+        cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
       return;
     }
@@ -481,7 +539,7 @@
                             subjects: ['MATH'], phone: '' });
       say('gateStatus', 'נשמר — וזה היה באג.', true);
     } catch (err) {
-      say('gateStatus', 'נדחה עם ההודעה: "' + err.message + '". שים לב שהטלפון היה ריק לגמרי — ' +
+      say('gateStatus', 'נדחה עם ההודעה: "' + errorHe(err) + '". שים לב שהטלפון היה ריק לגמרי — ' +
         'השדה עצמו נדחה, לא הערך.');
     }
   });
@@ -500,7 +558,21 @@
     });
   });
 
+  // ---------- contact ----------
+
+  function renderContact() {
+    var c = contact.contactLink(contact.CONTACT, contact.ISSUE_FORM);
+    $('contactBox').hidden = !c;
+    if (!c) return;
+    $('contactLink').href = c.href;
+    $('contactLink').textContent = c.label;
+    $('contactNote').textContent = c.kind === 'issue'
+      ? 'הפנייה בגיטהאב ציבורית ודורשת חשבון GitHub. אל תכתבו שם טלפון, מייל או פרטים של תלמידים.'
+      : 'אין צורך לשלוח שום פרט של תלמיד כדי לנסות.';
+  }
+
   state = load();
+  renderContact();
   buildInputs();
   renderPeople();
 })();
