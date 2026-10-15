@@ -278,6 +278,10 @@ module.exports = {
 // The limit always comes from today's getRetentionPolicy() and never from the row - shortening a window
 // in retention.js must delete more at the next sweep, not leave old rows on their old terms. No clock
 // of its own either: the caller passes the day the cycle ends, and the caller's arrays are untouched.
+//
+// Two entry points share the same day arithmetic:
+//   sweep(rows, asOf)                 - one flat array, judged by the policy's limit for the row's category
+//   applyRetentionPolicy(stored, asOf) - { matches, profiles }, judged by the maxAgeDays stamped on the row
 
 const { getRetentionPolicy } = require('./retention.js');
 
@@ -323,7 +327,39 @@ function sweep(records, asOf) {
   return Object.freeze({ kept: kept, dropped: dropped });
 }
 
-module.exports = { ageInDays: ageInDays, isExpired: isExpired, sweep: sweep };
+// The row-level check behind applyRetentionPolicy(): the limit is the maxAgeDays the row was stamped with.
+function isRetained(record, currentDate) {
+  if (record === null || typeof record !== 'object') {
+    throw new Error('retention record must be an object');
+  }
+  if (!record.retention || typeof record.retention.maxAgeDays !== 'number') {
+    throw new Error('retention record is missing maxAgeDays');
+  }
+  if (record.recordedAt === undefined || record.recordedAt === null) {
+    throw new Error('retention record is missing recordedAt');
+  }
+  return ageInDays(record.recordedAt, currentDate) <= record.retention.maxAgeDays;
+}
+
+// { matches, profiles } are parallel arrays of stored records (each with recordedAt + retention metadata).
+function applyRetentionPolicy(stored, currentDate) {
+  if (stored === null || typeof stored !== 'object' || Array.isArray(stored)) {
+    throw new Error('stored input must be an object with matches and profiles arrays');
+  }
+  const matches = Array.isArray(stored.matches) ? stored.matches : [];
+  const profiles = Array.isArray(stored.profiles) ? stored.profiles : [];
+  return {
+    matches: matches.filter((r) => isRetained(r, currentDate)),
+    profiles: profiles.filter((r) => isRetained(r, currentDate))
+  };
+}
+
+module.exports = {
+  applyRetentionPolicy: applyRetentionPolicy,
+  ageInDays: ageInDays,
+  isExpired: isExpired,
+  sweep: sweep
+};
   __registry["cycle-manager"] = module.exports;
 })();
 
