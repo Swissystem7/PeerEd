@@ -8,7 +8,7 @@ const { matchPairs, matchAcrossRegions } = require('../src/lib/match.js');
 const { openApp, addPerson, text } = require('../test-support/fake-dom.js');
 
 const st = (region, availability, subjects) => makeProfile({ role: 'student', region, availability, subjects });
-const pu = (region, availability, subjects) => makeProfile({ role: 'pupil', region, availability, subjects });
+const pu = (region, availability, subjects) => makeProfile({ role: 'pupil', region, availability, subjects, parentConsent: true });
 
 test('matchAcrossRegions: only the people left out, hour and subject still required, both regions named', () => {
   const S = [st('CENTER', ['SUN_16'], ['MATH']), st('CENTER', ['MON_18'], ['ENGLISH']), st('SOUTH', ['TUE_17'], ['MATH'])];

@@ -69,6 +69,8 @@ function press(el, attr, value) {
 // Add one participant through the form, exactly as a coordinator would.
 function addPerson($, role, region, subjects, slots) {
   $('role').value = role;
+  $('consentRow').hidden = role !== 'pupil';
+  if (role === 'pupil') $('consent').checked = true;
   $('region').value = region;
   $('consent').checked = role === 'pupil';  // the coordinator ticks parent consent (a pupil without it is never paired)
   subjects.forEach((s) => press($('subjects'), 'data-subject', s));
