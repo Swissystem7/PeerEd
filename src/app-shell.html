@@ -106,6 +106,14 @@
         לעותק — "הורד זוגות (CSV)" במסך השידוך.</p>
       <div id="peopleList"></div>
     </div>
+    <div class="card">
+      <h2>מחיקה מהמכשיר הזה</h2>
+      <p class="hint">הכול נשמר רק בדפדפן הזה. לפני שמוסרים את הטלפון או כשפיילוט נגמר מוחקים מכאן את הרשימה, את תור
+        היחידות ואת יומן השיעורים. אין גיבוי ואין שחזור.</p>
+      <div class="actions"><button type="button" class="ghost" id="wipeBtn">מחק הכול מהמכשיר הזה</button>
+        <button type="button" class="ghost" id="wipeCancel" hidden>ביטול</button></div>
+      <p class="status" id="wipeStatus" role="status"></p>
+    </div>
   </section>
 
   <!-- ============ שידוך ============ -->
@@ -937,6 +945,48 @@
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
   });
 
+  // ---------- wipe this device ----------
+  // Everything the app holds sits under one key of this browser's storage (store.js), so ending a pilot
+  // or handing the phone on means removing that key. The wipe asks twice on the screen itself, not with
+  // window.confirm (it cannot be styled, read right-to-left reliably, or tested), and it goes through
+  // store.clear, never through saving an empty document: afterwards the key is gone, not blank. The
+  // in-memory state is emptied either way, so a blocked storage cannot leave the roster on the screen.
+
+  var WIPE_LABEL = 'מחק הכול מהמכשיר הזה';
+  var wipeArmed = false;
+  function setWipeArmed(on) {
+    wipeArmed = on;
+    $('wipeBtn').textContent = on ? 'כן, מחק הכול' : WIPE_LABEL;
+    $('wipeCancel').hidden = !on;
+  }
+  $('wipeBtn').addEventListener('click', function () {
+    if (!wipeArmed) {
+      setWipeArmed(true);
+      say('wipeStatus', 'יימחקו ' + state.people.length + ' משתתפים, ' + Object.keys(state.queue.entries).length +
+        ' יחידות ו-' + state.log.entries.length + ' שיעורים. לחץ שוב כדי לאשר, או ביטול.');
+      return;
+    }
+    var removed = store.clear();
+    var empty = storeLib.emptyState();
+    state = { people: [], queue: empty.queue, log: empty.log };
+    clearDraft();
+    $('pairs').innerHTML = '';
+    $('unmatched').innerHTML = '';
+    $('reportBox').hidden = true;
+    $('reportText').value = '';
+    ['addStatus', 'matchStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
+      say(id, '');
+    });
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions();
+    setWipeArmed(false);
+    say('wipeStatus', removed ? 'נמחק. במכשיר הזה לא נשאר דבר מהרשימה, מהיחידות ומהיומן.'
+      : 'נמחק מהמסך, אבל הדפדפן לא אפשר למחוק מהאחסון המקומי. נקה את נתוני האתר בהגדרות הדפדפן.', !removed);
+  });
+  $('wipeCancel').addEventListener('click', function () {
+    setWipeArmed(false);
+    say('wipeStatus', 'בוטל. לא נמחק דבר.');
+  });
+
   // ---------- tabs ----------
 
   // One tab stop for the whole bar (the WAI-ARIA tabs pattern): the selected tab is in the Tab order,
@@ -987,6 +1037,7 @@
   renderUnits();
   renderSessionForm();
   renderSessions();
+  setWipeArmed(false);
 })();
 </script>
 </body>
