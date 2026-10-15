@@ -137,6 +137,12 @@
       <h2>מי נשאר בלי זוג</h2>
       <div id="unmatched"></div>
     </div>
+    <div class="card">
+      <h2>שידוך בין אזורים (חירום)</h2>
+      <p class="hint">המפגשים בטקסט בלבד, אז תלמיד מאזור שאין בו סטודנט פנוי — למשל יישוב שפונה — יכול ללמוד עם סטודנט
+        מאזור אחר. כאן רק מי שנשאר בלי זוג, עם שעה ומקצוע משותפים; הזוגות באותו אזור לא משתנים. זו הצעה: הרכז מחליט.</p>
+      <div id="across"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+    </div>
   </section>
 
   <!-- ============ טקסט ============ -->
@@ -547,8 +553,13 @@
     why.students.forEach(function (w) { left.push({ role: 'student', e: r.students[w.index], reason: w.reason }); });
     why.pupils.forEach(function (w) { left.push({ role: 'pupil', e: r.pupils[w.index], reason: w.reason }); });
     left.sort(function (a, b) { return a.e.number - b.e.number; });
+    var across = match.matchAcrossRegions(S, P, pairs).map(function (p) {
+      return { studentRegion: p.studentRegion, pupilRegion: p.pupilRegion,
+               student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
+               sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
+    });
     return {
-      students: S.length, pupils: P.length, left: left,
+      students: S.length, pupils: P.length, left: left, across: across,
       pairs: pairs.map(function (p) {
         return { region: p.region, student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
                  sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
@@ -573,7 +584,8 @@
     keys.sort(function (a, b) { return (counts[b] - counts[a]) || (a < b ? -1 : a > b ? 1 : 0); });
     $('summary').innerHTML = '<p class="hint">' + countHe(m.pairs.length, 'זוג', 'זוגות') + '. ' +
       countHe(shortPupils.length, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
-      countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.</p>' +
+      countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.' +
+      (m.across.length ? ' אפשר עוד ' + countHe(m.across.length, 'זוג', 'זוגות') + ' בין אזורים.' : '') + '</p>' +
       (keys.length ? '<p class="hint">חסרים סטודנטים (תלמיד עם כמה מקצועות נספר בכל אחד):</p>' +
         keys.map(function (k) { return '<div class="item"><span class="meta">' + esc(k) + ': ' + counts[k] +
           '</span></div>'; }).join('') : '');
@@ -596,6 +608,12 @@
         x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>' + reasonHe(x.reason, x.role) + '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
+    $('across').innerHTML = m.across.length ? m.across.map(function (p) {
+      return '<div class="item pair"><b>' + ROLE_HE.pupil + ' #' + p.pupil + ' (' + esc(REGION_HE[p.pupilRegion] || p.pupilRegion) +
+        ') עם ' + ROLE_HE.student + ' #' + p.student + ' (' + esc(REGION_HE[p.studentRegion] || p.studentRegion) + ')</b>' +
+        '<span class="meta">מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
+        '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') + '</span></div>';
+    }).join('') : '<p class="empty">אין הצעה: אף אחד מאלה שנשארו לא חולק שעה ומקצוע עם מישהו מאזור אחר.</p>';
     renderSummary(m);
     say('matchStatus', countHe(m.pairs.length, 'זוג', 'זוגות') + ' מתוך ' +
       countHe(m.students, 'סטודנט', 'סטודנטים') + ' ו-' + countHe(m.pupils, 'תלמיד', 'תלמידים') +
@@ -622,6 +640,15 @@
       rows.push(csvRow([ROLE_HE[x.role], x.e.number, REGION_HE[x.e.person.region] || x.e.person.region,
         subjectsHe(x.e.person.subjects), reasonHe(x.reason, x.role)]));
     });
+    if (last.across.length) {
+      rows.push('');
+      rows.push(csvRow(['הצעות בין אזורים (טקסט בלבד, הרכז מחליט)']));
+      rows.push(csvRow(['תלמיד (מספר ברשימה)', 'אזור התלמיד', 'סטודנט (מספר ברשימה)', 'אזור הסטודנט', 'מקצועות משותפים', 'שעות משותפות']));
+      last.across.forEach(function (p) {
+        rows.push(csvRow([p.pupil, REGION_HE[p.pupilRegion] || p.pupilRegion, p.student, REGION_HE[p.studentRegion] || p.studentRegion,
+          subjectsHe(p.sharedSubjects), slotsHe(p.sharedSlots)]));
+      });
+    }
     var blob = new Blob(['\ufeff' + rows.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
