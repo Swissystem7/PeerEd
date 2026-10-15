@@ -29,3 +29,10 @@ test('audit-report: durations track the frozen policy object, not hard-coded lit
   assert.ok(profileLine && profileLine.includes(String(policy.profile)));
   assert.ok(matchLine && matchLine.includes(String(policy.match)));
 });
+
+test('audit-report: generateAuditReport uses a supplied policy when one is passed', () => {
+  const report = generateAuditReport({ profile: 100, match: 50 });
+  assert.ok(report.includes('100'), 'profile retention must come from the passed policy');
+  assert.ok(report.includes('50'), 'match retention must come from the passed policy');
+  assert.doesNotMatch(report, /\b730\b|\b365\b/, 'must not embed the live policy when another is supplied');
+});
