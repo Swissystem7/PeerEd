@@ -36,12 +36,8 @@ function compareCandidates(x, y) {
     (x.pupilIndex - y.pupilIndex);
 }
 
-// students / pupils: arrays of profiles ({ region, availability, subjects }).
-// A pair needs the same region, >= 1 shared slot and >= 1 shared subject. Each participant is used at most once.
-// Candidates are sorted by shared slots desc, shared subjects desc, student index, pupil index, then taken greedily.
-function matchPairs(students, pupils) {
-  const S = Array.isArray(students) ? students : [];
-  const P = Array.isArray(pupils) ? pupils : [];
+// All valid (student, pupil) candidates, best first.
+function candidatesOf(S, P) {
   const candidates = [];
   for (let si = 0; si < S.length; si += 1) {
     const s = S[si];
@@ -62,18 +58,57 @@ function matchPairs(students, pupils) {
       });
     }
   }
-  candidates.sort(compareCandidates);
-  const usedStudents = new Set();
-  const usedPupils = new Set();
-  const pairs = [];
+  return candidates.sort(compareCandidates);
+}
+
+// students / pupils: arrays of profiles ({ region, availability, subjects }).
+// A pair needs the same region, >= 1 shared slot and >= 1 shared subject. Each participant is used at most once.
+// The result has the LARGEST POSSIBLE number of pairs: candidates are sorted by shared slots desc, shared
+// subjects desc, student index, pupil index and taken greedily; then, for every student still alone (in
+// index order), an augmenting path is searched in that same candidate order (Kuhn's algorithm), which can
+// only add a pair, never lose one. Pairs are returned in candidate order. No clock, no randomness.
+function matchPairs(students, pupils) {
+  const S = Array.isArray(students) ? students : [];
+  const P = Array.isArray(pupils) ? pupils : [];
+  const candidates = candidatesOf(S, P);
+  const byStudent = new Map();
   for (let i = 0; i < candidates.length; i += 1) {
     const c = candidates[i];
-    if (usedStudents.has(c.studentIndex) || usedPupils.has(c.pupilIndex)) continue;
-    usedStudents.add(c.studentIndex);
-    usedPupils.add(c.pupilIndex);
-    pairs.push(c);
+    if (!byStudent.has(c.studentIndex)) byStudent.set(c.studentIndex, []);
+    byStudent.get(c.studentIndex).push(c);
   }
-  return pairs;
+  const ofStudent = new Map();   // studentIndex -> candidate
+  const ofPupil = new Map();     // pupilIndex -> candidate
+  for (let i = 0; i < candidates.length; i += 1) {
+    const c = candidates[i];
+    if (ofStudent.has(c.studentIndex) || ofPupil.has(c.pupilIndex)) continue;
+    ofStudent.set(c.studentIndex, c);
+    ofPupil.set(c.pupilIndex, c);
+  }
+  function augment(si, seen) {
+    const list = byStudent.get(si) || [];
+    for (let i = 0; i < list.length; i += 1) {
+      const c = list[i];
+      if (seen.has(c.pupilIndex)) continue;
+      seen.add(c.pupilIndex);
+      const holder = ofPupil.get(c.pupilIndex);
+      if (!holder || augment(holder.studentIndex, seen)) {
+        ofStudent.set(si, c);
+        ofPupil.set(c.pupilIndex, c);
+        return true;
+      }
+    }
+    return false;
+  }
+  // A failed search leaves every pupil it visited unable to reach a free pupil until some search
+  // succeeds, so the visited set is kept across failures and cleared only after a success.
+  const reachablePupils = new Set(candidates.map((c) => c.pupilIndex)).size;
+  let seen = new Set();
+  for (let si = 0; si < S.length && ofPupil.size < reachablePupils; si += 1) {
+    if (ofStudent.has(si) || !byStudent.has(si)) continue;
+    if (augment(si, seen)) seen = new Set();
+  }
+  return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
 // Why each participant is not in `pairs`. One code per person, the first that is true:
