@@ -29,10 +29,14 @@ run `npm run build` and commit the regenerated `app.html`.
 ## What works today
 
 `app.html` is the whole app: one file, no server, no network call, built from the tested modules by
-`node scripts/build-app.js` (`--check` fails if it is stale). `npm test` runs the suite. Besides people and
-matching it has a units screen where a teacher submits an enrichment unit and the approver (a role, never a
-person) approves or rejects it with a reason, and a sessions screen where a session is logged for a matched
-pair (slot, subject, approved unit, outcome; never who) and a municipality sees counts only.
+`node scripts/build-app.js` (`--check` fails if it is stale). `npm test` runs the suite, among it a contrast
+audit of the screen: `scripts/contrast.js` reads every text-on-background pair out of the stylesheet
+(variables resolved, translucent tints painted over their parent) and `test/contrast.test.js` fails the suite
+if one drops under WCAG AA, 4.5:1 for text and 3:1 for the focus ring and the selected-tab line;
+`node scripts/contrast.js` prints the table. Besides people and matching it has a units screen where a teacher
+submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason,
+and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome;
+never who) and a municipality sees counts only.
 
 | File | What it does |
 |---|---|
@@ -57,9 +61,11 @@ without a student by region and subject.
 ## What does not exist
 
 No accounts, no sharing between devices (the state lives in one browser's localStorage), no reports for a
-municipality beyond the session counts on the sessions screen and their CSV export, no accessibility audit
-beyond keyboard navigation of the tab bar, no Arabic or Russian, regions are national rather than one municipality's neighbourhoods. Nothing here has
-been used by a real coordinator.
+municipality beyond the session counts on the sessions screen and their CSV export, no accessibility work
+beyond keyboard navigation of the tab bar and the text contrast audit (no screen-reader pass; the card and
+field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.11, and the audit does not cover borders because
+lightening them is a look still to be chosen), no Arabic or Russian, regions are national rather than one
+municipality's neighbourhoods. Nothing here has been used by a real coordinator.
 
 The gateway for AI content in `PURPOSE.md` is not offered; the text gate stays as a demonstration of the
 privacy rule.
