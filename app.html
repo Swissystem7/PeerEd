@@ -191,6 +191,47 @@
     </div>
   </section>
 
+  <!-- ============ שיעורים ============ -->
+  <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" hidden>
+    <div class="banner">
+      יומן השיעורים רושם שהתקיים שיעור טקסט של זוג משודך: אזור, שעה, מקצוע, היחידה המאושרת שנלמדה ואיך
+      השיעור הסתיים. מספרי הסטודנט והתלמיד לא נכתבים ליומן. רשות מקבלת ספירות בלבד, לא שורות.
+    </div>
+    <div class="card">
+      <h2>רישום שיעור</h2>
+      <p class="hint">הזוגות מחושבים מחדש מהרשימה (אותו קלט, אותם זוגות). אפשר לרשום רק שעה ומקצוע שהזוג
+        חולק, ורק יחידה שאושרה במסך "יחידות" באותו מקצוע.</p>
+      <label for="sessionPair">זוג</label>
+      <select id="sessionPair"></select>
+      <div class="row">
+        <div><label for="sessionSlot">שעה</label><select id="sessionSlot"></select></div>
+        <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject"></select></div>
+      </div>
+      <label for="sessionUnit">יחידה מאושרת</label>
+      <select id="sessionUnit"></select>
+      <label for="sessionOutcome">איך הסתיים</label>
+      <select id="sessionOutcome"></select>
+      <div class="actions"><button type="button" class="act" id="logSession">רשום שיעור</button></div>
+      <p class="status" id="sessionStatus" role="status"></p>
+    </div>
+    <div class="card">
+      <h2>סיכום לרשות — ספירות בלבד</h2>
+      <div id="sessionSummary"></div>
+      <p class="hint">הייצוא הוא אותן ספירות כקובץ CSV: מדד, קוד, כמות. אין בו שורות של היומן, אין שעה, אין
+        מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
+      <div class="actions"><button type="button" class="ghost" id="exportReport">ייצא דוח CSV</button></div>
+      <div id="reportBox" hidden>
+        <label for="reportText">הדוח (לקריאה בלבד)</label>
+        <textarea id="reportText" readonly dir="ltr" spellcheck="false"></textarea>
+      </div>
+      <p class="status" id="reportStatus" role="status"></p>
+    </div>
+    <div class="card">
+      <h2>היומן</h2>
+      <div id="sessionList"></div>
+    </div>
+  </section>
+
   <!-- ============ קשר (src/lib/contact.js) ============ -->
   <div class="card" id="contactBox" hidden>
     <h2>רוצים לנסות בסבב השיבוץ שלכם?</h2>
@@ -204,6 +245,7 @@
   <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false">שידוך</button>
   <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false">פרטיות</button>
   <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false">יחידות</button>
+  <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false">שיעורים</button>
 </nav>
 
 <script>
@@ -1682,7 +1724,8 @@ module.exports = {
   'use strict';
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
-      unitLib = __registry.unit, approval = __registry.approval, contact = __registry.contact;
+      unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
+      contact = __registry.contact;
   var $ = function (id) { return document.getElementById(id); };
 
   // One label per role, used by the participants list AND the match screen.
@@ -2170,6 +2213,139 @@ module.exports = {
     renderUnits(); save();
   });
 
+  // ---------- sessions (MVP item 6) ----------
+  // The screen never writes a log row itself. The pair comes from match.matchPairs over the stored
+  // roster (same input, same pairs, so nothing about the pairing is stored), the row goes through
+  // session.logSession against the stored queue, and the municipality view is session.summarize.
+  // The roster positions of a pair are shown in the dropdown and never reach the log.
+
+  var OUTCOME_HE = { held: 'התקיים', missed: 'לא התקיים', cut_short: 'נקטע באמצע' };
+
+  function currentPairs() {
+    var students = state.people.filter(function (p) { return p.role === 'student'; });
+    var pupils = state.people.filter(function (p) { return p.role === 'pupil'; });
+    return match.matchPairs(students, pupils);
+  }
+  function fillSelect(id, values, label) {
+    var el = $(id);
+    el.innerHTML = values.map(function (v, i) {
+      return '<option value="' + esc(v) + '">' + esc(label(v, i)) + '</option>';
+    }).join('');
+    el.disabled = values.length === 0;
+  }
+  function renderSessionUnits() {
+    var subject = $('sessionSubject').value;
+    var units = approval.approvedUnits(state.queue).filter(function (u) { return u.subject === subject; });
+    if (!units.length) {
+      $('sessionUnit').innerHTML = '<option value="">אין יחידה מאושרת במקצוע הזה - אשר אחת במסך יחידות</option>';
+      $('sessionUnit').disabled = true;
+      return;
+    }
+    fillSelect('sessionUnit', units.map(function (u) { return u.id; }), function (id, i) {
+      return units[i].title + ' · ' + units[i].durationMinutes + ' דקות · ' + id;
+    });
+  }
+  function renderSessionChoices(pairs) {
+    var pair = pairs[Number($('sessionPair').value)];
+    fillSelect('sessionSlot', pair ? pair.sharedSlots : [], slotHe);
+    var subjects = pair ? pair.sharedSubjects : [];
+    fillSelect('sessionSubject', subjects, function (s) { return SUBJECT_HE[s] || s; });
+    // Start on the first shared subject that has an approved unit, so the unit list is not empty by default.
+    var approved = approval.approvedUnits(state.queue);
+    for (var i = 0; i < subjects.length; i += 1) {
+      var subject = subjects[i];
+      if (approved.some(function (u) { return u.subject === subject; })) { $('sessionSubject').value = subject; break; }
+    }
+    renderSessionUnits();
+  }
+  function renderSessionForm() {
+    var pairs = currentPairs();
+    fillSelect('sessionPair', pairs.map(function (p, i) { return String(i); }), function (v, i) {
+      var p = pairs[i];
+      return 'זוג ' + (i + 1) + ' · ' + (REGION_HE[p.region] || p.region) + ' · ' +
+        p.sharedSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ');
+    });
+    renderSessionChoices(pairs);
+  }
+
+  function sessionRow(e) {
+    var entry = state.queue.entries[e.unitId];
+    return '<div class="item"><b>שיעור ' + e.seq + ' · ' + esc(REGION_HE[e.region] || e.region) + ' · ' +
+      esc(OUTCOME_HE[e.outcome] || e.outcome) + '</b><span class="meta">' + esc(slotHe(e.slot)) + ' · ' +
+      esc(SUBJECT_HE[e.subject] || e.subject) + '<br>' + esc(entry ? entry.unit.title : '') +
+      ' <span class="pill">' + esc(e.unitId) + '</span></span></div>';
+  }
+  function countRow(title, counts, label) {
+    var keys = Object.keys(counts).sort();
+    if (!keys.length) return '';
+    return '<div class="item"><b>' + title + '</b><span class="meta">' + keys.map(function (k) {
+      return esc(label(k)) + ': ' + counts[k];
+    }).join(' · ') + '</span></div>';
+  }
+  function renderSessions() {
+    var s = session.summarize(state.log);
+    $('sessionSummary').innerHTML = s.sessions
+      ? '<div class="item pair"><b>' + s.sessions + ' שיעורים</b></div>' +
+        countRow('לפי תוצאה', s.byOutcome, function (k) { return OUTCOME_HE[k] || k; }) +
+        countRow('לפי אזור', s.byRegion, function (k) { return REGION_HE[k] || k; }) +
+        countRow('לפי מקצוע', s.bySubject, function (k) { return SUBJECT_HE[k] || k; }) +
+        countRow('לפי יחידה', s.byUnit, function (id) {
+          var e = state.queue.entries[id]; return e ? e.unit.title : id;
+        })
+      : '<p class="empty">עדיין לא נרשם שיעור, אז לרשות אין מה לקבל.</p>';
+    $('sessionList').innerHTML = state.log.entries.length
+      ? state.log.entries.slice().reverse().map(sessionRow).join('')
+      : '<p class="empty">היומן ריק. רושמים שיעור בטופס למעלה אחרי שנוצר זוג ואושרה יחידה.</p>';
+    // An export that is already open follows the log, so a stale report is never on the screen.
+    if (!$('reportBox').hidden) $('reportText').value = session.reportCsv(state.log);
+  }
+
+  // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
+  // the file can hold nothing the summary card does not already show. The text lands in a read-only
+  // box and is selected; the clipboard is tried on top of that, never instead of it (a phone browser
+  // may refuse it, and a refused copy must not look like a copy).
+  $('exportReport').addEventListener('click', function () {
+    var text;
+    try { text = session.reportCsv(state.log); } catch (err) { say('reportStatus', 'לא יוצא: ' + err.message, true); return; }
+    var box = $('reportText');
+    box.value = text;
+    $('reportBox').hidden = false;
+    box.focus();
+    box.select();
+    var lines = text.split('\n').length - 2;
+    var done = 'הדוח מוכן: ' + lines + ' שורות של ספירות, מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        say('reportStatus', done + ' הועתק גם ללוח.');
+      }, function () { say('reportStatus', done); });
+    } else {
+      say('reportStatus', done);
+    }
+  });
+
+  $('sessionPair').addEventListener('change', function () { renderSessionChoices(currentPairs()); });
+  $('sessionSubject').addEventListener('change', renderSessionUnits);
+
+  $('logSession').addEventListener('click', function () {
+    var pairs = currentPairs();
+    var pair = pairs[Number($('sessionPair').value)];
+    if (!pair) {
+      say('sessionStatus', 'אין זוג לרשום לו שיעור. טען משתתפים במסך "אנשים" ובדוק במסך "שידוך" שנוצר זוג.', true);
+      return;
+    }
+    try {
+      state.log = session.logSession(state.log, state.queue, pair, {
+        slot: $('sessionSlot').value,
+        subject: $('sessionSubject').value,
+        unitId: $('sessionUnit').value,
+        outcome: $('sessionOutcome').value
+      });
+    } catch (err) { say('sessionStatus', 'לא נרשם: ' + err.message, true); return; }
+    renderSessions(); save();
+    say('sessionStatus', 'נרשם שיעור ' + (state.log.nextSeq - 1) +
+      '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
+  });
+
   // ---------- tabs ----------
 
   var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
@@ -2180,6 +2356,8 @@ module.exports = {
         t.setAttribute('aria-selected', on ? 'true' : 'false');
         $(t.getAttribute('aria-controls')).hidden = !on;
       });
+      // The roster and the queue may have changed on other tabs: the pairs and the units are recomputed.
+      if (tab.id === 'nav-sessions') renderSessionForm();
       window.scrollTo(0, 0);
     });
   });
@@ -2198,10 +2376,13 @@ module.exports = {
   }
 
   buildInputs();
+  fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
   load();
   renderContact();
   renderPeople();
   renderUnits();
+  renderSessionForm();
+  renderSessions();
 })();
 </script>
 </body>
