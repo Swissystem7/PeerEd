@@ -148,7 +148,32 @@ function makeMatchRecord(pair, recordedAt) {
   });
 }
 
-module.exports = { matchPairs, explainUnmatched, shared, compareCandidates, hasOverlap, makeMatchRecord };
+// A second, opt-in pass for an emergency: sessions are text only, so a pupil whose own region has no
+// free student (an evacuated town, a region whose students left) can still learn with a student from
+// another region. Only the people `pairs` left out take part; the region rule is the only one dropped
+// (a shared hour and a shared subject are still required), and the same largest-matching engine runs on
+// them. The local pairs are never touched, so this can only add pairs. Each result names both regions;
+// indexes are positions in the original students / pupils arrays. Same input -> same output.
+function matchAcrossRegions(students, pupils, pairs) {
+  const S = Array.isArray(students) ? students : [];
+  const P = Array.isArray(pupils) ? pupils : [];
+  const usedS = new Set(); const usedP = new Set();
+  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
+  const freeS = []; const freeP = [];
+  S.forEach((s, i) => { if (s && typeof s.region === 'string' && !usedS.has(i)) freeS.push(i); });
+  P.forEach((p, i) => { if (p && typeof p.region === 'string' && !usedP.has(i)) freeP.push(i); });
+  const anywhere = (x) => ({ region: 'ANY', availability: x.availability, subjects: x.subjects });
+  return matchPairs(freeS.map((i) => anywhere(S[i])), freeP.map((i) => anywhere(P[i]))).map((c) => ({
+    studentIndex: freeS[c.studentIndex],
+    pupilIndex: freeP[c.pupilIndex],
+    studentRegion: S[freeS[c.studentIndex]].region,
+    pupilRegion: P[freeP[c.pupilIndex]].region,
+    sharedSlots: c.sharedSlots,
+    sharedSubjects: c.sharedSubjects
+  }));
+}
+
+module.exports = { matchPairs, explainUnmatched, matchAcrossRegions, shared, compareCandidates, hasOverlap, makeMatchRecord };
 // Why each participant is not in `pairs`. One code per person, the first that is true:
 //   NO_ONE_IN_REGION               nobody of the other role in the same region
 //   NO_SHARED_HOUR                 somebody in the region, but never free at the same hour
