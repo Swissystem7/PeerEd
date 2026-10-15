@@ -43,7 +43,7 @@ run `npm run build` and commit the regenerated `app.html`.
 | `src/lib/unit.js` | An enrichment-unit record with a deterministic id (title and body pass the free-text gate). A module only: nothing on screen offers or stores units. |
 | `src/lib/approval.js` | The approval queue for units: pending, approved or rejected by the approver role only (no personal identity), deterministic and JSON-serializable. A module only: nothing on screen runs the flow yet. |
 | `src/lib/session.js` | The session log (MVP item 6): a row per session of a matched pair holding only what the pair shares (region, slot, subject, the approved unit id, the outcome); roster positions never reach it, an unapproved unit cannot be logged, and the municipality summary is counts only. A module only: nothing on screen logs a session yet. |
-| `src/lib/store.js` | Local-only storage (MVP item 7). The whole state (roster, approval queue, session log) is one JSON document under one key in the browser's localStorage, or an in-memory fallback when storage is blocked. Loading re-validates everything (`makeProfile`, `loadQueue`, `loadLog`), so a record edited in devtools cannot bring a name or a forged status in; a document that fails comes back as an empty state plus the reason. |
+| `src/lib/store.js` | Local-only storage (MVP item 7). The whole state (roster, approval queue, session log) is one JSON document under one key in the browser's localStorage, or an in-memory fallback when storage is blocked. Loading re-validates everything (`makeProfile`, `loadQueue`, `loadLog`), so a record edited in devtools cannot bring a name or a forged status in; a document that fails comes back as an empty state plus the reason. `test/offline.test.js` is a static check that no module and neither HTML file can reach the network. |
 | `src/lib/contact.js` | The one place for a contact channel. Since 28.9 `CONTACT` is the Google Form "משוב על האפליקציות", pre-filled with PeerEd. If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
 
 On screen: add participants (or load a sample), compute the match, see who is left out and why, download
@@ -52,7 +52,7 @@ without a student by region and subject.
 
 ## What does not exist
 
-No accounts, no sharing between devices (the list lives in one browser's localStorage), no session screen
+No accounts, no sharing between devices (the state lives in one browser's localStorage), no session screen
 (the `session.js` module is built in, nothing on screen logs a session), no accessibility audit, no Arabic
 or Russian, regions are national rather than one municipality's neighbourhoods. Nothing here has been used
 by a real coordinator.
