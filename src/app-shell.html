@@ -19,6 +19,7 @@
   nav button { flex:1; background:none; border:0; color:var(--muted); font:inherit; font-size:.8rem;
                padding:12px 4px; cursor:pointer; border-top:2px solid transparent; }
   nav button[aria-selected="true"] { color:var(--key); border-top-color:var(--key); font-weight:700; }
+  nav button:focus-visible { outline:2px solid var(--key); outline-offset:-2px; }
   section[role="tabpanel"][hidden] { display:none; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
   .card h2 { font-size:1rem; margin:0 0 8px; }
@@ -241,11 +242,11 @@
 </main>
 
 <nav role="tablist" aria-label="ניווט">
-  <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true">אנשים</button>
-  <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false">שידוך</button>
-  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false">פרטיות</button>
-  <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false">יחידות</button>
-  <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false">שיעורים</button>
+  <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
+  <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
+  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
+  <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
+  <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
 </nav>
 
 <script>
@@ -267,7 +268,7 @@
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
       unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
-      contact = __registry.contact;
+      tabnav = __registry.tabnav, contact = __registry.contact;
   var $ = function (id) { return document.getElementById(id); };
 
   // One label per role, used by the participants list AND the match screen.
@@ -890,17 +891,30 @@
 
   // ---------- tabs ----------
 
+  // One tab stop for the whole bar (the WAI-ARIA tabs pattern): the selected tab is in the Tab order,
+  // the others are not, and the arrow keys walk the bar. Which tab an arrow lands on is tabnav.stepTab,
+  // so the right-to-left rule (ArrowLeft goes forward on a Hebrew screen) is tested, not guessed here.
   var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
-  tabs.forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      tabs.forEach(function (t) {
-        var on = t === tab;
-        t.setAttribute('aria-selected', on ? 'true' : 'false');
-        $(t.getAttribute('aria-controls')).hidden = !on;
-      });
-      // The roster and the queue may have changed on other tabs: the pairs and the units are recomputed.
-      if (tab.id === 'nav-sessions') renderSessionForm();
-      window.scrollTo(0, 0);
+  function activate(tab, focus) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      $(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    // The roster and the queue may have changed on other tabs: the pairs and the units are recomputed.
+    if (tab.id === 'nav-sessions') renderSessionForm();
+    if (focus) tab.focus();
+    window.scrollTo(0, 0);
+  }
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener('click', function () { activate(tab, false); });
+    tab.addEventListener('keydown', function (ev) {
+      var dir = document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl';
+      var next = tabnav.stepTab(tabs.length, i, ev.key, dir);
+      if (next === -1) return;
+      ev.preventDefault();
+      activate(tabs[next], true);
     });
   });
 
