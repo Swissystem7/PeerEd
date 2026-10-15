@@ -1,36 +1,62 @@
 # PeerEd (working name)
 
-Wartime regional learning network: university students matched to school pupils by region, short text
-"enrichment units", and a teacher gateway for everything AI-related.
+A free matching tool for tutoring coordinators: university students are paired with high-school pupils by
+region, free hours and subject, with no name, phone, email or id ever entered. The coordinator keeps the
+names in their own sheet and uses PeerEd for the part that is slow by hand: who can meet whom, when.
 
-Owner idea, 2026-09-07. Owner's decisions: high-school age, text only, the owner approves every unit, its
-own repository and built to be extended. Rules: no cloud dependency for the MVP, no personal data of minors,
-deterministic tests only. Local repository until the owner approves publishing.
+Owner idea, 2026-09-07: high-school age, its own repository. Rules: no cloud
+dependency, no personal data of minors, deterministic tests only. Private repository until the owner
+approves publishing.
 
 ## What works today
 
-`npm test` runs 166 tests, among them a contrast audit of the screen: `scripts/contrast.js` reads every text-on-background pair out of the stylesheet (variables resolved, translucent tints painted over their parent) and `test/contrast.test.js` fails the suite if one drops under WCAG AA, 4.5:1 for text and 3:1 for the focus ring and the selected-tab line. `node scripts/contrast.js` prints the table. `app.html` is a one-file demo shell over the core: people (a pupil gets a parent-consent checkbox, and a button on the roster flips it through the profile module), matching, the text gate, a units screen where a teacher submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason, and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome; never who) and a municipality sees counts only. A participant is numbered within its role (תלמיד #1, #2...) on every screen alike, so the pupil the match screen names is the card the people screen shows; `test/people-numbering.test.js` runs the built app under node:vm against a small fake DOM and checks that the two screens agree. The people screen ends with a wipe button for the device: a second click (or cancel) is asked for on the screen itself, then the one storage key is removed through `store.clear` - never overwritten with an empty document - and every screen is emptied, even when the browser refuses to remove the key; `test/wipe-device.test.js` watches the key through a fake localStorage.
+`app.html` is the whole app: one file, no server, no network call, built from the tested modules by
+`node scripts/build-app.js` (`--check` fails if it is stale). `npm test` runs the suite, among it a contrast
+audit of the screen: `scripts/contrast.js` reads every text-on-background pair out of the stylesheet
+(variables resolved, translucent tints painted over their parent) and `test/contrast.test.js` fails the suite
+if one drops under WCAG AA, 4.5:1 for text and 3:1 for the focus ring and the selected-tab line;
+`node scripts/contrast.js` prints the table. Besides people (a pupil gets a parent-consent checkbox, and a
+button on the roster flips it through the profile module) and matching it has a units screen where a teacher
+submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason,
+and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome;
+never who) and a municipality sees counts only. A participant is numbered within its role (תלמיד #1, #2...)
+on every screen alike, so the pupil the match screen names is the card the people screen shows;
+`test/people-numbering.test.js` runs the built app under node:vm against a small fake DOM and checks that
+the two screens agree. The people screen ends with a wipe button for the device: a second click (or cancel) is asked for on the screen itself, then the one storage key is removed through `store.clear` - never overwritten with an empty document - and every screen is emptied, even when the browser refuses to remove the key; `test/wipe-device.test.js` watches the key through a fake localStorage.
 
-| Module | What it does |
+| File | What it does |
 |---|---|
-| `src/lib/regions.js` | The six region codes of the first municipality-scale deployment, and their validation. |
-| `src/lib/profile.js` | The only record the system stores: role, region, availability slots, subjects, and for a pupil one boolean, `parentConsent`, false unless given. Any other key, including an empty one, is refused with `personal data is not accepted`, so consent can never carry a parent's name, a date or a document. The result is frozen and its arrays are copies, with one spelling per hour (normalizeSlot turns SUN_08 into SUN_8, because the engine compares slots as strings and two spellings of one hour would never meet) and no repeats, so a slot ticked twice does not count as two free hours. `grantParentConsent` / `revokeParentConsent` return a new record through `makeProfile`, so the gate holds on that path too. |
-| `src/lib/match.js` | Deterministic matching: a pupil with parent consent (`parentConsent === true`; a missing flag is a no), same region, at least one shared availability slot, at least one shared subject. The consent gate is the engine's, not the screen's: a pupil without it is not in the pool however well the rest fits, so no stored roster and no screen can pair a minor whose parent has not said yes, and the sessions screen, which takes its pairs from here, cannot log a session for one. Candidates are ranked by shared slots, then shared subjects, then input order, and taken greedily; each participant is used at most once. No clock, no randomness, no network. `explainUnmatched` says why each leftover participant has no pair, checking the same gates in the same order: no parent consent (for a pupil, about the pupil alone; for a student, pupils exist in the region but none has consent yet), nobody on the other side in the region, nobody with a shared hour, nobody with a shared subject, or compatible counterparts existed but were all paired with others (`TAKEN`, with their count). The match screen shows that sentence instead of one guess for every case, so the coordinator knows whether to obtain consent, recruit, ask for hours, or add a subject. |
+| `src/lib/regions.js` | The six region codes and their validation. |
+| `src/lib/retention.js` | How long each kind of record may be kept (profile 365 days, match 180); nothing is kept indefinitely. |
+| `src/lib/audit-report.js` | A Hebrew privacy and retention statement for audits, generated from the active retention policy (what is collected, how long it is kept, how it is deleted). |
+| `src/lib/profile.js` | The only record the app keeps: role, region, availability slots (8:00-22:00), subjects, and for a pupil one boolean, `parentConsent`, false unless given. Any other key, even an empty one, is refused with `personal data is not accepted`, so consent can never carry a parent's name, a date or a document. Arrays come back with one spelling per hour (normalizeSlot turns SUN_08 into SUN_8, because the engine compares slots as strings and two spellings of one hour would never meet) and no repeats, so a slot ticked twice does not count as two free hours. `grantParentConsent` / `revokeParentConsent` return a new record through `makeProfile`, so the gate holds on that path too. |
+| `src/lib/match.js` | Deterministic matching: a pupil with parent consent (`parentConsent === true`; a missing flag is a no), same region, at least one shared hour, at least one shared subject, each person at most once, and the largest possible number of pairs (a greedy pass by shared hours, then augmenting paths). The consent gate is the engine's, not the screen's: a pupil without it is not in the pool however well the rest fits, so no stored roster and no screen can pair a minor whose parent has not said yes, and the sessions screen, which takes its pairs from here, cannot log a session for one. `explainUnmatched` says why each leftover participant has no pair, checking the same gates in the same order: no parent consent, nobody on the other side in the region, nobody with a shared hour, nobody with a shared subject, or compatible counterparts existed but were all paired with others (`TAKEN`, with their count). The match screen shows that sentence, so the coordinator knows whether to obtain consent, recruit, ask for hours, or add a subject. |
 | `src/lib/validator.js` | The gate for free text: refuses email addresses, Israeli phone numbers however they are split (050-123-45-67, (050) 1234567, 050.123.4567, +972 (50) ...), nine-digit id numbers (also 12345678-9 and 123-456-789), links with a scheme, with www or on a bare common domain (wa.me/..., t.me/..., instagram.com/...) and social handles, with the same error message as the profile gate. It reads the text the way a reader sees it: invisible characters are dropped and full-width, mathematical and Arabic-Indic digits and a full-width @ are read as the plain ones, while the stored text stays as written. Ordinary Hebrew lesson text with numbers passes. |
-| `src/lib/unit.js` | An enrichment unit, the short text-only lesson a teacher submits (MVP item 4). Title and body pass the free-text gate; any other key is refused like personal data. The id is a hash of title + subject + duration, computed in plain JavaScript so it is the same in Node and in the browser: resubmitting the same unit, or fixing a typo in its body, gives the same id. |
-| `src/lib/approval.js` | The approval flow (MVP item 5). A submitted unit is pending and invisible to pupils until the approver role decides; the queue records the role, never a person. A rejection needs a reason that passes the free-text gate. Resubmitting the same text changes nothing; a revised body goes back to pending with its revision number raised. The queue is a frozen JSON value and every operation returns a new one, so it can be stored locally; loading it re-runs every unit and reason through the gates, and a stored entry with a key the flow never writes (a teacher name, a note) is refused as personal data, not dropped, and so is a key written beside the entries. |
-| `src/lib/session.js` | The session log (MVP item 6). A session is logged for a pair from matchPairs, but only what the pair shares is written: region, slot, subject, plus the id of the approved unit that was taught and the outcome (held, missed, cut short). The roster positions of the pair never reach the log, any other key is refused as personal data, and a unit that is not approved in the queue cannot be logged. The summary for a municipality is counts only, and `reportCsv` exports exactly that summary as CSV (measure, code, count; fixed order, sorted codes, same log same text) so it can be pasted into a spreadsheet; the sessions screen shows it in a read-only box and offers the clipboard, never a download. Loading a stored log re-checks every row against the approval queue, and a key beside the rows (a coordinator, a school) is refused as personal data. |
-| `src/lib/store.js` | Local-only storage (MVP item 7). The whole state — roster, approval queue, session log — is one JSON document under one key in a Web Storage shaped backend (the browser's localStorage, or an in-memory fallback when storage is blocked). Loading re-validates everything: every person through `makeProfile`, the queue through `loadQueue`, the log through `loadLog`, so a record edited in devtools cannot bring a name or a forged status in. A document that fails comes back as an empty state plus the reason, never as half a roster. `test/offline.test.js` is a static check that no module and neither HTML file can reach the network. |
+| `src/lib/unit.js` | An enrichment-unit record with a deterministic id (title and body pass the free-text gate). The units screen submits one. |
+| `src/lib/approval.js` | The approval queue for units: pending, approved or rejected by the approver role only (no personal identity), deterministic and JSON-serializable. The units screen runs the flow. A stored entry with a key the flow never writes (a teacher name, a note) is refused as personal data, not dropped, and so is a key written beside the entries. |
+| `src/lib/session.js` | The session log (MVP item 6): a row per session of a matched pair holding only what the pair shares (region, slot, subject, the approved unit id, the outcome); roster positions never reach it, an unapproved unit cannot be logged, and the municipality summary is counts only. The sessions screen logs it and shows the counts-only summary, and `reportCsv` exports that summary as CSV (measure, code, count; fixed order). Loading a stored log re-checks every row against the approval queue, and a key beside the rows (a coordinator, a school) is refused as personal data. |
+| `src/lib/store.js` | Local-only storage (MVP item 7). The whole state (roster, approval queue, session log) is one JSON document under one key in the browser's localStorage, or an in-memory fallback when storage is blocked. Loading re-validates everything (`makeProfile`, `loadQueue`, `loadLog`), so a record edited in devtools cannot bring a name or a forged status in; a document that fails comes back as an empty state plus the reason. `test/offline.test.js` is a static check that no module and neither HTML file can reach the network. |
 | `src/lib/tabnav.js` | Keyboard navigation of the tab bar, the WAI-ARIA tabs pattern: the bar is one tab stop, and `stepTab` says which tab an arrow key lands on. The screen is right-to-left, so ArrowLeft goes forward and ArrowRight back, both wrap, Home and End are the ends, and any other key is left to the browser. The shell only asks the module and moves focus. |
+| `src/lib/contact.js` | The one place for a contact channel. Since 28.9 `CONTACT` is the Google Form "משוב על האפליקציות", pre-filled with PeerEd. If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
 
-`PURPOSE.md` carries the research this is grounded in (35 sources) and the owner's decisions.
+On screen: add participants (or load a sample), compute the match, see who is left out and why, download
+the pairs as CSV (list numbers only, to line up with the coordinator's sheet), and a summary of pupils left
+without a student by region and subject.
 
-## What does not exist yet
+## What does not exist
 
-No reports for a municipality beyond the session counts on the sessions screen and their CSV export, no accessibility work beyond keyboard navigation of the tab bar and the text contrast audit (no screen-reader pass; the card and field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.11, and the audit does not cover borders because lightening them is a look the owner decides on), no Arabic or Russian. Nothing here has been used by a real school.
+No accounts, no sharing between devices (the state lives in one browser's localStorage), no reports for a
+municipality beyond the session counts on the sessions screen and their CSV export, no accessibility work
+beyond keyboard navigation of the tab bar and the text contrast audit (no screen-reader pass; the card and
+field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.11, and the audit does not cover borders because
+lightening them is a look still to be chosen), no Arabic or Russian, regions are national rather than one
+municipality's neighbourhoods. Nothing here has been used by a real coordinator.
+
+The gateway for AI content in `PURPOSE.md` is not offered; the text gate stays as a demonstration of the
+privacy rule.
 
 ## Why the profile is so narrow
 
 The matching only needs region, availability and subject. Every additional field would be personal data
 about a minor, so the code refuses it outright rather than trusting a future caller to be careful. That
-refusal is the feature an examiner or a municipality will ask about first.
+refusal is the feature a municipality's privacy officer will ask about first.
