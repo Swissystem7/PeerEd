@@ -12,6 +12,8 @@ const { statusOf } = require('./approval.js');
 
 const OUTCOMES = Object.freeze(['held', 'missed', 'cut_short']);
 const ACCEPTED_FIELDS = Object.freeze(['slot', 'subject', 'unitId', 'outcome']);
+// the log itself is only ever written with these two keys
+const LOG_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const UNIT_NOT_APPROVED_ERROR = 'unit is not approved: only an approved unit can be taught';
 
 function emptyLog() {
@@ -132,6 +134,11 @@ function reportCsv(log) {
 function loadLog(data, queue) {
   if (data === null || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.entries)) {
     throw new Error('invalid stored log');
+  }
+  // a key next to the rows (a coordinator name, a school) is refused like one inside a row
+  const logKeys = Object.keys(data);
+  for (let k = 0; k < logKeys.length; k += 1) {
+    if (LOG_FIELDS.indexOf(logKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   const entries = [];
   let lastSeq = 0;
