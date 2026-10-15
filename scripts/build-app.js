@@ -11,7 +11,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 // dependency order: a module may only require one listed before it
-const ORDER = ['regions', 'retention', 'audit-report', 'profile', 'match', 'validator', 'unit', 'approval', 'session', 'store', 'contact'];
+const ORDER = ['regions', 'retention', 'audit-report', 'cycle-manager', 'profile', 'match', 'validator', 'unit', 'approval', 'session', 'store', 'contact'];
 const MARKER = '<!--MODULES-->';
 
 // Every input is normalized to LF before it is joined. On a Windows checkout (git autocrlf) the shell and

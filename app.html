@@ -301,6 +301,60 @@ module.exports = {
   __registry["audit-report"] = module.exports;
 })();
 
+/* ===== src/lib/cycle-manager.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd — drop stored match and profile records that exceeded their retention window. Inputs are never mutated.
+
+function toUtcDayIndex(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error('invalid date: ' + String(value));
+  }
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+function ageInDays(recordedAt, currentDate) {
+  const recorded = toUtcDayIndex(recordedAt);
+  const asOf = toUtcDayIndex(currentDate);
+  return Math.floor((asOf - recorded) / 86400000);
+}
+
+function isRetained(record, currentDate) {
+  if (record === null || typeof record !== 'object') {
+    throw new Error('retention record must be an object');
+  }
+  if (!record.retention || typeof record.retention.maxAgeDays !== 'number') {
+    throw new Error('retention record is missing maxAgeDays');
+  }
+  if (record.recordedAt === undefined || record.recordedAt === null) {
+    throw new Error('retention record is missing recordedAt');
+  }
+  return ageInDays(record.recordedAt, currentDate) <= record.retention.maxAgeDays;
+}
+
+// { matches, profiles } are parallel arrays of stored records (each with recordedAt + retention metadata).
+function applyRetentionPolicy(stored, currentDate) {
+  if (stored === null || typeof stored !== 'object' || Array.isArray(stored)) {
+    throw new Error('stored input must be an object with matches and profiles arrays');
+  }
+  const matches = Array.isArray(stored.matches) ? stored.matches : [];
+  const profiles = Array.isArray(stored.profiles) ? stored.profiles : [];
+  return {
+    matches: matches.filter((r) => isRetained(r, currentDate)),
+    profiles: profiles.filter((r) => isRetained(r, currentDate))
+  };
+}
+
+module.exports = {
+  applyRetentionPolicy,
+  ageInDays
+};
+  __registry["cycle-manager"] = module.exports;
+})();
+
 /* ===== src/lib/profile.js ===== */
 (function () {
   var module = { exports: {} };
@@ -483,6 +537,8 @@ module.exports = {
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
+const { getRetentionPolicy } = require('./retention.js');
+
 // Returns true if two string arrays share at least one common element.
 function hasOverlap(a, b) {
   const right = new Set(Array.isArray(b) ? b : []);
@@ -593,6 +649,31 @@ function matchPairs(students, pupils) {
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
+// Persisted match row: a matchPairs() candidate plus when it was stored and its retention category.
+function makeMatchRecord(pair, recordedAt) {
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) {
+    throw new Error('match pair must be an object');
+  }
+  if (recordedAt === undefined || recordedAt === null) {
+    throw new Error('recordedAt is required');
+  }
+  const policy = getRetentionPolicy();
+  const record = {
+    studentIndex: pair.studentIndex,
+    pupilIndex: pair.pupilIndex,
+    region: pair.region,
+    sharedSlots: Object.freeze(pair.sharedSlots.slice()),
+    sharedSubjects: Object.freeze(pair.sharedSubjects.slice()),
+    recordedAt: recordedAt instanceof Date ? recordedAt.toISOString() : String(recordedAt),
+    retention: Object.freeze({
+      dataCategory: 'match',
+      maxAgeDays: policy.match
+    })
+  };
+  return Object.freeze(record);
+}
+
+module.exports = { matchPairs, explainUnmatched, shared, compareCandidates, hasOverlap, makeMatchRecord };
 // Why each participant is not in `pairs`. One code per person, the first that is true:
 //   NO_ONE_IN_REGION               nobody of the other role in the same region
 //   NO_SHARED_HOUR                 somebody in the region, but never free at the same hour
@@ -619,8 +700,6 @@ function explainUnmatched(students, pupils, pairs) {
   P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S) }); });
   return out;
 }
-
-module.exports = { matchPairs, explainUnmatched, shared, compareCandidates, hasOverlap };
   __registry["match"] = module.exports;
 })();
 
