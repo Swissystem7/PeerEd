@@ -54,6 +54,7 @@
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
   .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
+  a { color:var(--key); }
   .flag { background:rgba(255,143,143,.1); border:1px solid rgba(255,143,143,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
 </style>
@@ -175,6 +176,13 @@
       <div id="rejectedList"></div>
     </div>
   </section>
+
+  <!-- ============ קשר (src/lib/contact.js) ============ -->
+  <div class="card" id="contactBox" hidden>
+    <h2>רוצים לנסות בסבב השיבוץ שלכם?</h2>
+    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank"></a></p>
+    <p class="hint" id="contactNote"></p>
+  </div>
 </main>
 
 <nav role="tablist" aria-label="ניווט">
@@ -202,9 +210,11 @@
   'use strict';
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
-      unitLib = __registry.unit, approval = __registry.approval;
+      unitLib = __registry.unit, approval = __registry.approval, contact = __registry.contact;
   var $ = function (id) { return document.getElementById(id); };
 
+  // One label per role, used by the participants list AND the match screen.
+  var ROLE_HE = { student: 'סטודנט מלמד', pupil: 'תלמיד' };
   var REGION_HE = { NORTH: 'צפון', HAIFA: 'חיפה', CENTER: 'מרכז', TEL_AVIV: 'תל אביב',
                     JERUSALEM: 'ירושלים', SOUTH: 'דרום' };
   var SUBJECT_HE = { MATH: 'מתמטיקה', PHYSICS: 'פיזיקה', CHEMISTRY: 'כימיה', BIOLOGY: 'ביולוגיה',
@@ -234,6 +244,50 @@
   function slotHe(slot) {
     var parts = String(slot).split('_');
     return 'יום ' + (DAY_HE[parts[0]] || parts[0]) + ' ' + parts[1] + ':00';
+  }
+  // The engine's messages stay English (tests and logs read them); the screen is Hebrew, so every
+  // message is translated here before a status line shows it. test/ui-hebrew-errors.test.js fails if
+  // a module gains a message that has no line in this table.
+  var ERROR_HE = [
+    ['personal data is not accepted', 'פרטים אישיים לא מתקבלים'],
+    ['offensive language is not accepted', 'שפה פוגענית לא מתקבלת'],
+    ['profile input must be an object with role, region, availability, subjects', 'הרשומה לא בנויה נכון'],
+    ['profile must be an object', 'הרשומה לא בנויה נכון'],
+    ['invalid parentConsent:', 'אישור ההורה לא תקין'],
+    ['invalid slot:', 'שעה שאינה בלוח'],
+    ['invalid role:', 'תפקיד לא מוכר'],
+    ['invalid region:', 'אזור לא מוכר'],
+    ['invalid availability:', 'צריך לסמן לפחות שעה פנויה אחת'],
+    ['invalid availability slot:', 'שעה שאינה בלוח'],
+    ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
+    ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    // The enrichment-unit record. No screen offers a unit yet; the lines are here because the table
+    // must cover every message a module inlined into app.html can throw. Two modules build a unit and
+    // they name the fields differently - validator.js uses minutes/text, unit.js uses
+    // durationMinutes/body - so both wordings need a line. 'invalid subject:' and 'invalid title:' are
+    // shared; a key is matched as a prefix, so one line serves both callers.
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, durationMinutes, body', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך הזמן לא תקין'],
+    ['invalid durationMinutes:', 'משך הזמן לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין'],
+    ['invalid body:', 'טקסט לא תקין'],
+    ['text too long', 'הטקסט ארוך מדי'],
+    ['text too short', 'אין טקסט לבדוק'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך השיעור לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין']
+  ];
+  function errorHe(err) {
+    var msg = String(err && err.message || '');
+    for (var i = 0; i < ERROR_HE.length; i += 1) {
+      if (msg.indexOf(ERROR_HE[i][0]) === 0) return ERROR_HE[i][1];
+    }
+    return 'הקלט נדחה';
   }
   function save() {
     if (!store.save(state)) say('addStatus', 'נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי?).', true);
@@ -272,7 +326,7 @@
 
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
-      return '<div class="item"><b>' + (p.role === 'student' ? 'סטודנט מלמד' : 'תלמיד') + ' #' + (i + 1) +
+      return '<div class="item"><b>' + ROLE_HE[p.role] + ' #' + (i + 1) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
         p.availability.length + ' שעות פנויות</span>' +
@@ -313,7 +367,7 @@
     };
     var made;
     try { made = profile.makeProfile(candidate); }
-    catch (err) { say('addStatus', 'נדחה: ' + err.message, true); return; }
+    catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     state.people.push(made);
     clearDraft();
     renderPeople();
@@ -346,16 +400,28 @@
 
   // ---------- match ----------
 
+  // The participants list numbers people by their place in state.people (#1 = first added, any role).
+  // matchPairs() indexes are positions among students / among pupils, so every index is translated
+  // back to that list number before it reaches the screen.
+  function splitByRole() {
+    var out = { students: [], pupils: [] };
+    state.people.forEach(function (p, i) {
+      (p.role === 'student' ? out.students : out.pupils).push({ number: i + 1, person: p });
+    });
+    return out;
+  }
+
   $('runMatch').addEventListener('click', function () {
-    var students = state.people.filter(function (p) { return p.role === 'student'; });
-    var pupils = state.people.filter(function (p) { return p.role === 'pupil'; });
-    if (!students.length || !pupils.length) {
+    var r = splitByRole();
+    if (!r.students.length || !r.pupils.length) {
       say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return;
     }
-    var pairs = match.matchPairs(students, pupils);
+    var pairs = match.matchPairs(r.students.map(function (e) { return e.person; }),
+                                 r.pupils.map(function (e) { return e.person; }));
     $('pairs').innerHTML = pairs.length ? pairs.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
-        '<span class="meta">סטודנט #' + (p.studentIndex + 1) + ' עם תלמיד #' + (p.pupilIndex + 1) + '<br>' +
+        '<span class="meta">' + ROLE_HE.student + ' #' + r.students[p.studentIndex].number + ' עם ' +
+        ROLE_HE.pupil + ' #' + r.pupils[p.pupilIndex].number + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
@@ -364,15 +430,17 @@
     var pairedStudents = {}, pairedPupils = {};
     pairs.forEach(function (p) { pairedStudents[p.studentIndex] = true; pairedPupils[p.pupilIndex] = true; });
     var left = [];
-    students.forEach(function (s, i) { if (!pairedStudents[i]) left.push({ who: 'סטודנט #' + (i + 1), p: s }); });
-    pupils.forEach(function (p, i) { if (!pairedPupils[i]) left.push({ who: 'תלמיד #' + (i + 1), p: p }); });
+    r.students.forEach(function (e, i) { if (!pairedStudents[i]) left.push({ role: 'student', e: e }); });
+    r.pupils.forEach(function (e, i) { if (!pairedPupils[i]) left.push({ role: 'pupil', e: e }); });
+    left.sort(function (a, b) { return a.e.number - b.e.number; });
     $('unmatched').innerHTML = left.length ? left.map(function (x) {
-      return '<div class="item"><b>' + x.who + '</b><span class="meta">' +
-        esc(REGION_HE[x.p.region] || x.p.region) + ' · ' +
-        x.p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
+      return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
+        esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
+        x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         ' · אין באזור שלו מישהו עם שעה ומקצוע משותפים</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
-    say('matchStatus', pairs.length + ' זוגות מתוך ' + students.length + ' סטודנטים ו-' + pupils.length + ' תלמידים.');
+    say('matchStatus', pairs.length + ' זוגות מתוך ' + r.students.length + ' סטודנטים ו-' + r.pupils.length +
+      ' תלמידים. המספרים הם המקום ברשימת המשתתפים.');
   });
 
   // ---------- text gate ----------
@@ -397,7 +465,7 @@
     if (!hits.length) {
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
-      catch (err) { say('checkStatus', 'נדחה: ' + err.message, true); $('findings').innerHTML = ''; return; }
+      catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
       say('checkStatus', 'נקי. הטקסט שיישמר: "' + cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
       return;
@@ -419,7 +487,7 @@
                             subjects: ['MATH'], phone: '' });
       say('gateStatus', 'נשמר — וזה היה באג.', true);
     } catch (err) {
-      say('gateStatus', 'נדחה עם ההודעה: "' + err.message + '". שים לב שהטלפון היה ריק לגמרי — ' +
+      say('gateStatus', 'נדחה עם ההודעה: "' + errorHe(err) + '". שים לב שהטלפון היה ריק לגמרי — ' +
         'השדה עצמו נדחה, לא הערך.');
     }
   });
@@ -525,8 +593,22 @@
     });
   });
 
+  // ---------- contact ----------
+
+  function renderContact() {
+    var c = contact.contactLink(contact.CONTACT, contact.ISSUE_FORM);
+    $('contactBox').hidden = !c;
+    if (!c) return;
+    $('contactLink').href = c.href;
+    $('contactLink').textContent = c.label;
+    $('contactNote').textContent = c.kind === 'issue'
+      ? 'הפנייה בגיטהאב ציבורית ודורשת חשבון GitHub. אל תכתבו שם טלפון, מייל או פרטים של תלמידים.'
+      : 'אין צורך לשלוח שום פרט של תלמיד כדי לנסות.';
+  }
+
   buildInputs();
   load();
+  renderContact();
   renderPeople();
   renderUnits();
 })();
