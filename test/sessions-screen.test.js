@@ -25,9 +25,9 @@ const DEMO = [
   { role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18', 'TUE_16'], subjects: ['MATH', 'CS'] },
   { role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] },
   { role: 'student', region: 'SOUTH', availability: ['TUE_17', 'WED_17'], subjects: ['PHYSICS', 'ENGLISH'] },
-  { role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'] },
-  { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'] },
-  { role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'] },
+  { role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'], parentConsent: true },
+  { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'], parentConsent: true },
+  { role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'], parentConsent: true },
   { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
 ];
 

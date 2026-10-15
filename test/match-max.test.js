@@ -8,7 +8,8 @@ const { makeProfile } = require('../src/lib/profile.js');
 const { matchPairs } = require('../src/lib/match.js');
 
 const st = (region, availability, subjects) => makeProfile({ role: 'student', region, availability, subjects });
-const pu = (region, availability, subjects) => makeProfile({ role: 'pupil', region, availability, subjects });
+// A pupil is paired only with parent consent (test/consent-match.test.js), so every pupil here has it.
+const pu = (region, availability, subjects) => makeProfile({ role: 'pupil', region, availability, subjects, parentConsent: true });
 
 // s0-p0 has the best score (two shared hours), but taking it first leaves s1 with nobody:
 // s1 can only teach p0 (physics), and p1 only learns math.

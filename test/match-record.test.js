@@ -10,7 +10,7 @@ const { makeProfile } = require('../src/lib/profile.js');
 const { getRetentionPolicy } = require('../src/lib/retention.js');
 
 const student = () => makeProfile({ role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['MATH', 'CS'] });
-const pupil = () => makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['MATH'] });
+const pupil = () => makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['MATH'], parentConsent: true });
 const onePair = () => matchPairs([student()], [pupil()])[0];
 
 test('match record: a pair gains the match retention category and the day it was kept', () => {

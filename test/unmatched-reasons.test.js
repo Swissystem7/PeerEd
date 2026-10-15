@@ -7,7 +7,7 @@ const { matchPairs, explainUnmatched } = require('../src/lib/match.js');
 const { openApp, addPerson, text } = require('../test-support/fake-dom.js');
 
 const st = (region, availability, subjects) => makeProfile({ role: 'student', region, availability, subjects });
-const pu = (region, availability, subjects) => makeProfile({ role: 'pupil', region, availability, subjects });
+const pu = (region, availability, subjects) => makeProfile({ role: 'pupil', region, availability, subjects, parentConsent: true });
 
 test('explainUnmatched: each person left out gets the reason that is actually true', () => {
   const S = [st('CENTER', ['SUN_16'], ['MATH']), st('NORTH', ['SUN_16'], ['MATH'])];
