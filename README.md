@@ -29,7 +29,9 @@ run `npm run build` and commit the regenerated `app.html`.
 ## What works today
 
 `app.html` is the whole app: one file, no server, no network call, built from the tested modules by
-`node scripts/build-app.js` (`--check` fails if it is stale). `npm test` runs the suite.
+`node scripts/build-app.js` (`--check` fails if it is stale). `npm test` runs the suite. Besides people and
+matching it has a units screen where a teacher submits an enrichment unit and the approver (a role, never a
+person) approves or rejects it with a reason. The session log has no screen yet.
 
 | File | What it does |
 |---|---|
@@ -57,8 +59,8 @@ No accounts, no sharing between devices (the state lives in one browser's localS
 or Russian, regions are national rather than one municipality's neighbourhoods. Nothing here has been used
 by a real coordinator.
 
-The enrichment units (beyond the `unit.js` record), the teacher approval flow and the gateway for AI content
-in `PURPOSE.md` are not offered; the text gate stays as a demonstration of the privacy rule.
+The gateway for AI content in `PURPOSE.md` is not offered; the text gate stays as a demonstration of the
+privacy rule.
 
 ## Why the profile is so narrow
 
