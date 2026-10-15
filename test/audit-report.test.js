@@ -1,0 +1,31 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const { getRetentionPolicy } = require('../src/lib/retention.js');
+const { generateAuditReport } = require('../src/lib/audit-report.js');
+
+test('audit-report: Hebrew statement reflects active retention limits and deletion protocol', () => {
+  const policy = getRetentionPolicy();
+  const report = generateAuditReport();
+
+  assert.match(report, /[\u0590-\u05FF]/, 'report must be localized Hebrew text');
+  assert.ok(report.includes(String(policy.profile)), 'must state profile retention duration in days');
+  assert.ok(report.includes(String(policy.match)), 'must state match retention duration in days');
+  assert.match(report, /נתוני פרופיל/, 'must describe profile data collected');
+  assert.match(report, /התאמות/, 'must describe match data collected');
+  assert.match(report, /פרוטוקול מחיקה/, 'must document deletion protocol for audits');
+  assert.match(report, /מוסרות|מחיקה/, 'must explain how data is removed after retention');
+  assert.match(report, /לא נשמר עותק ארכיוני/, 'must state that archival copies are not kept');
+});
+
+test('audit-report: durations track the frozen policy object, not hard-coded literals', () => {
+  const policy = getRetentionPolicy();
+  const report = generateAuditReport();
+  const profileLine = report.split('\n').find((line) => line.includes('נתוני פרופיל') && line.includes('ימים'));
+  const matchLine = report.split('\n').find((line) => line.includes('נתוני התאמות') && line.includes('ימים'));
+
+  assert.ok(profileLine && profileLine.includes(String(policy.profile)));
+  assert.ok(matchLine && matchLine.includes(String(policy.match)));
+});
