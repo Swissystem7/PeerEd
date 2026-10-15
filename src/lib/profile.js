@@ -8,10 +8,18 @@ const { getRetentionPolicy } = require('./retention.js');
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
+const USER_ID_RE = /^p-[0-9a-f]{8}$/;
+
+function assertPeerUserId(id) {
+  if (typeof id !== 'string' || !USER_ID_RE.test(id)) {
+    throw new Error('invalid user id: expected p- followed by 8 hex digits');
+  }
+  return id;
+}
 
 // A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
 function isSlot(slot) {
@@ -65,6 +73,15 @@ function makeProfile(input) {
     throw new Error('invalid parentConsent: expected boolean');
   }
 
+  const blockedUsers = [];
+  if (input.blockedUsers !== undefined) {
+    if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
+    for (let i = 0; i < input.blockedUsers.length; i += 1) {
+      const uid = assertPeerUserId(input.blockedUsers[i]);
+      if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
+    }
+  }
+
   const profile = {
     role: role,
     region: region,
@@ -74,6 +91,10 @@ function makeProfile(input) {
 
   if (role === 'pupil' || input.parentConsent !== undefined) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
+  }
+
+  if (input.blockedUsers !== undefined) {
+    profile.blockedUsers = Object.freeze(blockedUsers.slice());
   }
 
   const policy = getRetentionPolicy();
@@ -107,16 +128,41 @@ function revokeParentConsent(profile) {
   return setParentConsent(profile, false);
 }
 
+function checkBlocked(profile, userId) {
+  assertPeerUserId(userId);
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  if (!Array.isArray(profile.blockedUsers)) return false;
+  return profile.blockedUsers.indexOf(userId) !== -1;
+}
+
+function blockUser(profile, userId) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  assertPeerUserId(userId);
+  const input = Object.assign({}, profile);
+  delete input.retention;
+  const current = Array.isArray(profile.blockedUsers) ? profile.blockedUsers.slice() : [];
+  if (current.indexOf(userId) === -1) current.push(userId);
+  return makeProfile(Object.assign(input, { blockedUsers: current }));
+}
+
 module.exports = {
   ROLES,
   DAYS,
   SUBJECTS,
   ACCEPTED_FIELDS,
   PERSONAL_DATA_ERROR,
+  HOUR_MIN,
+  HOUR_MAX,
   isSlot,
   makeProfile,
   getSlotHour,
   setParentConsent,
   grantParentConsent,
-  revokeParentConsent
+  revokeParentConsent,
+  checkBlocked,
+  blockUser
 };
