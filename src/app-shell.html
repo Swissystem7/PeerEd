@@ -52,6 +52,8 @@
   .status { min-height:1.2em; color:var(--ok); font-size:.84rem; margin-top:8px; line-height:1.5; }
   .status.bad { color:var(--bad); }
   .hint { color:var(--muted); font-size:.78rem; line-height:1.6; margin:6px 0 0; }
+  label.check { display:flex; align-items:center; gap:9px; color:var(--ink); font-size:.92rem; margin-top:12px; }
+  label.check input { width:auto; margin:0; accent-color:var(--key); }
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
   .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
@@ -70,8 +72,8 @@
   <!-- ============ אנשים ============ -->
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people">
     <div class="banner">
-      הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות. כל שדה אחר — שם, טלפון, מייל, כתובת —
-      נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "פרטיות".
+      הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות, ולתלמיד גם האם התקבל אישור הורה (כן/לא
+      בלבד). כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "פרטיות".
     </div>
     <div class="card">
       <h2>הוספת משתתף</h2>
@@ -79,6 +81,11 @@
         <div><label for="role">תפקיד</label><select id="role">
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region"></select></div>
+      </div>
+      <div id="consentRow" hidden>
+        <label class="check"><input type="checkbox" id="consent"> התקבל אישור הורה לשידוך</label>
+        <p class="hint">נשמר רק כן או לא: בלי שם ההורה, בלי תאריך, בלי מסמך. תלמיד בלי אישור נשמר ברשימה אבל לא נכנס
+          לשידוך בכלל, עד שמסמנים לו אישור.</p>
       </div>
       <label>מקצועות</label>
       <div class="chips" id="subjects"></div>
@@ -101,7 +108,8 @@
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" hidden>
     <div class="card">
       <h2>שידוך</h2>
-      <p class="hint">זוג נוצר רק כששניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים לפחות מקצוע אחד.
+      <p class="hint">זוג נוצר רק כשלתלמיד יש אישור הורה, שניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים
+        לפחות מקצוע אחד.
         קודם נלקחים הזוגות עם הכי הרבה שעות משותפות, ואז השיבוץ מתקן כך שייצא מספר הזוגות הגדול ביותר האפשרי.
         אותו קלט נותן תמיד אותה תוצאה.</p>
       <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button>
@@ -389,11 +397,18 @@
 
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
+      var pupil = p.role === 'pupil';
+      var consented = match.hasParentConsent(p);
       return '<div class="item"><b>' + ROLE_HE[p.role] + ' #' + (i + 1) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
-        p.availability.length + ' שעות פנויות</span>' +
-        '<div class="actions"><button type="button" class="ghost small" data-del="' + i + '">מחק</button></div></div>';
+        p.availability.length + ' שעות פנויות' +
+        (pupil ? ' · אישור הורה: ' + (consented ? 'יש' : 'אין') : '') + '</span>' +
+        (pupil && !consented ? '<div class="flag">בלי אישור הורה התלמיד לא נכנס לשידוך.</div>' : '') +
+        '<div class="actions">' +
+        (pupil ? '<button type="button" class="ghost small" data-consent="' + i + '">' +
+          (consented ? 'בטל אישור הורה' : 'סמן אישור הורה') + '</button>' : '') +
+        '<button type="button" class="ghost small" data-del="' + i + '">מחק</button></div></div>';
     }).join('') : '<p class="empty">אין עדיין משתתפים. אפשר לטעון דוגמה.</p>';
   }
 
@@ -413,8 +428,13 @@
     ev.target.setAttribute('aria-pressed', at === -1 ? 'true' : 'false');
   });
 
+  $('role').addEventListener('change', function () {
+    $('consentRow').hidden = $('role').value !== 'pupil';
+  });
+
   function clearDraft() {
     draft = { subjects: [], availability: [] };
+    $('consent').checked = false;
     Array.prototype.forEach.call($('subjects').children, function (b) { b.setAttribute('aria-pressed', 'false'); });
     Array.prototype.forEach.call($('hours').children, function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', 'false');
@@ -428,6 +448,7 @@
       availability: draft.availability.slice(),
       subjects: draft.subjects.slice()
     };
+    if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
     catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
@@ -440,6 +461,19 @@
   });
 
   $('peopleList').addEventListener('click', function (ev) {
+    var c = ev.target.getAttribute('data-consent');
+    if (c !== null) {
+      var who = state.people[Number(c)];
+      var flipped;
+      try {
+        flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(who) : profile.grantParentConsent(who);
+      } catch (err) { say('addStatus', 'לא בוצע: ' + err.message, true); return; }
+      state.people[Number(c)] = flipped;
+      renderPeople(); save();
+      say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
+        : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.');
+      return;
+    }
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
@@ -453,15 +487,15 @@
       { role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18', 'TUE_16'], subjects: ['MATH', 'CS'] },
       { role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] },
       { role: 'student', region: 'SOUTH', availability: ['TUE_17', 'WED_17'], subjects: ['PHYSICS', 'ENGLISH'] },
-      { role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'] },
-      { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'] },
-      { role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'] },
+      { role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['CS', 'MATH', 'HEBREW'], parentConsent: true },
+      { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH', 'PHYSICS'], parentConsent: true },
+      { role: 'pupil', region: 'SOUTH', availability: ['WED_17'], subjects: ['ENGLISH'], parentConsent: true },
       { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
     last = null;
     renderPeople(); save();
-    say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה. עבור למסך "שידוך".');
+    say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה, אחד מהתלמידים בלי אישור הורה. עבור למסך "שידוך".');
   });
 
   // ---------- match ----------
@@ -481,6 +515,9 @@
   function reasonHe(code, role) {
     var other = role === 'student' ? 'תלמיד' : 'סטודנט';
     switch (code) {
+      case 'NO_PARENT_CONSENT': return role === 'pupil'
+        ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים".'
+        : 'יש תלמידים באזור, אבל לאף אחד מהם אין עדיין אישור הורה.';
       case 'NO_ONE_IN_REGION': return 'אין באזור הזה אף ' + other + '.';
       case 'NO_SHARED_HOUR': return 'יש ' + other + ' באזור, אבל אף אחד לא פנוי באותה שעה.';
       case 'NO_SHARED_SUBJECT': return 'יש ' + other + ' באזור, אבל בלי מקצוע משותף.';

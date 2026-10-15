@@ -70,6 +70,7 @@ function press(el, attr, value) {
 function addPerson($, role, region, subjects, slots) {
   $('role').value = role;
   $('region').value = region;
+  $('consent').checked = role === 'pupil';  // the coordinator ticks parent consent (a pupil without it is never paired)
   subjects.forEach((s) => press($('subjects'), 'data-subject', s));
   slots.forEach((s) => press($('hours'), 'data-slot', s));
   $('addPerson').fire('click');
