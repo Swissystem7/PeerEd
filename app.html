@@ -73,7 +73,7 @@
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people">
     <div class="banner">
       הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות, ולתלמיד גם האם התקבל אישור הורה (כן/לא
-      בלבד). כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "טקסט".
+      בלבד). כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "פרטיות".
     </div>
     <div class="card">
       <h2>הוספת משתתף</h2>
@@ -98,6 +98,8 @@
     </div>
     <div class="card">
       <h2>המשתתפים</h2>
+      <p class="hint">הרשימה נשמרת בדפדפן הזה בלבד: היא לא עוברת לטלפון אחר, ונמחקת עם ניקוי נתוני הגלישה.
+        לעותק — "הורד זוגות (CSV)" במסך השידוך.</p>
       <div id="peopleList"></div>
     </div>
     <div class="card">
@@ -116,10 +118,16 @@
       <h2>שידוך</h2>
       <p class="hint">זוג נוצר רק כשלתלמיד יש אישור הורה, שניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים
         לפחות מקצוע אחד.
-        הדירוג לפי מספר השעות המשותפות, אחר כך מספר המקצועות. אותה קלט נותן תמיד אותה תוצאה — אין אקראיות
-        ואין קריאה לשעון.</p>
-      <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button></div>
+        קודם נלקחים הזוגות עם הכי הרבה שעות משותפות, ואז השיבוץ מתקן כך שייצא מספר הזוגות הגדול ביותר האפשרי.
+        אותו קלט נותן תמיד אותה תוצאה.</p>
+      <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button>
+        <button type="button" class="ghost" id="exportCsv">הורד זוגות (CSV)</button></div>
       <p class="status" id="matchStatus" role="status"></p>
+      <p class="hint">הקובץ מכיל רק מספרים מהרשימה, אזור, מקצועות ושעות. את השמות מצליבים בגיליון שלך.</p>
+    </div>
+    <div class="card">
+      <h2>סיכום לרשות</h2>
+      <div id="summary"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
       <h2>הזוגות</h2>
@@ -134,9 +142,9 @@
   <!-- ============ טקסט ============ -->
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" hidden>
     <div class="card">
-      <h2>שער הטקסט</h2>
-      <p class="hint">כל יחידת העשרה או הודעה עוברת כאן לפני שהיא נשמרת. נסה להדביק טקסט עם טלפון, מייל,
-        תעודת זהות, קישור או מילה גסה, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
+      <h2>הדגמה: שער הטקסט</h2>
+      <p class="hint">האפליקציה לא שומרת שום טקסט חופשי — רק את רשימת המשתתפים. זה השער שכל טקסט יעבור בו
+        אם יתווסף בעתיד. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
@@ -148,7 +156,7 @@
       <div id="findings"></div>
     </div>
     <div class="card">
-      <h2>מה שדוחה שדה אסור</h2>
+      <h2>הדגמה: שדה אסור נדחה</h2>
       <p class="hint">אותו שער, על הרשומה עצמה ולא על הטקסט: מנסה לשמור משתתף עם שדה שאינו ברשימה.</p>
       <div class="actions"><button type="button" class="ghost" id="gateBtn">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
@@ -246,7 +254,7 @@
 <nav role="tablist" aria-label="ניווט">
   <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
   <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
-  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">טקסט</button>
+  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
   <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
   <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
 </nav>
@@ -277,6 +285,10 @@ function isRegion(code) {
   return typeof code === 'string' && REGIONS.indexOf(code) !== -1;
 }
 
+function getValidRegions() {
+  return REGIONS;
+}
+
 // Trim + upper-case, then validate. Returns the code or null.
 function normalizeRegion(input) {
   if (typeof input !== 'string') return null;
@@ -284,7 +296,7 @@ function normalizeRegion(input) {
   return isRegion(code) ? code : null;
 }
 
-module.exports = { REGIONS, isRegion, normalizeRegion };
+module.exports = { REGIONS, isRegion, getValidRegions, normalizeRegion };
   __registry["regions"] = module.exports;
 })();
 
@@ -319,10 +331,10 @@ module.exports = {
 
 const { getRetentionPolicy } = require('./retention.js');
 
-function generateAuditReport() {
-  const policy = getRetentionPolicy();
-  const profileDays = policy.profile;
-  const matchDays = policy.match;
+function generateAuditReport(policy) {
+  const active = policy || getRetentionPolicy();
+  const profileDays = active.profile;
+  const matchDays = active.match;
 
   return [
     'הצהרת פרטיות ושמירת מידע — PeerEd',
@@ -348,6 +360,109 @@ module.exports = {
   __registry["audit-report"] = module.exports;
 })();
 
+/* ===== src/lib/cycle-manager.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - the end of a cycle: drop every stored row that has outlived its retention window.
+//
+// retention.js states the limits and match.js stamps a row with its category; this is the sweep that
+// acts on them, so "nothing is kept indefinitely" is something the code does and not only something the
+// README says. A row is anything carrying a day and a category:
+//
+//   { recordedAt: '2026-03-04', retention: { dataCategory: 'match' }, ... }
+//
+// Whatever sits beside those two fields is never read, so a caller wraps what it stores: a profile
+// record cannot hold a recordedAt of its own, since makeProfile() refuses every key it does not know.
+// The limit always comes from today's getRetentionPolicy() and never from the row - shortening a window
+// in retention.js must delete more at the next sweep, not leave old rows on their old terms. No clock
+// of its own either: the caller passes the day the cycle ends, and the caller's arrays are untouched.
+//
+// Two entry points share the same day arithmetic:
+//   sweep(rows, asOf)                 - one flat array, judged by the policy's limit for the row's category
+//   applyRetentionPolicy(stored, asOf) - { matches, profiles }, judged by the maxAgeDays stamped on the row
+
+const { getRetentionPolicy } = require('./retention.js');
+
+const ROW_ERROR = 'stored row must be an object with recordedAt and retention.dataCategory';
+
+function utcMidnight(value, what) {
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) {
+    throw new Error('invalid ' + what + ': expected a Date or an ISO date string');
+  }
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+// Whole days between two timestamps, on the UTC calendar, so an evening row is no older than a morning one.
+function ageInDays(recordedAt, asOf) {
+  return Math.floor((utcMidnight(asOf, 'asOf') - utcMidnight(recordedAt, 'recordedAt')) / 86400000);
+}
+
+// A row is kept through the last day of its window and dropped the day after. A category the policy
+// does not name is refused, not kept forever.
+function isExpired(record, asOf) {
+  if (record === null || typeof record !== 'object' || Array.isArray(record)) throw new Error(ROW_ERROR);
+  if (record.retention === null || typeof record.retention !== 'object') throw new Error(ROW_ERROR);
+  if (record.recordedAt === undefined || record.recordedAt === null) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
+  }
+  const limit = getRetentionPolicy()[record.retention.dataCategory];
+  if (!Number.isInteger(limit)) {
+    throw new Error('invalid retention: the policy has no limit for ' + String(record.retention.dataCategory));
+  }
+  return ageInDays(record.recordedAt, asOf) > limit;
+}
+
+// Split stored rows into the ones the policy still allows and the ones this cycle must delete. Both
+// halves come back, so a sweep can be shown to a coordinator before it is written back.
+function sweep(records, asOf) {
+  if (!Array.isArray(records)) throw new Error('sweep expects an array of stored rows');
+  const kept = [];
+  const dropped = [];
+  for (let i = 0; i < records.length; i += 1) {
+    (isExpired(records[i], asOf) ? dropped : kept).push(records[i]);
+  }
+  return Object.freeze({ kept: kept, dropped: dropped });
+}
+
+// The row-level check behind applyRetentionPolicy(): the limit is the maxAgeDays the row was stamped with.
+function isRetained(record, currentDate) {
+  if (record === null || typeof record !== 'object') {
+    throw new Error('retention record must be an object');
+  }
+  if (!record.retention || typeof record.retention.maxAgeDays !== 'number') {
+    throw new Error('retention record is missing maxAgeDays');
+  }
+  if (record.recordedAt === undefined || record.recordedAt === null) {
+    throw new Error('retention record is missing recordedAt');
+  }
+  return ageInDays(record.recordedAt, currentDate) <= record.retention.maxAgeDays;
+}
+
+// { matches, profiles } are parallel arrays of stored records (each with recordedAt + retention metadata).
+function applyRetentionPolicy(stored, currentDate) {
+  if (stored === null || typeof stored !== 'object' || Array.isArray(stored)) {
+    throw new Error('stored input must be an object with matches and profiles arrays');
+  }
+  const matches = Array.isArray(stored.matches) ? stored.matches : [];
+  const profiles = Array.isArray(stored.profiles) ? stored.profiles : [];
+  return {
+    matches: matches.filter((r) => isRetained(r, currentDate)),
+    profiles: profiles.filter((r) => isRetained(r, currentDate))
+  };
+}
+
+module.exports = {
+  applyRetentionPolicy: applyRetentionPolicy,
+  ageInDays: ageInDays,
+  isExpired: isExpired,
+  sweep: sweep
+};
+  __registry["cycle-manager"] = module.exports;
+})();
+
 /* ===== src/lib/profile.js ===== */
 (function () {
   var module = { exports: {} };
@@ -362,10 +477,18 @@ const { getRetentionPolicy } = require('./retention.js');
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
+const USER_ID_RE = /^p-[0-9a-f]{8}$/;
+
+function assertPeerUserId(id) {
+  if (typeof id !== 'string' || !USER_ID_RE.test(id)) {
+    throw new Error('invalid user id: expected p- followed by 8 hex digits');
+  }
+  return id;
+}
 
 // A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
 // The canonical spelling has no leading zero on the hour: 'SUN_8', never 'SUN_08'. The engine compares
@@ -440,6 +563,15 @@ function makeProfile(input) {
     throw new Error('invalid parentConsent: expected boolean');
   }
 
+  const blockedUsers = [];
+  if (input.blockedUsers !== undefined) {
+    if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
+    for (let i = 0; i < input.blockedUsers.length; i += 1) {
+      const uid = assertPeerUserId(input.blockedUsers[i]);
+      if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
+    }
+  }
+
   const profile = {
     role: role,
     region: region,
@@ -449,6 +581,10 @@ function makeProfile(input) {
 
   if (role === 'pupil' || input.parentConsent !== undefined) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
+  }
+
+  if (input.blockedUsers !== undefined) {
+    profile.blockedUsers = Object.freeze(blockedUsers.slice());
   }
 
   const policy = getRetentionPolicy();
@@ -487,19 +623,44 @@ function revokeParentConsent(profile) {
   return setParentConsent(profile, false);
 }
 
+function checkBlocked(profile, userId) {
+  assertPeerUserId(userId);
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  if (!Array.isArray(profile.blockedUsers)) return false;
+  return profile.blockedUsers.indexOf(userId) !== -1;
+}
+
+function blockUser(profile, userId) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  assertPeerUserId(userId);
+  const input = Object.assign({}, profile);
+  delete input.retention;
+  const current = Array.isArray(profile.blockedUsers) ? profile.blockedUsers.slice() : [];
+  if (current.indexOf(userId) === -1) current.push(userId);
+  return makeProfile(Object.assign(input, { blockedUsers: current }));
+}
+
 module.exports = {
   ROLES,
   DAYS,
   SUBJECTS,
   ACCEPTED_FIELDS,
   PERSONAL_DATA_ERROR,
+  HOUR_MIN,
+  HOUR_MAX,
   isSlot,
   normalizeSlot,
   makeProfile,
   getSlotHour,
   setParentConsent,
   grantParentConsent,
-  revokeParentConsent
+  revokeParentConsent,
+  checkBlocked,
+  blockUser
 };
   __registry["profile"] = module.exports;
 })();
@@ -510,6 +671,8 @@ module.exports = {
   var exports = module.exports;
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
+
+const { getRetentionPolicy } = require('./retention.js');
 
 // Returns true if two string arrays share at least one common element.
 function hasOverlap(a, b) {
@@ -633,81 +796,74 @@ function matchPairs(students, pupils) {
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
-// Why a participant is left without a pair. The coordinator needs this to act: obtain a parent's
-// consent, recruit in a region, ask for more availability hours, or accept that the other side ran
-// out. The reasons are checked in the same order candidatesOf filters - consent, region, slot, subject -
-// and the first gate that nobody on the other side passes is the reason. For a pupil,
-// NO_PARENT_CONSENT is about the pupil alone: without consent the pupil is not in the pool, so the
-// other side is not even looked at. For a student it means pupils exist in the region but none of
-// them has consent yet. TAKEN means at least one compatible counterpart exists but every one of them
-// was paired with someone else, so the roster, not the profile, is what is short.
-const REASONS = Object.freeze(['NO_PARENT_CONSENT', 'NO_ONE_IN_REGION', 'NO_SHARED_SLOT', 'NO_SHARED_SUBJECT', 'TAKEN']);
+const PAIR_ERROR = 'match pair must be an object from matchPairs()';
 
-// side is 'student' or 'pupil': which array of matchPairs `me` came from. It decides where the consent
-// gate applies - on me when I am the pupil, on each of the others when they are. When omitted it is
-// read from me.role, and a record without a role is treated as a student.
-function whyUnmatched(me, others, side) {
-  const O = Array.isArray(others) ? others : [];
-  const mine = side === undefined ? (me && me.role === 'pupil' ? 'pupil' : 'student') : side;
-  if (mine !== 'student' && mine !== 'pupil') throw new Error('invalid side: expected student or pupil');
-  if (mine === 'pupil' && !hasParentConsent(me)) return { reason: 'NO_PARENT_CONSENT', compatible: 0 };
-  if (!me || typeof me.region !== 'string') return { reason: 'NO_ONE_IN_REGION', compatible: 0 };
-  let inRegion = 0;
-  let withConsent = 0;
-  let withSlot = 0;
-  let compatible = 0;
-  for (let i = 0; i < O.length; i += 1) {
-    const o = O[i];
-    if (!o || o.region !== me.region) continue;
-    inRegion += 1;
-    if (mine === 'student' && !hasParentConsent(o)) continue;
-    withConsent += 1;
-    if (!hasOverlap(me.availability, o.availability)) continue;
-    withSlot += 1;
-    if (!hasOverlap(me.subjects, o.subjects)) continue;
-    compatible += 1;
+// The UTC calendar day of a timestamp, as YYYY-MM-DD. Retention is counted in days, so the day is
+// everything a stored row needs - and the hour at which a particular minor was matched says more about
+// the person than the policy ever asks.
+function utcDay(value) {
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
   }
-  if (inRegion === 0) return { reason: 'NO_ONE_IN_REGION', compatible: 0 };
-  if (withConsent === 0) return { reason: 'NO_PARENT_CONSENT', compatible: 0 };
-  if (withSlot === 0) return { reason: 'NO_SHARED_SLOT', compatible: 0 };
-  if (compatible === 0) return { reason: 'NO_SHARED_SUBJECT', compatible: 0 };
-  return { reason: 'TAKEN', compatible: compatible };
+  return d.toISOString().slice(0, 10);
 }
 
-// students / pupils as given to matchPairs; pairs is its result for the same two arrays (computed here
-// when omitted). Returns the unmatched participants of each side, in roster order, each with the index
-// matchPairs would have used, the reason and the number of compatible counterparts (non-zero only for
-// TAKEN). Nothing about a person is copied into the answer: an index, a reason code, a count.
+// A pair on its way into storage: a matchPairs() candidate plus the day it was kept and the retention
+// category a cycle sweep reads. Frozen and JSON-serializable, and with no clock of its own - the caller
+// passes recordedAt, so the same arguments always produce the same row. Still a module: nothing on
+// screen stores a match yet.
+function makeMatchRecord(pair, recordedAt) {
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) throw new Error(PAIR_ERROR);
+  if (!Number.isInteger(pair.studentIndex) || !Number.isInteger(pair.pupilIndex)) throw new Error(PAIR_ERROR);
+  if (!Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) throw new Error(PAIR_ERROR);
+  if (recordedAt === undefined || recordedAt === null) {
+    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
+  }
+  return Object.freeze({
+    studentIndex: pair.studentIndex,
+    pupilIndex: pair.pupilIndex,
+    region: pair.region,
+    sharedSlots: Object.freeze(pair.sharedSlots.slice()),
+    sharedSubjects: Object.freeze(pair.sharedSubjects.slice()),
+    recordedAt: utcDay(recordedAt),
+    retention: Object.freeze({ dataCategory: 'match', maxAgeDays: getRetentionPolicy().match })
+  });
+}
+
+module.exports = { matchPairs, explainUnmatched, shared, compareCandidates, hasOverlap, hasParentConsent, makeMatchRecord };
+// Why each participant is not in `pairs`. One code per person, the first that is true:
+//   NO_PARENT_CONSENT              a pupil: no parent consent, so not in the pool at all (nobody else is
+//                                  looked at); a student: pupils in the region, but none has consent yet
+//   NO_ONE_IN_REGION               nobody of the other role in the same region
+//   NO_SHARED_HOUR                 somebody in the region, but never free at the same hour
+//   NO_SHARED_SUBJECT              somebody in the region, but no subject in common
+//   NO_HOUR_AND_SUBJECT_TOGETHER   one shares an hour, another a subject, nobody both
+//   PARTNERS_TAKEN                 had possible partners; the largest matching needed all of them elsewhere
 function explainUnmatched(students, pupils, pairs) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
-  const given = pairs === undefined ? matchPairs(S, P) : pairs;
-  if (!Array.isArray(given)) throw new Error('invalid pairs: expected the result of matchPairs');
-  const pairedStudents = new Set();
-  const pairedPupils = new Set();
-  for (let i = 0; i < given.length; i += 1) {
-    const c = given[i];
-    if (!c || !Number.isInteger(c.studentIndex) || !Number.isInteger(c.pupilIndex)) {
-      throw new Error('invalid pairs: expected the result of matchPairs');
-    }
-    pairedStudents.add(c.studentIndex);
-    pairedPupils.add(c.pupilIndex);
+  const usedS = new Set(); const usedP = new Set();
+  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
+  function reason(me, others, isPupil) {
+    if (isPupil && !hasParentConsent(me)) return 'NO_PARENT_CONSENT';
+    const inRegion = others.filter((o) => o && o.region === me.region);
+    if (inRegion.length === 0) return 'NO_ONE_IN_REGION';
+    // the same gate candidatesOf applies: a pupil without consent is no partner for a student
+    const local = isPupil ? inRegion : inRegion.filter(hasParentConsent);
+    if (local.length === 0) return 'NO_PARENT_CONSENT';
+    const hour = local.filter((o) => shared(me.availability, o.availability).length > 0);
+    const subject = local.filter((o) => shared(me.subjects, o.subjects).length > 0);
+    if (hour.length === 0) return 'NO_SHARED_HOUR';
+    if (subject.length === 0) return 'NO_SHARED_SUBJECT';
+    const both = hour.filter((o) => subject.indexOf(o) !== -1);
+    return both.length === 0 ? 'NO_HOUR_AND_SUBJECT_TOGETHER' : 'PARTNERS_TAKEN';
   }
-  const side = (mine, theirs, paired, which) => {
-    const out = [];
-    for (let i = 0; i < mine.length; i += 1) {
-      if (paired.has(i)) continue;
-      const why = whyUnmatched(mine[i], theirs, which);
-      out.push({ index: i, reason: why.reason, compatible: why.compatible });
-    }
-    return out;
-  };
-  return { students: side(S, P, pairedStudents, 'student'), pupils: side(P, S, pairedPupils, 'pupil') };
+  const out = { students: [], pupils: [] };
+  S.forEach((s, i) => { if (s && !usedS.has(i)) out.students.push({ index: i, reason: reason(s, P, false) }); });
+  P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S, true) }); });
+  return out;
 }
-
-module.exports = {
-  matchPairs, shared, compareCandidates, hasOverlap, hasParentConsent, REASONS, whyUnmatched, explainUnmatched
-};
   __registry["match"] = module.exports;
 })();
 
@@ -778,6 +934,20 @@ var NOT_PROFANITY_RE = new RegExp('^' + HEBREW_PREFIX + '(?:' + NOT_PROFANITY.jo
 
 var PERSONAL_DATA_ERROR = 'personal data is not accepted';
 var PROFANITY_ERROR = 'offensive language is not accepted';
+var USER_ID_PREFIX = 'p-';
+var USER_ID_RE = /^p-[0-9a-f]{8}$/;
+
+function isUserId(id) {
+  return typeof id === 'string' && USER_ID_RE.test(id);
+}
+
+// Opaque peer ids only: the same personal-data gate as free text, plus a fixed shape so a name or a
+// phone cannot be stored as a "user id" when a parent blocks someone.
+function assertUserId(id) {
+  if (!isUserId(id)) throw new Error('invalid user id: expected p- followed by 8 hex digits');
+  if (findPersonalData(id).length > 0) throw new Error(PERSONAL_DATA_ERROR);
+  return id;
+}
 var DEFAULT_MAX_LENGTH = 4000;
 var DEFAULT_MIN_LENGTH = 1;
 // every C0 control character except \t (09) and \n (0a), plus DEL
@@ -926,6 +1096,9 @@ module.exports = {
   PROFANITY: PROFANITY,
   PERSONAL_DATA_ERROR: PERSONAL_DATA_ERROR,
   PROFANITY_ERROR: PROFANITY_ERROR,
+  USER_ID_PREFIX: USER_ID_PREFIX,
+  isUserId: isUserId,
+  assertUserId: assertUserId,
   findPersonalData: findPersonalData,
   findProfanity: findProfanity,
   cleanText: cleanText,
@@ -1473,6 +1646,16 @@ function assertState(state) {
   }
 }
 
+// A stored profile carries `retention`, which makeProfile derives itself and does not accept as an
+// input key (profile.js, setParentConsent does the same): drop it, makeProfile puts it back. Every
+// other key still goes through the gate, so a name or a phone in a stored record is refused.
+function storedProfileInput(person) {
+  if (person === null || typeof person !== 'object' || Array.isArray(person)) return person;
+  const input = Object.assign({}, person);
+  delete input.retention;
+  return input;
+}
+
 // Re-validate a plain document (parsed JSON) into a frozen state. Order matters: the queue is rebuilt
 // first because the log's rows are checked against it.
 function fromDocument(doc) {
@@ -1484,7 +1667,7 @@ function fromDocument(doc) {
   if (doc.schema !== SCHEMA) throw new Error(INVALID_STATE_ERROR + ': unknown schema ' + String(doc.schema));
   if (!Array.isArray(doc.people)) throw new Error(INVALID_STATE_ERROR + ': people is not an array');
   const people = [];
-  for (let i = 0; i < doc.people.length; i += 1) people.push(makeProfile(doc.people[i]));
+  for (let i = 0; i < doc.people.length; i += 1) people.push(makeProfile(storedProfileInput(doc.people[i])));
   const queue = loadQueue(doc.queue === undefined ? emptyQueue() : doc.queue);
   const log = loadLog(doc.log === undefined ? emptyLog() : doc.log, queue);
   return Object.freeze({ people: Object.freeze(people), queue: queue, log: log });
@@ -1665,18 +1848,9 @@ module.exports = {
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
-  var HOURS = [14, 15, 16, 17, 18, 19, 20];
-  // One sentence per reason code of match.explainUnmatched; "other" is the side that is missing.
-  var REASON_HE = {
-    NO_PARENT_CONSENT: function (other) {
-      return other === 'סטודנט' ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים"'
-        : 'יש ' + other + 'ים באזור, אבל לאף אחד אין עדיין אישור הורה';
-    },
-    NO_ONE_IN_REGION: function (other) { return 'אין אף ' + other + ' באזור הזה'; },
-    NO_SHARED_SLOT: function (other) { return 'יש ' + other + ' באזור, אבל בלי שעה פנויה משותפת'; },
-    NO_SHARED_SUBJECT: function (other) { return 'יש ' + other + ' באזור עם שעה משותפת, אבל בלי מקצוע משותף'; },
-    TAKEN: function (other, n) { return 'התאים ל-' + n + ' ' + other + (n === 1 ? '' : 'ים') + ', אבל כולם שובצו לאחרים'; }
-  };
+  // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
+  var HOURS = [];
+  for (var hh = profile.HOUR_MIN; hh <= profile.HOUR_MAX; hh += 1) HOURS.push(hh);
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
   // The roster lives in this browser only (MVP item 7): one localStorage key, no server, and a stored
@@ -1706,8 +1880,11 @@ module.exports = {
     ['personal data is not accepted', 'פרטים אישיים לא מתקבלים'],
     ['offensive language is not accepted', 'שפה פוגענית לא מתקבלת'],
     ['profile input must be an object with role, region, availability, subjects', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
     ['profile must be an object', 'הרשומה לא בנויה נכון'],
     ['invalid parentConsent:', 'אישור ההורה לא תקין'],
+    ['invalid blockedUsers:', 'רשימת חסומים לא תקינה'],
+    ['invalid user id:', 'מזהה משתמש לא תקין'],
     ['invalid slot:', 'שעה שאינה בלוח'],
     ['invalid role:', 'תפקיד לא מוכר'],
     ['invalid region:', 'אזור לא מוכר'],
@@ -1778,23 +1955,11 @@ module.exports = {
     }).join('');
   }
 
-  // A participant is numbered within its role, in roster order: the third pupil is "תלמיד #3" however
-  // many students were added before it. The match screen, the unmatched list and the pair dropdown
-  // count the same way (matchPairs sees students and pupils as two lists), so "תלמיד #3" there is
-  // this card here. The roster position stays in data-del / data-consent only and is never shown.
-  function roleOrdinal(index) {
-    var n = 0;
-    for (var k = 0; k <= index; k += 1) if (state.people[k].role === state.people[index].role) n += 1;
-    return n;
-  }
-  function roleLabel(p, index) {
-    return (p.role === 'pupil' ? 'תלמיד' : 'סטודנט מלמד') + ' #' + roleOrdinal(index);
-  }
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
       var pupil = p.role === 'pupil';
       var consented = match.hasParentConsent(p);
-      return '<div class="item"><b>' + roleLabel(p, i) +
+      return '<div class="item"><b>' + ROLE_HE[p.role] + ' #' + (i + 1) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
         p.availability.length + ' שעות פנויות' +
@@ -1848,11 +2013,11 @@ module.exports = {
     try { made = profile.makeProfile(candidate); }
     catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     state.people.push(made);
+    last = null;
     clearDraft();
     renderPeople();
     save();
-    say('addStatus', 'נוסף כ' + roleLabel(made, state.people.length - 1) + ' (זה המספר שיופיע במסך "שידוך"). סך הכול ' +
-      state.people.length + ' משתתפים.');
+    say('addStatus', 'נוסף. סך הכול ' + state.people.length + ' משתתפים.');
   });
 
   $('peopleList').addEventListener('click', function (ev) {
@@ -1872,8 +2037,9 @@ module.exports = {
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
+    last = null;
     renderPeople(); save();
-    say('addStatus', 'נמחק. מי שאחריו באותו תפקיד ירד במספר אחד, גם במסך "שידוך".');
+    say('addStatus', 'נמחק.');
   });
 
   $('demoBtn').addEventListener('click', function () {
@@ -1887,57 +2053,143 @@ module.exports = {
       { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
+    last = null;
     renderPeople(); save();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה, אחד מהתלמידים בלי אישור הורה. עבור למסך "שידוך".');
   });
 
   // ---------- match ----------
 
-  // The people screen numbers a participant within its role (roleLabel: תלמיד #1, #2...). matchPairs()
-  // indexes are positions among students / among pupils, which is that same count, so the number the
-  // match screen shows is the card the people screen shows.
+  // The participants list numbers people by their place in state.people (#1 = first added, any role).
+  // matchPairs() indexes are positions among students / among pupils, so every index is translated
+  // back to that list number before it reaches the screen.
   function splitByRole() {
     var out = { students: [], pupils: [] };
     state.people.forEach(function (p, i) {
-      var side = p.role === 'student' ? out.students : out.pupils;
-      side.push({ number: side.length + 1, person: p, index: i });
+      (p.role === 'student' ? out.students : out.pupils).push({ number: i + 1, person: p });
     });
     return out;
   }
 
-  $('runMatch').addEventListener('click', function () {
-    var r = splitByRole();
-    if (!r.students.length || !r.pupils.length) {
-      say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return;
+  // One sentence per explainUnmatched() code. The other side is named by role.
+  function reasonHe(code, role) {
+    var other = role === 'student' ? 'תלמיד' : 'סטודנט';
+    switch (code) {
+      case 'NO_PARENT_CONSENT': return role === 'pupil'
+        ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים".'
+        : 'יש תלמידים באזור, אבל לאף אחד מהם אין עדיין אישור הורה.';
+      case 'NO_ONE_IN_REGION': return 'אין באזור הזה אף ' + other + '.';
+      case 'NO_SHARED_HOUR': return 'יש ' + other + ' באזור, אבל אף אחד לא פנוי באותה שעה.';
+      case 'NO_SHARED_SUBJECT': return 'יש ' + other + ' באזור, אבל בלי מקצוע משותף.';
+      case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש מי שפנוי באותה שעה ויש מי שחולק מקצוע, אבל לא אותו אחד.';
+      case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
+      default: return '';
     }
-    var students = r.students.map(function (e) { return e.person; });
-    var pupils = r.pupils.map(function (e) { return e.person; });
-    var pairs = match.matchPairs(students, pupils);
-    $('pairs').innerHTML = pairs.length ? pairs.map(function (p, i) {
+  }
+
+  // The last computed match, in list numbers. Cleared whenever the list changes, so an export can never
+  // describe a list that is no longer on the screen.
+  var last = null;
+
+  function subjectsHe(list) { return list.map(function (s) { return SUBJECT_HE[s] || s; }).join(' / '); }
+  function slotsHe(list) { return list.map(slotHe).join(' / '); }
+
+  function computeMatch() {
+    var r = splitByRole();
+    if (!r.students.length || !r.pupils.length) return null;
+    var S = r.students.map(function (e) { return e.person; });
+    var P = r.pupils.map(function (e) { return e.person; });
+    var pairs = match.matchPairs(S, P);
+    var why = match.explainUnmatched(S, P, pairs);
+    var left = [];
+    why.students.forEach(function (w) { left.push({ role: 'student', e: r.students[w.index], reason: w.reason }); });
+    why.pupils.forEach(function (w) { left.push({ role: 'pupil', e: r.pupils[w.index], reason: w.reason }); });
+    left.sort(function (a, b) { return a.e.number - b.e.number; });
+    return {
+      students: S.length, pupils: P.length, left: left,
+      pairs: pairs.map(function (p) {
+        return { region: p.region, student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
+                 sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
+      })
+    };
+  }
+
+  // Hebrew counts: one of anything is "X אחד" (all nouns counted here are masculine); other counts keep the number.
+  function countHe(n, one, many) { return n === 1 ? one + ' אחד' : n + ' ' + many; }
+
+  function renderSummary(m) {
+    var shortPupils = m.left.filter(function (x) { return x.role === 'pupil'; });
+    var shortStudents = m.left.length - shortPupils.length;
+    var counts = {}, keys = [];
+    shortPupils.forEach(function (x) {
+      x.e.person.subjects.forEach(function (sub) {
+        var k = (REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' + (SUBJECT_HE[sub] || sub);
+        if (!(k in counts)) { counts[k] = 0; keys.push(k); }
+        counts[k] += 1;
+      });
+    });
+    keys.sort(function (a, b) { return (counts[b] - counts[a]) || (a < b ? -1 : a > b ? 1 : 0); });
+    $('summary').innerHTML = '<p class="hint">' + countHe(m.pairs.length, 'זוג', 'זוגות') + '. ' +
+      countHe(shortPupils.length, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
+      countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.</p>' +
+      (keys.length ? '<p class="hint">חסרים סטודנטים (תלמיד עם כמה מקצועות נספר בכל אחד):</p>' +
+        keys.map(function (k) { return '<div class="item"><span class="meta">' + esc(k) + ': ' + counts[k] +
+          '</span></div>'; }).join('') : '');
+  }
+
+  $('runMatch').addEventListener('click', function () {
+    var m = computeMatch();
+    if (!m) { last = null; say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return; }
+    last = m;
+    $('pairs').innerHTML = m.pairs.length ? m.pairs.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
-        '<span class="meta">סטודנט #' + r.students[p.studentIndex].number + ' עם תלמיד #' + r.pupils[p.pupilIndex].number + '<br>' +
+        '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
     }).join('') : '<p class="empty">לא נוצר אף זוג.</p>';
-
-    // The reason comes from the module, one sentence per reason code, so the coordinator knows what to
-    // do: recruit in the region, ask for more hours, or add a subject. TAKEN says the profile is fine
-    // and the other side simply ran out.
-    var why = match.explainUnmatched(students, pupils, pairs);
-    var left = [];
-    why.students.forEach(function (x) { left.push({ who: 'סטודנט #' + r.students[x.index].number, p: students[x.index], why: x }); });
-    why.pupils.forEach(function (x) { left.push({ who: 'תלמיד #' + r.pupils[x.index].number, p: pupils[x.index], why: x }); });
-    $('unmatched').innerHTML = left.length ? left.map(function (x) {
-      var other = x.p.role === 'student' ? 'תלמיד' : 'סטודנט';
-      var reason = REASON_HE[x.why.reason](other, x.why.compatible);
-      return '<div class="item"><b>' + x.who + '</b><span class="meta">' +
-        esc(REGION_HE[x.p.region] || x.p.region) + ' · ' +
-        x.p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        ' · ' + esc(reason) + '</span></div>';
+    $('unmatched').innerHTML = m.left.length ? m.left.map(function (x) {
+      return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
+        esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
+        x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
+        '<br>' + reasonHe(x.reason, x.role) + '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
-    say('matchStatus', pairs.length + ' זוגות מתוך ' + r.students.length + ' סטודנטים ו-' + r.pupils.length +
-      ' תלמידים. המספרים הם כמו במסך "אנשים": לפי התפקיד.');
+    renderSummary(m);
+    say('matchStatus', countHe(m.pairs.length, 'זוג', 'זוגות') + ' מתוך ' +
+      countHe(m.students, 'סטודנט', 'סטודנטים') + ' ו-' + countHe(m.pupils, 'תלמיד', 'תלמידים') +
+      '. המספרים הם המקום ברשימת המשתתפים.');
+  });
+
+  function csvCell(v) {
+    var t = String(v);
+    return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function csvRow(cells) { return cells.map(csvCell).join(','); }
+
+  $('exportCsv').addEventListener('click', function () {
+    if (!last) { say('matchStatus', 'קודם לחץ "חשב שידוך" — הקובץ נבנה מהשידוך האחרון.', true); return; }
+    var rows = [csvRow(['זוג', 'אזור', 'סטודנט (מספר ברשימה)', 'תלמיד (מספר ברשימה)', 'מקצועות משותפים', 'שעות משותפות'])];
+    last.pairs.forEach(function (p, i) {
+      rows.push(csvRow([i + 1, REGION_HE[p.region] || p.region, p.student, p.pupil,
+        subjectsHe(p.sharedSubjects), slotsHe(p.sharedSlots)]));
+    });
+    rows.push('');
+    rows.push(csvRow(['לא שובצו']));
+    rows.push(csvRow(['תפקיד', 'מספר ברשימה', 'אזור', 'מקצועות', 'סיבה']));
+    last.left.forEach(function (x) {
+      rows.push(csvRow([ROLE_HE[x.role], x.e.number, REGION_HE[x.e.person.region] || x.e.person.region,
+        subjectsHe(x.e.person.subjects), reasonHe(x.reason, x.role)]));
+    });
+    var blob = new Blob(['\ufeff' + rows.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'peered-pairs.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
+    say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
+      (last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
 
   // ---------- text gate ----------
@@ -1963,15 +2215,19 @@ module.exports = {
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
       catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
-      say('checkStatus', 'נקי. הטקסט שיישמר: "' + cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
+      // Nothing stores this text: the app keeps the participants list only.
+      say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
+        cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
       return;
     }
     var rude = hits.filter(function (h) { return h.kind === 'profanity'; }).length;
     var parts = [];
-    if (hits.length - rude) parts.push((hits.length - rude) + ' פרטים אישיים');
-    if (rude) parts.push(rude + ' מילים פוגעניות');
-    say('checkStatus', 'נחסם. נמצאו ' + parts.join(' ו-') + '.', true);
+    var personal = hits.length - rude;
+    if (personal) parts.push(personal === 1 ? 'פרט אישי אחד' : personal + ' פרטים אישיים');
+    if (rude) parts.push(rude === 1 ? 'מילה פוגענית אחת' : rude + ' מילים פוגעניות');
+    var found = hits.length > 1 ? 'נמצאו ' : (rude ? 'נמצאה ' : 'נמצא ');
+    say('checkStatus', 'נחסם. ' + found + parts.join(' ו-') + '.', true);
     $('findings').innerHTML = hits.map(function (h) {
       return '<div class="flag"><b>' + esc(KIND_HE[h.kind] || h.kind) + '</b> — "' + esc(h.match) +
         '" (תו ' + h.index + ')</div>';

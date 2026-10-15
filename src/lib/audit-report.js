@@ -3,10 +3,10 @@
 
 const { getRetentionPolicy } = require('./retention.js');
 
-function generateAuditReport() {
-  const policy = getRetentionPolicy();
-  const profileDays = policy.profile;
-  const matchDays = policy.match;
+function generateAuditReport(policy) {
+  const active = policy || getRetentionPolicy();
+  const profileDays = active.profile;
+  const matchDays = active.match;
 
   return [
     'הצהרת פרטיות ושמירת מידע — PeerEd',

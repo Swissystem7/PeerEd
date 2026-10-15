@@ -4,7 +4,7 @@
 // is removed, not overwritten with an empty document. The screen asks twice (a second click on the same
 // button, or cancel), empties the in-memory state and every screen, and says whether the storage obeyed.
 //
-// Same harness as test/people-numbering.test.js: the built app runs under node:vm against a small fake
+// Same idea as test-support/fake-dom.js: the built app runs under node:vm against a small fake
 // DOM. Here the fake window also offers a localStorage, so the test can look at the key itself.
 const test = require('node:test');
 const assert = require('node:assert/strict');
