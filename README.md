@@ -37,6 +37,7 @@ module inlined, no server needed.
 | `src/lib/validator.js` | The free-text gate (email, Israeli phone, nine-digit id, links, handles). On screen it is a demo: the app stores no free text. |
 | `src/lib/unit.js` | An enrichment-unit record with a deterministic id (title and body pass the free-text gate). A module only: nothing on screen offers or stores units. |
 | `src/lib/approval.js` | The approval queue for units: pending, approved or rejected by the approver role only (no personal identity), deterministic and JSON-serializable. A module only: nothing on screen runs the flow yet. |
+| `src/lib/session.js` | The session log (MVP item 6): a row per session of a matched pair holding only what the pair shares (region, slot, subject, the approved unit id, the outcome); roster positions never reach it, an unapproved unit cannot be logged, and the municipality summary is counts only. A module only: nothing on screen logs a session yet. |
 | `src/lib/contact.js` | The one place for a contact channel. Since 28.9 `CONTACT` is the Google Form "משוב על האפליקציות", pre-filled with PeerEd. If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
 
 On screen: add participants (or load a sample), compute the match, see who is left out and why, download
@@ -45,9 +46,10 @@ without a student by region and subject.
 
 ## What does not exist
 
-No accounts, no sharing between devices (the list lives in one browser's localStorage), no session log,
-no accessibility audit, no Arabic or Russian, regions are national rather than one municipality's
-neighbourhoods. Nothing here has been used by a real coordinator.
+No accounts, no sharing between devices (the list lives in one browser's localStorage), no session screen
+(the `session.js` module is built in, nothing on screen logs a session), no accessibility audit, no Arabic
+or Russian, regions are national rather than one municipality's neighbourhoods. Nothing here has been used
+by a real coordinator.
 
 The enrichment units (beyond the `unit.js` record), the teacher approval flow and the gateway for AI content
 in `PURPOSE.md` are not offered; the text gate stays as a demonstration of the privacy rule.
