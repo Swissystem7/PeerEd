@@ -262,10 +262,18 @@ const { getRetentionPolicy } = require('./retention.js');
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
+const USER_ID_RE = /^p-[0-9a-f]{8}$/;
+
+function assertPeerUserId(id) {
+  if (typeof id !== 'string' || !USER_ID_RE.test(id)) {
+    throw new Error('invalid user id: expected p- followed by 8 hex digits');
+  }
+  return id;
+}
 
 // A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
 function isSlot(slot) {
@@ -319,6 +327,15 @@ function makeProfile(input) {
     throw new Error('invalid parentConsent: expected boolean');
   }
 
+  const blockedUsers = [];
+  if (input.blockedUsers !== undefined) {
+    if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
+    for (let i = 0; i < input.blockedUsers.length; i += 1) {
+      const uid = assertPeerUserId(input.blockedUsers[i]);
+      if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
+    }
+  }
+
   const profile = {
     role: role,
     region: region,
@@ -328,6 +345,10 @@ function makeProfile(input) {
 
   if (role === 'pupil' || input.parentConsent !== undefined) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
+  }
+
+  if (input.blockedUsers !== undefined) {
+    profile.blockedUsers = Object.freeze(blockedUsers.slice());
   }
 
   const policy = getRetentionPolicy();
@@ -361,6 +382,27 @@ function revokeParentConsent(profile) {
   return setParentConsent(profile, false);
 }
 
+function checkBlocked(profile, userId) {
+  assertPeerUserId(userId);
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  if (!Array.isArray(profile.blockedUsers)) return false;
+  return profile.blockedUsers.indexOf(userId) !== -1;
+}
+
+function blockUser(profile, userId) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  assertPeerUserId(userId);
+  const input = Object.assign({}, profile);
+  delete input.retention;
+  const current = Array.isArray(profile.blockedUsers) ? profile.blockedUsers.slice() : [];
+  if (current.indexOf(userId) === -1) current.push(userId);
+  return makeProfile(Object.assign(input, { blockedUsers: current }));
+}
+
 module.exports = {
   ROLES,
   DAYS,
@@ -374,7 +416,9 @@ module.exports = {
   getSlotHour,
   setParentConsent,
   grantParentConsent,
-  revokeParentConsent
+  revokeParentConsent,
+  checkBlocked,
+  blockUser
 };
   __registry["profile"] = module.exports;
 })();
@@ -594,6 +638,20 @@ var NOT_PROFANITY_RE = new RegExp('^' + HEBREW_PREFIX + '(?:' + NOT_PROFANITY.jo
 
 var PERSONAL_DATA_ERROR = 'personal data is not accepted';
 var PROFANITY_ERROR = 'offensive language is not accepted';
+var USER_ID_PREFIX = 'p-';
+var USER_ID_RE = /^p-[0-9a-f]{8}$/;
+
+function isUserId(id) {
+  return typeof id === 'string' && USER_ID_RE.test(id);
+}
+
+// Opaque peer ids only: the same personal-data gate as free text, plus a fixed shape so a name or a
+// phone cannot be stored as a "user id" when a parent blocks someone.
+function assertUserId(id) {
+  if (!isUserId(id)) throw new Error('invalid user id: expected p- followed by 8 hex digits');
+  if (findPersonalData(id).length > 0) throw new Error(PERSONAL_DATA_ERROR);
+  return id;
+}
 var DEFAULT_MAX_LENGTH = 4000;
 var DEFAULT_MIN_LENGTH = 1;
 // every C0 control character except \t (09) and \n (0a), plus DEL
@@ -742,6 +800,9 @@ module.exports = {
   PROFANITY: PROFANITY,
   PERSONAL_DATA_ERROR: PERSONAL_DATA_ERROR,
   PROFANITY_ERROR: PROFANITY_ERROR,
+  USER_ID_PREFIX: USER_ID_PREFIX,
+  isUserId: isUserId,
+  assertUserId: assertUserId,
   findPersonalData: findPersonalData,
   findProfanity: findProfanity,
   cleanText: cleanText,
@@ -1117,8 +1178,11 @@ module.exports = {
     ['personal data is not accepted', 'פרטים אישיים לא מתקבלים'],
     ['offensive language is not accepted', 'שפה פוגענית לא מתקבלת'],
     ['profile input must be an object with role, region, availability, subjects', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
     ['profile must be an object', 'הרשומה לא בנויה נכון'],
     ['invalid parentConsent:', 'אישור ההורה לא תקין'],
+    ['invalid blockedUsers:', 'רשימת חסומים לא תקינה'],
+    ['invalid user id:', 'מזהה משתמש לא תקין'],
     ['invalid slot:', 'שעה שאינה בלוח'],
     ['invalid role:', 'תפקיד לא מוכר'],
     ['invalid region:', 'אזור לא מוכר'],
