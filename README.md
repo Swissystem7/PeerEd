@@ -8,6 +8,24 @@ Owner idea, 2026-09-07: high-school age, its own repository. Rules: no cloud
 dependency, no personal data of minors, deterministic tests only. Private repository until the owner
 approves publishing.
 
+## Quickstart
+
+Node 18 or newer. There are **no dependencies and no install
+step** — the repository has no lockfile, so `npm install` is unnecessary and `npm ci` fails by design.
+Go straight to the commands:
+
+```sh
+npm test                      # the whole suite (node --test)
+node --test test/unit.test.js # one file (Node's built-in runner; no other test framework)
+npm run build                 # regenerate app.html from src/app-shell.html + src/lib/*.js
+npm run build:check           # exit 1 if app.html is stale — the second CI gate
+```
+
+To run the app, open `app.html` in a browser. It is a single self-contained file with no external
+requests, so opening it straight from disk (`file://`) works; no server and no build are needed, because
+the committed `app.html` is already built. After any change under `src/lib/` or to `src/app-shell.html`,
+run `npm run build` and commit the regenerated `app.html`.
+
 ## What works today
 
 `app.html` is the whole app: one file, no server, no network call, built from the tested modules by
@@ -19,18 +37,16 @@ if one drops under WCAG AA, 4.5:1 for text and 3:1 for the focus ring and the se
 button on the roster flips it through the profile module) and matching it has a units screen where a teacher
 submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason,
 and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome;
-never who) and a municipality sees counts only. A participant is numbered within its role (תלמיד #1, #2...)
-on every screen alike, so the pupil the match screen names is the card the people screen shows;
-`test/people-numbering.test.js` runs the built app under node:vm against a small fake DOM and checks that
-the two screens agree. The people screen ends with a wipe button for the device: a second click (or cancel) is asked for on the screen itself, then the one storage key is removed through `store.clear` - never overwritten with an empty document - and every screen is emptied, even when the browser refuses to remove the key; `test/wipe-device.test.js` watches the key through a fake localStorage.
+never who) and a municipality sees counts only. The people screen ends with a wipe button for the device: a second click (or cancel) is asked for on the screen itself, then the one storage key is removed through `store.clear` - never overwritten with an empty document - and every screen is emptied, even when the browser refuses to remove the key; `test/wipe-device.test.js` watches the key through a fake localStorage.
 
 | File | What it does |
 |---|---|
 | `src/lib/regions.js` | The six region codes and their validation. |
-| `src/lib/retention.js` | How long each kind of record may be kept (profile 365 days, match 180); nothing is kept indefinitely. |
+| `src/lib/retention.js` | How long each kind of record may be kept (profile 730 days, match 365); nothing is kept indefinitely. |
 | `src/lib/audit-report.js` | A Hebrew privacy and retention statement for audits, generated from the active retention policy (what is collected, how long it is kept, how it is deleted). |
+| `src/lib/cycle-manager.js` | The end-of-cycle sweep: `sweep()` splits stored rows into the ones the policy still allows and the ones to delete, by `retention.js`'s limit for the row's category as it stands today; `applyRetentionPolicy()` drops stored match and profile rows whose age exceeds the `maxAgeDays` stamped on them. The caller passes the date and writes the result back; nothing is mutated. A module only: no screen runs a sweep yet. |
 | `src/lib/profile.js` | The only record the app keeps: role, region, availability slots (8:00-22:00), subjects, and for a pupil one boolean, `parentConsent`, false unless given. Any other key, even an empty one, is refused with `personal data is not accepted`, so consent can never carry a parent's name, a date or a document. Arrays come back with one spelling per hour (normalizeSlot turns SUN_08 into SUN_8, because the engine compares slots as strings and two spellings of one hour would never meet) and no repeats, so a slot ticked twice does not count as two free hours. `grantParentConsent` / `revokeParentConsent` return a new record through `makeProfile`, so the gate holds on that path too. |
-| `src/lib/match.js` | Deterministic matching: a pupil with parent consent (`parentConsent === true`; a missing flag is a no), same region, at least one shared hour, at least one shared subject, each person at most once, and the largest possible number of pairs (a greedy pass by shared hours, then augmenting paths). The consent gate is the engine's, not the screen's: a pupil without it is not in the pool however well the rest fits, so no stored roster and no screen can pair a minor whose parent has not said yes, and the sessions screen, which takes its pairs from here, cannot log a session for one. `explainUnmatched` says why each leftover participant has no pair, checking the same gates in the same order: no parent consent, nobody on the other side in the region, nobody with a shared hour, nobody with a shared subject, or compatible counterparts existed but were all paired with others (`TAKEN`, with their count). The match screen shows that sentence, so the coordinator knows whether to obtain consent, recruit, ask for hours, or add a subject. |
+| `src/lib/match.js` | Deterministic matching: a pupil with parent consent (`parentConsent === true`; a missing flag is a no), same region, at least one shared hour, at least one shared subject, each person at most once, and the largest possible number of pairs (a greedy pass by shared hours, then augmenting paths). The consent gate is the engine's, not the screen's: a pupil without it is not in the pool however well the rest fits, so no stored roster and no screen can pair a minor whose parent has not said yes, and the sessions screen, which takes its pairs from here, cannot log a session for one. `explainUnmatched()` gives the true reason for each person left out, a missing parent consent first (`NO_PARENT_CONSENT`: for a pupil, the pupil has none; for a student, no pupil in the region has it yet); `makeMatchRecord()` stamps a pair with the day it was kept and its retention category, so a stored pair carries its own expiry; the screen does not store pairs yet. |
 | `src/lib/validator.js` | The gate for free text: refuses email addresses, Israeli phone numbers however they are split (050-123-45-67, (050) 1234567, 050.123.4567, +972 (50) ...), nine-digit id numbers (also 12345678-9 and 123-456-789), links with a scheme, with www or on a bare common domain (wa.me/..., t.me/..., instagram.com/...) and social handles, with the same error message as the profile gate. It reads the text the way a reader sees it: invisible characters are dropped and full-width, mathematical and Arabic-Indic digits and a full-width @ are read as the plain ones, while the stored text stays as written. Ordinary Hebrew lesson text with numbers passes. |
 | `src/lib/unit.js` | An enrichment-unit record with a deterministic id (title and body pass the free-text gate). The units screen submits one. |
 | `src/lib/approval.js` | The approval queue for units: pending, approved or rejected by the approver role only (no personal identity), deterministic and JSON-serializable. The units screen runs the flow. A stored entry with a key the flow never writes (a teacher name, a note) is refused as personal data, not dropped, and so is a key written beside the entries. |

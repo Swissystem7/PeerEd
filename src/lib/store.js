@@ -31,6 +31,16 @@ function assertState(state) {
   }
 }
 
+// A stored profile carries `retention`, which makeProfile derives itself and does not accept as an
+// input key (profile.js, setParentConsent does the same): drop it, makeProfile puts it back. Every
+// other key still goes through the gate, so a name or a phone in a stored record is refused.
+function storedProfileInput(person) {
+  if (person === null || typeof person !== 'object' || Array.isArray(person)) return person;
+  const input = Object.assign({}, person);
+  delete input.retention;
+  return input;
+}
+
 // Re-validate a plain document (parsed JSON) into a frozen state. Order matters: the queue is rebuilt
 // first because the log's rows are checked against it.
 function fromDocument(doc) {
@@ -42,7 +52,7 @@ function fromDocument(doc) {
   if (doc.schema !== SCHEMA) throw new Error(INVALID_STATE_ERROR + ': unknown schema ' + String(doc.schema));
   if (!Array.isArray(doc.people)) throw new Error(INVALID_STATE_ERROR + ': people is not an array');
   const people = [];
-  for (let i = 0; i < doc.people.length; i += 1) people.push(makeProfile(doc.people[i]));
+  for (let i = 0; i < doc.people.length; i += 1) people.push(makeProfile(storedProfileInput(doc.people[i])));
   const queue = loadQueue(doc.queue === undefined ? emptyQueue() : doc.queue);
   const log = loadLog(doc.log === undefined ? emptyLog() : doc.log, queue);
   return Object.freeze({ people: Object.freeze(people), queue: queue, log: log });
