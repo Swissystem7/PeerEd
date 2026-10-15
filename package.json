@@ -1,5 +1,10 @@
 {
   "name": "peered",
   "private": true,
-  "scripts": { "test": "node --test" }
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build-app.js",
+    "build:check": "node scripts/build-app.js --check"
+  }
 }
