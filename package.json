@@ -1,5 +1,8 @@
 {
   "name": "peered",
   "private": true,
-  "scripts": { "test": "node --test" }
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build-app.js"
+  }
 }
