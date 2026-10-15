@@ -67,6 +67,20 @@ var NOT_PROFANITY_RE = new RegExp('^' + HEBREW_PREFIX + '(?:' + NOT_PROFANITY.jo
 
 var PERSONAL_DATA_ERROR = 'personal data is not accepted';
 var PROFANITY_ERROR = 'offensive language is not accepted';
+var USER_ID_PREFIX = 'p-';
+var USER_ID_RE = /^p-[0-9a-f]{8}$/;
+
+function isUserId(id) {
+  return typeof id === 'string' && USER_ID_RE.test(id);
+}
+
+// Opaque peer ids only: the same personal-data gate as free text, plus a fixed shape so a name or a
+// phone cannot be stored as a "user id" when a parent blocks someone.
+function assertUserId(id) {
+  if (!isUserId(id)) throw new Error('invalid user id: expected p- followed by 8 hex digits');
+  if (findPersonalData(id).length > 0) throw new Error(PERSONAL_DATA_ERROR);
+  return id;
+}
 var DEFAULT_MAX_LENGTH = 4000;
 var DEFAULT_MIN_LENGTH = 1;
 // every C0 control character except \t (09) and \n (0a), plus DEL
@@ -241,6 +255,9 @@ module.exports = {
   PROFANITY: PROFANITY,
   PERSONAL_DATA_ERROR: PERSONAL_DATA_ERROR,
   PROFANITY_ERROR: PROFANITY_ERROR,
+  USER_ID_PREFIX: USER_ID_PREFIX,
+  isUserId: isUserId,
+  assertUserId: assertUserId,
   findPersonalData: findPersonalData,
   findProfanity: findProfanity,
   cleanText: cleanText,

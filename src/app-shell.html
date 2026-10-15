@@ -73,7 +73,7 @@
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people">
     <div class="banner">
       הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות, ולתלמיד גם האם התקבל אישור הורה (כן/לא
-      בלבד). כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "טקסט".
+      בלבד). כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "פרטיות".
     </div>
     <div class="card">
       <h2>הוספת משתתף</h2>
@@ -98,6 +98,8 @@
     </div>
     <div class="card">
       <h2>המשתתפים</h2>
+      <p class="hint">הרשימה נשמרת בדפדפן הזה בלבד: היא לא עוברת לטלפון אחר, ונמחקת עם ניקוי נתוני הגלישה.
+        לעותק — "הורד זוגות (CSV)" במסך השידוך.</p>
       <div id="peopleList"></div>
     </div>
     <div class="card">
@@ -116,10 +118,16 @@
       <h2>שידוך</h2>
       <p class="hint">זוג נוצר רק כשלתלמיד יש אישור הורה, שניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים
         לפחות מקצוע אחד.
-        הדירוג לפי מספר השעות המשותפות, אחר כך מספר המקצועות. אותה קלט נותן תמיד אותה תוצאה — אין אקראיות
-        ואין קריאה לשעון.</p>
-      <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button></div>
+        קודם נלקחים הזוגות עם הכי הרבה שעות משותפות, ואז השיבוץ מתקן כך שייצא מספר הזוגות הגדול ביותר האפשרי.
+        אותו קלט נותן תמיד אותה תוצאה.</p>
+      <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button>
+        <button type="button" class="ghost" id="exportCsv">הורד זוגות (CSV)</button></div>
       <p class="status" id="matchStatus" role="status"></p>
+      <p class="hint">הקובץ מכיל רק מספרים מהרשימה, אזור, מקצועות ושעות. את השמות מצליבים בגיליון שלך.</p>
+    </div>
+    <div class="card">
+      <h2>סיכום לרשות</h2>
+      <div id="summary"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
       <h2>הזוגות</h2>
@@ -134,9 +142,9 @@
   <!-- ============ טקסט ============ -->
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" hidden>
     <div class="card">
-      <h2>שער הטקסט</h2>
-      <p class="hint">כל יחידת העשרה או הודעה עוברת כאן לפני שהיא נשמרת. נסה להדביק טקסט עם טלפון, מייל,
-        תעודת זהות, קישור או מילה גסה, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
+      <h2>הדגמה: שער הטקסט</h2>
+      <p class="hint">האפליקציה לא שומרת שום טקסט חופשי — רק את רשימת המשתתפים. זה השער שכל טקסט יעבור בו
+        אם יתווסף בעתיד. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
@@ -148,7 +156,7 @@
       <div id="findings"></div>
     </div>
     <div class="card">
-      <h2>מה שדוחה שדה אסור</h2>
+      <h2>הדגמה: שדה אסור נדחה</h2>
       <p class="hint">אותו שער, על הרשומה עצמה ולא על הטקסט: מנסה לשמור משתתף עם שדה שאינו ברשימה.</p>
       <div class="actions"><button type="button" class="ghost" id="gateBtn">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
@@ -246,7 +254,7 @@
 <nav role="tablist" aria-label="ניווט">
   <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
   <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
-  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">טקסט</button>
+  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
   <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
   <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
 </nav>
@@ -282,18 +290,9 @@
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
-  var HOURS = [14, 15, 16, 17, 18, 19, 20];
-  // One sentence per reason code of match.explainUnmatched; "other" is the side that is missing.
-  var REASON_HE = {
-    NO_PARENT_CONSENT: function (other) {
-      return other === 'סטודנט' ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים"'
-        : 'יש ' + other + 'ים באזור, אבל לאף אחד אין עדיין אישור הורה';
-    },
-    NO_ONE_IN_REGION: function (other) { return 'אין אף ' + other + ' באזור הזה'; },
-    NO_SHARED_SLOT: function (other) { return 'יש ' + other + ' באזור, אבל בלי שעה פנויה משותפת'; },
-    NO_SHARED_SUBJECT: function (other) { return 'יש ' + other + ' באזור עם שעה משותפת, אבל בלי מקצוע משותף'; },
-    TAKEN: function (other, n) { return 'התאים ל-' + n + ' ' + other + (n === 1 ? '' : 'ים') + ', אבל כולם שובצו לאחרים'; }
-  };
+  // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
+  var HOURS = [];
+  for (var hh = profile.HOUR_MIN; hh <= profile.HOUR_MAX; hh += 1) HOURS.push(hh);
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
   // The roster lives in this browser only (MVP item 7): one localStorage key, no server, and a stored
@@ -323,8 +322,11 @@
     ['personal data is not accepted', 'פרטים אישיים לא מתקבלים'],
     ['offensive language is not accepted', 'שפה פוגענית לא מתקבלת'],
     ['profile input must be an object with role, region, availability, subjects', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
     ['profile must be an object', 'הרשומה לא בנויה נכון'],
     ['invalid parentConsent:', 'אישור ההורה לא תקין'],
+    ['invalid blockedUsers:', 'רשימת חסומים לא תקינה'],
+    ['invalid user id:', 'מזהה משתמש לא תקין'],
     ['invalid slot:', 'שעה שאינה בלוח'],
     ['invalid role:', 'תפקיד לא מוכר'],
     ['invalid region:', 'אזור לא מוכר'],
@@ -395,23 +397,11 @@
     }).join('');
   }
 
-  // A participant is numbered within its role, in roster order: the third pupil is "תלמיד #3" however
-  // many students were added before it. The match screen, the unmatched list and the pair dropdown
-  // count the same way (matchPairs sees students and pupils as two lists), so "תלמיד #3" there is
-  // this card here. The roster position stays in data-del / data-consent only and is never shown.
-  function roleOrdinal(index) {
-    var n = 0;
-    for (var k = 0; k <= index; k += 1) if (state.people[k].role === state.people[index].role) n += 1;
-    return n;
-  }
-  function roleLabel(p, index) {
-    return (p.role === 'pupil' ? 'תלמיד' : 'סטודנט מלמד') + ' #' + roleOrdinal(index);
-  }
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
       var pupil = p.role === 'pupil';
       var consented = match.hasParentConsent(p);
-      return '<div class="item"><b>' + roleLabel(p, i) +
+      return '<div class="item"><b>' + ROLE_HE[p.role] + ' #' + (i + 1) +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
         p.availability.length + ' שעות פנויות' +
@@ -465,11 +455,11 @@
     try { made = profile.makeProfile(candidate); }
     catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     state.people.push(made);
+    last = null;
     clearDraft();
     renderPeople();
     save();
-    say('addStatus', 'נוסף כ' + roleLabel(made, state.people.length - 1) + ' (זה המספר שיופיע במסך "שידוך"). סך הכול ' +
-      state.people.length + ' משתתפים.');
+    say('addStatus', 'נוסף. סך הכול ' + state.people.length + ' משתתפים.');
   });
 
   $('peopleList').addEventListener('click', function (ev) {
@@ -489,8 +479,9 @@
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
+    last = null;
     renderPeople(); save();
-    say('addStatus', 'נמחק. מי שאחריו באותו תפקיד ירד במספר אחד, גם במסך "שידוך".');
+    say('addStatus', 'נמחק.');
   });
 
   $('demoBtn').addEventListener('click', function () {
@@ -504,57 +495,143 @@
       { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
+    last = null;
     renderPeople(); save();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה, אחד מהתלמידים בלי אישור הורה. עבור למסך "שידוך".');
   });
 
   // ---------- match ----------
 
-  // The people screen numbers a participant within its role (roleLabel: תלמיד #1, #2...). matchPairs()
-  // indexes are positions among students / among pupils, which is that same count, so the number the
-  // match screen shows is the card the people screen shows.
+  // The participants list numbers people by their place in state.people (#1 = first added, any role).
+  // matchPairs() indexes are positions among students / among pupils, so every index is translated
+  // back to that list number before it reaches the screen.
   function splitByRole() {
     var out = { students: [], pupils: [] };
     state.people.forEach(function (p, i) {
-      var side = p.role === 'student' ? out.students : out.pupils;
-      side.push({ number: side.length + 1, person: p, index: i });
+      (p.role === 'student' ? out.students : out.pupils).push({ number: i + 1, person: p });
     });
     return out;
   }
 
-  $('runMatch').addEventListener('click', function () {
-    var r = splitByRole();
-    if (!r.students.length || !r.pupils.length) {
-      say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return;
+  // One sentence per explainUnmatched() code. The other side is named by role.
+  function reasonHe(code, role) {
+    var other = role === 'student' ? 'תלמיד' : 'סטודנט';
+    switch (code) {
+      case 'NO_PARENT_CONSENT': return role === 'pupil'
+        ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים".'
+        : 'יש תלמידים באזור, אבל לאף אחד מהם אין עדיין אישור הורה.';
+      case 'NO_ONE_IN_REGION': return 'אין באזור הזה אף ' + other + '.';
+      case 'NO_SHARED_HOUR': return 'יש ' + other + ' באזור, אבל אף אחד לא פנוי באותה שעה.';
+      case 'NO_SHARED_SUBJECT': return 'יש ' + other + ' באזור, אבל בלי מקצוע משותף.';
+      case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש מי שפנוי באותה שעה ויש מי שחולק מקצוע, אבל לא אותו אחד.';
+      case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
+      default: return '';
     }
-    var students = r.students.map(function (e) { return e.person; });
-    var pupils = r.pupils.map(function (e) { return e.person; });
-    var pairs = match.matchPairs(students, pupils);
-    $('pairs').innerHTML = pairs.length ? pairs.map(function (p, i) {
+  }
+
+  // The last computed match, in list numbers. Cleared whenever the list changes, so an export can never
+  // describe a list that is no longer on the screen.
+  var last = null;
+
+  function subjectsHe(list) { return list.map(function (s) { return SUBJECT_HE[s] || s; }).join(' / '); }
+  function slotsHe(list) { return list.map(slotHe).join(' / '); }
+
+  function computeMatch() {
+    var r = splitByRole();
+    if (!r.students.length || !r.pupils.length) return null;
+    var S = r.students.map(function (e) { return e.person; });
+    var P = r.pupils.map(function (e) { return e.person; });
+    var pairs = match.matchPairs(S, P);
+    var why = match.explainUnmatched(S, P, pairs);
+    var left = [];
+    why.students.forEach(function (w) { left.push({ role: 'student', e: r.students[w.index], reason: w.reason }); });
+    why.pupils.forEach(function (w) { left.push({ role: 'pupil', e: r.pupils[w.index], reason: w.reason }); });
+    left.sort(function (a, b) { return a.e.number - b.e.number; });
+    return {
+      students: S.length, pupils: P.length, left: left,
+      pairs: pairs.map(function (p) {
+        return { region: p.region, student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
+                 sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
+      })
+    };
+  }
+
+  // Hebrew counts: one of anything is "X אחד" (all nouns counted here are masculine); other counts keep the number.
+  function countHe(n, one, many) { return n === 1 ? one + ' אחד' : n + ' ' + many; }
+
+  function renderSummary(m) {
+    var shortPupils = m.left.filter(function (x) { return x.role === 'pupil'; });
+    var shortStudents = m.left.length - shortPupils.length;
+    var counts = {}, keys = [];
+    shortPupils.forEach(function (x) {
+      x.e.person.subjects.forEach(function (sub) {
+        var k = (REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' + (SUBJECT_HE[sub] || sub);
+        if (!(k in counts)) { counts[k] = 0; keys.push(k); }
+        counts[k] += 1;
+      });
+    });
+    keys.sort(function (a, b) { return (counts[b] - counts[a]) || (a < b ? -1 : a > b ? 1 : 0); });
+    $('summary').innerHTML = '<p class="hint">' + countHe(m.pairs.length, 'זוג', 'זוגות') + '. ' +
+      countHe(shortPupils.length, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
+      countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.</p>' +
+      (keys.length ? '<p class="hint">חסרים סטודנטים (תלמיד עם כמה מקצועות נספר בכל אחד):</p>' +
+        keys.map(function (k) { return '<div class="item"><span class="meta">' + esc(k) + ': ' + counts[k] +
+          '</span></div>'; }).join('') : '');
+  }
+
+  $('runMatch').addEventListener('click', function () {
+    var m = computeMatch();
+    if (!m) { last = null; say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return; }
+    last = m;
+    $('pairs').innerHTML = m.pairs.length ? m.pairs.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
-        '<span class="meta">סטודנט #' + r.students[p.studentIndex].number + ' עם תלמיד #' + r.pupils[p.pupilIndex].number + '<br>' +
+        '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
     }).join('') : '<p class="empty">לא נוצר אף זוג.</p>';
-
-    // The reason comes from the module, one sentence per reason code, so the coordinator knows what to
-    // do: recruit in the region, ask for more hours, or add a subject. TAKEN says the profile is fine
-    // and the other side simply ran out.
-    var why = match.explainUnmatched(students, pupils, pairs);
-    var left = [];
-    why.students.forEach(function (x) { left.push({ who: 'סטודנט #' + r.students[x.index].number, p: students[x.index], why: x }); });
-    why.pupils.forEach(function (x) { left.push({ who: 'תלמיד #' + r.pupils[x.index].number, p: pupils[x.index], why: x }); });
-    $('unmatched').innerHTML = left.length ? left.map(function (x) {
-      var other = x.p.role === 'student' ? 'תלמיד' : 'סטודנט';
-      var reason = REASON_HE[x.why.reason](other, x.why.compatible);
-      return '<div class="item"><b>' + x.who + '</b><span class="meta">' +
-        esc(REGION_HE[x.p.region] || x.p.region) + ' · ' +
-        x.p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        ' · ' + esc(reason) + '</span></div>';
+    $('unmatched').innerHTML = m.left.length ? m.left.map(function (x) {
+      return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
+        esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
+        x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
+        '<br>' + reasonHe(x.reason, x.role) + '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
-    say('matchStatus', pairs.length + ' זוגות מתוך ' + r.students.length + ' סטודנטים ו-' + r.pupils.length +
-      ' תלמידים. המספרים הם כמו במסך "אנשים": לפי התפקיד.');
+    renderSummary(m);
+    say('matchStatus', countHe(m.pairs.length, 'זוג', 'זוגות') + ' מתוך ' +
+      countHe(m.students, 'סטודנט', 'סטודנטים') + ' ו-' + countHe(m.pupils, 'תלמיד', 'תלמידים') +
+      '. המספרים הם המקום ברשימת המשתתפים.');
+  });
+
+  function csvCell(v) {
+    var t = String(v);
+    return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  }
+  function csvRow(cells) { return cells.map(csvCell).join(','); }
+
+  $('exportCsv').addEventListener('click', function () {
+    if (!last) { say('matchStatus', 'קודם לחץ "חשב שידוך" — הקובץ נבנה מהשידוך האחרון.', true); return; }
+    var rows = [csvRow(['זוג', 'אזור', 'סטודנט (מספר ברשימה)', 'תלמיד (מספר ברשימה)', 'מקצועות משותפים', 'שעות משותפות'])];
+    last.pairs.forEach(function (p, i) {
+      rows.push(csvRow([i + 1, REGION_HE[p.region] || p.region, p.student, p.pupil,
+        subjectsHe(p.sharedSubjects), slotsHe(p.sharedSlots)]));
+    });
+    rows.push('');
+    rows.push(csvRow(['לא שובצו']));
+    rows.push(csvRow(['תפקיד', 'מספר ברשימה', 'אזור', 'מקצועות', 'סיבה']));
+    last.left.forEach(function (x) {
+      rows.push(csvRow([ROLE_HE[x.role], x.e.number, REGION_HE[x.e.person.region] || x.e.person.region,
+        subjectsHe(x.e.person.subjects), reasonHe(x.reason, x.role)]));
+    });
+    var blob = new Blob(['\ufeff' + rows.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'peered-pairs.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
+    say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
+      (last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
 
   // ---------- text gate ----------
@@ -580,15 +657,19 @@
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
       catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
-      say('checkStatus', 'נקי. הטקסט שיישמר: "' + cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
+      // Nothing stores this text: the app keeps the participants list only.
+      say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
+        cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
       return;
     }
     var rude = hits.filter(function (h) { return h.kind === 'profanity'; }).length;
     var parts = [];
-    if (hits.length - rude) parts.push((hits.length - rude) + ' פרטים אישיים');
-    if (rude) parts.push(rude + ' מילים פוגעניות');
-    say('checkStatus', 'נחסם. נמצאו ' + parts.join(' ו-') + '.', true);
+    var personal = hits.length - rude;
+    if (personal) parts.push(personal === 1 ? 'פרט אישי אחד' : personal + ' פרטים אישיים');
+    if (rude) parts.push(rude === 1 ? 'מילה פוגענית אחת' : rude + ' מילים פוגעניות');
+    var found = hits.length > 1 ? 'נמצאו ' : (rude ? 'נמצאה ' : 'נמצא ');
+    say('checkStatus', 'נחסם. ' + found + parts.join(' ו-') + '.', true);
     $('findings').innerHTML = hits.map(function (h) {
       return '<div class="flag"><b>' + esc(KIND_HE[h.kind] || h.kind) + '</b> — "' + esc(h.match) +
         '" (תו ' + h.index + ')</div>';
