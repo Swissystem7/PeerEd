@@ -196,8 +196,8 @@ module.exports = { REGIONS, isRegion, normalizeRegion };
 // PeerEd — explicit, immutable retention limits per data category (days). No category is retained indefinitely.
 
 const RETENTION_POLICY = Object.freeze({
-  profile: 365,
-  match: 180
+  profile: 730,
+  match: 365
 });
 
 function getRetentionPolicy() {
@@ -208,6 +208,44 @@ module.exports = {
   getRetentionPolicy
 };
   __registry["retention"] = module.exports;
+})();
+
+/* ===== src/lib/audit-report.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd — Hebrew privacy / retention statement for institutional audits and regulatory review.
+
+const { getRetentionPolicy } = require('./retention.js');
+
+function generateAuditReport() {
+  const policy = getRetentionPolicy();
+  const profileDays = policy.profile;
+  const matchDays = policy.match;
+
+  return [
+    'הצהרת פרטיות ושמירת מידע — PeerEd',
+    '',
+    'מידע שנאסף:',
+    '• נתוני פרופיל (תפקיד, אזור, זמינות, מקצועות לימוד) — לצורך התאמת חונכות.',
+    '• נתוני התאמות חונכות (מי שויך למי ובאילו שעות) — לצורך ניהול מחזור החונכות.',
+    '',
+    'משך שמירה (לפי מדיניות השמירה הפעילה במערכת):',
+    '• נתוני פרופיל: עד ' + profileDays + ' ימים ממועד עדכון אחרון.',
+    '• נתוני התאמות: עד ' + matchDays + ' ימים ממועד יצירת ההתאמה או סיום מחזור החונכות.',
+    '',
+    'פרוטוקול מחיקה:',
+    '• בסיום תקופת השמירה, רשומות פרופיל והתאמה שעברו את המגבלה מוסרות מהמערכת.',
+    '• לא נשמר עותק ארכיוני של נתונים אישיים מעבר לתקופות המפורטות לעיל.',
+    '• מחיקה מוחלטת: הנתונים לא זמינים למנוע ההתאמות ולא משמשים לצורך התאמות עתידיות.'
+  ].join('\n');
+}
+
+module.exports = {
+  generateAuditReport
+};
+  __registry["audit-report"] = module.exports;
 })();
 
 /* ===== src/lib/profile.js ===== */
@@ -1056,7 +1094,16 @@ function contactLink(contact, issueForm) {
   return null;
 }
 
-module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contactLink };
+function isValidEmail(email) {
+  return EMAIL_RE.test(email);
+}
+
+module.exports = {
+  CONTACT: CONTACT,
+  ISSUE_FORM: ISSUE_FORM,
+  contactLink: contactLink,
+  isValidEmail: isValidEmail
+};
   __registry["contact"] = module.exports;
 })();
 </script>
@@ -1112,12 +1159,26 @@ module.exports = { CONTACT: CONTACT, ISSUE_FORM: ISSUE_FORM, contactLink: contac
     ['invalid availability slot:', 'שעה שאינה בלוח'],
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    // The enrichment-unit record. No screen offers a unit yet; the lines are here because the table
+    // must cover every message a module inlined into app.html can throw. Two modules build a unit and
+    // they name the fields differently - validator.js uses minutes/text, unit.js uses
+    // durationMinutes/body - so both wordings need a line. 'invalid subject:' and 'invalid title:' are
+    // shared; a key is matched as a prefix, so one line serves both callers.
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, durationMinutes, body', 'הרשומה לא בנויה נכון'],
     ['invalid subject:', 'מקצוע שאינו ברשימה'],
     ['invalid minutes:', 'משך הזמן לא תקין'],
+    ['invalid durationMinutes:', 'משך הזמן לא תקין'],
     ['invalid title:', 'כותרת לא תקינה'],
     ['invalid text:', 'טקסט לא תקין'],
+    ['invalid body:', 'טקסט לא תקין'],
     ['text too long', 'הטקסט ארוך מדי'],
-    ['text too short', 'אין טקסט לבדוק']
+    ['text too short', 'אין טקסט לבדוק'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך השיעור לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין']
   ];
   function errorHe(err) {
     var msg = String(err && err.message || '');

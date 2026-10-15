@@ -17,11 +17,12 @@ approves publishing.
 |---|---|
 | `src/lib/regions.js` | The six region codes and their validation. |
 | `src/lib/retention.js` | How long each kind of record may be kept (profile 365 days, match 180); nothing is kept indefinitely. |
+| `src/lib/audit-report.js` | A Hebrew privacy and retention statement for audits, generated from the active retention policy (what is collected, how long it is kept, how it is deleted). |
 | `src/lib/profile.js` | The only record the app keeps: role, region, availability slots (8:00-22:00), subjects. Any other key, even an empty one, is refused with `personal data is not accepted`. |
 | `src/lib/match.js` | Deterministic matching: same region, at least one shared hour, at least one shared subject, each person at most once, and the largest possible number of pairs (a greedy pass by shared hours, then augmenting paths). `explainUnmatched()` gives the true reason for each person left out. |
 | `src/lib/validator.js` | The free-text gate (email, Israeli phone, nine-digit id, links, handles). On screen it is a demo: the app stores no free text. |
 | `src/lib/unit.js` | An enrichment-unit record with a deterministic id (title and body pass the free-text gate). A module only: nothing on screen offers or stores units. |
-| `src/lib/approval.js` | Teacher approval queue for enrichment units: pending, approved or rejected with a role-only decision record. A module only: not wired into `app.html` yet. |
+| `src/lib/approval.js` | The approval queue for units: pending, approved or rejected by the approver role only (no personal identity), deterministic and JSON-serializable. A module only: nothing on screen runs the flow yet. |
 | `src/lib/contact.js` | The one place for a contact channel. Since 28.9 `CONTACT` is the Google Form "משוב על האפליקציות", pre-filled with PeerEd. If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
 
 On screen: add participants (or load a sample), compute the match, see who is left out and why, download

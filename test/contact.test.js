@@ -10,6 +10,10 @@ const { openApp, ROOT } = require('../test-support/fake-dom.js');
 
 const contact = require('../src/lib/contact.js');
 
+test('isValidEmail accepts a well-formed address', () => {
+  assert.equal(contact.isValidEmail('user@example.com'), true);
+});
+
 test('contactLink: email, https link, issue-form fallback, or nothing', () => {
   const form = 'https://github.com/Swissystem7/PeerEd/issues/new?template=pilot.yml';
   assert.deepEqual(contact.contactLink('pilot@example.org', form),
