@@ -19,6 +19,7 @@
   nav button { flex:1; background:none; border:0; color:var(--muted); font:inherit; font-size:.8rem;
                padding:12px 4px; cursor:pointer; border-top:2px solid transparent; }
   nav button[aria-selected="true"] { color:var(--key); border-top-color:var(--key); font-weight:700; }
+  nav button:focus-visible { outline:2px solid var(--key); outline-offset:-2px; }
   section[role="tabpanel"][hidden] { display:none; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
   .card h2 { font-size:1rem; margin:0 0 8px; }
@@ -241,11 +242,11 @@
 </main>
 
 <nav role="tablist" aria-label="ניווט">
-  <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true">אנשים</button>
-  <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false">שידוך</button>
-  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false">פרטיות</button>
-  <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false">יחידות</button>
-  <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false">שיעורים</button>
+  <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
+  <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
+  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
+  <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
+  <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
 </nav>
 
 <script>
@@ -1674,6 +1675,43 @@ module.exports = {
   __registry["store"] = module.exports;
 })();
 
+/* ===== src/lib/tabnav.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - keyboard navigation of the bottom tab bar. The WAI-ARIA tabs pattern says a tab list is one
+// tab stop: the selected tab is focusable, the others are not, and the arrow keys move between them.
+// This module is the arithmetic of that pattern and nothing else: given how many tabs there are, which
+// one has focus, which key was pressed and the writing direction, it answers which tab to select next,
+// or -1 for a key that is not ours (so the browser keeps it). No DOM, no clock, no state.
+//
+// Direction matters because the screen is Hebrew: in a right-to-left tab bar the next tab is to the
+// LEFT, so ArrowLeft goes forward and ArrowRight goes back. Both ends wrap. Home and End are the first
+// and last tab in either direction.
+
+const DIRECTIONS = Object.freeze(['rtl', 'ltr']);
+const KEYS = Object.freeze(['ArrowLeft', 'ArrowRight', 'Home', 'End']);
+
+function stepTab(count, current, key, dir) {
+  if (!Number.isInteger(count) || count < 1) throw new Error('invalid tab count: expected a positive integer');
+  if (!Number.isInteger(current) || current < 0 || current >= count) {
+    throw new Error('invalid current tab: expected an index below the count');
+  }
+  if (DIRECTIONS.indexOf(dir) === -1) throw new Error('invalid direction: expected rtl or ltr');
+  if (key === 'Home') return 0;
+  if (key === 'End') return count - 1;
+  const forward = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+  const back = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
+  if (key === forward) return (current + 1) % count;
+  if (key === back) return (current + count - 1) % count;
+  return -1;
+}
+
+module.exports = { DIRECTIONS, KEYS, stepTab };
+  __registry["tabnav"] = module.exports;
+})();
+
 /* ===== src/lib/contact.js ===== */
 (function () {
   var module = { exports: {} };
@@ -1725,7 +1763,7 @@ module.exports = {
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
       unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
-      contact = __registry.contact;
+      tabnav = __registry.tabnav, contact = __registry.contact;
   var $ = function (id) { return document.getElementById(id); };
 
   // One label per role, used by the participants list AND the match screen.
@@ -2348,17 +2386,30 @@ module.exports = {
 
   // ---------- tabs ----------
 
+  // One tab stop for the whole bar (the WAI-ARIA tabs pattern): the selected tab is in the Tab order,
+  // the others are not, and the arrow keys walk the bar. Which tab an arrow lands on is tabnav.stepTab,
+  // so the right-to-left rule (ArrowLeft goes forward on a Hebrew screen) is tested, not guessed here.
   var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
-  tabs.forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      tabs.forEach(function (t) {
-        var on = t === tab;
-        t.setAttribute('aria-selected', on ? 'true' : 'false');
-        $(t.getAttribute('aria-controls')).hidden = !on;
-      });
-      // The roster and the queue may have changed on other tabs: the pairs and the units are recomputed.
-      if (tab.id === 'nav-sessions') renderSessionForm();
-      window.scrollTo(0, 0);
+  function activate(tab, focus) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      $(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    // The roster and the queue may have changed on other tabs: the pairs and the units are recomputed.
+    if (tab.id === 'nav-sessions') renderSessionForm();
+    if (focus) tab.focus();
+    window.scrollTo(0, 0);
+  }
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener('click', function () { activate(tab, false); });
+    tab.addEventListener('keydown', function (ev) {
+      var dir = document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl';
+      var next = tabnav.stepTab(tabs.length, i, ev.key, dir);
+      if (next === -1) return;
+      ev.preventDefault();
+      activate(tabs[next], true);
     });
   });
 
