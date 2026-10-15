@@ -132,6 +132,7 @@ function pairs(css) {
     { what: 'muted text on the page (header)', fg: prop(css, 'header p', 'color'), bg: v.bg, min: TEXT },
     { what: 'muted text in a card (label, hint, empty)', fg: prop(css, 'label', 'color'), bg: v.card, min: TEXT },
     { what: 'card heading', fg: ink, bg: v.card, min: TEXT },
+    { what: 'consent checkbox label', fg: prop(css, 'label.check', 'color'), bg: v.card, min: TEXT },
     { what: 'tab bar, unselected tab', fg: prop(css, 'nav button', 'color'), bg: nav, min: TEXT },
     { what: 'tab bar, selected tab', fg: prop(css, 'nav button[aria-selected="true"]', 'color'), bg: nav, min: TEXT },
     { what: 'tab bar, selected-tab line', fg: prop(css, 'nav button[aria-selected="true"]', 'border-top-color'), bg: nav, min: NON_TEXT },

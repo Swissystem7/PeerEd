@@ -72,6 +72,7 @@ function addPerson($, role, region, subjects, slots) {
   $('consentRow').hidden = role !== 'pupil';
   if (role === 'pupil') $('consent').checked = true;
   $('region').value = region;
+  $('consent').checked = role === 'pupil';  // the coordinator ticks parent consent (a pupil without it is never paired)
   subjects.forEach((s) => press($('subjects'), 'data-subject', s));
   slots.forEach((s) => press($('hours'), 'data-slot', s));
   $('addPerson').fire('click');

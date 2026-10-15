@@ -33,7 +33,8 @@ run `npm run build` and commit the regenerated `app.html`.
 audit of the screen: `scripts/contrast.js` reads every text-on-background pair out of the stylesheet
 (variables resolved, translucent tints painted over their parent) and `test/contrast.test.js` fails the suite
 if one drops under WCAG AA, 4.5:1 for text and 3:1 for the focus ring and the selected-tab line;
-`node scripts/contrast.js` prints the table. Besides people and matching it has a units screen where a teacher
+`node scripts/contrast.js` prints the table. Besides people (a pupil gets a parent-consent checkbox, and a
+button on the roster flips it through the profile module) and matching it has a units screen where a teacher
 submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason,
 and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome;
 never who) and a municipality sees counts only.
