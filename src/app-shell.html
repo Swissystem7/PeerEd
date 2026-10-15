@@ -70,7 +70,7 @@
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people">
     <div class="banner">
       הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות. כל שדה אחר — שם, טלפון, מייל, כתובת —
-      נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "טקסט".
+      נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "פרטיות".
     </div>
     <div class="card">
       <h2>הוספת משתתף</h2>
@@ -117,9 +117,9 @@
   <!-- ============ טקסט ============ -->
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" hidden>
     <div class="card">
-      <h2>שער הטקסט</h2>
-      <p class="hint">כל יחידת העשרה או הודעה עוברת כאן לפני שהיא נשמרת. נסה להדביק טקסט עם טלפון, מייל,
-        תעודת זהות, קישור או מילה גסה, ותראה מה נחסם. זה בדיוק מה שבוחן או רשות מקומית ישאלו עליו ראשון.</p>
+      <h2>הדגמה: שער הטקסט</h2>
+      <p class="hint">האפליקציה לא שומרת שום טקסט חופשי — רק את רשימת המשתתפים. זה השער שכל טקסט יעבור בו
+        אם יתווסף בעתיד. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
@@ -131,7 +131,7 @@
       <div id="findings"></div>
     </div>
     <div class="card">
-      <h2>מה שדוחה שדה אסור</h2>
+      <h2>הדגמה: שדה אסור נדחה</h2>
       <p class="hint">אותו שער, על הרשומה עצמה ולא על הטקסט: מנסה לשמור משתתף עם שדה שאינו ברשימה.</p>
       <div class="actions"><button type="button" class="ghost" id="gateBtn">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
@@ -148,7 +148,7 @@
 <nav role="tablist" aria-label="ניווט">
   <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true">אנשים</button>
   <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false">שידוך</button>
-  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false">טקסט</button>
+  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false">פרטיות</button>
 </nav>
 
 <script>
@@ -181,7 +181,9 @@
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
-  var HOURS = [14, 15, 16, 17, 18, 19, 20];
+  // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
+  var HOURS = [];
+  for (var hh = profile.HOUR_MIN; hh <= profile.HOUR_MAX; hh += 1) HOURS.push(hh);
 
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
   var state = { people: [] };
@@ -412,7 +414,9 @@
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
       catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
-      say('checkStatus', 'נקי. הטקסט שיישמר: "' + cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
+      // Nothing stores this text: the app keeps the participants list only.
+      say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
+        cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
       return;
     }
