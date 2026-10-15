@@ -1,0 +1,145 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const {
+  emptyLog, logSession, summarize, loadLog, OUTCOMES, ACCEPTED_FIELDS, UNIT_NOT_APPROVED_ERROR
+} = require('../src/lib/session.js');
+const { emptyQueue, submit, approve, reject } = require('../src/lib/approval.js');
+const { makeUnit } = require('../src/lib/unit.js');
+const { makeProfile, PERSONAL_DATA_ERROR } = require('../src/lib/profile.js');
+const { matchPairs } = require('../src/lib/match.js');
+
+const MATH = makeUnit({ title: 'משוואות ריבועיות', subject: 'MATH', durationMinutes: 20, body: 'פותרים שלוש משוואות.' });
+const PHYSICS = makeUnit({ title: 'חוק ניוטון השני', subject: 'PHYSICS', durationMinutes: 15, body: 'כוח שווה מסה כפול תאוצה.' });
+const PENDING = makeUnit({ title: 'משפט פיתגורס', subject: 'MATH', durationMinutes: 10, body: 'שלוש דוגמאות.' });
+const REJECTED = makeUnit({ title: 'גבולות', subject: 'MATH', durationMinutes: 10, body: 'שתי דוגמאות.' });
+
+// MATH and PHYSICS approved, PENDING still pending, REJECTED rejected with a reason.
+const QUEUE = reject(
+  submit(submit(approve(approve(submit(submit(emptyQueue(), MATH), PHYSICS), MATH.id), PHYSICS.id), PENDING), REJECTED),
+  REJECTED.id,
+  'לא מתאים'
+);
+
+const STUDENT = makeProfile({ role: 'student', region: 'SOUTH', availability: ['SUN_16', 'MON_18'], subjects: ['MATH', 'PHYSICS'] });
+const PUPIL = makeProfile({ role: 'pupil', region: 'SOUTH', availability: ['MON_18', 'TUE_17'], subjects: ['MATH', 'CS'] });
+const PAIR = matchPairs([STUDENT], [PUPIL])[0];
+const HELD = { slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held' };
+
+test('session: the pair from matchPairs is the input the log is written for', () => {
+  assert.deepEqual(PAIR, {
+    studentIndex: 0, pupilIndex: 0, region: 'SOUTH', sharedSlots: ['MON_18'], sharedSubjects: ['MATH']
+  });
+});
+
+test('session: a logged session is a new frozen log with region, slot, subject, unit id and outcome only', () => {
+  const l0 = emptyLog();
+  const l1 = logSession(l0, QUEUE, PAIR, HELD);
+  assert.notEqual(l1, l0);
+  assert.deepEqual(l0.entries, []);
+  assert.equal(Object.isFrozen(l1), true);
+  assert.equal(Object.isFrozen(l1.entries), true);
+  assert.equal(Object.isFrozen(l1.entries[0]), true);
+  assert.deepEqual(l1.entries, [
+    { region: 'SOUTH', slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held', seq: 1 }
+  ]);
+  assert.equal(l1.nextSeq, 2);
+});
+
+test('session: the roster positions of the pair never reach the log, and no key could hold a name', () => {
+  const l = logSession(logSession(emptyLog(), QUEUE, PAIR, HELD), QUEUE, PAIR,
+    { slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'missed' });
+  const text = JSON.stringify(l);
+  assert.equal(/Index|student|pupil|name|email|phone/i.test(text), false);
+  assert.deepEqual(Object.keys(l.entries[1]).sort(), ['outcome', 'region', 'seq', 'slot', 'subject', 'unitId']);
+  assert.deepEqual(ACCEPTED_FIELDS, ['slot', 'subject', 'unitId', 'outcome']);
+});
+
+test('session: any key outside the accepted fields is refused as personal data, before anything else', () => {
+  for (const extra of [{ pupil: 'דנה' }, { note: '' }, { studentIndex: 0 }, { '': '' }]) {
+    assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({ outcome: 'bogus' }, extra)),
+      { message: PERSONAL_DATA_ERROR });
+  }
+});
+
+test('session: a slot or a subject the pair does not share is refused', () => {
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { slot: 'SUN_16' })), /slot the pair shares/);
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { slot: 'MON_7' })), /slot the pair shares/);
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { subject: 'PHYSICS', unitId: PHYSICS.id })),
+    /subject the pair shares/);
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { subject: 'ART' })), /subject the pair shares/);
+});
+
+test('session: only an approved unit can be taught - pending, rejected and unknown ids are refused', () => {
+  for (const id of [PENDING.id, REJECTED.id, 'u-0000000000000000', 42, undefined]) {
+    assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { unitId: id })),
+      { message: UNIT_NOT_APPROVED_ERROR });
+  }
+});
+
+test('session: the subject must be the subject of the unit that was taught', () => {
+  const wide = { region: 'SOUTH', sharedSlots: ['MON_18'], sharedSubjects: ['MATH', 'PHYSICS'] };
+  assert.throws(() => logSession(emptyLog(), QUEUE, wide, Object.assign({}, HELD, { unitId: PHYSICS.id })),
+    /subject of the unit/);
+  assert.equal(logSession(emptyLog(), QUEUE, wide, { slot: 'MON_18', subject: 'PHYSICS', unitId: PHYSICS.id, outcome: 'held' })
+    .entries[0].subject, 'PHYSICS');
+});
+
+test('session: the outcome is one of the fixed codes', () => {
+  assert.deepEqual(OUTCOMES, ['held', 'missed', 'cut_short']);
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { outcome: 'great' })), /invalid outcome/);
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { outcome: 'HELD' })), /invalid outcome/);
+});
+
+test('session: a bad log, pair or queue is an error, not a silent drop', () => {
+  assert.throws(() => logSession({ entries: [] }, QUEUE, PAIR, HELD), /invalid log/);
+  assert.throws(() => logSession(emptyLog(), QUEUE, { region: 'SOUTH' }, HELD), /invalid pair/);
+  assert.throws(() => logSession(emptyLog(), QUEUE, Object.assign({}, PAIR, { region: 'MARS' }), HELD), /invalid pair/);
+  assert.throws(() => logSession(emptyLog(), {}, PAIR, HELD), /invalid queue/);
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, 'MON_18'), /session input must be an object/);
+});
+
+test('session: the summary is counts only and the same for the same log', () => {
+  const north = { region: 'NORTH', sharedSlots: ['TUE_17'], sharedSubjects: ['PHYSICS'] };
+  let l = emptyLog();
+  l = logSession(l, QUEUE, PAIR, HELD);
+  l = logSession(l, QUEUE, PAIR, Object.assign({}, HELD, { outcome: 'missed' }));
+  l = logSession(l, QUEUE, north, { slot: 'TUE_17', subject: 'PHYSICS', unitId: PHYSICS.id, outcome: 'held' });
+  const s = summarize(l);
+  assert.equal(Object.isFrozen(s), true);
+  assert.deepEqual(s, {
+    sessions: 3,
+    byRegion: { SOUTH: 2, NORTH: 1 },
+    bySubject: { MATH: 2, PHYSICS: 1 },
+    byOutcome: { held: 2, missed: 1 },
+    byUnit: { [MATH.id]: 2, [PHYSICS.id]: 1 }
+  });
+  assert.deepEqual(summarize(l), s);
+  assert.deepEqual(summarize(emptyLog()), { sessions: 0, byRegion: {}, bySubject: {}, byOutcome: {}, byUnit: {} });
+});
+
+test('session: a stored log round-trips through JSON and is re-checked against the queue on load', () => {
+  const l = logSession(logSession(emptyLog(), QUEUE, PAIR, HELD), QUEUE, PAIR,
+    Object.assign({}, HELD, { outcome: 'cut_short' }));
+  const back = loadLog(JSON.parse(JSON.stringify(l)), QUEUE);
+  assert.deepEqual(back, l);
+  assert.equal(Object.isFrozen(back.entries[1]), true);
+  // the queue the log is loaded with decides: with the unit no longer approved, the row is refused
+  const queueWithout = submit(submit(emptyQueue(), MATH), PHYSICS);
+  assert.throws(() => loadLog(JSON.parse(JSON.stringify(l)), queueWithout), { message: UNIT_NOT_APPROVED_ERROR });
+  // nextSeq is repaired from the rows when it is missing or stale
+  assert.equal(loadLog({ entries: JSON.parse(JSON.stringify(l.entries)) }, QUEUE).nextSeq, 3);
+});
+
+test('session: a row edited on disk cannot bring an extra key, a bad region or a reordered seq into the app', () => {
+  const row = { region: 'SOUTH', slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held', seq: 1 };
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { pupil: 'x' })] }, QUEUE), { message: PERSONAL_DATA_ERROR });
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { region: 'MARS' })] }, QUEUE), /bad region/);
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'MON_7' })] }, QUEUE), /invalid slot/);
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { outcome: 'x' })] }, QUEUE), /invalid outcome/);
+  assert.throws(() => loadLog({ entries: [row, Object.assign({}, row, { seq: 1 })] }, QUEUE), /seq out of order/);
+  assert.throws(() => loadLog({ entries: [null] }, QUEUE), /invalid stored session/);
+  assert.throws(() => loadLog({ entries: {} }, QUEUE), /invalid stored log/);
+  assert.throws(() => loadLog([], QUEUE), /invalid stored log/);
+});
