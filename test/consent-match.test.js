@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { matchPairs, explainUnmatched, whyUnmatched, hasParentConsent, REASONS } = require('../src/lib/match.js');
+const { matchPairs, explainUnmatched, hasParentConsent } = require('../src/lib/match.js');
 const profile = require('../src/lib/profile.js');
 const session = require('../src/lib/session.js');
 const approval = require('../src/lib/approval.js');
@@ -67,43 +67,37 @@ test('consent: the better-fitting pupil loses to a consented one, and the roster
 });
 
 test('consent: NO_PARENT_CONSENT is the first reason, about the pupil alone, before anyone else is looked at', () => {
-  assert.equal(REASONS[0], 'NO_PARENT_CONSENT');
   // No student anywhere, no shared hour, no shared subject - none of it matters without consent.
   const far = pupil(false, { region: 'SOUTH', availability: ['THU_20'], subjects: ['HISTORY'] });
-  assert.deepEqual(explainUnmatched([STUDENT], [far]), {
-    students: [{ index: 0, reason: 'NO_ONE_IN_REGION', compatible: 0 }],
-    pupils: [{ index: 0, reason: 'NO_PARENT_CONSENT', compatible: 0 }]
+  assert.deepEqual(explainUnmatched([STUDENT], [far], []), {
+    students: [{ index: 0, reason: 'NO_ONE_IN_REGION' }],
+    pupils: [{ index: 0, reason: 'NO_PARENT_CONSENT' }]
   });
-  assert.deepEqual(explainUnmatched([], [pupil(false)]).pupils, [{ index: 0, reason: 'NO_PARENT_CONSENT', compatible: 0 }]);
+  assert.deepEqual(explainUnmatched([], [pupil(false)], []).pupils, [{ index: 0, reason: 'NO_PARENT_CONSENT' }]);
   // With consent the same far pupil gets the region reason, as before this change.
-  assert.equal(explainUnmatched([STUDENT], [profile.grantParentConsent(far)]).pupils[0].reason, 'NO_ONE_IN_REGION');
+  assert.equal(explainUnmatched([STUDENT], [profile.grantParentConsent(far)], []).pupils[0].reason, 'NO_ONE_IN_REGION');
 });
 
-test('consent: for a student, pupils in the region without consent are the reason, and are not counted as compatible', () => {
+test('consent: for a student, pupils in the region without consent are the reason, and are no partners', () => {
   // One pupil in the region, no consent: the student is told so, not "nobody in the region".
-  assert.deepEqual(explainUnmatched([STUDENT], [pupil(false)]), {
-    students: [{ index: 0, reason: 'NO_PARENT_CONSENT', compatible: 0 }],
-    pupils: [{ index: 0, reason: 'NO_PARENT_CONSENT', compatible: 0 }]
+  assert.deepEqual(explainUnmatched([STUDENT], [pupil(false)], []), {
+    students: [{ index: 0, reason: 'NO_PARENT_CONSENT' }],
+    pupils: [{ index: 0, reason: 'NO_PARENT_CONSENT' }]
   });
   // Region gate first: a pupil elsewhere, with or without consent, is "nobody in the region".
-  assert.equal(whyUnmatched(STUDENT, [pupil(false, { region: 'SOUTH' })], 'student').reason, 'NO_ONE_IN_REGION');
-  // Consent before hours: a consented pupil with other hours makes it the slot gate that fails.
-  assert.equal(whyUnmatched(STUDENT, [pupil(false), pupil(true, { availability: ['THU_20'] })], 'student').reason,
-    'NO_SHARED_SLOT');
-  // Two students fit one consented pupil and one not: the leftover student had exactly one compatible
-  // counterpart, so the count excludes the pupil without consent.
+  assert.equal(explainUnmatched([STUDENT], [pupil(false, { region: 'SOUTH' })], []).students[0].reason, 'NO_ONE_IN_REGION');
+  // Consent before hours: a consented pupil with other hours makes it the hour gate that fails.
+  assert.equal(explainUnmatched([STUDENT], [pupil(false), pupil(true, { availability: ['THU_20'] })], []).students[0].reason,
+    'NO_SHARED_HOUR');
+  // Two students fit one consented pupil and one not: the leftover student's only partner was taken.
   const students = [STUDENT, profile.makeProfile({ role: 'student', region: 'NORTH', availability: ['SUN_16'], subjects: ['MATH'] })];
   const pupils = [pupil(false), pupil(true)];
   const pairs = matchPairs(students, pupils);
   assert.deepEqual(pairs.map((p) => [p.studentIndex, p.pupilIndex]), [[0, 1]]);
   assert.deepEqual(explainUnmatched(students, pupils, pairs), {
-    students: [{ index: 1, reason: 'TAKEN', compatible: 1 }],
-    pupils: [{ index: 0, reason: 'NO_PARENT_CONSENT', compatible: 0 }]
+    students: [{ index: 1, reason: 'PARTNERS_TAKEN' }],
+    pupils: [{ index: 0, reason: 'NO_PARENT_CONSENT' }]
   });
-  // The side is read from the role when omitted, and anything else is refused.
-  assert.equal(whyUnmatched(pupil(false), [STUDENT]).reason, 'NO_PARENT_CONSENT');
-  assert.equal(whyUnmatched(pupil(true), [STUDENT]).reason, 'TAKEN');
-  assert.throws(() => whyUnmatched(STUDENT, [], 'teacher'), /invalid side/);
 });
 
 test('consent: no session can be logged for a pupil without consent, because no pair exists to log it for', () => {
@@ -144,10 +138,10 @@ test('consent: the people screen has the checkbox, sets the flag through the pro
   assert.ok(peopleBlock.indexOf('match.hasParentConsent(') !== -1);
   assert.ok(peopleBlock.indexOf('אישור הורה') !== -1);
   // The match screen has a sentence for the new reason, for each side.
-  const table = app.slice(app.indexOf('var REASON_HE = {'), app.indexOf('// ---------- match'));
-  assert.ok(table.indexOf('NO_PARENT_CONSENT:') !== -1);
+  const table = app.slice(app.indexOf('function reasonHe('), app.indexOf('function computeMatch('));
+  assert.ok(table.indexOf("case 'NO_PARENT_CONSENT':") !== -1);
   assert.ok(table.indexOf('אין עדיין אישור הורה') !== -1, 'the pupil-side sentence');
-  assert.ok(table.indexOf('לאף אחד אין עדיין אישור הורה') !== -1, 'the student-side sentence');
+  assert.ok(table.indexOf('לאף אחד מהם אין עדיין אישור הורה') !== -1, 'the student-side sentence');
   // The demo roster has at least one pupil with consent and one without, so the screen shows both.
   const demo = app.slice(app.indexOf("$('demoBtn')"), app.indexOf('// ---------- match'));
   const demoPupils = demo.match(/role: 'pupil'[^\n]*/g) || [];
