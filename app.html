@@ -57,6 +57,7 @@
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
   .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
+  a { color:var(--key); }
   .flag { background:rgba(255,143,143,.1); border:1px solid rgba(255,143,143,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
 </style>
@@ -192,6 +193,7 @@
       <div id="rejectedList"></div>
     </div>
   </section>
+
   <!-- ============ שיעורים ============ -->
   <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" hidden>
     <div class="banner">
@@ -232,6 +234,13 @@
       <div id="sessionList"></div>
     </div>
   </section>
+
+  <!-- ============ קשר (src/lib/contact.js) ============ -->
+  <div class="card" id="contactBox" hidden>
+    <h2>רוצים לנסות בסבב השיבוץ שלכם?</h2>
+    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank"></a></p>
+    <p class="hint" id="contactNote"></p>
+  </div>
 </main>
 
 <nav role="tablist" aria-label="ניווט">
@@ -287,8 +296,8 @@ module.exports = { REGIONS, isRegion, normalizeRegion };
 // PeerEd — explicit, immutable retention limits per data category (days). No category is retained indefinitely.
 
 const RETENTION_POLICY = Object.freeze({
-  profile: 365,
-  match: 180
+  profile: 730,
+  match: 365
 });
 
 function getRetentionPolicy() {
@@ -299,6 +308,44 @@ module.exports = {
   getRetentionPolicy
 };
   __registry["retention"] = module.exports;
+})();
+
+/* ===== src/lib/audit-report.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd — Hebrew privacy / retention statement for institutional audits and regulatory review.
+
+const { getRetentionPolicy } = require('./retention.js');
+
+function generateAuditReport() {
+  const policy = getRetentionPolicy();
+  const profileDays = policy.profile;
+  const matchDays = policy.match;
+
+  return [
+    'הצהרת פרטיות ושמירת מידע — PeerEd',
+    '',
+    'מידע שנאסף:',
+    '• נתוני פרופיל (תפקיד, אזור, זמינות, מקצועות לימוד) — לצורך התאמת חונכות.',
+    '• נתוני התאמות חונכות (מי שויך למי ובאילו שעות) — לצורך ניהול מחזור החונכות.',
+    '',
+    'משך שמירה (לפי מדיניות השמירה הפעילה במערכת):',
+    '• נתוני פרופיל: עד ' + profileDays + ' ימים ממועד עדכון אחרון.',
+    '• נתוני התאמות: עד ' + matchDays + ' ימים ממועד יצירת ההתאמה או סיום מחזור החונכות.',
+    '',
+    'פרוטוקול מחיקה:',
+    '• בסיום תקופת השמירה, רשומות פרופיל והתאמה שעברו את המגבלה מוסרות מהמערכת.',
+    '• לא נשמר עותק ארכיוני של נתונים אישיים מעבר לתקופות המפורטות לעיל.',
+    '• מחיקה מוחלטת: הנתונים לא זמינים למנוע ההתאמות ולא משמשים לצורך התאמות עתידיות.'
+  ].join('\n');
+}
+
+module.exports = {
+  generateAuditReport
+};
+  __registry["audit-report"] = module.exports;
 })();
 
 /* ===== src/lib/profile.js ===== */
@@ -509,13 +556,8 @@ function compareCandidates(x, y) {
     (x.pupilIndex - y.pupilIndex);
 }
 
-// students / pupils: arrays of profiles ({ region, availability, subjects }, pupils also parentConsent).
-// A pair needs a pupil with parent consent, the same region, >= 1 shared slot and >= 1 shared subject.
-// Each participant is used at most once. Candidates are sorted by shared slots desc, shared subjects
-// desc, student index, pupil index, then taken greedily.
-function matchPairs(students, pupils) {
-  const S = Array.isArray(students) ? students : [];
-  const P = Array.isArray(pupils) ? pupils : [];
+// All valid (student, pupil) candidates, best first. A pupil without parent consent is in no candidate.
+function candidatesOf(S, P) {
   const candidates = [];
   for (let si = 0; si < S.length; si += 1) {
     const s = S[si];
@@ -537,23 +579,63 @@ function matchPairs(students, pupils) {
       });
     }
   }
-  candidates.sort(compareCandidates);
-  const usedStudents = new Set();
-  const usedPupils = new Set();
-  const pairs = [];
+  return candidates.sort(compareCandidates);
+}
+
+// students / pupils: arrays of profiles ({ region, availability, subjects }, pupils also parentConsent).
+// A pair needs a pupil with parent consent, the same region, >= 1 shared slot and >= 1 shared subject.
+// Each participant is used at most once. The result has the LARGEST POSSIBLE number of pairs: candidates
+// are sorted by shared slots desc, shared subjects desc, student index, pupil index and taken greedily;
+// then, for every student still alone (in index order), an augmenting path is searched in that same
+// candidate order (Kuhn's algorithm), which can only add a pair, never lose one. Pairs are returned in
+// candidate order. No clock, no randomness.
+function matchPairs(students, pupils) {
+  const S = Array.isArray(students) ? students : [];
+  const P = Array.isArray(pupils) ? pupils : [];
+  const candidates = candidatesOf(S, P);
+  const byStudent = new Map();
   for (let i = 0; i < candidates.length; i += 1) {
     const c = candidates[i];
-    if (usedStudents.has(c.studentIndex) || usedPupils.has(c.pupilIndex)) continue;
-    usedStudents.add(c.studentIndex);
-    usedPupils.add(c.pupilIndex);
-    pairs.push(c);
+    if (!byStudent.has(c.studentIndex)) byStudent.set(c.studentIndex, []);
+    byStudent.get(c.studentIndex).push(c);
   }
-  return pairs;
+  const ofStudent = new Map();   // studentIndex -> candidate
+  const ofPupil = new Map();     // pupilIndex -> candidate
+  for (let i = 0; i < candidates.length; i += 1) {
+    const c = candidates[i];
+    if (ofStudent.has(c.studentIndex) || ofPupil.has(c.pupilIndex)) continue;
+    ofStudent.set(c.studentIndex, c);
+    ofPupil.set(c.pupilIndex, c);
+  }
+  function augment(si, seen) {
+    const list = byStudent.get(si) || [];
+    for (let i = 0; i < list.length; i += 1) {
+      const c = list[i];
+      if (seen.has(c.pupilIndex)) continue;
+      seen.add(c.pupilIndex);
+      const holder = ofPupil.get(c.pupilIndex);
+      if (!holder || augment(holder.studentIndex, seen)) {
+        ofStudent.set(si, c);
+        ofPupil.set(c.pupilIndex, c);
+        return true;
+      }
+    }
+    return false;
+  }
+  // A failed search leaves every pupil it visited unable to reach a free pupil until some search
+  // succeeds, so the visited set is kept across failures and cleared only after a success.
+  const reachablePupils = new Set(candidates.map((c) => c.pupilIndex)).size;
+  let seen = new Set();
+  for (let si = 0; si < S.length && ofPupil.size < reachablePupils; si += 1) {
+    if (ofStudent.has(si) || !byStudent.has(si)) continue;
+    if (augment(si, seen)) seen = new Set();
+  }
+  return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
 // Why a participant is left without a pair. The coordinator needs this to act: obtain a parent's
 // consent, recruit in a region, ask for more availability hours, or accept that the other side ran
-// out. The reasons are checked in the same order matchPairs filters - consent, region, slot, subject -
+// out. The reasons are checked in the same order candidatesOf filters - consent, region, slot, subject -
 // and the first gate that nobody on the other side passes is the reason. For a pupil,
 // NO_PARENT_CONSENT is about the pupil alone: without consent the pupil is not in the pool, so the
 // other side is not even looked at. For a student it means pupils exist in the region but none of
@@ -862,6 +944,60 @@ function assertCleanText(text, opts) {
   return cleaned;
 }
 
+var SUBJECTS = require('./profile.js').SUBJECTS;
+var UNIT_FIELDS = Object.freeze(['title', 'subject', 'minutes', 'text']);
+var UNIT_TITLE_MAX_LENGTH = 120;
+var UNIT_MINUTES_MIN = 1;
+var UNIT_MINUTES_MAX = 60;
+var UNIT_ID_PREFIX = 'u-';
+
+function fnv1a32(text) {
+  var hash = 0x811c9dc5 >>> 0;
+  for (var i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+function hex8(n) {
+  return ('00000000' + n.toString(16)).slice(-8);
+}
+
+function unitRecordId(title, subject, minutes) {
+  var key = title + '|' + subject + '|' + String(minutes);
+  return UNIT_ID_PREFIX + hex8(fnv1a32(key));
+}
+
+function makeUnit(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('unit input must be an object with title, subject, minutes, text');
+  }
+  var keys = Object.keys(input);
+  for (var i = 0; i < keys.length; i += 1) {
+    if (UNIT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+  var subject = input.subject;
+  if (typeof subject !== 'string' || SUBJECTS.indexOf(subject) === -1) {
+    throw new Error('invalid subject: expected one of the SUBJECTS codes');
+  }
+  var minutes = input.minutes;
+  if (!Number.isInteger(minutes) || minutes < UNIT_MINUTES_MIN || minutes > UNIT_MINUTES_MAX) {
+    throw new Error('invalid minutes: expected an integer ' + UNIT_MINUTES_MIN + '..' + UNIT_MINUTES_MAX);
+  }
+  if (typeof input.title !== 'string') throw new Error('invalid title: expected a string');
+  if (typeof input.text !== 'string') throw new Error('invalid text: expected a string');
+  var title = assertCleanText(input.title, { maxLength: UNIT_TITLE_MAX_LENGTH });
+  var text = assertCleanText(input.text);
+  return Object.freeze({
+    id: unitRecordId(title, subject, minutes),
+    title: title,
+    subject: subject,
+    minutes: minutes,
+    text: text
+  });
+}
+
 module.exports = {
   PATTERNS: PATTERNS,
   PROFANITY: PROFANITY,
@@ -870,7 +1006,9 @@ module.exports = {
   findPersonalData: findPersonalData,
   findProfanity: findProfanity,
   cleanText: cleanText,
-  assertCleanText: assertCleanText
+  assertCleanText: assertCleanText,
+  UNIT_FIELDS: UNIT_FIELDS,
+  makeUnit: makeUnit
 };
   __registry["validator"] = module.exports;
 })();
@@ -1547,6 +1685,50 @@ function stepTab(count, current, key, dir) {
 module.exports = { DIRECTIONS, KEYS, stepTab };
   __registry["tabnav"] = module.exports;
 })();
+
+/* ===== src/lib/contact.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - the ONE place for a contact channel. Nothing here is invented.
+//   CONTACT     an email (name@host.tld) or an https link to a form. Empty = use ISSUE_FORM. Since 28.9
+//               it is the Google Form "משוב על האפליקציות", pre-filled with PeerEd.
+//   ISSUE_FORM  the Hebrew GitHub issue form of this repository (.github/ISSUE_TEMPLATE/pilot.yml).
+// A malformed value shows NO contact rather than a broken one. The link is only ever an <a href> the
+// user clicks: the app itself still sends nothing anywhere (test/app-build.test.js).
+
+var CONTACT = 'https://docs.google.com/forms/d/e/1FAIpQLSdT8YduNx-VWKM3bWGUJdiSj4Sw9D-EA6R6c-oYVYCQmOVXxQ/viewform?usp=pp_url&entry.368039752=PeerEd';
+var ISSUE_FORM = 'https://github.com/Swissystem7/PeerEd/issues/new?template=pilot.yml';
+
+var EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+var HTTPS_RE = /^https:\/\/[^\s"'<>]+$/;
+
+// -> { kind: 'email' | 'link' | 'issue', href, label } or null
+function contactLink(contact, issueForm) {
+  var c = typeof contact === 'string' ? contact.trim() : '';
+  if (c !== '') {
+    if (EMAIL_RE.test(c)) return { kind: 'email', href: 'mailto:' + c, label: c };
+    if (HTTPS_RE.test(c)) return { kind: 'link', href: c, label: 'טופס יצירת קשר' };
+    return null;
+  }
+  var f = typeof issueForm === 'string' ? issueForm.trim() : '';
+  if (HTTPS_RE.test(f)) return { kind: 'issue', href: f, label: 'טופס פנייה ב-GitHub' };
+  return null;
+}
+
+function isValidEmail(email) {
+  return EMAIL_RE.test(email);
+}
+
+module.exports = {
+  CONTACT: CONTACT,
+  ISSUE_FORM: ISSUE_FORM,
+  contactLink: contactLink,
+  isValidEmail: isValidEmail
+};
+  __registry["contact"] = module.exports;
+})();
 </script>
 
 <script>
@@ -1555,9 +1737,11 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
       unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
-      tabnav = __registry.tabnav;
+      tabnav = __registry.tabnav, contact = __registry.contact;
   var $ = function (id) { return document.getElementById(id); };
 
+  // One label per role, used by the participants list AND the match screen.
+  var ROLE_HE = { student: 'סטודנט מלמד', pupil: 'תלמיד' };
   var REGION_HE = { NORTH: 'צפון', HAIFA: 'חיפה', CENTER: 'מרכז', TEL_AVIV: 'תל אביב',
                     JERUSALEM: 'ירושלים', SOUTH: 'דרום' };
   var SUBJECT_HE = { MATH: 'מתמטיקה', PHYSICS: 'פיזיקה', CHEMISTRY: 'כימיה', BIOLOGY: 'ביולוגיה',
@@ -1598,6 +1782,50 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
   function slotHe(slot) {
     var parts = String(slot).split('_');
     return 'יום ' + (DAY_HE[parts[0]] || parts[0]) + ' ' + parts[1] + ':00';
+  }
+  // The engine's messages stay English (tests and logs read them); the screen is Hebrew, so every
+  // message is translated here before a status line shows it. test/ui-hebrew-errors.test.js fails if
+  // a module gains a message that has no line in this table.
+  var ERROR_HE = [
+    ['personal data is not accepted', 'פרטים אישיים לא מתקבלים'],
+    ['offensive language is not accepted', 'שפה פוגענית לא מתקבלת'],
+    ['profile input must be an object with role, region, availability, subjects', 'הרשומה לא בנויה נכון'],
+    ['profile must be an object', 'הרשומה לא בנויה נכון'],
+    ['invalid parentConsent:', 'אישור ההורה לא תקין'],
+    ['invalid slot:', 'שעה שאינה בלוח'],
+    ['invalid role:', 'תפקיד לא מוכר'],
+    ['invalid region:', 'אזור לא מוכר'],
+    ['invalid availability:', 'צריך לסמן לפחות שעה פנויה אחת'],
+    ['invalid availability slot:', 'שעה שאינה בלוח'],
+    ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
+    ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    // The enrichment-unit record. No screen offers a unit yet; the lines are here because the table
+    // must cover every message a module inlined into app.html can throw. Two modules build a unit and
+    // they name the fields differently - validator.js uses minutes/text, unit.js uses
+    // durationMinutes/body - so both wordings need a line. 'invalid subject:' and 'invalid title:' are
+    // shared; a key is matched as a prefix, so one line serves both callers.
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['unit input must be an object with title, subject, durationMinutes, body', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך הזמן לא תקין'],
+    ['invalid durationMinutes:', 'משך הזמן לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין'],
+    ['invalid body:', 'טקסט לא תקין'],
+    ['text too long', 'הטקסט ארוך מדי'],
+    ['text too short', 'אין טקסט לבדוק'],
+    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    ['invalid subject:', 'מקצוע שאינו ברשימה'],
+    ['invalid minutes:', 'משך השיעור לא תקין'],
+    ['invalid title:', 'כותרת לא תקינה'],
+    ['invalid text:', 'טקסט לא תקין']
+  ];
+  function errorHe(err) {
+    var msg = String(err && err.message || '');
+    for (var i = 0; i < ERROR_HE.length; i += 1) {
+      if (msg.indexOf(ERROR_HE[i][0]) === 0) return ERROR_HE[i][1];
+    }
+    return 'הקלט נדחה';
   }
   function save() {
     if (!store.save(state)) say('addStatus', 'נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי?).', true);
@@ -1702,7 +1930,7 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
     if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
-    catch (err) { say('addStatus', 'נדחה: ' + err.message, true); return; }
+    catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     state.people.push(made);
     clearDraft();
     renderPeople();
@@ -1749,16 +1977,29 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
 
   // ---------- match ----------
 
+  // The people screen numbers a participant within its role (roleLabel: תלמיד #1, #2...). matchPairs()
+  // indexes are positions among students / among pupils, which is that same count, so the number the
+  // match screen shows is the card the people screen shows.
+  function splitByRole() {
+    var out = { students: [], pupils: [] };
+    state.people.forEach(function (p, i) {
+      var side = p.role === 'student' ? out.students : out.pupils;
+      side.push({ number: side.length + 1, person: p, index: i });
+    });
+    return out;
+  }
+
   $('runMatch').addEventListener('click', function () {
-    var students = state.people.filter(function (p) { return p.role === 'student'; });
-    var pupils = state.people.filter(function (p) { return p.role === 'pupil'; });
-    if (!students.length || !pupils.length) {
+    var r = splitByRole();
+    if (!r.students.length || !r.pupils.length) {
       say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return;
     }
+    var students = r.students.map(function (e) { return e.person; });
+    var pupils = r.pupils.map(function (e) { return e.person; });
     var pairs = match.matchPairs(students, pupils);
     $('pairs').innerHTML = pairs.length ? pairs.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
-        '<span class="meta">סטודנט #' + (p.studentIndex + 1) + ' עם תלמיד #' + (p.pupilIndex + 1) + '<br>' +
+        '<span class="meta">סטודנט #' + r.students[p.studentIndex].number + ' עם תלמיד #' + r.pupils[p.pupilIndex].number + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
@@ -1769,8 +2010,8 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
     // and the other side simply ran out.
     var why = match.explainUnmatched(students, pupils, pairs);
     var left = [];
-    why.students.forEach(function (x) { left.push({ who: 'סטודנט #' + (x.index + 1), p: students[x.index], why: x }); });
-    why.pupils.forEach(function (x) { left.push({ who: 'תלמיד #' + (x.index + 1), p: pupils[x.index], why: x }); });
+    why.students.forEach(function (x) { left.push({ who: 'סטודנט #' + r.students[x.index].number, p: students[x.index], why: x }); });
+    why.pupils.forEach(function (x) { left.push({ who: 'תלמיד #' + r.pupils[x.index].number, p: pupils[x.index], why: x }); });
     $('unmatched').innerHTML = left.length ? left.map(function (x) {
       var other = x.p.role === 'student' ? 'תלמיד' : 'סטודנט';
       var reason = REASON_HE[x.why.reason](other, x.why.compatible);
@@ -1779,7 +2020,8 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
         x.p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         ' · ' + esc(reason) + '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
-    say('matchStatus', pairs.length + ' זוגות מתוך ' + students.length + ' סטודנטים ו-' + pupils.length + ' תלמידים.');
+    say('matchStatus', pairs.length + ' זוגות מתוך ' + r.students.length + ' סטודנטים ו-' + r.pupils.length +
+      ' תלמידים. המספרים הם כמו במסך "אנשים": לפי התפקיד.');
   });
 
   // ---------- text gate ----------
@@ -1804,7 +2046,7 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
     if (!hits.length) {
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
-      catch (err) { say('checkStatus', 'נדחה: ' + err.message, true); $('findings').innerHTML = ''; return; }
+      catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
       say('checkStatus', 'נקי. הטקסט שיישמר: "' + cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
       return;
@@ -1826,7 +2068,7 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
                             subjects: ['MATH'], phone: '' });
       say('gateStatus', 'נשמר — וזה היה באג.', true);
     } catch (err) {
-      say('gateStatus', 'נדחה עם ההודעה: "' + err.message + '". שים לב שהטלפון היה ריק לגמרי — ' +
+      say('gateStatus', 'נדחה עם ההודעה: "' + errorHe(err) + '". שים לב שהטלפון היה ריק לגמרי — ' +
         'השדה עצמו נדחה, לא הערך.');
     }
   });
@@ -2122,9 +2364,23 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
     });
   });
 
+  // ---------- contact ----------
+
+  function renderContact() {
+    var c = contact.contactLink(contact.CONTACT, contact.ISSUE_FORM);
+    $('contactBox').hidden = !c;
+    if (!c) return;
+    $('contactLink').href = c.href;
+    $('contactLink').textContent = c.label;
+    $('contactNote').textContent = c.kind === 'issue'
+      ? 'הפנייה בגיטהאב ציבורית ודורשת חשבון GitHub. אל תכתבו שם טלפון, מייל או פרטים של תלמידים.'
+      : 'אין צורך לשלוח שום פרט של תלמיד כדי לנסות.';
+  }
+
   buildInputs();
   fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
   load();
+  renderContact();
   renderPeople();
   renderUnits();
   renderSessionForm();
