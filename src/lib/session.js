@@ -98,6 +98,31 @@ function summarize(log) {
   });
 }
 
+// The export of that summary: one CSV text a municipality can paste into a spreadsheet. It is built from
+// summarize() only, so it holds exactly the counts the screen shows - no row, no pair, no position -
+// and the same log always gives the same text: measures in a fixed order, codes sorted, LF line ends.
+// Every code is an enum value or a unit id, so there is nothing to quote; a code that would need
+// quoting is a bug upstream and is refused here rather than written.
+const REPORT_HEADER = 'measure,code,count';
+const REPORT_MEASURES = Object.freeze([
+  ['outcome', 'byOutcome'], ['region', 'byRegion'], ['subject', 'bySubject'], ['unit', 'byUnit']
+]);
+
+function reportCsv(log) {
+  const s = summarize(log);
+  const lines = [REPORT_HEADER, 'sessions,,' + s.sessions];
+  for (let m = 0; m < REPORT_MEASURES.length; m += 1) {
+    const measure = REPORT_MEASURES[m][0];
+    const counts = s[REPORT_MEASURES[m][1]];
+    const codes = Object.keys(counts).sort();
+    for (let i = 0; i < codes.length; i += 1) {
+      if (!/^[A-Za-z0-9_-]+$/.test(codes[i])) throw new Error('invalid report code: ' + codes[i]);
+      lines.push(measure + ',' + codes[i] + ',' + counts[codes[i]]);
+    }
+  }
+  return lines.join('\n') + '\n';
+}
+
 // Rebuild a log from stored JSON. Every row is re-checked against the queue it is loaded with, so a
 // row edited on disk cannot bring an extra key, an unapproved unit or a foreign region into the app.
 // A stored row carries its own region and no pair, so the slot and subject are checked for shape and
@@ -140,5 +165,7 @@ module.exports = {
   emptyLog,
   logSession,
   summarize,
+  reportCsv,
+  REPORT_HEADER,
   loadLog
 };
