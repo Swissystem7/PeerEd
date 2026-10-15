@@ -92,6 +92,10 @@
       <label>שעות פנויות</label>
       <p class="hint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours"></div>
+      <div id="consentRow" hidden>
+        <label><input type="checkbox" id="consent"> אישור הורה</label>
+        <p class="hint">תלמיד בלי אישור הורה לא משובץ. המפגשים בטקסט בלבד, וזה נחשב קשר שדורש אישור הורה.</p>
+      </div>
       <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -2081,6 +2085,10 @@ module.exports = {
     });
   }
 
+  $('role').addEventListener('change', function () {
+    $('consentRow').hidden = $('role').value !== 'pupil';
+  });
+
   $('addPerson').addEventListener('click', function () {
     var candidate = {
       role: $('role').value,
@@ -2109,6 +2117,7 @@ module.exports = {
         flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(who) : profile.grantParentConsent(who);
       } catch (err) { say('addStatus', 'לא בוצע: ' + err.message, true); return; }
       state.people[Number(c)] = flipped;
+      last = null;
       renderPeople(); save();
       say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
         : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.');
@@ -2163,6 +2172,8 @@ module.exports = {
       case 'NO_SHARED_SUBJECT': return 'יש ' + other + ' באזור, אבל בלי מקצוע משותף.';
       case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש מי שפנוי באותה שעה ויש מי שחולק מקצוע, אבל לא אותו אחד.';
       case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
+      case 'NO_PARENT_CONSENT':
+        return role === 'pupil' ? 'אין עדיין אישור הורה.' : 'יש תלמידים באזור, אבל לאף אחד מהם אין עדיין אישור הורה.';
       default: return '';
     }
   }
