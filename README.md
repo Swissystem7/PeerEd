@@ -10,17 +10,21 @@ approves publishing.
 
 ## Quickstart
 
-Needs Node.js 18 or newer (the suite uses the built-in `node:test` runner). There are no dependencies, so
-there is nothing to install.
+Node 18 or newer. There are **no dependencies and no install
+step** — the repository has no lockfile, so `npm install` is unnecessary and `npm ci` fails by design.
+Go straight to the commands:
 
 ```sh
-npm test                           # the whole suite (node --test)
-node scripts/build-app.js          # rebuild app.html after a change under src/lib/ or src/app-shell.html
-node scripts/build-app.js --check  # exit 1 if app.html is stale (test/app-build.test.js checks the same)
+npm test                      # the whole suite (node --test)
+node --test test/unit.test.js # one file (Node's built-in runner; no other test framework)
+npm run build                 # regenerate app.html from src/app-shell.html + src/lib/*.js
+npm run build:check           # exit 1 if app.html is stale — the second CI gate
 ```
 
-To try the interface, open `app.html` in a browser straight from the file system. It is one file with every
-module inlined, no server needed.
+To run the app, open `app.html` in a browser. It is a single self-contained file with no external
+requests, so opening it straight from disk (`file://`) works; no server and no build are needed, because
+the committed `app.html` is already built. After any change under `src/lib/` or to `src/app-shell.html`,
+run `npm run build` and commit the regenerated `app.html`.
 
 ## What works today
 
