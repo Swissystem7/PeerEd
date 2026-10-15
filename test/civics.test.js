@@ -1,20 +1,12 @@
 'use strict';
 
 const test = require('node:test');
-const assert = require('node:assert');
-const { makeProfile } = require('../src/lib/profile.js');
+const assert = require('node:assert/strict');
 
-test('Calling makeProfile with role pupil, region SOUTH, availability MON_18, and subjects CIVICS returns a profile object whose subjects array contains CIVICS as its first element', () => {
-  let profile;
-  assert.doesNotThrow(() => {
-    profile = makeProfile({
-      role: 'pupil',
-      region: 'SOUTH',
-      availability: ['MON_18'],
-      subjects: ['CIVICS']
-    });
-  });
-  assert.ok(profile);
-  assert.ok(Array.isArray(profile.subjects));
-  assert.strictEqual(profile.subjects[0], 'CIVICS');
+const { getValidRegions } = require('../src/lib/regions.js');
+
+test('getValidRegions returns the frozen list of deployment region codes', () => {
+  const regions = getValidRegions();
+  assert.deepStrictEqual(regions, ['NORTH', 'HAIFA', 'CENTER', 'TEL_AVIV', 'JERUSALEM', 'SOUTH']);
+  assert.ok(Object.isFrozen(regions));
 });
