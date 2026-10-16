@@ -6,7 +6,7 @@
 // CommonJS on purpose, and no node:crypto - this file is inlined into app.html and must run in a browser.
 
 const { SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
-const { assertCleanText } = require('./validator.js');
+const { assertCleanText, stripInvisible } = require('./validator.js');
 
 const ACCEPTED_FIELDS = Object.freeze(['title', 'subject', 'durationMinutes', 'body']);
 const TITLE_MAX_LENGTH = 120;
@@ -36,9 +36,10 @@ function hex8(n) {
 // does the code-point order of the same letters. A Hebrew title with niqqud, or a Latin letter with an
 // accent, arrives composed or decomposed depending on the keyboard and the OS; NFC folds both spellings
 // into one, so the same title typed on a phone and on a laptop gets the same id. NFC leaves ASCII alone,
-// so no id already on file moves.
+// so no id already on file moves. The marks nobody sees (RLM, LRM, zero-width space...) go too: a Hebrew
+// title pasted from WhatsApp carries an RLM the typed one does not, and the reader sees one title.
 function normalizeTitle(title) {
-  return String(title).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
+  return stripInvisible(title).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 // The id of a unit from the three fields that define it. Exported so a caller can ask whether a unit

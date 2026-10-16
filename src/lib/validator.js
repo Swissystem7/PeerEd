@@ -93,6 +93,10 @@ var CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f]/g;
 // reader does not see them, so "050<RLM>1234567" is a phone number to a reader and to nobody else.
 var INVISIBLE_RE = /[­᠎​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
 
+function stripInvisible(text) {
+  return String(text).replace(INVISIBLE_RE, '');
+}
+
 // Digits a phone keyboard can type that NFKC leaves alone: Arabic-Indic and Eastern Arabic-Indic.
 // Both blocks start at a code point ending in 0, so the low four bits are the digit's value.
 var OTHER_DIGIT_RE = /[٠-٩۰-۹]/g;
@@ -326,6 +330,7 @@ module.exports = {
   findPersonalData: findPersonalData,
   findProfanity: findProfanity,
   cleanText: cleanText,
+  stripInvisible: stripInvisible,
   assertCleanText: assertCleanText,
   REPORT_EVENT_FIELDS: REPORT_EVENT_FIELDS,
   REPORT_EVENT_DETAIL_MAX_LENGTH: REPORT_EVENT_DETAIL_MAX_LENGTH,

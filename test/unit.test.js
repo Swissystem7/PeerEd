@@ -44,6 +44,13 @@ test('unit: a composed and a decomposed spelling of the same title are the same 
   assert.equal(unitId('Quadratic equations', 'MATH', 20), 'u-e8281b3a2f2f8f08');
 });
 
+test('unit: a bidi mark or zero-width space nobody sees does not make a new unit', () => {
+  const typed = makeUnit(Object.assign({}, GOOD, { title: 'שיעור במתמטיקה' })).id;
+  assert.equal(makeUnit(Object.assign({}, GOOD, { title: 'שיעור במתמטיקה‏' })).id, typed);
+  assert.equal(makeUnit(Object.assign({}, GOOD, { title: '‏שיעור​ במתמטיקה' })).id, typed);
+  assert.equal(unitId('Quadratic‎ equations', 'MATH', 20), 'u-e8281b3a2f2f8f08');
+});
+
 test('unit: a different title, subject or duration is a different unit', () => {
   const base = makeUnit(GOOD).id;
   assert.notEqual(makeUnit(Object.assign({}, GOOD, { title: GOOD.title + ' ב' })).id, base);
