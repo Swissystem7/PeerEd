@@ -77,3 +77,60 @@ test('validator: assertCleanText returns trimmed, collapsed text and keeps a sin
     'control characters are stripped, not turned into spaces');
   assert.equal(assertCleanText('טקסט\tעם\tטאב'), 'טקסט עם טאב');
 });
+
+test('validator: an invisible character inside a phone, an email, an id or a word does not hide it', () => {
+  // RLM, LRM, zero-width space, zero-width joiner, soft hyphen, word joiner, BOM, bidi isolate
+  assert.deepEqual(kindsIn('call 050‏1234567'), ['phone']);
+  assert.deepEqual(kindsIn('call 050-‎123-4567'), ['phone']);
+  assert.deepEqual(kindsIn('mail a​@b.com'), ['email']);
+  assert.deepEqual(kindsIn('id 12345­6789'), ['id_number']);
+  assert.deepEqual(kindsIn('see www.⁠example.com'), ['url']);
+  assert.deepEqual(kindsIn('﻿@dana⁦_teacher'), ['handle']);
+  assert.deepEqual(kindsIn('זו‍נה'), ['profanity']);
+  assert.throws(() => assertCleanText('הנה 050‏1234567'), { message: PERSONAL_DATA_ERROR });
+});
+
+test('validator: invisible characters alone do not make clean text dirty, and are kept as written', () => {
+  const text = 'שיעור ‏(שברים)‏ במתמטיקה';
+  assert.deepEqual(findPersonalData(text), []);
+  assert.equal(assertCleanText(text), text);
+  assert.deepEqual(findPersonalData('​‏'), []);
+});
+
+test('validator: a phone is found however Israelis split it, and a list or a date is not a phone', () => {
+  for (const phone of ['050-123-45-67', '054-12-34-567', '050 12 34 567', '050.123.4567', '(050) 1234567',
+    '(03) 123-4567', '050–1234567', '+972 (50) 123-4567', '972501234567', '00972-50-1234567']) {
+    assert.deepEqual(findPersonalData('הטלפון ' + phone).map((h) => [h.kind, h.match]), [['phone', phone]], phone);
+  }
+  for (const clean of ['הזוגיים: 0 2 4 6 8 10 12', 'המבחן ב-03.12.2024', 'בין השנים 1948-1967',
+    'נפגשים 08:30-10:00', 'ציון 95.5 מתוך 100']) {
+    assert.deepEqual(findPersonalData(clean), [], clean);
+  }
+});
+
+test('validator: an id number with the check digit apart or in threes is still an id number', () => {
+  assert.deepEqual(kindsIn('ת"ז 12345678-9'), ['id_number']);
+  assert.deepEqual(kindsIn('ת"ז 123-456-789'), ['id_number']);
+  assert.throws(() => assertCleanText('ת"ז 12345678-9'), { message: PERSONAL_DATA_ERROR });
+});
+
+test('validator: a bare link to a chat or a profile is a url, the host of an email stays the email', () => {
+  for (const link of ['wa.me/972501234567', 't.me/dana_teacher', 'instagram.com/dana', 'edu.gov.il']) {
+    assert.deepEqual(findPersonalData('כתבו לי ' + link).map((h) => [h.kind, h.match]), [['url', link]], link);
+  }
+  assert.deepEqual(kindsIn('dana.levi@example.co.il'), ['email']);
+  for (const clean of ['console.log(x) מדפיס', 'Math.max(3, 4) הוא 4', 'פתרו 3.5 + 2.25']) {
+    assert.deepEqual(findPersonalData(clean), [], clean);
+  }
+});
+
+test('validator: digits and @ from another keyboard are read as the plain ones', () => {
+  // Arabic-Indic, Eastern Arabic-Indic, full-width and mathematical bold digits
+  for (const phone of ['٠٥٠١٢٣٤٥٦٧', '۰۵۰۱۲۳۴۵۶۷', '０５０１２３４５６７', '𝟎𝟓𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕']) {
+    assert.deepEqual(findPersonalData('טלפון ' + phone).map((h) => [h.kind, h.match]), [['phone', '0501234567']], phone);
+  }
+  assert.deepEqual(kindsIn('dana＠example.com'), ['email']);
+  assert.deepEqual(kindsIn('ｆｕｃｋ'), ['profanity']);
+  // the gate reads the folded text, the stored text is kept as written
+  assert.equal(assertCleanText('x² + 5 = 9'), 'x² + 5 = 9');
+});

@@ -15,6 +15,10 @@ const ACCEPTED_FIELDS = Object.freeze(['slot', 'subject', 'unitId', 'outcome']);
 // the log itself is only ever written with these two keys
 const LOG_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const UNIT_NOT_APPROVED_ERROR = 'unit is not approved: only an approved unit can be taught';
+// The largest seq a row may carry: one below the last safe integer, so nextSeq (seq + 1) is still exact.
+// Past 2^53 adding 1 no longer changes the number, two rows would share a seq and the saved log could
+// never be loaded again; a stored seq or nextSeq beyond this is a value the app never wrote.
+const MAX_SEQ = Number.MAX_SAFE_INTEGER - 1;
 
 function emptyLog() {
   return Object.freeze({ nextSeq: 1, entries: Object.freeze([]) });
@@ -22,7 +26,8 @@ function emptyLog() {
 
 function assertLog(log) {
   if (log === null || typeof log !== 'object' || Array.isArray(log)
-    || !Number.isInteger(log.nextSeq) || log.nextSeq < 1 || !Array.isArray(log.entries)) {
+    || !Number.isInteger(log.nextSeq) || log.nextSeq < 1 || log.nextSeq > MAX_SEQ + 1
+    || !Array.isArray(log.entries)) {
     throw new Error('invalid log: expected a value from emptyLog() or loadLog()');
   }
 }
@@ -70,6 +75,7 @@ function cleanEntry(queue, region, sharedSlots, sharedSubjects, input) {
 function logSession(log, queue, pair, input) {
   assertLog(log);
   assertPair(pair);
+  if (log.nextSeq > MAX_SEQ) throw new Error('session log is full: no sequence number left');
   const clean = cleanEntry(queue, pair.region, pair.sharedSlots, pair.sharedSubjects, input);
   clean.seq = log.nextSeq;
   const entries = log.entries.slice();
@@ -154,7 +160,7 @@ function loadLog(data, queue) {
       }
     }
     if (!isRegion(raw.region)) throw new Error('invalid stored session: bad region at ' + i);
-    if (!Number.isInteger(raw.seq) || raw.seq <= lastSeq) {
+    if (!Number.isInteger(raw.seq) || raw.seq <= lastSeq || raw.seq > MAX_SEQ) {
       throw new Error('invalid stored session: seq out of order at ' + i);
     }
     const clean = cleanEntry(queue, raw.region, [normalizeSlot(raw.slot)], [raw.subject],
@@ -163,7 +169,8 @@ function loadLog(data, queue) {
     entries.push(Object.freeze(clean));
     lastSeq = raw.seq;
   }
-  const nextSeq = Number.isInteger(data.nextSeq) && data.nextSeq > lastSeq ? data.nextSeq : lastSeq + 1;
+  const nextSeq = Number.isInteger(data.nextSeq) && data.nextSeq > lastSeq && data.nextSeq <= MAX_SEQ + 1
+    ? data.nextSeq : lastSeq + 1;
   return Object.freeze({ nextSeq: nextSeq, entries: Object.freeze(entries) });
 }
 

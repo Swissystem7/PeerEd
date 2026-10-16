@@ -916,11 +916,17 @@ function explainUnmatched(students, pupils, pairs) {
 var PATTERNS = Object.freeze({
   // name@host.tld - deliberately narrow, we only need to detect, not to validate deliverability
   email: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
-  // Israeli mobile and landline: 050-1234567, 0501234567, 03-1234567, +972-50-1234567, +972501234567
-  phone: /(?:\+972[-\s]?|0)(?:5\d|7[2-9]|[23489])[-\s]?\d{3}[-\s]?\d{4}/g,
-  // exactly nine digits, not part of a longer run (an Israeli id number)
-  id_number: /(?<!\d)\d{9}(?!\d)/g,
-  url: /(?:https?:\/\/|www\.)[^\s<>"']+/g,
+  // Israeli mobile and landline, in the ways people write them: 050-1234567, 0501234567, 03-1234567,
+  // 050-123-45-67, 050.123.4567, (050) 1234567, 054 12 34 567, +972-50-1234567, +972 (50) 123-4567,
+  // 972501234567. The seven subscriber digits may be split 3-4, 3-2-2 or 2-2-3, never digit by digit,
+  // so a list such as "0 2 4 6 8 10 12" stays a list. A date (03.12.2024) has too few digits to fit.
+  phone: /(?:(?:\+|00)?972[-\s.]?\(?0?|\(?0)(?:5\d|7[2-9]|[23489])\)?[-\s.–—]?(?:\d{3}[-\s.–—]?\d{4}|\d{3}[-\s.–—]?\d{2}[-\s.–—]?\d{2}|\d{2}[-\s.–—]?\d{2}[-\s.–—]?\d{3})/g,
+  // an Israeli id number: nine digits not part of a longer run, also as written on forms with the check
+  // digit apart (12345678-9) or in threes (123-456-789)
+  id_number: /(?<!\d)(?:\d{9}|\d{8}[-–]\d|\d{3}-\d{3}-\d{3})(?!\d)/g,
+  // a link with a scheme or www, or a bare domain on a common top-level domain: wa.me/972..., t.me/name,
+  // instagram.com/name, gov.il. Not after a letter, a dot or an @, so the host of an email is the email.
+  url: /(?:https?:\/\/|www\.)[^\s<>"']+|(?<![A-Za-z0-9.@_-])(?:[A-Za-z0-9-]+\.)+(?:com|net|org|il|me|io|gg|ly|ee|co|app|tv|info)(?![A-Za-z0-9-])(?:\/[^\s<>"']*)?/g,
   handle: /@\w{3,}/g
 });
 
@@ -988,6 +994,18 @@ var DEFAULT_MAX_LENGTH = 4000;
 var DEFAULT_MIN_LENGTH = 1;
 // every C0 control character except \t (09) and \n (0a), plus DEL
 var CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f]/g;
+// Characters that take no space on the screen: soft hyphen, zero-width space/joiners, the bidi marks a
+// Hebrew keyboard or WhatsApp drops into text (RLM, LRM, embeddings, isolates), word joiner, BOM. A
+// reader does not see them, so "050<RLM>1234567" is a phone number to a reader and to nobody else.
+var INVISIBLE_RE = /[­᠎​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+
+// Digits a phone keyboard can type that NFKC leaves alone: Arabic-Indic and Eastern Arabic-Indic.
+// Both blocks start at a code point ending in 0, so the low four bits are the digit's value.
+var OTHER_DIGIT_RE = /[٠-٩۰-۹]/g;
+
+function asciiDigit(d) {
+  return String.fromCharCode(48 + (d.charCodeAt(0) & 15));
+}
 
 // Longest alternative first, so "מטומטמת" is never reported as the shorter "מטומטם".
 function profanityRegex() {
@@ -1020,8 +1038,15 @@ function contains(outer, inner) {
 // offensive word, which carries kind 'profanity'. A hit fully inside a longer hit is dropped, so a
 // nine-digit run inside a phone number is reported once as phone, the "@host" of an email is never
 // also reported as a social handle, and a word inside a url is the url and nothing else.
+// The text is read the way a reader sees it: invisible characters are dropped first, so a phone, an
+// email or an offensive word cannot be hidden by a zero-width character or a bidi mark inside it, and
+// look-alike characters are folded to the plain ones (NFKC: full-width digits and @, mathematical
+// digits; then Arabic-Indic digits to 0-9), so a number does not pass because of the keyboard it was
+// typed on. Each match and index refers to that folded text; the text the gate stores is not changed.
 function findPersonalData(text) {
-  if (typeof text !== 'string' || text === '') return [];
+  if (typeof text !== 'string') return [];
+  text = text.replace(INVISIBLE_RE, '').normalize('NFKC').replace(OTHER_DIGIT_RE, asciiDigit);
+  if (text === '') return [];
   var raw = findProfanity(text);
   Object.keys(PATTERNS).forEach(function (kind) {
     var re = new RegExp(PATTERNS[kind].source, 'g');
@@ -1479,6 +1504,10 @@ const ACCEPTED_FIELDS = Object.freeze(['slot', 'subject', 'unitId', 'outcome']);
 // the log itself is only ever written with these two keys
 const LOG_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const UNIT_NOT_APPROVED_ERROR = 'unit is not approved: only an approved unit can be taught';
+// The largest seq a row may carry: one below the last safe integer, so nextSeq (seq + 1) is still exact.
+// Past 2^53 adding 1 no longer changes the number, two rows would share a seq and the saved log could
+// never be loaded again; a stored seq or nextSeq beyond this is a value the app never wrote.
+const MAX_SEQ = Number.MAX_SAFE_INTEGER - 1;
 
 function emptyLog() {
   return Object.freeze({ nextSeq: 1, entries: Object.freeze([]) });
@@ -1486,7 +1515,8 @@ function emptyLog() {
 
 function assertLog(log) {
   if (log === null || typeof log !== 'object' || Array.isArray(log)
-    || !Number.isInteger(log.nextSeq) || log.nextSeq < 1 || !Array.isArray(log.entries)) {
+    || !Number.isInteger(log.nextSeq) || log.nextSeq < 1 || log.nextSeq > MAX_SEQ + 1
+    || !Array.isArray(log.entries)) {
     throw new Error('invalid log: expected a value from emptyLog() or loadLog()');
   }
 }
@@ -1534,6 +1564,7 @@ function cleanEntry(queue, region, sharedSlots, sharedSubjects, input) {
 function logSession(log, queue, pair, input) {
   assertLog(log);
   assertPair(pair);
+  if (log.nextSeq > MAX_SEQ) throw new Error('session log is full: no sequence number left');
   const clean = cleanEntry(queue, pair.region, pair.sharedSlots, pair.sharedSubjects, input);
   clean.seq = log.nextSeq;
   const entries = log.entries.slice();
@@ -1618,7 +1649,7 @@ function loadLog(data, queue) {
       }
     }
     if (!isRegion(raw.region)) throw new Error('invalid stored session: bad region at ' + i);
-    if (!Number.isInteger(raw.seq) || raw.seq <= lastSeq) {
+    if (!Number.isInteger(raw.seq) || raw.seq <= lastSeq || raw.seq > MAX_SEQ) {
       throw new Error('invalid stored session: seq out of order at ' + i);
     }
     const clean = cleanEntry(queue, raw.region, [normalizeSlot(raw.slot)], [raw.subject],
@@ -1627,7 +1658,8 @@ function loadLog(data, queue) {
     entries.push(Object.freeze(clean));
     lastSeq = raw.seq;
   }
-  const nextSeq = Number.isInteger(data.nextSeq) && data.nextSeq > lastSeq ? data.nextSeq : lastSeq + 1;
+  const nextSeq = Number.isInteger(data.nextSeq) && data.nextSeq > lastSeq && data.nextSeq <= MAX_SEQ + 1
+    ? data.nextSeq : lastSeq + 1;
   return Object.freeze({ nextSeq: nextSeq, entries: Object.freeze(entries) });
 }
 
