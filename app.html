@@ -2131,6 +2131,12 @@ module.exports = {
     ['report event input must be an object with userId, detail', 'הדיווח לא בנוי נכון'],
     ['invalid detail:', 'פירוט הדיווח לא תקין'],
     ['invalid user id:', 'מזהה משתמש לא תקין'],
+    // session.js checks the lesson against the pair and the unit with the same 'invalid slot:' and
+    // 'invalid subject:' prefixes the profile uses; the hour is in the grid and the subject in the list,
+    // so the generic lines below would tell the coordinator the wrong thing. They come first.
+    ['invalid slot: expected a slot the pair shares', 'בשעה הזאת הזוג לא פנוי יחד'],
+    ['invalid subject: expected a subject the pair shares', 'המקצוע הזה לא משותף לזוג'],
+    ['invalid subject: expected the subject of the unit', 'היחידה שנבחרה שייכת למקצוע אחר'],
     ['invalid slot:', 'שעה שאינה בלוח'],
     ['invalid role:', 'תפקיד לא מוכר'],
     ['invalid region:', 'אזור לא מוכר'],
@@ -2138,12 +2144,10 @@ module.exports = {
     ['invalid availability slot:', 'שעה שאינה בלוח'],
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
-    // The enrichment-unit record. No screen offers a unit yet; the lines are here because the table
-    // must cover every message a module inlined into app.html can throw. Two modules build a unit and
-    // they name the fields differently - validator.js uses minutes/text, unit.js uses
-    // durationMinutes/body - so both wordings need a line. 'invalid subject:' and 'invalid title:' are
-    // shared; a key is matched as a prefix, so one line serves both callers.
-    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
+    // The enrichment-unit record (units screen). Two modules build a unit and they name the fields
+    // differently - validator.js uses minutes/text, unit.js uses durationMinutes/body - so both wordings
+    // need a line; validator.js's 'unit input must be...' line is near the top. 'invalid subject:' and
+    // 'invalid title:' are shared; a key is matched as a prefix, so one line serves both callers.
     ['unit input must be an object with title, subject, durationMinutes, body', 'הרשומה לא בנויה נכון'],
     ['invalid subject:', 'מקצוע שאינו ברשימה'],
     ['invalid minutes:', 'משך הזמן לא תקין'],

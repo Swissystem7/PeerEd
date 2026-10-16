@@ -92,6 +92,26 @@ test('logging a lesson with no approved unit explains it in Hebrew', () => {
   assert.doesNotMatch($('sessionStatus').textContent, LATIN, $('sessionStatus').textContent);
 });
 
+// session.js shares the 'invalid slot:' / 'invalid subject:' prefixes with the profile, whose lines say
+// "not in the grid" / "not in the list". A lesson at an hour the pair does not share is a different fault.
+test('a lesson outside what the pair shares is named as such, not as a bad hour or subject', () => {
+  const $ = openApp();
+  $('demoBtn').fire('click');
+  $('sessionPair').value = '0';
+  $('sessionOutcome').value = 'held';
+  $('sessionUnit').value = '';
+
+  $('sessionSlot').value = 'THU_20';                       // in the grid, but no demo pair is free then
+  $('sessionSubject').value = 'MATH';
+  $('logSession').fire('click');
+  assert.match($('sessionStatus').textContent, /הזוג לא פנוי יחד/, $('sessionStatus').textContent);
+
+  $('sessionSlot').value = 'SUN_16';
+  $('sessionSubject').value = 'HISTORY';                   // in the list, but not shared by the pair
+  $('logSession').fire('click');
+  assert.match($('sessionStatus').textContent, /לא משותף לזוג/, $('sessionStatus').textContent);
+});
+
 // The modules a screen input reaches: the add-participant form, the free-text gate, the unit record,
 // the approve/reject buttons and the log-session button with its CSV export.
 const SCREEN_MODULES = ['profile.js', 'validator.js', 'unit.js', 'approval.js', 'session.js'];
