@@ -61,6 +61,18 @@ test('match record: a missing or unreadable recordedAt is refused, never default
   }
 });
 
+test('match record: recordedAt is a real ISO day, never a guess of the engine\'s legacy parser', () => {
+  // a day the calendar has not, a local-clock date, a bare number, a timestamp with no offset, a number
+  for (const bad of ['2026-02-30', '2026-13-01', '3/4/2026', '12', '2026-03-04T10:00', 'March 4 2026',
+    '2026-03-04T25:00Z', 1772582400000]) {
+    assert.throws(() => makeMatchRecord(onePair(), bad), /recordedAt/, 'accepted ' + String(bad));
+  }
+  assert.equal(makeMatchRecord(onePair(), '2026-02-28').recordedAt, '2026-02-28');
+  assert.equal(makeMatchRecord(onePair(), '2026-03-04T10:00:00.000Z').recordedAt, '2026-03-04');
+  // an offset is honoured: 23:30 in New York is already the next UTC day
+  assert.equal(makeMatchRecord(onePair(), '2026-03-04T23:30-05:00').recordedAt, '2026-03-05');
+});
+
 test('match record: anything that is not a matchPairs() candidate is refused', () => {
   const pair = onePair();
   for (const bad of [null, undefined, 'SUN_16', [pair], {}, Object.assign({}, pair, { sharedSlots: 'SUN_16' }),
