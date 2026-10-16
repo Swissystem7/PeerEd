@@ -1140,12 +1140,16 @@ function contains(outer, inner) {
 // email or an offensive word cannot be hidden by a zero-width character, a bidi mark or niqqud inside it, and
 // look-alike characters are folded to the plain ones (NFKC: full-width digits and @, mathematical
 // digits; then Arabic-Indic digits to 0-9), so a number does not pass because of the keyboard it was
-// typed on. Each match and index refers to that folded text; the text the gate stores is not changed.
+// typed on. Each match is the folded text; the text the gate stores is not changed.
+// Each index is a position in the text as typed, since the check screen shows it as "תו N" next to that
+// text: with niqqud or an RLM before the hit, the folded position pointed at an earlier character.
 function findPersonalData(text) {
   if (typeof text !== 'string') return [];
+  var typed = text;
   text = text.replace(INVISIBLE_RE, '').normalize('NFKC').replace(HEBREW_POINT_RE, '')
     .replace(OTHER_DIGIT_RE, asciiDigit);
   if (text === '') return [];
+  var toTyped = typedPositions(typed, text);
   var raw = findProfanity(text);
   Object.keys(PATTERNS).forEach(function (kind) {
     var re = new RegExp(PATTERNS[kind].source, 'g');
@@ -1171,7 +1175,27 @@ function findPersonalData(text) {
   kept.sort(function (a, b) {
     return (a.index - b.index) || (a.kind < b.kind ? -1 : (a.kind > b.kind ? 1 : 0));
   });
+  if (toTyped) kept.forEach(function (hit) { hit.index = toTyped[hit.index]; });
   return kept;
+}
+
+// For each position of the folded text, the position in the typed text it came from. The fold is
+// redone one character at a time; when NFKC joins characters across a boundary (a letter and a
+// combining accent) that no longer gives the same text, and null keeps the folded positions.
+function typedPositions(typed, folded) {
+  var out = '';
+  var map = [];
+  var at = 0;
+  var invisible = new RegExp(INVISIBLE_RE.source);
+  Array.from(typed).forEach(function (ch) {
+    if (!invisible.test(ch)) {
+      var f = ch.normalize('NFKC').replace(HEBREW_POINT_RE, '').replace(OTHER_DIGIT_RE, asciiDigit);
+      for (var k = 0; k < f.length; k += 1) map.push(at);
+      out += f;
+    }
+    at += ch.length;
+  });
+  return out === folded ? map : null;
 }
 
 function cleanText(text) {

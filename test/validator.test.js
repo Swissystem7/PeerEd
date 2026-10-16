@@ -165,3 +165,18 @@ test('cleanText: a CR or CR LF line break stays a line break, a vertical tab or 
   assert.equal(cleanText('two\u000bwords\fhere'), 'two words here');
   assert.equal(cleanText('no\u0000glue'), 'noglue', 'other control characters are still dropped');
 });
+
+test('validator: a hit index is the position in the text as typed, not in the folded text', () => {
+  // niqqud and an RLM before the email: the folded text is shorter, the screen shows the typed text
+  const prefix = 'שָׁלוֹם‏, כִּתְבוּ לִי ל ';
+  const typed = prefix + 'dana@example.com';
+  const email = findPersonalData(typed).find((h) => h.kind === 'email');
+  assert.ok(email);
+  assert.equal(email.index, prefix.length);
+  assert.equal(typed.slice(email.index, email.index + email.match.length), 'dana@example.com');
+  // a full-width phone folds to the same length, so its typed index is unchanged
+  const wide = 'טלפון: ０５０１２３４５６７';
+  const phone = findPersonalData(wide).find((h) => h.kind === 'phone');
+  assert.ok(phone);
+  assert.equal(phone.index, 'טלפון: '.length);
+});
