@@ -152,8 +152,8 @@
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" hidden>
     <div class="card">
       <h2>הדגמה: שער הטקסט</h2>
-      <p class="hint">האפליקציה לא שומרת שום טקסט חופשי — רק את רשימת המשתתפים. זה השער שכל טקסט יעבור בו
-        אם יתווסף בעתיד. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
+      <p class="hint">הטקסט החופשי שהאפליקציה שומרת הוא רק כותרת ותוכן של יחידה וסיבת דחייה, וכל אחד מהם עובר
+        קודם בשער הזה. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
@@ -753,7 +753,7 @@
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
       catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
-      // Nothing stores this text: the app keeps the participants list only.
+      // Nothing stores this text: it is a demo of the gate that units and rejection reasons go through.
       say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
         cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
       $('findings').innerHTML = '';
