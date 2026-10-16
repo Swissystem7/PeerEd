@@ -914,8 +914,11 @@ function explainUnmatched(students, pupils, pairs) {
 // CommonJS on purpose. No clock, no randomness, no network, no dependencies.
 
 var PATTERNS = Object.freeze({
-  // name@host.tld - deliberately narrow, we only need to detect, not to validate deliverability
-  email: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
+  // name@host.tld - deliberately narrow, we only need to detect, not to validate deliverability.
+  // Also the address spelled out to get past a filter: dana at gmail dot com, dana [at] gmail [dot] com,
+  // dana (at) walla.co.il. It has to end on a common top-level domain, so ordinary English with at and
+  // dot in it (meet at noon, a dot on the map) is not an address.
+  email: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[A-Za-z0-9._%+-]+\s*(?:@|\[\s*[Aa][Tt]\s*\]|\(\s*[Aa][Tt]\s*\)|\b[Aa][Tt]\b)\s*[A-Za-z0-9-]+(?:\s*(?:\.|\[\s*[Dd][Oo][Tt]\s*\]|\(\s*[Dd][Oo][Tt]\s*\)|\b[Dd][Oo][Tt]\b)\s*[A-Za-z0-9-]+)*\s*(?:\.|\[\s*[Dd][Oo][Tt]\s*\]|\(\s*[Dd][Oo][Tt]\s*\)|\b[Dd][Oo][Tt]\b)\s*(?:com|net|org|il|co|io|me)(?![A-Za-z0-9-])/g,
   // Israeli mobile and landline, in the ways people write them: 050-1234567, 0501234567, 03-1234567,
   // 050-123-45-67, 050.123.4567, (050) 1234567, 054 12 34 567, +972-50-1234567, +972 (50) 123-4567,
   // 972501234567. The seven subscriber digits may be split 3-4, 3-2-2 or 2-2-3, never digit by digit,

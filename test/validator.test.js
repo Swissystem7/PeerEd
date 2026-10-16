@@ -136,6 +136,17 @@ test('validator: a bare link to a chat or a profile is a url, the host of an ema
   }
 });
 
+test('validator: an email spelled out with at and dot is still an email, English with at and dot is not', () => {
+  for (const mail of ['dana at gmail dot com', 'dana [at] gmail [dot] com', 'dana (at) walla (dot) co (dot) il',
+    'dana.levi AT gmail DOT com', 'dana at walla.co.il', 'dana@gmail dot com']) {
+    assert.deepEqual(findPersonalData('כתבו לי ' + mail).map((h) => [h.kind, h.match]), [['email', mail]], mail);
+  }
+  assert.throws(() => assertCleanText('המייל שלי dana at gmail dot com'), { message: PERSONAL_DATA_ERROR });
+  for (const clean of ['meet at noon', 'look at the dot on the map', 'the dot com bubble', 'data at home dot']) {
+    assert.deepEqual(findPersonalData(clean), [], clean);
+  }
+});
+
 test('validator: digits and @ from another keyboard are read as the plain ones', () => {
   // Arabic-Indic, Eastern Arabic-Indic, full-width and mathematical bold digits
   for (const phone of ['٠٥٠١٢٣٤٥٦٧', '۰۵۰۱۲۳۴۵۶۷', '０５０１２３４５６７', '𝟎𝟓𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕']) {
