@@ -130,11 +130,22 @@ const PAIR_ERROR = 'match pair must be an object from matchPairs()';
 // The UTC calendar day of a timestamp, as YYYY-MM-DD. Retention is counted in days, so the day is
 // everything a stored row needs - and the hour at which a particular minor was matched says more about
 // the person than the policy ever asks.
+// A string must be an ISO day, or an ISO timestamp that says its own offset: the engine's legacy parser
+// reads '3/4/2026' on the machine's clock, '12' as the year 2001 and rolls '2026-02-30' into March, and
+// the row would then be stored - and later swept - under a day nobody wrote down.
+const ISO_DATE = /^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+
 function utcDay(value) {
-  const d = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(d.getTime())) {
-    throw new Error('invalid recordedAt: expected a Date or an ISO date string');
+  const bad = new Error('invalid recordedAt: expected a Date or an ISO date string');
+  let d = value;
+  if (!(value instanceof Date)) {
+    const m = typeof value === 'string' ? ISO_DATE.exec(value) : null;
+    if (m === null) throw bad;
+    const written = new Date(m[1] + 'T00:00:00Z');
+    if (Number.isNaN(written.getTime()) || written.toISOString().slice(0, 10) !== m[1]) throw bad;
+    d = new Date(value);
   }
+  if (Number.isNaN(d.getTime())) throw bad;
   return d.toISOString().slice(0, 10);
 }
 
