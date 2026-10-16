@@ -1172,6 +1172,9 @@ function findPersonalData(text) {
 
 function cleanText(text) {
   var s = String(text == null ? '' : text);
+  // A line break pasted from Windows (CR LF) or an old Mac (CR alone) is a line break, and a vertical tab
+  // or form feed is a space. Stripped as control characters they glued the words on both sides together.
+  s = s.replace(/\r\n?/g, '\n').replace(/[\x0b\x0c]/g, ' ');
   s = s.replace(CONTROL_RE, '');
   s = s.replace(/[^\S\n]+/g, ' ');   // collapse horizontal whitespace, keep newlines
   s = s.replace(/ *\n */g, '\n');    // no padding around a newline
