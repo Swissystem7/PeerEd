@@ -133,8 +133,9 @@ test('wipe: the first click only arms the button; nothing is deleted until the s
   $('wipeBtn').click();
   assert.equal($('wipeBtn').textContent, 'כן, מחק הכול');
   assert.equal($('wipeCancel').hidden, false);
-  assert.equal($('wipeStatus').textContent.indexOf('יימחקו 7 משתתפים, 1 יחידות ו-1 שיעורים') === 0, true,
+  assert.equal($('wipeStatus').textContent.indexOf('יימחקו 7 משתתפים, יחידה אחת ושיעור אחד.') === 0, true,
     $('wipeStatus').textContent);
+  assert.equal($('sessionSummary').innerHTML.indexOf('<b>שיעור אחד</b>') !== -1, true, $('sessionSummary').innerHTML);
   assert.equal(typeof storage.items[DEFAULT_KEY], 'string', 'arming deletes nothing');
   assert.equal($('peopleList').innerHTML.split('<div class="item">').length - 1, 7, 'the cards are still there');
 

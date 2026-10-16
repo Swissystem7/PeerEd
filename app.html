@@ -2501,7 +2501,8 @@ module.exports = {
   }
 
   // Hebrew counts: one of anything is "X אחד" (all nouns counted here are masculine); other counts keep the number.
-  function countHe(n, one, many) { return n === 1 ? one + ' אחד' : n + ' ' + many; }
+  // a feminine noun (יחידה) passes 'אחת' as oneWord
+  function countHe(n, one, many, oneWord) { return n === 1 ? one + ' ' + (oneWord || 'אחד') : n + ' ' + many; }
 
   function renderSummary(m) {
     var shortPupils = m.left.filter(function (x) { return x.role === 'pupil'; });
@@ -2826,7 +2827,7 @@ module.exports = {
   function renderSessions() {
     var s = session.summarize(state.log);
     $('sessionSummary').innerHTML = s.sessions
-      ? '<div class="item pair"><b>' + s.sessions + ' שיעורים</b></div>' +
+      ? '<div class="item pair"><b>' + countHe(s.sessions, 'שיעור', 'שיעורים') + '</b></div>' +
         countRow('לפי תוצאה', s.byOutcome, function (k) { return OUTCOME_HE[k] || k; }) +
         countRow('לפי אזור', s.byRegion, function (k) { return REGION_HE[k] || k; }) +
         countRow('לפי מקצוע', s.bySubject, function (k) { return SUBJECT_HE[k] || k; }) +
@@ -2906,8 +2907,10 @@ module.exports = {
   $('wipeBtn').addEventListener('click', function () {
     if (!wipeArmed) {
       setWipeArmed(true);
-      say('wipeStatus', 'יימחקו ' + state.people.length + ' משתתפים, ' + Object.keys(state.queue.entries).length +
-        ' יחידות ו-' + state.log.entries.length + ' שיעורים. לחץ שוב כדי לאשר, או ביטול.');
+      var lessons = state.log.entries.length;
+      say('wipeStatus', 'יימחקו ' + countHe(state.people.length, 'משתתף', 'משתתפים') + ', ' +
+        countHe(Object.keys(state.queue.entries).length, 'יחידה', 'יחידות', 'אחת') + (lessons === 1 ? ' ו' : ' ו-') +
+        countHe(lessons, 'שיעור', 'שיעורים') + '. לחץ שוב כדי לאשר, או ביטול.');
       return;
     }
     var removed = store.clear();
