@@ -58,3 +58,27 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: wipe device controls have aria attributes and manage aria-expanded and focus', () => {
+  const currentShell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  assert.ok(/<button type="button" class="ghost" id="wipeBtn"[^>]*aria-expanded="false"[^>]*aria-controls="wipeCancel wipeStatus"[^>]*aria-describedby="wipeStatus"/.test(currentShell),
+    'wipeBtn must have aria-expanded="false", aria-controls="wipeCancel wipeStatus", and aria-describedby="wipeStatus"');
+  assert.ok(/<button type="button" class="ghost" id="wipeCancel"[^>]*aria-label="בטל מחיקה מהמכשיר"[^>]*aria-describedby="wipeStatus"/.test(currentShell),
+    'wipeCancel must have aria-label="בטל מחיקה מהמכשיר" and aria-describedby="wipeStatus"');
+
+  const $ = openApp();
+  assert.equal($('wipeBtn').getAttribute('aria-expanded'), 'false');
+  assert.equal($('wipeCancel').hidden, true);
+
+  // Arm wipe
+  $('wipeBtn').fire('click');
+  assert.equal($('wipeBtn').getAttribute('aria-expanded'), 'true');
+  assert.equal($('wipeCancel').hidden, false);
+
+  // Cancel wipe
+  $('wipeBtn').focused = false;
+  $('wipeCancel').fire('click');
+  assert.equal($('wipeBtn').getAttribute('aria-expanded'), 'false');
+  assert.equal($('wipeCancel').hidden, true);
+  assert.equal($('wipeBtn').focused, true, 'focus must be restored to wipeBtn upon cancellation');
+});
