@@ -14,7 +14,7 @@ const { makeUnit } = require('../src/lib/unit.js');
 const approval = require('../src/lib/approval.js');
 const session = require('../src/lib/session.js');
 const { emptyState, serialize, deserialize } = require('../src/lib/store.js');
-const { openApp } = require('../test-support/fake-dom.js');
+const { openApp, text } = require('../test-support/fake-dom.js');
 
 const ROOT = path.join(__dirname, '..');
 const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
@@ -54,9 +54,13 @@ test('sessions screen: the shell goes through the modules, never builds a log ro
   assert.equal(/entries\.push\(/.test(sessionsBlock), false, 'the screen must not append to the log itself');
   assert.equal(/seq\s*:/.test(sessionsBlock), false, 'the screen must not number a row itself');
   assert.equal(/outcome\s*:\s*['"]/.test(sessionsBlock), false, 'the outcome comes from the select, not a literal');
-  // The roster positions of a pair stay on the screen: the sessions code never reads them, so it
-  // cannot write them, show them next to a logged row or store them.
-  assert.equal(/studentIndex|pupilIndex/.test(sessionsBlock), false);
+  // List numbers name a pair in the dropdown only; the log row and the stored log never read them.
+  assert.ok(sessionsBlock.indexOf('shown in the dropdown and never reach the log') !== -1);
+  const sessionRowOnly = sessionsBlock.slice(
+    sessionsBlock.indexOf('function sessionRow('),
+    sessionsBlock.indexOf('function countRow('));
+  assert.equal(/studentIndex|pupilIndex/.test(sessionRowOnly), false);
+  assert.ok(/renderSessionForm[\s\S]*studentIndex/.test(sessionsBlock), 'pair dropdown uses roster list numbers');
   // Every outcome the module accepts is offered, through the module's own list.
   assert.ok(sessionsBlock.indexOf('OUTCOME_HE') !== -1);
   assert.ok(app.indexOf('session.OUTCOMES') !== -1, 'the outcome select is filled from session.OUTCOMES');
@@ -150,6 +154,16 @@ test('sessions screen: a pending unit, a foreign subject or an extra key never r
   // With no pair at all - an empty roster - the screen refuses before calling the module.
   assert.equal(pairsOf([]).length, 0);
   assert.equal(state.log.entries.length, 0);
+});
+
+test('sessions screen: the pair dropdown names the same list numbers as the match screen', () => {
+  const $ = openApp();
+  $('demoBtn').fire('click');
+  $('runMatch').fire('click');
+  const m = text($('pairs').innerHTML).match(/סטודנט מלמד #(\d+) עם תלמיד #(\d+)/);
+  assert.ok(m, text($('pairs').innerHTML));
+  $('nav-sessions').fire('click');
+  assert.match($('sessionPair').innerHTML, new RegExp('סטודנט מלמד #' + m[1] + ' עם תלמיד #' + m[2]));
 });
 
 test('sessions screen: form selects have informative empty state options on load', () => {
