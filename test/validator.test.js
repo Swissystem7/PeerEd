@@ -97,6 +97,18 @@ test('validator: invisible characters alone do not make clean text dirty, and ar
   assert.deepEqual(findPersonalData('​‏'), []);
 });
 
+test('validator: niqqud inside a Hebrew word does not hide it, and pointed lesson text stays clean', () => {
+  // patah, qamats, shva, shuruq, dagesh, shin dot, holam, a cantillation mark, and a pointed presentation form
+  for (const word of ['חָרָא', 'שַׁרְמוּטָה', 'זוֹנָה', 'מְטוּמְטָם', 'דֵּבִּיל', 'אִידְיוֹט֑', 'שׁרמוטה']) {
+    assert.deepEqual(kindsIn('אתה ' + word), ['profanity'], word);
+  }
+  const pointed = 'הַתַּלְמִיד אַחְרַאי עַל הַשִּׁעוּר בְּמָתֶמָטִיקָה';
+  assert.deepEqual(findPersonalData(pointed), []);
+  assert.equal(assertCleanText(pointed), pointed, 'the stored text keeps its niqqud');
+  // the maqaf is a visible hyphen, not a point: it still parts the words
+  assert.deepEqual(findPersonalData('בית־ספר'), []);
+});
+
 test('validator: a phone is found however Israelis split it, and a list or a date is not a phone', () => {
   for (const phone of ['050-123-45-67', '054-12-34-567', '050 12 34 567', '050.123.4567', '(050) 1234567',
     '(03) 123-4567', '050–1234567', '+972 (50) 123-4567', '972501234567', '00972-50-1234567']) {
