@@ -114,11 +114,11 @@
     </div>
     <div class="card">
       <h2>הזוגות</h2>
-      <div id="pairs"></div>
+      <div id="pairs"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
       <h2>מי נשאר בלי זוג</h2>
-      <div id="unmatched"></div>
+      <div id="unmatched"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
       <h2>שידוך בין אזורים (חירום)</h2>
@@ -1818,6 +1818,7 @@ module.exports = {
     var loaded = store.load();
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
     if (loaded.problem) say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + loaded.problem, true);
+    resetMatchView();
   }
 
   function buildInputs() {
@@ -1889,7 +1890,7 @@ module.exports = {
     try { made = profile.makeProfile(candidate); }
     catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     state.people.push(made);
-    last = null;
+    resetMatchView();
     clearDraft();
     renderPeople();
     save();
@@ -1900,7 +1901,7 @@ module.exports = {
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
-    last = null;
+    resetMatchView();
     renderPeople(); save();
     say('addStatus', 'נמחק.');
   });
@@ -1916,7 +1917,7 @@ module.exports = {
       { role: 'pupil', region: 'JERUSALEM', availability: ['THU_16'], subjects: ['HISTORY'] }
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
-    last = null;
+    resetMatchView();
     renderPeople(); save();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה. עבור למסך "שידוך".');
   });
@@ -1950,6 +1951,15 @@ module.exports = {
   // The last computed match, in list numbers. Cleared whenever the list changes, so an export can never
   // describe a list that is no longer on the screen.
   var last = null;
+
+  function resetMatchView() {
+    last = null;
+    $('summary').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
+    $('pairs').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
+    $('unmatched').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
+    $('across').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
+    say('matchStatus', '');
+  }
 
   function subjectsHe(list) { return list.map(function (s) { return SUBJECT_HE[s] || s; }).join(' / '); }
   function slotsHe(list) { return list.map(slotHe).join(' / '); }
@@ -2005,7 +2015,7 @@ module.exports = {
 
   $('runMatch').addEventListener('click', function () {
     var m = computeMatch();
-    if (!m) { last = null; say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return; }
+    if (!m) { resetMatchView(); say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return; }
     last = m;
     $('pairs').innerHTML = m.pairs.length ? m.pairs.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
