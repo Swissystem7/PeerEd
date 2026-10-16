@@ -155,19 +155,19 @@
       <p class="hint">האפליקציה לא שומרת שום טקסט חופשי — רק את רשימת המשתתפים. זה השער שכל טקסט יעבור בו
         אם יתווסף בעתיד. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
-      <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
+      <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12" aria-required="true" aria-describedby="checkStatus"></textarea>
       <div class="actions">
         <button type="button" class="act" id="checkBtn">בדוק</button>
         <button type="button" class="ghost" id="badBtn">טען דוגמה עם פרטים אישיים</button>
         <button type="button" class="ghost" id="rudeBtn">טען דוגמה עם שפה פוגענית</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
-      <div id="findings"></div>
+      <div id="findings" role="region" aria-live="polite" aria-label="ממצאי בדיקת טקסט"></div>
     </div>
     <div class="card">
       <h2>הדגמה: שדה אסור נדחה</h2>
       <p class="hint">אותו שער, על הרשומה עצמה ולא על הטקסט: מנסה לשמור משתתף עם שדה שאינו ברשימה.</p>
-      <div class="actions"><button type="button" class="ghost" id="gateBtn">נסה לשמור עם טלפון</button></div>
+      <div class="actions"><button type="button" class="ghost" id="gateBtn" aria-describedby="gateStatus">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
     </div>
   </section>
@@ -752,7 +752,13 @@
     if (!hits.length) {
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
-      catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
+      catch (err) {
+        var ct = $('checkText');
+        if (ct && ct.focus) ct.focus();
+        say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true);
+        $('findings').innerHTML = '';
+        return;
+      }
       // Nothing stores this text: the app keeps the participants list only.
       say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
         cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
