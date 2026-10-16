@@ -58,3 +58,29 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: report export controls have aria attributes and manage aria-expanded and focus', () => {
+  const currentShell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  assert.ok(/<button type="button" class="ghost" id="exportReport"[^>]*aria-expanded="false"[^>]*aria-controls="reportBox reportStatus"[^>]*aria-describedby="reportStatus"/.test(currentShell),
+    'exportReport must have aria-expanded="false", aria-controls="reportBox reportStatus", and aria-describedby="reportStatus"');
+  assert.ok(/<textarea id="reportText"[^>]*aria-describedby="reportStatus"/.test(currentShell),
+    'reportText must have aria-describedby="reportStatus"');
+
+  const $ = openApp();
+  const exportBtn = $('exportReport');
+  assert.equal(exportBtn.getAttribute('aria-expanded'), 'false');
+  assert.equal($('reportBox').hidden, true);
+
+  exportBtn.fire('click');
+  assert.equal(exportBtn.getAttribute('aria-expanded'), 'true');
+  assert.equal($('reportBox').hidden, false);
+  assert.equal($('reportText').focused, true, 'reportText must receive focus upon export');
+  assert.equal($('reportText').selected, true, 'reportText must be selected for easy copying');
+  assert.match($('reportStatus').textContent, /הדוח מוכן/);
+
+  // Wiping device resets reportBox and aria-expanded
+  $('wipeBtn').fire('click'); // arm
+  $('wipeBtn').fire('click'); // confirm wipe
+  assert.equal($('reportBox').hidden, true);
+  assert.equal(exportBtn.getAttribute('aria-expanded'), 'false');
+});
