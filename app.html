@@ -2192,12 +2192,17 @@ module.exports = {
   }
   // Every change goes through save(), so this is also where an armed wipe is disarmed: its second click
   // would delete more (or other things) than the counts the first click put on the screen.
-  function save() {
+  // statusId is the line that just said what was done: it is called after that say(), so a failed write
+  // is added to the line the user is looking at instead of being overwritten by "נוסף" right after.
+  function save(statusId) {
     if (wipeArmed) {
       setWipeArmed(false);
       say('wipeStatus', 'הרשימה השתנתה, אז המחיקה בוטלה. לחץ שוב כדי לראות מה יימחק.');
     }
-    if (!store.save(state)) say('addStatus', 'נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי?).', true);
+    if (!store.save(state)) {
+      say(statusId, $(statusId).textContent + ' נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי?), ' +
+        'וזה ייעלם כשהדף ייסגר.', true);
+    }
   }
   // load() never throws. A document that fails the privacy gate - an extra key, an unapproved unit -
   // comes back as an empty roster plus the reason, and the screen says so instead of guessing.
@@ -2301,8 +2306,8 @@ module.exports = {
     resetMatchView();
     clearDraft();
     renderPeople();
-    save();
     say('addStatus', 'נוסף. סך הכול ' + state.people.length + ' משתתפים.');
+    save('addStatus');
   });
 
   $('peopleList').addEventListener('click', function (ev) {
@@ -2315,17 +2320,19 @@ module.exports = {
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
       state.people[Number(c)] = flipped;
       resetMatchView();
-      renderPeople(); save();
+      renderPeople();
       say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
         : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.');
+      save('addStatus');
       return;
     }
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     state.people.splice(Number(i), 1);
     resetMatchView();
-    renderPeople(); save();
+    renderPeople();
     say('addStatus', 'נמחק.');
+    save('addStatus');
   });
 
   $('demoBtn').addEventListener('click', function () {
@@ -2340,8 +2347,9 @@ module.exports = {
     ];
     state.people = demo.map(function (d) { return profile.makeProfile(d); });
     resetMatchView();
-    renderPeople(); save();
+    renderPeople();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה, אחד מהתלמידים בלי אישור הורה. עבור למסך "שידוך".');
+    save('addStatus');
   });
 
   // ---------- match ----------
@@ -2616,9 +2624,10 @@ module.exports = {
       if (next === state.queue) { say('unitStatus', 'כבר בתור, ללא שינוי: אותה יחידה בדיוק כבר הוגשה.'); return; }
       state.queue = next;
     } catch (err) { say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
-    renderUnits(); save();
+    renderUnits();
     say('unitStatus', before === null ? 'הוגש וממתין לאישור. מזהה: ' + made.id
       : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + state.queue.entries[made.id].revision + '.');
+    save('unitStatus');
   }
 
   $('submitUnit').addEventListener('click', function () {
@@ -2653,7 +2662,7 @@ module.exports = {
         say('decideStatus', 'נדחה עם סיבה. המורה יכול לתקן ולהגיש שוב - זה יחזור לתור כגרסה חדשה.');
       }
     } catch (err) { say('decideStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
-    renderUnits(); save();
+    renderUnits(); save('decideStatus');
   });
 
   // ---------- sessions (MVP item 6) ----------
@@ -2784,9 +2793,10 @@ module.exports = {
         outcome: $('sessionOutcome').value
       });
     } catch (err) { say('sessionStatus', 'לא נרשם: ' + errorHe(err) + '.', true); return; }
-    renderSessions(); save();
+    renderSessions();
     say('sessionStatus', 'נרשם שיעור ' + (state.log.nextSeq - 1) +
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
+    save('sessionStatus');
   });
 
   // ---------- wipe this device ----------

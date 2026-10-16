@@ -24,7 +24,8 @@ function fakeElement(id) {
   };
 }
 
-// opts.store: initial localStorage content. Returns $ (element lookup) plus what the app handed out
+// opts.store: initial localStorage content. opts.saveFails: setItem throws, like a full or blocked
+// storage. Returns $ (element lookup) plus what the app handed out
 // (downloads: every Blob the app turned into a file, with its text).
 function openApp(opts) {
   opts = opts || {};
@@ -39,7 +40,10 @@ function openApp(opts) {
   class FakeBlob { constructor(parts, o) { this.text = parts.join(''); this.type = (o && o.type) || ''; } }
   const localStorage = {
     getItem: (k) => (k in store ? store[k] : null),
-    setItem: (k, v) => { store[k] = String(v); },
+    setItem: (k, v) => {
+      if (opts.saveFails) throw new Error('QuotaExceededError');
+      store[k] = String(v);
+    },
     removeItem: (k) => { delete store[k]; }
   };
   const ctx = {
