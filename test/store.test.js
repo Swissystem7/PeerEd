@@ -58,6 +58,18 @@ test('store: a session row for a unit the stored queue did not approve is refuse
   assert.throws(() => deserialize(JSON.stringify(doc)), /not approved/);
 });
 
+test('store: revising a unit that was already taught does not wipe the saved roster on the next load', () => {
+  const fixed = makeUnit({ title: MATH.title, subject: 'MATH', durationMinutes: 20, body: 'פותרים ארבע משוואות.' });
+  const state = Object.freeze({ people: STATE.people, queue: submit(QUEUE, fixed), log: LOG });
+  const store = createStore(memoryBackend());
+  assert.equal(store.save(state), true);
+  const loaded = store.load();
+  assert.equal(loaded.problem, null);
+  assert.equal(loaded.state.people.length, 2);
+  assert.equal(statusOf(loaded.state.queue, MATH.id), 'pending');
+  assert.deepEqual(loaded.state.log, LOG);
+});
+
 test('store: garbage, a wrong schema and a non-string are errors with a stable prefix', () => {
   assert.throws(() => deserialize('{not json'), { message: INVALID_STATE_ERROR + ': not JSON' });
   assert.throws(() => deserialize('[]'), { message: INVALID_STATE_ERROR });

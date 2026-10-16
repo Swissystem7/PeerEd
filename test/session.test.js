@@ -170,6 +170,21 @@ test('session: a stored log round-trips through JSON and is re-checked against t
   assert.equal(loadLog({ entries: JSON.parse(JSON.stringify(l.entries)) }, QUEUE).nextSeq, 3);
 });
 
+test('session: a lesson already logged still loads after its unit is revised, pending or rejected', () => {
+  const l = logSession(emptyLog(), QUEUE, PAIR, HELD);
+  const fixed = makeUnit({ title: MATH.title, subject: 'MATH', durationMinutes: 20, body: 'פותרים ארבע משוואות.' });
+  const revised = submit(QUEUE, fixed);
+  assert.equal(revised.entries[MATH.id].status, 'pending');
+  assert.deepEqual(loadLog(JSON.parse(JSON.stringify(l)), revised), l);
+  assert.deepEqual(loadLog(JSON.parse(JSON.stringify(l)), reject(revised, MATH.id, 'עוד לא')), l);
+  // a new lesson on the revised text still waits for the approver
+  assert.throws(() => logSession(l, revised, PAIR, HELD), { message: UNIT_NOT_APPROVED_ERROR });
+  // a unit on its first text was never approved: a stored row on it is still refused
+  const neverApproved = Object.assign({}, HELD, { unitId: PENDING.id });
+  assert.throws(() => loadLog({ entries: [Object.assign({ region: 'SOUTH', seq: 1 }, neverApproved)] }, QUEUE),
+    { message: UNIT_NOT_APPROVED_ERROR });
+});
+
 test('session: a seq or nextSeq past the safe integers is refused, so two rows can never share a seq', () => {
   const row = { region: 'SOUTH', slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held', seq: 1 };
   const top = Number.MAX_SAFE_INTEGER - 1;
