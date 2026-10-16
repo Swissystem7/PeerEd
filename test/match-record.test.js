@@ -75,13 +75,23 @@ test('match record: recordedAt is a real ISO day, never a guess of the engine\'s
 });
 
 test('match record: a day outside the years the sweep reads back is refused, not stored broken', () => {
-  // an offset can carry the last day of 9999 into the year 10000, and a Date can be any year
-  for (const bad of ['9999-12-31T23:00-05:00', new Date(Date.UTC(10000, 0, 1)), '0050-01-01', '0000-01-01']) {
+  // an offset can carry the last day of 9999 into the year 10000 (or the first day of 0 back into -1),
+  // and a Date can be any year
+  for (const bad of ['9999-12-31T23:00-05:00', new Date(Date.UTC(10000, 0, 1)), '0000-01-01T00:30+01:00']) {
     assert.throws(() => makeMatchRecord(onePair(), bad), /recordedAt/, 'accepted ' + String(bad));
   }
   const row = makeMatchRecord(onePair(), '9999-12-31');
   assert.equal(row.recordedAt, '9999-12-31');
   assert.equal(isExpired(row, '9999-12-31'), false, 'the sweep reads the stored day back');
+});
+
+test('match record: a day in the years 0-99 is stored, and the sweep reads it in its own century', () => {
+  for (const day of ['0050-01-01', '0000-01-01']) {
+    const row = makeMatchRecord(onePair(), day);
+    assert.equal(row.recordedAt, day);
+    assert.equal(isExpired(row, day), false, 'the sweep reads the stored day back');
+    assert.equal(isExpired(row, '2026-01-01'), true, 'a row from ' + day + ' is not 1900 years younger');
+  }
 });
 
 test('match record: anything that is not a matchPairs() candidate is refused', () => {
