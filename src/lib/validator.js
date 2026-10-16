@@ -242,6 +242,9 @@ function assertCleanText(text, opts) {
 }
 
 var SUBJECTS = require('./profile.js').SUBJECTS;
+var REPORT_EVENT_FIELDS = Object.freeze(['userId', 'detail']);
+var REPORT_EVENT_DETAIL_MAX_LENGTH = 300;
+
 var UNIT_FIELDS = Object.freeze(['title', 'subject', 'minutes', 'text']);
 var UNIT_TITLE_MAX_LENGTH = 120;
 var UNIT_MINUTES_MIN = 1;
@@ -264,6 +267,20 @@ function hex8(n) {
 function unitRecordId(title, subject, minutes) {
   var key = title + '|' + subject + '|' + String(minutes);
   return UNIT_ID_PREFIX + hex8(fnv1a32(key));
+}
+
+function makeReportEvent(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('unit input must be an object with title, subject, minutes, text');
+  }
+  var keys = Object.keys(input);
+  for (var i = 0; i < keys.length; i += 1) {
+    if (REPORT_EVENT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+  if (typeof input.detail !== 'string') throw new Error('invalid text: expected a string');
+  var userId = assertUserId(input.userId);
+  var detail = assertCleanText(input.detail, { maxLength: REPORT_EVENT_DETAIL_MAX_LENGTH });
+  return Object.freeze({ userId: userId, detail: detail });
 }
 
 function makeUnit(input) {
@@ -307,6 +324,9 @@ module.exports = {
   findProfanity: findProfanity,
   cleanText: cleanText,
   assertCleanText: assertCleanText,
+  REPORT_EVENT_FIELDS: REPORT_EVENT_FIELDS,
+  REPORT_EVENT_DETAIL_MAX_LENGTH: REPORT_EVENT_DETAIL_MAX_LENGTH,
+  makeReportEvent: makeReportEvent,
   UNIT_FIELDS: UNIT_FIELDS,
   makeUnit: makeUnit
 };
