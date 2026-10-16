@@ -37,7 +37,7 @@ if one drops under WCAG AA, 4.5:1 for text and 3:1 for the focus ring and the se
 button on the roster flips it through the profile module) and matching it has a units screen where a teacher
 submits an enrichment unit and the approver (a role, never a person) approves or rejects it with a reason,
 and a sessions screen where a session is logged for a matched pair (slot, subject, approved unit, outcome;
-never who) and a municipality sees counts only.
+never who) and a municipality sees counts only. The people screen ends with a wipe button for the device: a second click (or cancel) is asked for on the screen itself, then the one storage key is removed through `store.clear` - never overwritten with an empty document - and every screen is emptied, even when the browser refuses to remove the key; `test/wipe-device.test.js` watches the key through a fake localStorage.
 
 | File | What it does |
 |---|---|
