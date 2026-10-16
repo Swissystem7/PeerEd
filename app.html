@@ -2555,7 +2555,7 @@ module.exports = {
     }).join('') : '<p class="empty">אין הצעה: אף אחד מאלה שנשארו לא חולק שעה ומקצוע עם מישהו מאזור אחר.</p>';
     renderSummary(m);
     say('matchStatus', countHe(m.pairs.length, 'זוג', 'זוגות') + ' מתוך ' +
-      countHe(m.students, 'סטודנט', 'סטודנטים') + ' ו-' + countHe(m.pupils, 'תלמיד', 'תלמידים') +
+      countHe(m.students, 'סטודנט', 'סטודנטים') + (m.pupils === 1 ? ' ו' : ' ו-') + countHe(m.pupils, 'תלמיד', 'תלמידים') +
       '. המספרים הם המקום ברשימת המשתתפים.');
   });
 
