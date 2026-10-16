@@ -167,3 +167,11 @@ test('cycle-manager: keeps a record through its last allowed day and drops it th
     'match retention is ' + policy.match + ' days'
   );
 });
+
+test('cycle-manager: a maxAgeDays that is not a whole number of days is refused, so no row is kept forever', () => {
+  const stamped = (maxAgeDays) => ({ recordedAt: '2020-01-01', retention: { dataCategory: 'match', maxAgeDays: maxAgeDays } });
+  for (const bad of [Infinity, NaN, -1, 1.5, '365']) {
+    assert.throws(() => applyRetentionPolicy({ matches: [stamped(bad)], profiles: [] }, ASOF), /maxAgeDays/, String(bad));
+  }
+  assert.deepEqual(applyRetentionPolicy({ matches: [stamped(0)], profiles: [] }, ASOF).matches, []);
+});
