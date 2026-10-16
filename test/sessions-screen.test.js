@@ -172,3 +172,25 @@ test('sessions screen: report export with one count line reads as Hebrew "שור
 });
 
 
+
+test('sessions screen: an open report that follows a newly logged lesson says so, not the old count and copy', () => {
+  const $ = openApp();
+  $('demoBtn').fire('click');
+  $('unitDemoBtn').fire('click');
+  $('submitUnit').fire('click');
+  const id = /מזהה: (\S+)/.exec($('unitStatus').textContent)[1];
+  $('pendingList').fire('click', { target: { getAttribute: (k) => (k === 'data-approve' ? id : null) } });
+  $('exportReport').fire('click');
+  assert.match($('reportStatus').textContent, /שורה אחת של ספירות/);
+
+  $('sessionPair').value = '0';
+  $('sessionSlot').value = 'SUN_16';
+  $('sessionSubject').value = 'MATH';
+  $('sessionUnit').value = id;
+  $('sessionOutcome').value = 'held';
+  $('logSession').fire('click');
+  assert.match($('reportText').value, /^sessions,,1$/m);
+  const lines = $('reportText').value.split('\n').length - 2;
+  assert.match($('reportStatus').textContent, new RegExp('הדוח שבתיבה עודכן: ' + lines + ' שורות'));
+  assert.doesNotMatch($('reportStatus').textContent, /שורה אחת|הועתק גם ללוח/);
+});

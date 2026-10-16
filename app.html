@@ -2838,8 +2838,16 @@ module.exports = {
     $('sessionList').innerHTML = state.log.entries.length
       ? state.log.entries.slice().reverse().map(sessionRow).join('')
       : '<p class="empty">היומן ריק. רושמים שיעור בטופס למעלה אחרי שנוצר זוג ואושרה יחידה.</p>';
-    // An export that is already open follows the log, so a stale report is never on the screen.
-    if (!$('reportBox').hidden) $('reportText').value = session.reportCsv(state.log);
+    // An export that is already open follows the log, so a stale report is never on the screen. Its status
+    // line follows too: the old one still counted the earlier lines and could say "הועתק גם ללוח" about
+    // a clipboard that now holds the earlier report.
+    if (!$('reportBox').hidden) {
+      var text = session.reportCsv(state.log);
+      $('reportText').value = text;
+      var lines = text.split('\n').length - 2;
+      say('reportStatus', 'היומן השתנה, אז הדוח שבתיבה עודכן: ' + (lines === 1 ? 'שורה אחת' : lines + ' שורות') +
+        ' של ספירות. מה שהועתק קודם ללוח הוא הדוח הקודם - לחץ שוב כדי להעתיק את זה.');
+    }
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
