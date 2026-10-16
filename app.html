@@ -1349,6 +1349,11 @@ const QUEUE_FIELDS = Object.freeze(['nextSeq', 'entries']);
 const APPROVER_ROLE = 'owner';
 const REASON_MAX_LENGTH = 300;
 const NOT_PENDING_ERROR = 'unit is not pending: only a pending unit can be approved or rejected';
+// The largest seq an entry may carry, the same bound as the session log: one below the last safe
+// integer, so nextSeq (seq + 1) is still exact. Past 2^53 adding 1 no longer changes the number, the
+// next unit would share a seq with the last one and loadQueue would refuse the saved queue - and with
+// it the whole stored state. A stored seq or nextSeq beyond this is a value the app never wrote.
+const MAX_SEQ = Number.MAX_SAFE_INTEGER - 1;
 
 function emptyQueue() {
   return Object.freeze({ nextSeq: 1, entries: Object.freeze({}) });
@@ -1356,7 +1361,7 @@ function emptyQueue() {
 
 function assertQueue(queue) {
   if (queue === null || typeof queue !== 'object' || Array.isArray(queue)
-    || !Number.isInteger(queue.nextSeq) || queue.nextSeq < 1
+    || !Number.isInteger(queue.nextSeq) || queue.nextSeq < 1 || queue.nextSeq > MAX_SEQ + 1
     || queue.entries === null || typeof queue.entries !== 'object' || Array.isArray(queue.entries)) {
     throw new Error('invalid queue: expected a value from emptyQueue() or loadQueue()');
   }
@@ -1400,6 +1405,7 @@ function submit(queue, unit) {
       unit: clean, status: 'pending', revision: existing.revision + 1, seq: existing.seq
     }, queue.nextSeq);
   }
+  if (queue.nextSeq > MAX_SEQ) throw new Error('approval queue is full: no sequence number left');
   return withEntry(queue, clean.id, { unit: clean, status: 'pending', revision: 1, seq: queue.nextSeq },
     queue.nextSeq + 1);
 }
@@ -1487,7 +1493,8 @@ function loadQueue(data) {
     const unit = assertUnit(raw.unit);
     if (unit.id !== ids[i]) throw new Error('invalid stored entry: id mismatch for ' + ids[i]);
     if (STATUSES.indexOf(raw.status) === -1) throw new Error('invalid stored entry: bad status for ' + ids[i]);
-    if (!Number.isInteger(raw.revision) || raw.revision < 1 || !Number.isInteger(raw.seq) || raw.seq < 1) {
+    if (!Number.isInteger(raw.revision) || raw.revision < 1 || !Number.isInteger(raw.seq) || raw.seq < 1
+      || raw.seq > MAX_SEQ) {
       throw new Error('invalid stored entry: bad revision or seq for ' + ids[i]);
     }
     const entry = { unit: unit, status: raw.status, revision: raw.revision, seq: raw.seq };
@@ -1514,7 +1521,8 @@ function loadQueue(data) {
     entries[unit.id] = Object.freeze(entry);
     if (raw.seq > maxSeq) maxSeq = raw.seq;
   }
-  const nextSeq = Number.isInteger(data.nextSeq) && data.nextSeq > maxSeq ? data.nextSeq : maxSeq + 1;
+  const nextSeq = Number.isInteger(data.nextSeq) && data.nextSeq > maxSeq && data.nextSeq <= MAX_SEQ + 1
+    ? data.nextSeq : maxSeq + 1;
   return Object.freeze({ nextSeq: nextSeq, entries: Object.freeze(entries) });
 }
 
