@@ -1017,12 +1017,18 @@ function asciiDigit(d) {
 }
 
 // Longest alternative first, so "מטומטמת" is never reported as the shorter "מטומטם".
+// Every letter may repeat, so a word stretched to get past a filter (fuuuck, חרררא, shiiit) is the same
+// word. No ordinary word in the list's languages is a listed word with a letter doubled.
 function profanityRegex() {
   var alts = PROFANITY.slice()
     .sort(function (a, b) { return b.length - a.length; })
     // a function replacer, not a replacement string: scripts/build-app.js inlines this file with
     // String.replace, so a dollar-ampersand group reference in here is expanded as the app is built
-    .map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, function (c) { return '\\' + c; }); })
+    .map(function (w) {
+      return w.split('').map(function (c) {
+        return c.replace(/[.*+?^${}()|[\]\\]/g, function (x) { return '\\' + x; }) + '+';
+      }).join('');
+    })
     .join('|');
   return new RegExp('(?<!' + LETTER + ')' + HEBREW_PREFIX + '(?:' + alts + ')(?!' + LETTER + ')', 'gi');
 }
