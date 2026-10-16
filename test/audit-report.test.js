@@ -36,3 +36,15 @@ test('audit-report: generateAuditReport uses a supplied policy when one is passe
   assert.ok(report.includes('50'), 'match retention must come from the passed policy');
   assert.doesNotMatch(report, /\b730\b|\b365\b/, 'must not embed the live policy when another is supplied');
 });
+
+test('audit-report: a policy missing a category or stating a non-whole number of days is refused', () => {
+  assert.throws(() => generateAuditReport({ profile: 100 }), /invalid policy: match/);
+  assert.throws(() => generateAuditReport({ match: 50 }), /invalid policy: profile/);
+  for (const bad of [Infinity, NaN, -1, 1.5, '100', null]) {
+    assert.throws(() => generateAuditReport({ profile: bad, match: 50 }), /invalid policy: profile/, String(bad));
+  }
+  for (const bad of [null, [], 'policy', 7]) {
+    assert.throws(() => generateAuditReport(bad), /invalid policy/, String(bad));
+  }
+  assert.ok(generateAuditReport({ profile: 0, match: 0 }).includes('עד 0 ימים'), '0 days is a real policy');
+});
