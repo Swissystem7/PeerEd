@@ -2234,7 +2234,8 @@ module.exports = {
     ['invalid title: text too long', 'הכותרת ארוכה מדי'],
     ['invalid title: expected a single line', 'הכותרת חייבת להיות בשורה אחת'],
     ['invalid body: text too short', 'תוכן היחידה ריק'],
-    ['invalid body: text too long', 'תוכן היחידה ארוך מדי'],
+    // The body box has no maxlength (a cut-off paste would lose the end silently), so the limit is said here.
+    ['invalid body: text too long', 'תוכן היחידה ארוך מדי: עד ' + unitLib.BODY_MAX_LENGTH + ' תווים'],
     ['invalid title:', 'כותרת לא תקינה'],
     ['invalid text:', 'טקסט לא תקין'],
     ['invalid body:', 'טקסט לא תקין'],
