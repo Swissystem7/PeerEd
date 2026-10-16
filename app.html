@@ -1045,6 +1045,10 @@ var CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f]/g;
 // reader does not see them, so "050<RLM>1234567" is a phone number to a reader and to nobody else.
 var INVISIBLE_RE = /[­᠎​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
 
+function stripInvisible(text) {
+  return String(text).replace(INVISIBLE_RE, '');
+}
+
 // Digits a phone keyboard can type that NFKC leaves alone: Arabic-Indic and Eastern Arabic-Indic.
 // Both blocks start at a code point ending in 0, so the low four bits are the digit's value.
 var OTHER_DIGIT_RE = /[٠-٩۰-۹]/g;
@@ -1278,6 +1282,7 @@ module.exports = {
   findPersonalData: findPersonalData,
   findProfanity: findProfanity,
   cleanText: cleanText,
+  stripInvisible: stripInvisible,
   assertCleanText: assertCleanText,
   REPORT_EVENT_FIELDS: REPORT_EVENT_FIELDS,
   REPORT_EVENT_DETAIL_MAX_LENGTH: REPORT_EVENT_DETAIL_MAX_LENGTH,
@@ -1300,7 +1305,7 @@ module.exports = {
 // CommonJS on purpose, and no node:crypto - this file is inlined into app.html and must run in a browser.
 
 const { SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
-const { assertCleanText } = require('./validator.js');
+const { assertCleanText, stripInvisible } = require('./validator.js');
 
 const ACCEPTED_FIELDS = Object.freeze(['title', 'subject', 'durationMinutes', 'body']);
 const TITLE_MAX_LENGTH = 120;
@@ -1330,9 +1335,10 @@ function hex8(n) {
 // does the code-point order of the same letters. A Hebrew title with niqqud, or a Latin letter with an
 // accent, arrives composed or decomposed depending on the keyboard and the OS; NFC folds both spellings
 // into one, so the same title typed on a phone and on a laptop gets the same id. NFC leaves ASCII alone,
-// so no id already on file moves.
+// so no id already on file moves. The marks nobody sees (RLM, LRM, zero-width space...) go too: a Hebrew
+// title pasted from WhatsApp carries an RLM the typed one does not, and the reader sees one title.
 function normalizeTitle(title) {
-  return String(title).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
+  return stripInvisible(title).normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 // The id of a unit from the three fields that define it. Exported so a caller can ask whether a unit
