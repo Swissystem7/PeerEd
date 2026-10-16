@@ -80,3 +80,48 @@ test('match screen: failed computeMatch clears stale results and shows error', (
   assert.match($('matchStatus').textContent, /צריך לפחות סטודנט אחד ותלמיד אחד/);
   assert.match($('pairs').innerHTML, /מופיע אחרי חישוב שידוך/);
 });
+
+test('match screen: toggling parent consent resets stale match results and blocks export', () => {
+  const $ = openApp();
+  addPerson($, 'pupil', 'CENTER', ['MATH'], ['SUN_16']);
+  addPerson($, 'student', 'CENTER', ['MATH'], ['SUN_16']);
+
+  $('runMatch').fire('click');
+  assert.match(text($('pairs').innerHTML), /סטודנט מלמד #2 עם תלמיד #1/);
+
+  // Toggle parent consent off for pupil (#1, index 0)
+  $('peopleList').fire('click', { target: { getAttribute: (k) => (k === 'data-consent' ? '0' : null) } });
+  assert.match($('summary').innerHTML, /מופיע אחרי חישוב שידוך/);
+  assert.match($('pairs').innerHTML, /מופיע אחרי חישוב שידוך/);
+  assert.match($('unmatched').innerHTML, /מופיע אחרי חישוב שידוך/);
+  assert.match($('across').innerHTML, /מופיע אחרי חישוב שידוך/);
+
+  // Export is blocked until recomputed
+  $('exportCsv').fire('click');
+  assert.equal($.downloads.length, 0, 'export must be blocked when match is reset');
+  assert.ok($('matchStatus').className.includes('bad'));
+});
+
+test('match screen: wiping the device resets match cards and prevents exporting wiped data', () => {
+  const $ = openApp();
+  addPerson($, 'pupil', 'CENTER', ['MATH'], ['SUN_16']);
+  addPerson($, 'student', 'CENTER', ['MATH'], ['SUN_16']);
+
+  $('runMatch').fire('click');
+  assert.match(text($('pairs').innerHTML), /סטודנט מלמד #2 עם תלמיד #1/);
+
+  // Arm and confirm device wipe
+  $('wipeBtn').fire('click');
+  $('wipeBtn').fire('click');
+
+  assert.match($('summary').innerHTML, /מופיע אחרי חישוב שידוך/);
+  assert.match($('pairs').innerHTML, /מופיע אחרי חישוב שידוך/);
+  assert.match($('unmatched').innerHTML, /מופיע אחרי חישוב שידוך/);
+  assert.match($('across').innerHTML, /מופיע אחרי חישוב שידוך/);
+
+  // Export is blocked rather than exporting the wiped roster's pairs
+  $('exportCsv').fire('click');
+  assert.equal($.downloads.length, 0, 'export must be blocked after device wipe');
+  assert.ok($('matchStatus').className.includes('bad'));
+  assert.match($('matchStatus').textContent, /קודם לחץ "חשב שידוך"/);
+});

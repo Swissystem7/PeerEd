@@ -155,6 +155,10 @@ test('wipe: the first click only arms the button; nothing is deleted until the s
   assert.equal($('reportBox').hidden, true);
   assert.equal($('addStatus').textContent, '', 'stale status lines are cleared');
   assert.equal($('sessionStatus').textContent, '');
+  assert.equal($('summary').innerHTML.indexOf('מופיע אחרי חישוב שידוך') !== -1, true);
+  assert.equal($('pairs').innerHTML.indexOf('מופיע אחרי חישוב שידוך') !== -1, true);
+  assert.equal($('unmatched').innerHTML.indexOf('מופיע אחרי חישוב שידוך') !== -1, true);
+  assert.equal($('across').innerHTML.indexOf('מופיע אחרי חישוב שידוך') !== -1, true);
   // The device starts over cleanly: a new demo numbers from #1 again and is stored under the key.
   $('demoBtn').click();
   assert.equal($('peopleList').innerHTML.indexOf('<b>סטודנט מלמד #1</b>') !== -1, true);
