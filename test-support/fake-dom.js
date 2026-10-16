@@ -37,6 +37,11 @@ function openApp(opts) {
   const downloads = [];
   const created = [];
   class FakeBlob { constructor(parts, o) { this.text = parts.join(''); this.type = (o && o.type) || ''; } }
+  const localStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; }
+  };
   const ctx = {
     document: {
       getElementById: $,
@@ -44,8 +49,9 @@ function openApp(opts) {
       createElement: (tag) => { const e = fakeElement('<' + tag + '>'); created.push(e); return e; },
       body: fakeElement('body')
     },
-    localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
-    window: { scrollTo() {} },
+    // the app reads window.localStorage, so opts.store only reaches it through window
+    localStorage: localStorage,
+    window: { scrollTo() {}, localStorage: localStorage },
     Blob: FakeBlob,
     URL: {
       createObjectURL: (b) => { downloads.push(b); return 'blob:fake/' + downloads.length; },

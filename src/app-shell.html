@@ -384,6 +384,8 @@
     ['invalid report code:', 'בדוח יש קוד לא תקין'],
     ['invalid stored log', 'יומן השיעורים השמור לא תקין'],
     ['invalid stored session:', 'שיעור שמור לא תקין'],
+    // store.js, on load: a document that is not JSON, has another schema or no people list
+    ['invalid stored state', 'הקובץ השמור פגום'],
     // unit.js length errors use 'invalid ' + fieldName + ':'; prefix match still hits the lines above when the field is title or body.
     ['invalid ', 'לא תקין'],
     ['text too long', 'הטקסט ארוך מדי'],
@@ -404,7 +406,8 @@
   function load() {
     var loaded = store.load();
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
-    if (loaded.problem) say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + loaded.problem, true);
+    // problem is store.js's English message; the status line is Hebrew like every other one
+    if (loaded.problem) say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '.', true);
     resetMatchView();
   }
 
