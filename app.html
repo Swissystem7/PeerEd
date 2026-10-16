@@ -2597,7 +2597,7 @@ module.exports = {
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
     say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
-      (last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
+      (last.left.length === 0 ? 'כולם שובצו.' : last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
 
   // ---------- text gate ----------
