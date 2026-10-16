@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { matchPairs, makeMatchRecord } = require('../src/lib/match.js');
+const { matchPairs, matchAcrossRegions, makeMatchRecord } = require('../src/lib/match.js');
 const { makeProfile } = require('../src/lib/profile.js');
 const { getRetentionPolicy } = require('../src/lib/retention.js');
 
@@ -64,7 +64,19 @@ test('match record: a missing or unreadable recordedAt is refused, never default
 test('match record: anything that is not a matchPairs() candidate is refused', () => {
   const pair = onePair();
   for (const bad of [null, undefined, 'SUN_16', [pair], {}, Object.assign({}, pair, { sharedSlots: 'SUN_16' }),
-    Object.assign({}, pair, { studentIndex: -1 }), Object.assign({}, pair, { pupilIndex: -2 })]) {
+    Object.assign({}, pair, { studentIndex: -1 }), Object.assign({}, pair, { pupilIndex: -2 }),
+    Object.assign({}, pair, { region: undefined }), Object.assign({}, pair, { region: undefined, pupilRegion: 'NORTH' })]) {
     assert.throws(() => makeMatchRecord(bad, '2026-03-04'), /match pair/, 'accepted ' + JSON.stringify(bad));
   }
+});
+
+test('match record: a matchAcrossRegions() pair keeps both regions after a JSON round trip', () => {
+  const s = makeProfile({ role: 'student', region: 'CENTER', availability: ['MON_18'], subjects: ['MATH'] });
+  const p = makeProfile({ role: 'pupil', region: 'NORTH', availability: ['MON_18'], subjects: ['MATH'], parentConsent: true });
+  const across = matchAcrossRegions([s], [p], matchPairs([s], [p]));
+  assert.equal(across.length, 1);
+  const row = JSON.parse(JSON.stringify(makeMatchRecord(across[0], '2026-03-04')));
+  assert.equal(row.studentRegion, 'CENTER');
+  assert.equal(row.pupilRegion, 'NORTH');
+  assert.equal('region' in row, false, 'a cross-region row has no single region');
 });

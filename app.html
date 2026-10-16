@@ -863,18 +863,25 @@ function makeMatchRecord(pair, recordedAt) {
   if (!Number.isInteger(pair.studentIndex) || pair.studentIndex < 0) throw new Error(PAIR_ERROR);
   if (!Number.isInteger(pair.pupilIndex) || pair.pupilIndex < 0) throw new Error(PAIR_ERROR);
   if (!Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) throw new Error(PAIR_ERROR);
+  // a local pair names one region, a matchAcrossRegions() pair names both; a row with neither would be
+  // stored with no region at all (JSON drops an undefined key)
+  const local = typeof pair.region === 'string';
+  if (!local && (typeof pair.studentRegion !== 'string' || typeof pair.pupilRegion !== 'string')) {
+    throw new Error(PAIR_ERROR);
+  }
   if (recordedAt === undefined || recordedAt === null) {
     throw new Error('invalid recordedAt: expected a Date or an ISO date string');
   }
-  return Object.freeze({
+  const where = local ? { region: pair.region } : { studentRegion: pair.studentRegion, pupilRegion: pair.pupilRegion };
+  return Object.freeze(Object.assign({
     studentIndex: pair.studentIndex,
-    pupilIndex: pair.pupilIndex,
-    region: pair.region,
+    pupilIndex: pair.pupilIndex
+  }, where, {
     sharedSlots: Object.freeze(pair.sharedSlots.slice()),
     sharedSubjects: Object.freeze(pair.sharedSubjects.slice()),
     recordedAt: utcDay(recordedAt),
     retention: Object.freeze({ dataCategory: 'match', maxAgeDays: getRetentionPolicy().match })
-  });
+  }));
 }
 
 // A second, opt-in pass for an emergency: sessions are text only, so a pupil whose own region has no
