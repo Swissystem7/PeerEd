@@ -2802,9 +2802,13 @@ module.exports = {
   }
   function renderSessionForm() {
     var pairs = currentPairs();
+    // currentPairs() splits the roster in list order like splitByRole(), so its indexes map to list numbers
+    var r = splitByRole();
     fillSelect('sessionPair', pairs.map(function (p, i) { return String(i); }), function (v, i) {
       var p = pairs[i];
       return 'זוג ' + (i + 1) + ' · ' + (REGION_HE[p.region] || p.region) + ' · ' +
+        ROLE_HE.student + ' #' + r.students[p.studentIndex].number + ' עם ' +
+        ROLE_HE.pupil + ' #' + r.pupils[p.pupilIndex].number + ' · ' +
         p.sharedSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ');
     }, 'אין עדיין זוגות משודכים — הוסף משתתפים וחשב שידוך');
     renderSessionChoices(pairs);
