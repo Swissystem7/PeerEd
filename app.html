@@ -2635,7 +2635,7 @@ module.exports = {
     if (personal) parts.push(personal === 1 ? 'פרט אישי אחד' : personal + ' פרטים אישיים');
     if (rude) parts.push(rude === 1 ? 'מילה פוגענית אחת' : rude + ' מילים פוגעניות');
     var found = hits.length > 1 ? 'נמצאו ' : (rude ? 'נמצאה ' : 'נמצא ');
-    say('checkStatus', 'נחסם. ' + found + parts.join(' ו-') + '.', true);
+    say('checkStatus', 'נחסם. ' + found + parts.join(rude === 1 ? ' ו' : ' ו-') + '.', true);
     // h.index is a 0-based offset in UTF-16 units; a person counts characters from 1, and an emoji is one
     // character to them, not two.
     $('findings').innerHTML = hits.map(function (h) {
