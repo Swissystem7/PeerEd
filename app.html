@@ -1514,10 +1514,21 @@ function approve(queue, id) {
 
 // The reason is shown to the teacher, so it passes the same free-text gate as a unit: no personal data,
 // no profanity, bounded length. An empty reason is refused - a rejection without a reason is not a decision.
+// The gate's length errors name no field, so they are re-thrown naming the reason (the approver saw
+// 'text too short' on an empty box); personal-data and profanity errors pass through unchanged.
 function reject(queue, id, reason) {
   const entry = pendingEntry(queue, id);
   if (typeof reason !== 'string') throw new Error('invalid reason: expected a string');
-  const clean = assertCleanText(reason, { maxLength: REASON_MAX_LENGTH });
+  let clean;
+  try {
+    clean = assertCleanText(reason, { maxLength: REASON_MAX_LENGTH });
+  } catch (err) {
+    if (err.message === 'text too short') throw new Error('invalid reason: text too short, it is empty');
+    if (err.message === 'text too long') {
+      throw new Error('invalid reason: text too long, at most ' + REASON_MAX_LENGTH + ' characters');
+    }
+    throw err;
+  }
   return withEntry(queue, id, {
     unit: entry.unit, status: 'rejected', revision: entry.revision, seq: entry.seq,
     decidedBy: APPROVER_ROLE, reason: clean
@@ -2127,15 +2138,30 @@ module.exports = {
     ['invalid title:', 'כותרת לא תקינה'],
     ['invalid text:', 'טקסט לא תקין'],
     ['invalid body:', 'טקסט לא תקין'],
+    // The approval queue and the session log (units and sessions screens).
+    ['unit is not pending:', 'כבר הוחלט על היחידה הזאת'],
+    ['unknown unit id:', 'היחידה לא נמצאה בתור'],
+    ['invalid reason: text too short', 'כתוב סיבה לדחייה'],
+    ['invalid reason: text too long', 'סיבת הדחייה ארוכה מדי'],
+    ['invalid reason:', 'סיבת הדחייה לא תקינה'],
+    ['approval queue is full:', 'תור האישורים מלא'],
+    ['invalid queue:', 'תור האישורים לא תקין'],
+    ['invalid unit:', 'היחידה לא בנויה נכון'],
+    ['invalid stored queue', 'תור האישורים השמור לא תקין'],
+    ['invalid stored entry:', 'רשומה שמורה בתור לא תקינה'],
+    ['unit is not approved:', 'אפשר לרשום רק יחידה מאושרת'],
+    ['session input must be an object with slot, subject, unitId, outcome', 'הרשומה לא בנויה נכון'],
+    ['invalid outcome:', 'תוצאה לא מוכרת'],
+    ['invalid pair:', 'הזוג לא תקין'],
+    ['invalid log:', 'יומן השיעורים לא תקין'],
+    ['session log is full:', 'יומן השיעורים מלא'],
+    ['invalid report code:', 'בדוח יש קוד לא תקין'],
+    ['invalid stored log', 'יומן השיעורים השמור לא תקין'],
+    ['invalid stored session:', 'שיעור שמור לא תקין'],
     // unit.js length errors use 'invalid ' + fieldName + ':'; prefix match still hits the lines above when the field is title or body.
     ['invalid ', 'לא תקין'],
     ['text too long', 'הטקסט ארוך מדי'],
-    ['text too short', 'אין טקסט לבדוק'],
-    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
-    ['invalid subject:', 'מקצוע שאינו ברשימה'],
-    ['invalid minutes:', 'משך השיעור לא תקין'],
-    ['invalid title:', 'כותרת לא תקינה'],
-    ['invalid text:', 'טקסט לא תקין']
+    ['text too short', 'אין טקסט לבדוק']
   ];
   function errorHe(err) {
     var msg = String(err && err.message || '');
@@ -2259,7 +2285,7 @@ module.exports = {
       var flipped;
       try {
         flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(who) : profile.grantParentConsent(who);
-      } catch (err) { say('addStatus', 'לא בוצע: ' + err.message, true); return; }
+      } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
       state.people[Number(c)] = flipped;
       last = null;
       renderPeople(); save();
@@ -2596,7 +2622,7 @@ module.exports = {
         state.queue = approval.reject(state.queue, rejectId, reasonBox ? reasonBox.value : '');
         say('decideStatus', 'נדחה עם סיבה. המורה יכול לתקן ולהגיש שוב - זה יחזור לתור כגרסה חדשה.');
       }
-    } catch (err) { say('decideStatus', 'לא בוצע: ' + err.message, true); return; }
+    } catch (err) { say('decideStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
     renderUnits(); save();
   });
 
@@ -2693,7 +2719,7 @@ module.exports = {
   // may refuse it, and a refused copy must not look like a copy).
   $('exportReport').addEventListener('click', function () {
     var text;
-    try { text = session.reportCsv(state.log); } catch (err) { say('reportStatus', 'לא יוצא: ' + err.message, true); return; }
+    try { text = session.reportCsv(state.log); } catch (err) { say('reportStatus', 'לא יוצא: ' + errorHe(err) + '.', true); return; }
     var box = $('reportText');
     box.value = text;
     $('reportBox').hidden = false;
@@ -2727,7 +2753,7 @@ module.exports = {
         unitId: $('sessionUnit').value,
         outcome: $('sessionOutcome').value
       });
-    } catch (err) { say('sessionStatus', 'לא נרשם: ' + err.message, true); return; }
+    } catch (err) { say('sessionStatus', 'לא נרשם: ' + errorHe(err) + '.', true); return; }
     renderSessions(); save();
     say('sessionStatus', 'נרשם שיעור ' + (state.log.nextSeq - 1) +
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
