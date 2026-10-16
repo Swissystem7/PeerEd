@@ -57,9 +57,13 @@ function cleanField(name, text, maxLength) {
   try {
     return assertCleanText(text, { maxLength: maxLength });
   } catch (err) {
-    if (err.message === 'text too short') throw new Error('invalid ' + name + ': text too short, it is empty');
+    if (err.message === 'text too short') {
+      if (name === 'title') throw new Error('invalid title: text too short, it is empty');
+      throw new Error('invalid body: text too short, it is empty');
+    }
     if (err.message === 'text too long') {
-      throw new Error('invalid ' + name + ': text too long, at most ' + maxLength + ' characters');
+      if (name === 'title') throw new Error('invalid title: text too long, at most ' + maxLength + ' characters');
+      throw new Error('invalid body: text too long, at most ' + maxLength + ' characters');
     }
     throw err;
   }

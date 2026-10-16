@@ -20,6 +20,9 @@
                padding:12px 4px; cursor:pointer; border-top:2px solid transparent; }
   nav button[aria-selected="true"] { color:var(--key); border-top-color:var(--key); font-weight:700; }
   nav button:focus-visible { outline:2px solid var(--key); outline-offset:-2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible {
+    outline:2px solid var(--key); outline-offset:2px;
+  }
   section[role="tabpanel"][hidden] { display:none; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
   .card h2 { font-size:1rem; margin:0 0 8px; }
@@ -87,15 +90,11 @@
         <p class="hint">נשמר רק כן או לא: בלי שם ההורה, בלי תאריך, בלי מסמך. תלמיד בלי אישור נשמר ברשימה אבל לא נכנס
           לשידוך בכלל, עד שמסמנים לו אישור.</p>
       </div>
-      <label>מקצועות</label>
-      <div class="chips" id="subjects"></div>
-      <label>שעות פנויות</label>
-      <p class="hint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
-      <div class="grid-hours" id="hours"></div>
-      <div id="consentRow" hidden>
-        <label><input type="checkbox" id="consent"> אישור הורה</label>
-        <p class="hint">תלמיד בלי אישור הורה לא משובץ. המפגשים בטקסט בלבד, וזה נחשב קשר שדורש אישור הורה.</p>
-      </div>
+      <label id="subjectsLabel">מקצועות</label>
+      <div class="chips" id="subjects" role="group" aria-labelledby="subjectsLabel"></div>
+      <label id="hoursLabel">שעות פנויות</label>
+      <p class="hint" id="hoursHint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
+      <div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint"></div>
       <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -354,6 +353,11 @@
     ['invalid subject:', 'מקצוע שאינו ברשימה'],
     ['invalid minutes:', 'משך הזמן לא תקין'],
     ['invalid durationMinutes:', 'משך הזמן לא תקין'],
+    ['invalid title: text too short', 'הכותרת ריקה'],
+    ['invalid title: text too long', 'הכותרת ארוכה מדי'],
+    ['invalid title: expected a single line', 'הכותרת חייבת להיות בשורה אחת'],
+    ['invalid body: text too short', 'תוכן היחידה ריק'],
+    ['invalid body: text too long', 'תוכן היחידה ארוך מדי'],
     ['invalid title:', 'כותרת לא תקינה'],
     ['invalid text:', 'טקסט לא תקין'],
     ['invalid body:', 'טקסט לא תקין'],
@@ -412,16 +416,19 @@
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
       var pupil = p.role === 'pupil';
       var consented = match.hasParentConsent(p);
-      return '<div class="item"><b>' + ROLE_HE[p.role] + ' #' + (i + 1) +
+      var personLabel = ROLE_HE[p.role] + ' #' + (i + 1);
+      return '<div class="item"><b>' + personLabel +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
         p.availability.length + ' שעות פנויות' +
         (pupil ? ' · אישור הורה: ' + (consented ? 'יש' : 'אין') : '') + '</span>' +
         (pupil && !consented ? '<div class="flag">בלי אישור הורה התלמיד לא נכנס לשידוך.</div>' : '') +
         '<div class="actions">' +
-        (pupil ? '<button type="button" class="ghost small" data-consent="' + i + '">' +
+        (pupil ? '<button type="button" class="ghost small" data-consent="' + i + '" aria-label="' +
+          esc((consented ? 'בטל אישור הורה ל' : 'סמן אישור הורה ל') + personLabel) + '">' +
           (consented ? 'בטל אישור הורה' : 'סמן אישור הורה') + '</button>' : '') +
-        '<button type="button" class="ghost small" data-del="' + i + '">מחק</button></div></div>';
+        '<button type="button" class="ghost small" data-del="' + i + '" aria-label="' +
+        esc('מחק ' + personLabel) + '">מחק</button></div></div>';
     }).join('') : '<p class="empty">אין עדיין משתתפים. אפשר לטעון דוגמה.</p>';
   }
 
@@ -753,11 +760,14 @@
     var pending = approval.listPending(q);
     $('pendingList').innerHTML = pending.length ? pending.map(function (entry) {
       var id = esc(entry.unit.id);
+      var title = esc(entry.unit.title);
       return unitCard(entry,
         '<label for="reason-' + id + '">סיבת דחייה (חובה רק לדחייה)</label>' +
         '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '">' +
-        '<div class="actions"><button type="button" class="act small" data-approve="' + id + '">אשר</button>' +
-        '<button type="button" class="ghost small" data-reject="' + id + '">דחה</button></div>');
+        '<div class="actions"><button type="button" class="act small" data-approve="' + id +
+        '" aria-label="אשר ' + title + '">אשר</button>' +
+        '<button type="button" class="ghost small" data-reject="' + id +
+        '" aria-label="דחה ' + title + '">דחה</button></div>');
     }).join('') : '<p class="empty">אין יחידות שממתינות. אפשר להגיש אחת למעלה או לטעון דוגמה.</p>';
 
     var approved = approval.approvedUnits(q).map(function (u) { return q.entries[u.id]; });
@@ -781,7 +791,7 @@
       var next = approval.submit(state.queue, made);
       if (next === state.queue) { say('unitStatus', 'כבר בתור, ללא שינוי: אותה יחידה בדיוק כבר הוגשה.'); return; }
       state.queue = next;
-    } catch (err) { say('unitStatus', 'נדחה: ' + err.message, true); return; }
+    } catch (err) { say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     renderUnits(); save();
     say('unitStatus', before === null ? 'הוגש וממתין לאישור. מזהה: ' + made.id
       : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + state.queue.entries[made.id].revision + '.');
