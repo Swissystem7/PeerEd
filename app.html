@@ -2287,10 +2287,6 @@ module.exports = {
     });
   }
 
-  $('role').addEventListener('change', function () {
-    $('consentRow').hidden = $('role').value !== 'pupil';
-  });
-
   $('addPerson').addEventListener('click', function () {
     var candidate = {
       role: $('role').value,
