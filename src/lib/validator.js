@@ -267,8 +267,17 @@ function assertCleanText(text, opts) {
   // so when a message carries both, that is the reason the writer is told about.
   if (hits.some(function (h) { return h.kind !== 'profanity'; })) throw new Error(PERSONAL_DATA_ERROR);
   if (hits.length > 0) throw new Error(PROFANITY_ERROR);
+  // Emptiness is judged the way a reader sees it, exactly as findPersonalData above reads the text: a box
+  // holding nothing but characters that take no space - a zero-width space, a soft hyphen, the RLM a
+  // Hebrew keyboard or a WhatsApp paste leaves behind - is an empty box, and a unit title, a lesson text
+  // or a rejection reason that reads as blank must be refused as blank instead of stored as text nobody
+  // can see. Asked before the upper bound, so a paste of nothing but those characters is reported as
+  // empty and not as too long. Only the measuring drops them: the text that comes back is still the text
+  // as written, so 'א<RLM>ב' is kept with its mark. cleanText runs again over what is left, because
+  // dropping the invisible characters can leave the spaces that stood between them ('<RLM> <ZWSP>'):
+  // trimmed away, that box is empty too.
+  if (cleanText(stripInvisible(cleaned)).length < minLength) throw new Error('text too short');
   if (cleaned.length > maxLength) throw new Error('text too long');
-  if (cleaned.length < minLength) throw new Error('text too short');
   return cleaned;
 }
 
