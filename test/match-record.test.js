@@ -63,7 +63,8 @@ test('match record: a missing or unreadable recordedAt is refused, never default
 
 test('match record: anything that is not a matchPairs() candidate is refused', () => {
   const pair = onePair();
-  for (const bad of [null, undefined, 'SUN_16', [pair], {}, Object.assign({}, pair, { sharedSlots: 'SUN_16' })]) {
+  for (const bad of [null, undefined, 'SUN_16', [pair], {}, Object.assign({}, pair, { sharedSlots: 'SUN_16' }),
+    Object.assign({}, pair, { studentIndex: -1 }), Object.assign({}, pair, { pupilIndex: -2 })]) {
     assert.throws(() => makeMatchRecord(bad, '2026-03-04'), /match pair/, 'accepted ' + JSON.stringify(bad));
   }
 });
