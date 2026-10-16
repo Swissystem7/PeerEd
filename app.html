@@ -2328,7 +2328,7 @@ module.exports = {
       return '<div class="item"><b>' + personLabel +
         '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
         p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
-        p.availability.length + ' שעות פנויות' +
+        countHe(p.availability.length, 'שעה פנויה', 'שעות פנויות', 'אחת') +
         (pupil ? ' · אישור הורה: ' + (consented ? 'יש' : 'אין') : '') + '</span>' +
         (pupil && !consented ? '<div class="flag">בלי אישור הורה התלמיד לא נכנס לשידוך.</div>' : '') +
         '<div class="actions">' +
@@ -2384,7 +2384,7 @@ module.exports = {
     resetMatchView();
     clearDraft();
     renderPeople();
-    say('addStatus', 'נוסף. סך הכול ' + state.people.length + ' משתתפים.');
+    say('addStatus', 'נוסף. סך הכול ' + countHe(state.people.length, 'משתתף', 'משתתפים') + '.');
     save('addStatus');
   });
 
