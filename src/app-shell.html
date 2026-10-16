@@ -222,15 +222,15 @@
       <p class="hint">הזוגות מחושבים מחדש מהרשימה (אותו קלט, אותם זוגות). אפשר לרשום רק שעה ומקצוע שהזוג
         חולק, ורק יחידה שאושרה במסך "יחידות" באותו מקצוע.</p>
       <label for="sessionPair">זוג</label>
-      <select id="sessionPair"></select>
+      <select id="sessionPair" aria-required="true" aria-describedby="sessionStatus"></select>
       <div class="row">
-        <div><label for="sessionSlot">שעה</label><select id="sessionSlot"></select></div>
-        <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject"></select></div>
+        <div><label for="sessionSlot">שעה</label><select id="sessionSlot" aria-required="true" aria-describedby="sessionStatus"></select></div>
+        <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject" aria-required="true" aria-describedby="sessionStatus"></select></div>
       </div>
       <label for="sessionUnit">יחידה מאושרת</label>
-      <select id="sessionUnit"></select>
+      <select id="sessionUnit" aria-required="true" aria-describedby="sessionStatus"></select>
       <label for="sessionOutcome">איך הסתיים</label>
-      <select id="sessionOutcome"></select>
+      <select id="sessionOutcome" aria-required="true" aria-describedby="sessionStatus"></select>
       <div class="actions"><button type="button" class="act" id="logSession">רשום שיעור</button></div>
       <p class="status" id="sessionStatus" role="status"></p>
     </div>
@@ -242,7 +242,7 @@
       <div class="actions"><button type="button" class="ghost" id="exportReport">ייצא דוח CSV</button></div>
       <div id="reportBox" hidden>
         <label for="reportText">הדוח (לקריאה בלבד)</label>
-        <textarea id="reportText" readonly dir="ltr" spellcheck="false"></textarea>
+        <textarea id="reportText" readonly dir="ltr" spellcheck="false" aria-describedby="reportStatus"></textarea>
       </div>
       <p class="status" id="reportStatus" role="status"></p>
     </div>
@@ -1003,6 +1003,8 @@
     var pairs = currentPairs();
     var pair = pairs[Number($('sessionPair').value)];
     if (!pair) {
+      var sp = $('sessionPair');
+      if (sp && sp.focus) sp.focus();
       say('sessionStatus', 'אין זוג לרשום לו שיעור. טען משתתפים במסך "אנשים" ובדוק במסך "שידוך" שנוצר זוג.', true);
       return;
     }
@@ -1013,7 +1015,23 @@
         unitId: $('sessionUnit').value,
         outcome: $('sessionOutcome').value
       });
-    } catch (err) { say('sessionStatus', 'לא נרשם: ' + errorHe(err) + '.', true); return; }
+    } catch (err) {
+      if (/unit/i.test(err.message)) {
+        var u = $('sessionUnit');
+        if (u && u.focus) u.focus();
+      } else if (/slot/i.test(err.message)) {
+        var sl = $('sessionSlot');
+        if (sl && sl.focus) sl.focus();
+      } else if (/subject/i.test(err.message)) {
+        var sub = $('sessionSubject');
+        if (sub && sub.focus) sub.focus();
+      } else if (/outcome/i.test(err.message)) {
+        var oc = $('sessionOutcome');
+        if (oc && oc.focus) oc.focus();
+      }
+      say('sessionStatus', 'לא נרשם: ' + errorHe(err) + '.', true);
+      return;
+    }
     renderSessions();
     say('sessionStatus', 'נרשם שיעור ' + (state.log.nextSeq - 1) +
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
