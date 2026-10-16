@@ -196,6 +196,25 @@ test('wipe: cancel disarms the button and deletes nothing', () => {
   assert.equal(storage.items[DEFAULT_KEY], before);
 });
 
+test('wipe: a change after arming disarms it, so the second click never deletes more than the screen counted', () => {
+  const storage = fakeStorage();
+  const { $ } = runApp(storage);
+  fillDevice($);
+  $('wipeBtn').click();
+  assert.equal($('wipeStatus').textContent.indexOf('יימחקו 7 משתתפים') === 0, true, $('wipeStatus').textContent);
+  // the roster grows while the button is armed
+  $('demoBtn').click();
+  assert.equal($('wipeBtn').textContent, 'מחק הכול מהמכשיר הזה', 'the change disarmed the button');
+  assert.equal($('wipeCancel').hidden, true);
+  assert.equal($('wipeStatus').textContent.indexOf('הרשימה השתנתה') === 0, true, $('wipeStatus').textContent);
+  // the next click arms again with the new counts instead of deleting
+  $('wipeBtn').click();
+  assert.equal(typeof storage.items[DEFAULT_KEY], 'string', 'nothing was deleted');
+  assert.equal($('wipeBtn').textContent, 'כן, מחק הכול');
+  const people = $('peopleList').innerHTML.split('<div class="item">').length - 1;
+  assert.equal($('wipeStatus').textContent.indexOf('יימחקו ' + people + ' משתתפים') === 0, true, $('wipeStatus').textContent);
+});
+
 test('wipe: a storage that refuses to remove the key still loses the screen, and the status says so', () => {
   const storage = fakeStorage({ refuseRemove: true });
   const { $ } = runApp(storage);

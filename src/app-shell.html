@@ -398,7 +398,13 @@
     }
     return 'הקלט נדחה';
   }
+  // Every change goes through save(), so this is also where an armed wipe is disarmed: its second click
+  // would delete more (or other things) than the counts the first click put on the screen.
   function save() {
+    if (wipeArmed) {
+      setWipeArmed(false);
+      say('wipeStatus', 'הרשימה השתנתה, אז המחיקה בוטלה. לחץ שוב כדי לראות מה יימחק.');
+    }
     if (!store.save(state)) say('addStatus', 'נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי?).', true);
   }
   // load() never throws. A document that fails the privacy gate - an extra key, an unapproved unit -
