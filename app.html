@@ -824,7 +824,9 @@ function utcDay(value) {
 // screen stores a match yet.
 function makeMatchRecord(pair, recordedAt) {
   if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) throw new Error(PAIR_ERROR);
-  if (!Number.isInteger(pair.studentIndex) || !Number.isInteger(pair.pupilIndex)) throw new Error(PAIR_ERROR);
+  // an index is a position in the students / pupils arrays: -1 would be a stored row that points at nobody
+  if (!Number.isInteger(pair.studentIndex) || pair.studentIndex < 0) throw new Error(PAIR_ERROR);
+  if (!Number.isInteger(pair.pupilIndex) || pair.pupilIndex < 0) throw new Error(PAIR_ERROR);
   if (!Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) throw new Error(PAIR_ERROR);
   if (recordedAt === undefined || recordedAt === null) {
     throw new Error('invalid recordedAt: expected a Date or an ISO date string');
