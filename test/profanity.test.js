@@ -123,3 +123,15 @@ test('profanity: a word stretched with repeated letters is still the word', () =
     assert.deepEqual(kindsIn(text), [], text);
   }
 });
+
+test('profanity: a word spelled one letter at a time is still the word, a spelled root or acronym is not', () => {
+  for (const [text, match] of [['f.u.c.k you', 'f.u.c.k'], ['this is s h i t', 's h i t'], ['b*i*t*c*h', 'b*i*t*c*h'],
+    ['אתה ז-ו-נ-ה', 'ז-ו-נ-ה'], ['ד.ב.י.ל', 'ד.ב.י.ל'], ['I f u c k', 'f u c k'], ['F_U_U_C_K', 'F_U_U_C_K']]) {
+    assert.deepEqual(findPersonalData(text).map((h) => [h.kind, h.match]), [['profanity', match]], text);
+    assert.throws(() => assertCleanText(text), { message: PROFANITY_ERROR }, text);
+  }
+  // a three-letter Hebrew root, an acronym, a list of options, a mixed separator, alimony spelled out
+  for (const text of ['השורש ח-ר-א והשורש ש.מ.ר', 'U.S.A. and N.A.T.O', 'a b c d', 'f.u-c.k', 'מ.ז.ו.נ.ו.ת']) {
+    assert.deepEqual(kindsIn(text), [], text);
+  }
+});
