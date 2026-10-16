@@ -2739,15 +2739,24 @@ module.exports = {
     var pupils = state.people.filter(function (p) { return p.role === 'pupil'; });
     return match.matchPairs(students, pupils);
   }
-  function fillSelect(id, values, label) {
+  function fillSelect(id, values, label, emptyLabel) {
     var el = $(id);
-    el.innerHTML = values.map(function (v, i) {
-      return '<option value="' + esc(v) + '">' + esc(label(v, i)) + '</option>';
-    }).join('');
+    if (!values.length && emptyLabel) {
+      el.innerHTML = '<option value="">' + esc(emptyLabel) + '</option>';
+    } else {
+      el.innerHTML = values.map(function (v, i) {
+        return '<option value="' + esc(v) + '">' + esc(label(v, i)) + '</option>';
+      }).join('');
+    }
     el.disabled = values.length === 0;
   }
   function renderSessionUnits() {
     var subject = $('sessionSubject').value;
+    if (!subject) {
+      $('sessionUnit').innerHTML = '<option value="">אין יחידה לבחירה — בחר זוג תחילה</option>';
+      $('sessionUnit').disabled = true;
+      return;
+    }
     var units = approval.approvedUnits(state.queue).filter(function (u) { return u.subject === subject; });
     if (!units.length) {
       $('sessionUnit').innerHTML = '<option value="">אין יחידה מאושרת במקצוע הזה - אשר אחת במסך יחידות</option>';
@@ -2760,9 +2769,9 @@ module.exports = {
   }
   function renderSessionChoices(pairs) {
     var pair = pairs[Number($('sessionPair').value)];
-    fillSelect('sessionSlot', pair ? pair.sharedSlots : [], slotHe);
+    fillSelect('sessionSlot', pair ? pair.sharedSlots : [], slotHe, 'אין שעות פנויות לבחירה');
     var subjects = pair ? pair.sharedSubjects : [];
-    fillSelect('sessionSubject', subjects, function (s) { return SUBJECT_HE[s] || s; });
+    fillSelect('sessionSubject', subjects, function (s) { return SUBJECT_HE[s] || s; }, 'אין מקצועות משותפים לבחירה');
     // Start on the first shared subject that has an approved unit, so the unit list is not empty by default.
     var approved = approval.approvedUnits(state.queue);
     for (var i = 0; i < subjects.length; i += 1) {
@@ -2777,7 +2786,7 @@ module.exports = {
       var p = pairs[i];
       return 'זוג ' + (i + 1) + ' · ' + (REGION_HE[p.region] || p.region) + ' · ' +
         p.sharedSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ');
-    });
+    }, 'אין עדיין זוגות משודכים — הוסף משתתפים וחשב שידוך');
     renderSessionChoices(pairs);
   }
 
@@ -2823,11 +2832,12 @@ module.exports = {
     var box = $('reportText');
     box.value = text;
     $('reportBox').hidden = false;
-    box.focus();
-    box.select();
+    if (box.focus) box.focus();
+    if (box.select) box.select();
     var lines = text.split('\n').length - 2;
-    var done = 'הדוח מוכן: ' + lines + ' שורות של ספירות, מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
-    if (navigator.clipboard && navigator.clipboard.writeText) {
+    var linesHe = lines === 1 ? 'שורה אחת' : lines + ' שורות';
+    var done = 'הדוח מוכן: ' + linesHe + ' של ספירות, מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
         say('reportStatus', done + ' הועתק גם ללוח.');
       }, function () { say('reportStatus', done); });

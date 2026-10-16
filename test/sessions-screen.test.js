@@ -14,6 +14,7 @@ const { makeUnit } = require('../src/lib/unit.js');
 const approval = require('../src/lib/approval.js');
 const session = require('../src/lib/session.js');
 const { emptyState, serialize, deserialize } = require('../src/lib/store.js');
+const { openApp } = require('../test-support/fake-dom.js');
 
 const ROOT = path.join(__dirname, '..');
 const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
@@ -150,3 +151,24 @@ test('sessions screen: a pending unit, a foreign subject or an extra key never r
   assert.equal(pairsOf([]).length, 0);
   assert.equal(state.log.entries.length, 0);
 });
+
+test('sessions screen: form selects have informative empty state options on load', () => {
+  const $ = openApp();
+  assert.equal($('sessionPair').disabled, true);
+  assert.match($('sessionPair').innerHTML, /אין עדיין זוגות משודכים/);
+  assert.equal($('sessionSlot').disabled, true);
+  assert.match($('sessionSlot').innerHTML, /אין שעות פנויות לבחירה/);
+  assert.equal($('sessionSubject').disabled, true);
+  assert.match($('sessionSubject').innerHTML, /אין מקצועות משותפים לבחירה/);
+  assert.equal($('sessionUnit').disabled, true);
+  assert.match($('sessionUnit').innerHTML, /אין יחידה לבחירה — בחר זוג תחילה/);
+});
+
+test('sessions screen: report export with one count line reads as Hebrew "שורה אחת"', () => {
+  const $ = openApp();
+  $('exportReport').fire('click');
+  assert.match($('reportStatus').textContent, /שורה אחת של ספירות/);
+  assert.doesNotMatch($('reportStatus').textContent, /1 שורות/);
+});
+
+
