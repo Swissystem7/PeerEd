@@ -186,3 +186,15 @@ test('cycle sweep: a day is read only from a Date or an ISO string, and only if 
   assert.equal(ageInDays('2026-03-04T01:30:00+03:00', ASOF), 1, 'an offset is honoured: that is 3 March in UTC');
   assert.equal(ageInDays(new Date(Date.UTC(2026, 2, 3)), ASOF), 1);
 });
+
+test('cycle sweep: a day in the years 0-99 stays in its own century', () => {
+  // Date.UTC reads the year 50 as 1950, so a row from the year 50 was 1900 years too young
+  const year50 = new Date(0);
+  year50.setUTCFullYear(50, 0, 1);
+  const year51 = new Date(0);
+  year51.setUTCFullYear(51, 0, 1);
+  assert.equal(ageInDays(year50, year51), 365);
+  assert.equal(ageInDays('0050-01-01', '0051-01-01'), 365, 'the ISO day is read, not refused');
+  assert.equal(ageInDays(year50, '2026-01-01'), ageInDays('0050-01-01', '2026-01-01'));
+  assert.ok(ageInDays(year50, '2026-01-01') > 700000);
+});

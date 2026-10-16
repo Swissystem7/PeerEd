@@ -32,14 +32,16 @@ function utcMidnight(value, what) {
   if (!(value instanceof Date)) {
     const m = typeof value === 'string' ? ISO_DATE.exec(value) : null;
     if (m === null) throw bad;
-    const day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    // setUTCFullYear, not Date.UTC: Date.UTC reads a year 0-99 as 1900-1999
+    const day = new Date(0);
+    day.setUTCFullYear(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     if (day.getUTCFullYear() !== Number(m[1]) || day.getUTCMonth() !== Number(m[2]) - 1 || day.getUTCDate() !== Number(m[3])) {
       throw bad;
     }
     d = new Date(value);
   }
   if (Number.isNaN(d.getTime())) throw bad;
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return Math.floor(d.getTime() / 86400000) * 86400000;
 }
 
 // Whole days between two timestamps, on the UTC calendar, so an evening row is no older than a morning one.
