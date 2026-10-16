@@ -171,4 +171,11 @@ test('sessions screen: report export with one count line reads as Hebrew "שור
   assert.doesNotMatch($('reportStatus').textContent, /1 שורות/);
 });
 
+test('sessions screen: a report exported from an empty log says the log is empty', () => {
+  const $ = openApp();
+  $('exportReport').fire('click');
+  assert.match($('reportStatus').textContent, /0 שיעורים, כי היומן ריק/);
+  assert.match($('reportText').value, /^sessions,,0$/m);
+});
+
 
