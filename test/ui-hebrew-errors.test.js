@@ -79,10 +79,22 @@ test('the forbidden-field demo shows the refusal in Hebrew', () => {
   assert.doesNotMatch($('gateStatus').textContent, LATIN, $('gateStatus').textContent);
 });
 
-// profile.js, validator.js and unit.js are the modules a screen input reaches: the add-participant form,
-// the free-text gate and the unit record. approval.js is deliberately absent - its errors describe a
-// corrupt stored queue, and no screen runs the approval flow yet (see README).
-const SCREEN_MODULES = ['profile.js', 'validator.js', 'unit.js'];
+test('logging a lesson with no approved unit explains it in Hebrew', () => {
+  const $ = openApp();
+  $('demoBtn').fire('click');
+  $('sessionPair').value = '0';
+  $('sessionSlot').value = 'SUN_16';
+  $('sessionSubject').value = 'MATH';
+  $('sessionUnit').value = '';                             // the unit list is empty: nothing approved yet
+  $('sessionOutcome').value = 'held';
+  $('logSession').fire('click');
+  assert.ok($('sessionStatus').className.includes('bad'), 'the lesson should be refused');
+  assert.doesNotMatch($('sessionStatus').textContent, LATIN, $('sessionStatus').textContent);
+});
+
+// The modules a screen input reaches: the add-participant form, the free-text gate, the unit record,
+// the approve/reject buttons and the log-session button with its CSV export.
+const SCREEN_MODULES = ['profile.js', 'validator.js', 'unit.js', 'approval.js', 'session.js'];
 
 test('every error the modules can throw has a Hebrew line in the shell', () => {
   const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
