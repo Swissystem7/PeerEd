@@ -41,9 +41,21 @@ function assertPair(pair) {
   }
 }
 
+// Whether a unit may stand on a session row. A new row needs the unit approved now. A stored row is
+// a lesson already given, so it also stands on a unit the teacher revised after it was taught: the
+// revision sends the unit back to pending (and may be rejected), and refusing the old row then threw
+// the whole saved state away - roster, queue and log - on the next load. Only a unit that has had a
+// revision (revision > 1) may have been approved before; one still on its first text never was.
+function unitTaughtOk(queue, unitId, stored) {
+  const status = statusOf(queue, unitId);
+  if (status === 'approved') return true;
+  return stored === true && status !== null && queue.entries[unitId].revision > 1;
+}
+
 // The checks shared by a live report and a stored record: the slot and subject are ones the pair
-// shares, the unit is approved in the queue, and the subject is the unit's own subject.
-function cleanEntry(queue, region, sharedSlots, sharedSubjects, input) {
+// shares, the unit is approved in the queue (or was, for a stored row - unitTaughtOk), and the
+// subject is the unit's own subject.
+function cleanEntry(queue, region, sharedSlots, sharedSubjects, input, stored) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('session input must be an object with slot, subject, unitId, outcome');
   }
@@ -62,7 +74,7 @@ function cleanEntry(queue, region, sharedSlots, sharedSubjects, input) {
   if (OUTCOMES.indexOf(input.outcome) === -1) {
     throw new Error('invalid outcome: expected one of ' + OUTCOMES.join(', '));
   }
-  if (typeof input.unitId !== 'string' || statusOf(queue, input.unitId) !== 'approved') {
+  if (typeof input.unitId !== 'string' || !unitTaughtOk(queue, input.unitId, stored)) {
     throw new Error(UNIT_NOT_APPROVED_ERROR);
   }
   if (queue.entries[input.unitId].unit.subject !== input.subject) {
@@ -164,7 +176,7 @@ function loadLog(data, queue) {
       throw new Error('invalid stored session: seq out of order at ' + i);
     }
     const clean = cleanEntry(queue, raw.region, [normalizeSlot(raw.slot)], [raw.subject],
-      { slot: raw.slot, subject: raw.subject, unitId: raw.unitId, outcome: raw.outcome });
+      { slot: raw.slot, subject: raw.subject, unitId: raw.unitId, outcome: raw.outcome }, true);
     clean.seq = raw.seq;
     entries.push(Object.freeze(clean));
     lastSeq = raw.seq;
