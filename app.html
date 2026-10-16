@@ -1278,6 +1278,21 @@ function unitId(title, subject, durationMinutes) {
   return ID_PREFIX + hex8(fnv1a32(key, 0x811c9dc5)) + hex8(fnv1a32(key, 0x050c5d1f));
 }
 
+// The gate's length errors name no field, so the teacher saw 'text too short' and could not tell whether
+// the title or the body was empty. They are re-thrown naming the field and the limit. The personal-data
+// and profanity errors pass through unchanged: they read the same on every screen.
+function cleanField(name, text, maxLength) {
+  try {
+    return assertCleanText(text, { maxLength: maxLength });
+  } catch (err) {
+    if (err.message === 'text too short') throw new Error('invalid ' + name + ': text too short, it is empty');
+    if (err.message === 'text too long') {
+      throw new Error('invalid ' + name + ': text too long, at most ' + maxLength + ' characters');
+    }
+    throw err;
+  }
+}
+
 function makeUnit(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('unit input must be an object with title, subject, durationMinutes, body');
@@ -1298,9 +1313,9 @@ function makeUnit(input) {
   if (typeof input.title !== 'string') throw new Error('invalid title: expected a string');
   if (typeof input.body !== 'string') throw new Error('invalid body: expected a string');
   // The gate throws the personal-data or profanity error itself; a title is one line.
-  const title = assertCleanText(input.title, { maxLength: TITLE_MAX_LENGTH });
+  const title = cleanField('title', input.title, TITLE_MAX_LENGTH);
   if (title.indexOf('\n') !== -1) throw new Error('invalid title: expected a single line');
-  const body = assertCleanText(input.body, { maxLength: BODY_MAX_LENGTH });
+  const body = cleanField('body', input.body, BODY_MAX_LENGTH);
 
   return Object.freeze({
     id: unitId(title, input.subject, duration),
