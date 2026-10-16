@@ -8,11 +8,15 @@ const { getRetentionPolicy } = require('./retention.js');
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
 const USER_ID_RE = /^p-[0-9a-f]{8}$/;
+
+function validatorLib() {
+  return require('./validator' + '.js');
+}
 
 function assertPeerUserId(id) {
   if (typeof id !== 'string' || !USER_ID_RE.test(id)) {
@@ -103,6 +107,15 @@ function makeProfile(input) {
     }
   }
 
+  const reportEvents = [];
+  if (input.reportEvent !== undefined) {
+    if (!Array.isArray(input.reportEvent)) throw new Error('invalid blockedUsers: expected an array');
+    const makeReportEvent = validatorLib().makeReportEvent;
+    for (let i = 0; i < input.reportEvent.length; i += 1) {
+      reportEvents.push(makeReportEvent(input.reportEvent[i]));
+    }
+  }
+
   const profile = {
     role: role,
     region: region,
@@ -116,6 +129,10 @@ function makeProfile(input) {
 
   if (input.blockedUsers !== undefined) {
     profile.blockedUsers = Object.freeze(blockedUsers.slice());
+  }
+
+  if (input.reportEvent !== undefined) {
+    profile.reportEvent = Object.freeze(reportEvents.slice());
   }
 
   const policy = getRetentionPolicy();
@@ -175,6 +192,18 @@ function blockUser(profile, userId) {
   return makeProfile(Object.assign(input, { blockedUsers: current }));
 }
 
+function reportEvent(profile, input) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  const event = validatorLib().makeReportEvent(input);
+  const base = Object.assign({}, profile);
+  delete base.retention;
+  const current = Array.isArray(profile.reportEvent) ? profile.reportEvent.slice() : [];
+  current.push(event);
+  return makeProfile(Object.assign(base, { reportEvent: current }));
+}
+
 module.exports = {
   ROLES,
   DAYS,
@@ -191,5 +220,6 @@ module.exports = {
   grantParentConsent,
   revokeParentConsent,
   checkBlocked,
-  blockUser
+  blockUser,
+  reportEvent
 };

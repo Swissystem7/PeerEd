@@ -487,11 +487,15 @@ const { getRetentionPolicy } = require('./retention.js');
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
 const USER_ID_RE = /^p-[0-9a-f]{8}$/;
+
+function validatorLib() {
+  return require('./validator' + '.js');
+}
 
 function assertPeerUserId(id) {
   if (typeof id !== 'string' || !USER_ID_RE.test(id)) {
@@ -582,6 +586,15 @@ function makeProfile(input) {
     }
   }
 
+  const reportEvents = [];
+  if (input.reportEvent !== undefined) {
+    if (!Array.isArray(input.reportEvent)) throw new Error('invalid blockedUsers: expected an array');
+    const makeReportEvent = validatorLib().makeReportEvent;
+    for (let i = 0; i < input.reportEvent.length; i += 1) {
+      reportEvents.push(makeReportEvent(input.reportEvent[i]));
+    }
+  }
+
   const profile = {
     role: role,
     region: region,
@@ -595,6 +608,10 @@ function makeProfile(input) {
 
   if (input.blockedUsers !== undefined) {
     profile.blockedUsers = Object.freeze(blockedUsers.slice());
+  }
+
+  if (input.reportEvent !== undefined) {
+    profile.reportEvent = Object.freeze(reportEvents.slice());
   }
 
   const policy = getRetentionPolicy();
@@ -654,6 +671,18 @@ function blockUser(profile, userId) {
   return makeProfile(Object.assign(input, { blockedUsers: current }));
 }
 
+function reportEvent(profile, input) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  const event = validatorLib().makeReportEvent(input);
+  const base = Object.assign({}, profile);
+  delete base.retention;
+  const current = Array.isArray(profile.reportEvent) ? profile.reportEvent.slice() : [];
+  current.push(event);
+  return makeProfile(Object.assign(base, { reportEvent: current }));
+}
+
 module.exports = {
   ROLES,
   DAYS,
@@ -670,7 +699,8 @@ module.exports = {
   grantParentConsent,
   revokeParentConsent,
   checkBlocked,
-  blockUser
+  blockUser,
+  reportEvent
 };
   __registry["profile"] = module.exports;
 })();
@@ -1151,6 +1181,9 @@ function assertCleanText(text, opts) {
 }
 
 var SUBJECTS = require('./profile.js').SUBJECTS;
+var REPORT_EVENT_FIELDS = Object.freeze(['userId', 'detail']);
+var REPORT_EVENT_DETAIL_MAX_LENGTH = 300;
+
 var UNIT_FIELDS = Object.freeze(['title', 'subject', 'minutes', 'text']);
 var UNIT_TITLE_MAX_LENGTH = 120;
 var UNIT_MINUTES_MIN = 1;
@@ -1173,6 +1206,20 @@ function hex8(n) {
 function unitRecordId(title, subject, minutes) {
   var key = title + '|' + subject + '|' + String(minutes);
   return UNIT_ID_PREFIX + hex8(fnv1a32(key));
+}
+
+function makeReportEvent(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('unit input must be an object with title, subject, minutes, text');
+  }
+  var keys = Object.keys(input);
+  for (var i = 0; i < keys.length; i += 1) {
+    if (REPORT_EVENT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+  if (typeof input.detail !== 'string') throw new Error('invalid text: expected a string');
+  var userId = assertUserId(input.userId);
+  var detail = assertCleanText(input.detail, { maxLength: REPORT_EVENT_DETAIL_MAX_LENGTH });
+  return Object.freeze({ userId: userId, detail: detail });
 }
 
 function makeUnit(input) {
@@ -1216,6 +1263,9 @@ module.exports = {
   findProfanity: findProfanity,
   cleanText: cleanText,
   assertCleanText: assertCleanText,
+  REPORT_EVENT_FIELDS: REPORT_EVENT_FIELDS,
+  REPORT_EVENT_DETAIL_MAX_LENGTH: REPORT_EVENT_DETAIL_MAX_LENGTH,
+  makeReportEvent: makeReportEvent,
   UNIT_FIELDS: UNIT_FIELDS,
   makeUnit: makeUnit
 };
