@@ -271,13 +271,13 @@ function unitRecordId(title, subject, minutes) {
 
 function makeReportEvent(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('unit input must be an object with title, subject, minutes, text');
+    throw new Error('report event input must be an object with userId, detail');
   }
   var keys = Object.keys(input);
   for (var i = 0; i < keys.length; i += 1) {
     if (REPORT_EVENT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
-  if (typeof input.detail !== 'string') throw new Error('invalid text: expected a string');
+  if (typeof input.detail !== 'string') throw new Error('invalid detail: expected a string');
   var userId = assertUserId(input.userId);
   var detail = assertCleanText(input.detail, { maxLength: REPORT_EVENT_DETAIL_MAX_LENGTH });
   return Object.freeze({ userId: userId, detail: detail });

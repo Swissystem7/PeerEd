@@ -109,7 +109,7 @@ function makeProfile(input) {
 
   const reportEvents = [];
   if (input.reportEvent !== undefined) {
-    if (!Array.isArray(input.reportEvent)) throw new Error('invalid blockedUsers: expected an array');
+    if (!Array.isArray(input.reportEvent)) throw new Error('invalid reportEvent: expected an array');
     const makeReportEvent = validatorLib().makeReportEvent;
     for (let i = 0; i < input.reportEvent.length; i += 1) {
       reportEvents.push(makeReportEvent(input.reportEvent[i]));

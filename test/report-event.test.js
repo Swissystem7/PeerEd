@@ -86,3 +86,12 @@ test('reportEvent returns a frozen profile with a copied reportEvent list', () =
   assert.strictEqual(twice.reportEvent.length, 2);
   assert.deepStrictEqual(twice.reportEvent[0], once.reportEvent[0]);
 });
+
+test('a malformed report event names reportEvent in its error, not blockedUsers or unit', () => {
+  const base = { role: 'pupil', region: getValidRegion(), availability: ['SUN_16'], subjects: ['MATH'] };
+  assert.throws(() => makeProfile(Object.assign({}, base, { reportEvent: 'x' })), { message: 'invalid reportEvent: expected an array' });
+  assert.throws(() => validator.makeReportEvent({ userId: REPORTED_USER, detail: 42 }), { message: 'invalid detail: expected a string' });
+  for (const bad of [null, [], 'x']) {
+    assert.throws(() => validator.makeReportEvent(bad), { message: 'report event input must be an object with userId, detail' });
+  }
+});
