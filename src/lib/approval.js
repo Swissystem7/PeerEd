@@ -100,10 +100,21 @@ function approve(queue, id) {
 
 // The reason is shown to the teacher, so it passes the same free-text gate as a unit: no personal data,
 // no profanity, bounded length. An empty reason is refused - a rejection without a reason is not a decision.
+// The gate's length errors name no field, so they are re-thrown naming the reason (the approver saw
+// 'text too short' on an empty box); personal-data and profanity errors pass through unchanged.
 function reject(queue, id, reason) {
   const entry = pendingEntry(queue, id);
   if (typeof reason !== 'string') throw new Error('invalid reason: expected a string');
-  const clean = assertCleanText(reason, { maxLength: REASON_MAX_LENGTH });
+  let clean;
+  try {
+    clean = assertCleanText(reason, { maxLength: REASON_MAX_LENGTH });
+  } catch (err) {
+    if (err.message === 'text too short') throw new Error('invalid reason: text too short, it is empty');
+    if (err.message === 'text too long') {
+      throw new Error('invalid reason: text too long, at most ' + REASON_MAX_LENGTH + ' characters');
+    }
+    throw err;
+  }
   return withEntry(queue, id, {
     unit: entry.unit, status: 'rejected', revision: entry.revision, seq: entry.seq,
     decidedBy: APPROVER_ROLE, reason: clean

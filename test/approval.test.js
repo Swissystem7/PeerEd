@@ -57,9 +57,10 @@ test('approval: a rejection needs a clean reason and the reason is kept for the 
   assert.equal(q2.entries[A.id].reason, 'קצר מדי, צריך דוגמה שנייה.');
   assert.deepEqual(approvedUnits(q2), []);
   assert.deepEqual(listPending(q2), []);
-  assert.throws(() => reject(q1, A.id, ''), /too short/);
+  assert.throws(() => reject(q1, A.id, ''), /^Error: invalid reason: text too short/);
+  assert.throws(() => reject(q1, A.id, '   '), /^Error: invalid reason: text too short/);
   assert.throws(() => reject(q1, A.id, 42), /invalid reason/);
-  assert.throws(() => reject(q1, A.id, 'a'.repeat(REASON_MAX_LENGTH + 1)), /too long/);
+  assert.throws(() => reject(q1, A.id, 'a'.repeat(REASON_MAX_LENGTH + 1)), /^Error: invalid reason: text too long/);
   assert.throws(() => reject(q1, A.id, 'תתקשר אליי 050-1234567'), { message: PERSONAL_DATA_ERROR });
   assert.throws(() => reject(q1, A.id, 'השיעור הזה מטומטם'), { message: PROFANITY_ERROR });
 });
