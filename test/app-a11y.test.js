@@ -58,3 +58,39 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: unit form inputs have aria-describedby and required attributes', () => {
+  assert.ok(/<input id="unitDuration"[^>]*aria-describedby="unitStatus"/.test(shell),
+    'unitDuration must have aria-describedby="unitStatus"');
+  assert.ok(/<input id="unitTitle"[^>]*aria-required="true"[^>]*aria-describedby="unitStatus"/.test(shell),
+    'unitTitle must have aria-required="true" and aria-describedby="unitStatus"');
+  assert.ok(/<textarea id="unitBody"[^>]*aria-required="true"[^>]*aria-describedby="unitStatus"/.test(shell),
+    'unitBody must have aria-required="true" and aria-describedby="unitStatus"');
+});
+
+test('a11y: submitting a unit with validation errors focuses the invalid input', () => {
+  const $ = openApp();
+
+  // 1. Empty title focuses unitTitle
+  $('unitTitle').value = '';
+  $('unitSubject').value = 'MATH';
+  $('unitDuration').value = '20';
+  $('unitBody').value = 'תוכן כלשהו';
+  $('submitUnit').fire('click');
+  assert.equal($('unitTitle').focused, true, 'unitTitle must be focused when title is empty');
+
+  // 2. Empty body focuses unitBody
+  $('unitTitle').value = 'כותרת תקינה';
+  $('unitTitle').focused = false;
+  $('unitBody').value = '';
+  $('submitUnit').fire('click');
+  assert.equal($('unitBody').focused, true, 'unitBody must be focused when body is empty');
+
+  // 3. Out-of-range duration focuses unitDuration
+  $('unitBody').value = 'תוכן יחידה תקין ומפורט';
+  $('unitBody').focused = false;
+  $('unitDuration').value = '90'; // max is 60
+  $('submitUnit').fire('click');
+  assert.equal($('unitDuration').focused, true, 'unitDuration must be focused when duration is invalid');
+});
+
