@@ -175,3 +175,14 @@ test('cycle-manager: a maxAgeDays that is not a whole number of days is refused,
   }
   assert.deepEqual(applyRetentionPolicy({ matches: [stamped(0)], profiles: [] }, ASOF).matches, []);
 });
+
+test('cycle sweep: a day is read only from a Date or an ISO string, and only if the calendar has it', () => {
+  // the legacy parser rolled '2026-02-30' into March, read '12' as 2001 and '3/4/2026' on the local clock
+  for (const bad of ['2026-02-30', '2025-02-29', '3/4/2026', 'March 4 2026', '12', '2026', '2026-03-04T10:00', 12, 0, true]) {
+    assert.throws(() => isExpired(row('match', bad), ASOF), /invalid recordedAt/, JSON.stringify(bad));
+    assert.throws(() => isExpired(row('match', ASOF), bad), /invalid asOf/, JSON.stringify(bad));
+  }
+  assert.equal(ageInDays('2024-02-29', '2024-03-01'), 1, 'a real leap day is still a day');
+  assert.equal(ageInDays('2026-03-04T01:30:00+03:00', ASOF), 1, 'an offset is honoured: that is 3 March in UTC');
+  assert.equal(ageInDays(new Date(Date.UTC(2026, 2, 3)), ASOF), 1);
+});
