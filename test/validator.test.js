@@ -157,3 +157,11 @@ test('validator: digits and @ from another keyboard are read as the plain ones',
   // the gate reads the folded text, the stored text is kept as written
   assert.equal(assertCleanText('x² + 5 = 9'), 'x² + 5 = 9');
 });
+
+test('cleanText: a CR or CR LF line break stays a line break, a vertical tab or form feed is a space', () => {
+  const { cleanText } = require('../src/lib/validator.js');
+  assert.equal(cleanText('first line\rsecond line'), 'first line\nsecond line');
+  assert.equal(cleanText('first line\r\nsecond line'), 'first line\nsecond line');
+  assert.equal(cleanText('two\u000bwords\fhere'), 'two words here');
+  assert.equal(cleanText('no\u0000glue'), 'noglue', 'other control characters are still dropped');
+});
