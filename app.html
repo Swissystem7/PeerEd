@@ -2287,7 +2287,7 @@ module.exports = {
         flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(who) : profile.grantParentConsent(who);
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
       state.people[Number(c)] = flipped;
-      last = null;
+      resetMatchView();
       renderPeople(); save();
       say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
         : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.');
@@ -2784,8 +2784,7 @@ module.exports = {
     var empty = storeLib.emptyState();
     state = { people: [], queue: empty.queue, log: empty.log };
     clearDraft();
-    $('pairs').innerHTML = '';
-    $('unmatched').innerHTML = '';
+    resetMatchView();
     $('reportBox').hidden = true;
     $('reportText').value = '';
     ['addStatus', 'matchStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
