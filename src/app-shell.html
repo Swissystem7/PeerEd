@@ -765,9 +765,11 @@
     if (rude) parts.push(rude === 1 ? 'מילה פוגענית אחת' : rude + ' מילים פוגעניות');
     var found = hits.length > 1 ? 'נמצאו ' : (rude ? 'נמצאה ' : 'נמצא ');
     say('checkStatus', 'נחסם. ' + found + parts.join(' ו-') + '.', true);
+    // h.index is a 0-based offset in UTF-16 units; a person counts characters from 1, and an emoji is one
+    // character to them, not two.
     $('findings').innerHTML = hits.map(function (h) {
       return '<div class="flag"><b>' + esc(KIND_HE[h.kind] || h.kind) + '</b> — "' + esc(h.match) +
-        '" (תו ' + h.index + ')</div>';
+        '" (תו ' + (Array.from(text.slice(0, h.index)).length + 1) + ')</div>';
     }).join('');
   });
 
