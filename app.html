@@ -409,11 +409,24 @@ const { getRetentionPolicy } = require('./retention.js');
 
 const ROW_ERROR = 'stored row must be an object with recordedAt and retention.dataCategory';
 
+// An ISO day, or an ISO timestamp that says its own offset. Anything looser goes through the engine's
+// legacy parser, which reads '3/4/2026' on the machine's clock, '12' as the year 2001 and rolls
+// '2026-02-30' into March - and a sweep would then delete a row on a day nobody wrote down.
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+
 function utcMidnight(value, what) {
-  const d = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(d.getTime())) {
-    throw new Error('invalid ' + what + ': expected a Date or an ISO date string');
+  const bad = new Error('invalid ' + what + ': expected a Date or an ISO date string');
+  let d = value;
+  if (!(value instanceof Date)) {
+    const m = typeof value === 'string' ? ISO_DATE.exec(value) : null;
+    if (m === null) throw bad;
+    const day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    if (day.getUTCFullYear() !== Number(m[1]) || day.getUTCMonth() !== Number(m[2]) - 1 || day.getUTCDate() !== Number(m[3])) {
+      throw bad;
+    }
+    d = new Date(value);
   }
+  if (Number.isNaN(d.getTime())) throw bad;
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
