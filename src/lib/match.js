@@ -146,6 +146,11 @@ function utcDay(value) {
     d = new Date(value);
   }
   if (Number.isNaN(d.getTime())) throw bad;
+  // Only a year the sweep can read back. Past 9999 toISOString writes '+010000-01-01...' and the row
+  // would keep '+010000-01'; before 100 the sweep's Date.UTC reads the year as 1900-1999. Either way
+  // the cycle manager refuses the stored row, and with it the whole sweep.
+  const year = d.getUTCFullYear();
+  if (year < 100 || year > 9999) throw bad;
   return d.toISOString().slice(0, 10);
 }
 

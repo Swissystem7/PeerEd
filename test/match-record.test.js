@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 const { matchPairs, matchAcrossRegions, makeMatchRecord } = require('../src/lib/match.js');
 const { makeProfile } = require('../src/lib/profile.js');
 const { getRetentionPolicy } = require('../src/lib/retention.js');
+const { isExpired } = require('../src/lib/cycle-manager.js');
 
 const student = () => makeProfile({ role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['MATH', 'CS'] });
 const pupil = () => makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16', 'MON_18'], subjects: ['MATH'], parentConsent: true });
@@ -71,6 +72,16 @@ test('match record: recordedAt is a real ISO day, never a guess of the engine\'s
   assert.equal(makeMatchRecord(onePair(), '2026-03-04T10:00:00.000Z').recordedAt, '2026-03-04');
   // an offset is honoured: 23:30 in New York is already the next UTC day
   assert.equal(makeMatchRecord(onePair(), '2026-03-04T23:30-05:00').recordedAt, '2026-03-05');
+});
+
+test('match record: a day outside the years the sweep reads back is refused, not stored broken', () => {
+  // an offset can carry the last day of 9999 into the year 10000, and a Date can be any year
+  for (const bad of ['9999-12-31T23:00-05:00', new Date(Date.UTC(10000, 0, 1)), '0050-01-01', '0000-01-01']) {
+    assert.throws(() => makeMatchRecord(onePair(), bad), /recordedAt/, 'accepted ' + String(bad));
+  }
+  const row = makeMatchRecord(onePair(), '9999-12-31');
+  assert.equal(row.recordedAt, '9999-12-31');
+  assert.equal(isExpired(row, '9999-12-31'), false, 'the sweep reads the stored day back');
 });
 
 test('match record: anything that is not a matchPairs() candidate is refused', () => {
