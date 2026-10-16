@@ -832,7 +832,17 @@
       made = unitLib.makeUnit(input);
       var before = approval.statusOf(state.queue, made.id);
       var next = approval.submit(state.queue, made);
-      if (next === state.queue) { say('unitStatus', 'כבר בתור, ללא שינוי: אותה יחידה בדיוק כבר הוגשה.'); return; }
+      // The same text again changes nothing, whatever the unit's status: the line says where it stands,
+      // so a rejected unit sent back unchanged is not reported as waiting in the queue.
+      if (next === state.queue) {
+        if (before === 'rejected') {
+          say('unitStatus', 'לא הוגש: הטקסט זהה לגרסה שנדחתה. מתקנים לפי סיבת הדחייה ומגישים שוב.', true);
+        } else {
+          say('unitStatus', before === 'approved' ? 'כבר מאושרת, ללא שינוי: אותה יחידה בדיוק כבר אושרה.'
+            : 'כבר בתור, ללא שינוי: אותה יחידה בדיוק כבר הוגשה.');
+        }
+        return;
+      }
       state.queue = next;
     } catch (err) { say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     renderUnits();
