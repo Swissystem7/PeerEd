@@ -75,7 +75,8 @@ function deserialize(text) {
 // A backend is the three methods of Web Storage. This one keeps everything in a plain object: the
 // fallback when localStorage throws (private mode, storage disabled) and the backend the tests use.
 function memoryBackend() {
-  const items = {};
+  // No prototype: with a plain {} the key "__proto__" saved into the prototype slot and never loaded.
+  const items = Object.create(null);
   return {
     getItem: function (key) { return Object.prototype.hasOwnProperty.call(items, key) ? items[key] : null; },
     setItem: function (key, value) { items[key] = String(value); },

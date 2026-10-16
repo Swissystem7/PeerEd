@@ -106,3 +106,11 @@ test('store: a backend that throws (private mode, quota) makes save report false
   assert.throws(() => createStore({}), /invalid backend/);
   assert.throws(() => createStore(memoryBackend(), ''), /invalid key/);
 });
+
+test('store: the memory backend keeps a "__proto__" key like any other key', () => {
+  const store = createStore(memoryBackend(), '__proto__');
+  assert.equal(store.save(STATE), true);
+  assert.deepEqual(store.load(), { state: STATE, problem: null });
+  assert.equal(store.clear(), true);
+  assert.deepEqual(store.load(), { state: emptyState(), problem: null });
+});
