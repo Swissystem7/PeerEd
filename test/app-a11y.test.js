@@ -58,3 +58,29 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: demo buttons have unambiguous labels and aria-describedby pointing to status messages', () => {
+  const currentShell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  assert.ok(/<button type="button" class="ghost" id="demoBtn"[^>]*aria-label="טען משתתפים לדוגמה"[^>]*aria-describedby="addStatus"/.test(currentShell),
+    'demoBtn must have aria-label="טען משתתפים לדוגמה" and aria-describedby="addStatus"');
+  assert.ok(/<button type="button" class="ghost" id="unitDemoBtn"[^>]*aria-label="טען יחידת העשרה לדוגמה"[^>]*aria-describedby="unitStatus"/.test(currentShell),
+    'unitDemoBtn must have aria-label="טען יחידת העשרה לדוגמה" and aria-describedby="unitStatus"');
+  assert.ok(/<button type="button" class="ghost" id="badBtn"[^>]*aria-describedby="checkStatus"/.test(currentShell),
+    'badBtn must have aria-describedby="checkStatus"');
+  assert.ok(/<button type="button" class="ghost" id="rudeBtn"[^>]*aria-describedby="checkStatus"/.test(currentShell),
+    'rudeBtn must have aria-describedby="checkStatus"');
+
+  const $ = openApp();
+  $('demoBtn').fire('click');
+  assert.match($('addStatus').textContent, /נטענו \d+ משתתפים לדוגמה/);
+
+  $('unitDemoBtn').fire('click');
+  assert.match($('unitStatus').textContent, /הדוגמה מולאה/);
+
+  $('badBtn').fire('click');
+  assert.match($('checkStatus').textContent, /לחץ "בדוק"/);
+
+  $('rudeBtn').fire('click');
+  assert.match($('checkStatus').textContent, /לחץ "בדוק"/);
+});
+
