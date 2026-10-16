@@ -592,7 +592,7 @@ function makeProfile(input) {
 
   const reportEvents = [];
   if (input.reportEvent !== undefined) {
-    if (!Array.isArray(input.reportEvent)) throw new Error('invalid blockedUsers: expected an array');
+    if (!Array.isArray(input.reportEvent)) throw new Error('invalid reportEvent: expected an array');
     const makeReportEvent = validatorLib().makeReportEvent;
     for (let i = 0; i < input.reportEvent.length; i += 1) {
       reportEvents.push(makeReportEvent(input.reportEvent[i]));
@@ -1223,7 +1223,7 @@ function unitRecordId(title, subject, minutes) {
 
 function makeReportEvent(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('unit input must be an object with title, subject, minutes, text');
+    throw new Error('report event input must be an object with userId, detail');
   }
   var keys = Object.keys(input);
   for (var i = 0; i < keys.length; i += 1) {
@@ -2095,6 +2095,8 @@ module.exports = {
     ['profile must be an object', 'הרשומה לא בנויה נכון'],
     ['invalid parentConsent:', 'אישור ההורה לא תקין'],
     ['invalid blockedUsers:', 'רשימת חסומים לא תקינה'],
+    ['invalid reportEvent:', 'רשימת הדיווחים לא תקינה'],
+    ['report event input must be an object with userId, detail', 'הדיווח לא בנוי נכון'],
     ['invalid user id:', 'מזהה משתמש לא תקין'],
     ['invalid slot:', 'שעה שאינה בלוח'],
     ['invalid role:', 'תפקיד לא מוכר'],

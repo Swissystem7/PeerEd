@@ -271,7 +271,7 @@ function unitRecordId(title, subject, minutes) {
 
 function makeReportEvent(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('unit input must be an object with title, subject, minutes, text');
+    throw new Error('report event input must be an object with userId, detail');
   }
   var keys = Object.keys(input);
   for (var i = 0; i < keys.length; i += 1) {
