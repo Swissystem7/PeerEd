@@ -2348,8 +2348,6 @@ module.exports = {
       case 'NO_SHARED_SUBJECT': return 'יש ' + other + ' באזור, אבל בלי מקצוע משותף.';
       case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש מי שפנוי באותה שעה ויש מי שחולק מקצוע, אבל לא אותו אחד.';
       case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
-      case 'NO_PARENT_CONSENT':
-        return role === 'pupil' ? 'אין עדיין אישור הורה.' : 'יש תלמידים באזור, אבל לאף אחד מהם אין עדיין אישור הורה.';
       default: return '';
     }
   }
@@ -2401,8 +2399,12 @@ module.exports = {
   function renderSummary(m) {
     var shortPupils = m.left.filter(function (x) { return x.role === 'pupil'; });
     var shortStudents = m.left.length - shortPupils.length;
+    // A pupil waiting for a parent's yes is not short of a student: a new student would not be paired
+    // with them either. They are counted apart, so the list below only asks for students that would help.
+    var noConsent = shortPupils.filter(function (x) { return x.reason === 'NO_PARENT_CONSENT'; }).length;
     var counts = {}, keys = [];
     shortPupils.forEach(function (x) {
+      if (x.reason === 'NO_PARENT_CONSENT') return;
       x.e.person.subjects.forEach(function (sub) {
         var k = (REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' + (SUBJECT_HE[sub] || sub);
         if (!(k in counts)) { counts[k] = 0; keys.push(k); }
@@ -2414,6 +2416,7 @@ module.exports = {
       countHe(shortPupils.length, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
       countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.' +
       (m.across.length ? ' אפשר עוד ' + countHe(m.across.length, 'זוג', 'זוגות') + ' בין אזורים.' : '') + '</p>' +
+      (noConsent ? '<p class="hint">' + (noConsent === 1 ? 'תלמיד אחד מחכה' : noConsent + ' תלמידים מחכים') + ' לאישור הורה, לא לסטודנט.</p>' : '') +
       (keys.length ? '<p class="hint">חסרים סטודנטים (תלמיד עם כמה מקצועות נספר בכל אחד):</p>' +
         keys.map(function (k) { return '<div class="item"><span class="meta">' + esc(k) + ': ' + counts[k] +
           '</span></div>'; }).join('') : '');
