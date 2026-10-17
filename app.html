@@ -1248,6 +1248,11 @@ function typedPositions(typed, folded) {
   return out === folded ? map : null;
 }
 
+function assertSafeText(text) {
+  if (typeof text !== 'string') throw new TypeError('קלט לא תקין: יש להזין טקסט בלבד');
+  return text;
+}
+
 function cleanText(text) {
   var s = String(text == null ? '' : text);
   // A line break pasted from Windows (CR LF) or an old Mac (CR alone) is a line break, and a vertical tab
@@ -1366,6 +1371,7 @@ module.exports = {
   findProfanity: findProfanity,
   cleanText: cleanText,
   stripInvisible: stripInvisible,
+  assertSafeText: assertSafeText,
   assertCleanText: assertCleanText,
   REPORT_EVENT_FIELDS: REPORT_EVENT_FIELDS,
   REPORT_EVENT_DETAIL_MAX_LENGTH: REPORT_EVENT_DETAIL_MAX_LENGTH,

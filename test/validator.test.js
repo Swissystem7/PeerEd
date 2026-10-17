@@ -2,7 +2,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { PATTERNS, PERSONAL_DATA_ERROR, findPersonalData, assertCleanText } = require('../src/lib/validator.js');
+const {
+  PATTERNS, PERSONAL_DATA_ERROR, findPersonalData, assertSafeText, assertCleanText
+} = require('../src/lib/validator.js');
+
+const INVALID_TEXT_TYPE = 'קלט לא תקין: יש להזין טקסט בלבד';
 
 function kindsIn(text) {
   return findPersonalData(text).map((h) => h.kind);
@@ -53,6 +57,19 @@ test('validator: ordinary Hebrew lesson text with numbers is clean', () => {
     'נפגשים בשעה 16:30 ליד הספרייה']) {
     assert.deepEqual(findPersonalData(clean), [], clean);
   }
+});
+
+test('validator: assertSafeText refuses non-strings before any other gate runs', () => {
+  for (const bad of [1, null, undefined, {}, [], true]) {
+    assert.throws(() => assertSafeText(bad), (err) => err instanceof TypeError && err.message === INVALID_TEXT_TYPE,
+      String(bad));
+  }
+});
+
+test('validator: assertSafeText returns a string unchanged', () => {
+  const lesson = 'שיעור על שברים';
+  assert.equal(assertSafeText(lesson), lesson);
+  assert.equal(assertSafeText(''), '');
 });
 
 test('validator: assertCleanText refuses personal data with the same message as the profile gate', () => {
