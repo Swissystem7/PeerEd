@@ -2526,7 +2526,7 @@ module.exports = {
     });
     keys.sort(function (a, b) { return (counts[b] - counts[a]) || (a < b ? -1 : a > b ? 1 : 0); });
     $('summary').innerHTML = '<p class="hint">' + countHe(m.pairs.length, 'זוג', 'זוגות') + '. ' +
-      countHe(shortPupils.length, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
+      countHe(shortPupils.length - noConsent, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
       countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.' +
       (m.across.length ? ' אפשר עוד ' + countHe(m.across.length, 'זוג', 'זוגות') + ' בין אזורים.' : '') + '</p>' +
       (noConsent ? '<p class="hint">' + (noConsent === 1 ? 'תלמיד אחד מחכה' : noConsent + ' תלמידים מחכים') + ' לאישור הורה, לא לסטודנט.</p>' : '') +
