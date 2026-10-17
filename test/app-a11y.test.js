@@ -58,3 +58,24 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: stylesheet includes focus-visible rules for interactive links', () => {
+  assert.ok(shell.includes('a:focus-visible'), 'a:focus-visible rule must exist in stylesheet');
+});
+
+test('a11y: session log button has aria-describedby attribute', () => {
+  assert.ok(/<button type="button" class="act" id="logSession"[^>]*aria-describedby="sessionStatus"/.test(shell),
+    'logSession button must have aria-describedby="sessionStatus"');
+});
+
+test('a11y: dynamic session and unit list containers have role="region", aria-live="polite", and aria-label', () => {
+  assert.ok(/<div id="sessionSummary"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="סיכום לרשות"/.test(shell),
+    'sessionSummary must have role="region", aria-live="polite", and aria-label="סיכום לרשות"');
+  assert.ok(/<div id="sessionList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יומן השיעורים"/.test(shell),
+    'sessionList must have role="region", aria-live="polite", and aria-label="יומן השיעורים"');
+  assert.ok(/<div id="approvedList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יחידות מאושרות"/.test(shell),
+    'approvedList must have role="region", aria-live="polite", and aria-label="יחידות מאושרות"');
+  assert.ok(/<div id="rejectedList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יחידות שנדחו"/.test(shell),
+    'rejectedList must have role="region", aria-live="polite", and aria-label="יחידות שנדחו"');
+});
+
