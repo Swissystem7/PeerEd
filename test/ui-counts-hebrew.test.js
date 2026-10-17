@@ -42,3 +42,14 @@ test('the privacy demo says "one personal detail" when it finds one', () => {
   $('checkBtn').fire('click');
   assert.match($('checkStatus').textContent, /נמצא פרט אישי אחד\./, $('checkStatus').textContent);
 });
+
+test('when all participants are matched, export download notes that all were matched', () => {
+  const $ = openApp();
+  addPerson($, 'student', 'CENTER', ['MATH'], ['SUN_16']);
+  addPerson($, 'pupil', 'CENTER', ['MATH'], ['SUN_16']);
+  $('runMatch').fire('click');
+  $('exportCsv').fire('click');
+  assert.match($('matchStatus').textContent, /זוג אחד \(כולם שובצו\)\.$/);
+  assert.doesNotMatch($('matchStatus').textContent, /-0 שלא שובצו/);
+});
+

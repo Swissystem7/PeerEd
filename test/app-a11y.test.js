@@ -58,3 +58,15 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: dynamic match result regions have role="region", aria-live="polite", and aria-label', () => {
+  assert.ok(/<div id="summary"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="סיכום לרשות"/.test(shell),
+    'summary must have role="region", aria-live="polite", and aria-label="סיכום לרשות"');
+  assert.ok(/<div id="pairs"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="רשימת הזוגות"/.test(shell),
+    'pairs must have role="region", aria-live="polite", and aria-label="רשימת הזוגות"');
+  assert.ok(/<div id="unmatched"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="מי נשאר בלי זוג"/.test(shell),
+    'unmatched must have role="region", aria-live="polite", and aria-label="מי נשאר בלי זוג"');
+  assert.ok(/<div id="across"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="שידוך בין אזורים \(חירום\)"/.test(shell),
+    'across must have role="region", aria-live="polite", and aria-label="שידוך בין אזורים (חירום)"');
+});
+
