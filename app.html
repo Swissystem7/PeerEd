@@ -2207,6 +2207,12 @@ module.exports = {
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   function say(id, text, bad) { var e = $(id); e.textContent = text; e.className = 'status' + (bad ? ' bad' : ''); }
+  // A preview cut at n characters as a person counts them: slice() counts UTF-16 units, so an emoji at
+  // the cut was split in half and the screen showed a broken character before the "…".
+  function clip(text, n) {
+    var chars = Array.from(text);
+    return chars.length > n ? chars.slice(0, n).join('') + '…' : text;
+  }
   function slotHe(slot) {
     var parts = String(slot).split('_');
     return 'יום ' + (DAY_HE[parts[0]] || parts[0]) + ' ' + parts[1] + ':00';
@@ -2647,7 +2653,7 @@ module.exports = {
       catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
       // Nothing stores this text: the app keeps the participants list only.
       say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
-        cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
+        clip(cleaned, 120) + '"');
       $('findings').innerHTML = '';
       return;
     }
@@ -2687,7 +2693,7 @@ module.exports = {
     return '<div class="item' + (entry.status === 'approved' ? ' pair' : '') + '"><b>' + esc(u.title) + '</b>' +
       '<span class="meta">' + esc(SUBJECT_HE[u.subject] || u.subject) + ' · ' + u.durationMinutes + ' דקות · ' +
       'גרסה ' + entry.revision + ' · <span class="pill">' + esc(u.id) + '</span><br>' +
-      esc(u.body.length > 160 ? u.body.slice(0, 160) + '…' : u.body) + '</span>' + (extraHtml || '') + '</div>';
+      esc(clip(u.body, 160)) + '</span>' + (extraHtml || '') + '</div>';
   }
 
   function renderUnits() {
