@@ -350,6 +350,11 @@ function wholeDays(active, category) {
   return days;
 }
 
+// One day reads "יום אחד", not "1 ימים".
+function daysHe(days) {
+  return days === 1 ? 'יום אחד' : days + ' ימים';
+}
+
 function generateAuditReport(policy) {
   const active = policy === undefined ? getRetentionPolicy() : policy;
   if (active === null || typeof active !== 'object' || Array.isArray(active)) {
@@ -366,8 +371,8 @@ function generateAuditReport(policy) {
     '• נתוני התאמות חונכות (מי שויך למי ובאילו שעות) — לצורך ניהול מחזור החונכות.',
     '',
     'משך שמירה (לפי מדיניות השמירה הפעילה במערכת):',
-    '• נתוני פרופיל: עד ' + profileDays + ' ימים ממועד עדכון אחרון.',
-    '• נתוני התאמות: עד ' + matchDays + ' ימים ממועד יצירת ההתאמה או סיום מחזור החונכות.',
+    '• נתוני פרופיל: עד ' + daysHe(profileDays) + ' ממועד עדכון אחרון.',
+    '• נתוני התאמות: עד ' + daysHe(matchDays) + ' ממועד יצירת ההתאמה או סיום מחזור החונכות.',
     '',
     'פרוטוקול מחיקה:',
     '• בסיום תקופת השמירה, רשומות פרופיל והתאמה שעברו את המגבלה מוסרות מהמערכת.',
