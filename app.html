@@ -2893,7 +2893,9 @@ module.exports = {
     if (box.select) box.select();
     var lines = text.split('\n').length - 2;
     var linesHe = lines === 1 ? 'שורה אחת' : lines + ' שורות';
-    var done = 'הדוח מוכן: ' + linesHe + ' של ספירות, מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
+    // An empty log still exports its "sessions,,0" line; the status says so, as the summary card does.
+    var emptyHe = state.log.entries.length ? '' : ' - 0 שיעורים, כי היומן ריק';
+    var done = 'הדוח מוכן: ' + linesHe + ' של ספירות' + emptyHe + ', מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
     if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
         say('reportStatus', done + ' הועתק גם ללוח.');
