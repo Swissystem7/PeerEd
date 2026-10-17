@@ -58,3 +58,10 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: dynamic people and pending unit list containers have role="region", aria-live="polite", and aria-label', () => {
+  assert.ok(/<div id="peopleList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="רשימת המשתתפים"/.test(shell),
+    'peopleList must have role="region", aria-live="polite", and aria-label="רשימת המשתתפים"');
+  assert.ok(/<div id="pendingList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יחידות שממתינות לאישור"/.test(shell),
+    'pendingList must have role="region", aria-live="polite", and aria-label="יחידות שממתינות לאישור"');
+});
