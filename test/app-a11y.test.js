@@ -58,3 +58,38 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: pending unit rejection reason input has descriptive label naming the title, aria-label, and placeholder', () => {
+  const $ = openApp();
+  $('unitTitle').value = 'שברים פשוטים';
+  $('unitSubject').value = 'MATH';
+  $('unitDuration').value = '20';
+  $('unitBody').value = 'תרגילים על שברים פשוטים בכיתה';
+  $('submitUnit').fire('click');
+
+  const pendingHtml = $('pendingList').innerHTML;
+  assert.ok(pendingHtml.includes('סיבת דחייה עבור שברים פשוטים (חובה רק לדחייה)'), 'label must name unit title');
+  assert.ok(pendingHtml.includes('aria-label="סיבת דחייה עבור שברים פשוטים"'), 'input must have aria-label');
+  assert.ok(pendingHtml.includes('placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה"'), 'input must have placeholder');
+});
+
+test('a11y: rejecting a pending unit without a reason focuses the reason input and reports Hebrew error', () => {
+  const $ = openApp();
+  $('unitTitle').value = 'שברים פשוטים';
+  $('unitSubject').value = 'MATH';
+  $('unitDuration').value = '20';
+  $('unitBody').value = 'תרגילים על שברים פשוטים בכיתה';
+  $('submitUnit').fire('click');
+
+  const rejectBtn = $('pendingList').innerHTML.match(/data-reject="([^"]+)"/);
+  assert.ok(rejectBtn, 'reject button must exist in pendingList');
+  const unitId = rejectBtn[1];
+
+  $('pendingList').fire('click', { target: { getAttribute: (attr) => (attr === 'data-reject' ? unitId : null) } });
+
+  const status = $('decideStatus');
+  assert.ok(status.className.includes('bad'), 'rejection without reason must fail');
+  assert.match(status.textContent, /כתוב סיבה לדחייה/);
+  assert.equal($('reason-' + unitId).focused, true, 'reason input must be focused on error');
+});
+

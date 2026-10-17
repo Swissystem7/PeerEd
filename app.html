@@ -2695,8 +2695,8 @@ module.exports = {
       var id = esc(entry.unit.id);
       var title = esc(entry.unit.title);
       return unitCard(entry,
-        '<label for="reason-' + id + '">סיבת דחייה (חובה רק לדחייה)</label>' +
-        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '">' +
+        '<label for="reason-' + id + '">סיבת דחייה עבור ' + title + ' (חובה רק לדחייה)</label>' +
+        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '" aria-label="סיבת דחייה עבור ' + title + '" placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה">' +
         '<div class="actions"><button type="button" class="act small" data-approve="' + id +
         '" aria-label="אשר ' + title + '">אשר</button>' +
         '<button type="button" class="ghost small" data-reject="' + id +
@@ -2768,11 +2768,18 @@ module.exports = {
         state.queue = approval.approve(state.queue, approveId);
         say('decideStatus', 'אושר. מעכשיו תלמידים רואים את היחידה.');
       } else {
-        var reasonBox = document.querySelector('[data-reason="' + rejectId + '"]');
+        var reasonBox = $('reason-' + rejectId) || (document.querySelector && document.querySelector('[data-reason="' + rejectId + '"]'));
         state.queue = approval.reject(state.queue, rejectId, reasonBox ? reasonBox.value : '');
         say('decideStatus', 'נדחה עם סיבה. המורה יכול לתקן ולהגיש שוב - זה יחזור לתור כגרסה חדשה.');
       }
-    } catch (err) { say('decideStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
+    } catch (err) {
+      if (rejectId !== null) {
+        var box = $('reason-' + rejectId) || (document.querySelector && document.querySelector('[data-reason="' + rejectId + '"]'));
+        if (box && box.focus) box.focus();
+      }
+      say('decideStatus', 'לא בוצע: ' + errorHe(err) + '.', true);
+      return;
+    }
     renderUnits(); save('decideStatus');
   });
 
