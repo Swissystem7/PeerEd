@@ -58,3 +58,33 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: tabpanel sections have role="tabpanel", aria-labelledby and roving tabindex', () => {
+  const currentShell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  assert.ok(/<section role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">/.test(currentShell),
+    'tab-people must start with tabindex="0"');
+  for (const id of ['tab-match', 'tab-text', 'tab-units', 'tab-sessions']) {
+    const pattern = new RegExp('<section role="tabpanel" id="' + id + '" aria-labelledby="nav-' + id.replace('tab-', '') + '" tabindex="-1" hidden>');
+    assert.ok(pattern.test(currentShell), id + ' must start with tabindex="-1" and hidden');
+  }
+});
+
+test('a11y: switching tabs synchronizes tabindex and visibility on tabpanels', () => {
+  const $ = openApp();
+  assert.equal($('tab-people').getAttribute('tabindex'), '0');
+  assert.equal($('tab-people').hidden, false);
+  assert.equal($('tab-match').getAttribute('tabindex'), '-1');
+  assert.equal($('tab-match').hidden, true);
+
+  $('nav-match').fire('click');
+  assert.equal($('tab-people').getAttribute('tabindex'), '-1');
+  assert.equal($('tab-people').hidden, true);
+  assert.equal($('tab-match').getAttribute('tabindex'), '0');
+  assert.equal($('tab-match').hidden, false);
+
+  $('nav-units').fire('click');
+  assert.equal($('tab-match').getAttribute('tabindex'), '-1');
+  assert.equal($('tab-match').hidden, true);
+  assert.equal($('tab-units').getAttribute('tabindex'), '0');
+  assert.equal($('tab-units').hidden, false);
+});
