@@ -2441,7 +2441,14 @@ module.exports = {
     save('addStatus');
   });
 
+  // The demo replaces the roster, so it only ever loads into an empty one: on a list a coordinator has
+  // typed, one click would have deleted every participant and saved the demo over them for good.
   $('demoBtn').addEventListener('click', function () {
+    if (state.people.length) {
+      say('addStatus', 'הדוגמה לא נטענה: יש כבר ' + countHe(state.people.length, 'משתתף', 'משתתפים') +
+        ' ברשימה, והדוגמה הייתה מוחקת אותם. היא נטענת רק לרשימה ריקה.', true);
+      return;
+    }
     var demo = [
       { role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18', 'TUE_16'], subjects: ['MATH', 'CS'] },
       { role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] },
