@@ -22,3 +22,25 @@ test('the screen calls the gate a demo', () => {
   const visible = html.replace(/<script>[\s\S]*?<\/script>/g, '').replace(/<style>[\s\S]*?<\/style>/g, '');
   assert.match(visible, /<h2>הדגמה: /);
 });
+
+test('clear button resets text gate input, findings, status and focuses textarea', () => {
+  const $ = openApp();
+  // Load demo with personal details
+  $('badBtn').fire('click');
+  assert.notEqual($('checkText').value, '');
+  assert.equal($('checkStatus').textContent, 'לחץ "בדוק".');
+
+  // Run check to populate findings and status
+  $('checkBtn').fire('click');
+  assert.ok($('findings').innerHTML.includes('flag'));
+  assert.match($('checkStatus').textContent, /נחסם/);
+
+  // Click clear button
+  $('checkText').focused = false;
+  $('clearTextBtn').fire('click');
+
+  assert.equal($('checkText').value, '', 'checkText should be cleared');
+  assert.equal($('findings').innerHTML, '', 'findings should be cleared');
+  assert.equal($('checkStatus').textContent, '', 'checkStatus should be cleared');
+  assert.equal($('checkText').focused, true, 'checkText should receive focus upon clearing');
+});

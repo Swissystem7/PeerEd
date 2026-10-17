@@ -160,6 +160,7 @@
         <button type="button" class="act" id="checkBtn">בדוק</button>
         <button type="button" class="ghost" id="badBtn">טען דוגמה עם פרטים אישיים</button>
         <button type="button" class="ghost" id="rudeBtn">טען דוגמה עם שפה פוגענית</button>
+        <button type="button" class="ghost" id="clearTextBtn">נקה טקסט</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
       <div id="findings"></div>
@@ -744,6 +745,14 @@
       'התלמיד אחראי על תזונה נכונה - וזה נשאר נקי.';
     say('checkStatus', 'לחץ "בדוק".');
     $('findings').innerHTML = '';
+  });
+
+  $('clearTextBtn').addEventListener('click', function () {
+    $('checkText').value = '';
+    $('findings').innerHTML = '';
+    say('checkStatus', '');
+    var ct = $('checkText');
+    if (ct && ct.focus) ct.focus();
   });
 
   $('checkBtn').addEventListener('click', function () {
