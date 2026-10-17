@@ -2939,8 +2939,15 @@ module.exports = {
     if (!wipeArmed) {
       setWipeArmed(true);
       var lessons = state.log.entries.length;
+      var units = Object.keys(state.queue.entries).length;
+      // Nothing on the screen to count: say so instead of "0 משתתפים, 0 יחידות ו-0 שיעורים". The second
+      // press still clears the stored keys, since an unreadable document may still be sitting there.
+      if (!state.people.length && !units && !lessons) {
+        say('wipeStatus', 'אין במכשיר הזה משתתפים, יחידות או שיעורים. לחץ שוב כדי לנקות בכל זאת את האחסון, או ביטול.');
+        return;
+      }
       say('wipeStatus', 'יימחקו ' + countHe(state.people.length, 'משתתף', 'משתתפים') + ', ' +
-        countHe(Object.keys(state.queue.entries).length, 'יחידה', 'יחידות', 'אחת') + (lessons === 1 ? ' ו' : ' ו-') +
+        countHe(units, 'יחידה', 'יחידות', 'אחת') + (lessons === 1 ? ' ו' : ' ו-') +
         countHe(lessons, 'שיעור', 'שיעורים') + '. לחץ שוב כדי לאשר, או ביטול.');
       return;
     }
