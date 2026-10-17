@@ -284,6 +284,8 @@ function assertCleanText(text, opts) {
 var SUBJECTS = require('./profile.js').SUBJECTS;
 var REPORT_EVENT_FIELDS = Object.freeze(['userId', 'detail']);
 var REPORT_EVENT_DETAIL_MAX_LENGTH = 300;
+var RESPONSE_TO_REPORT_FIELDS = Object.freeze(['reportIndex', 'detail']);
+var RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH = 300;
 
 var UNIT_FIELDS = Object.freeze(['title', 'subject', 'minutes', 'text']);
 var UNIT_TITLE_MAX_LENGTH = 120;
@@ -321,6 +323,23 @@ function makeReportEvent(input) {
   var userId = assertUserId(input.userId);
   var detail = assertCleanText(input.detail, { maxLength: REPORT_EVENT_DETAIL_MAX_LENGTH });
   return Object.freeze({ userId: userId, detail: detail });
+}
+
+function makeResponseToReport(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('response to report input must be an object with reportIndex, detail');
+  }
+  var keys = Object.keys(input);
+  for (var i = 0; i < keys.length; i += 1) {
+    if (RESPONSE_TO_REPORT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+  if (typeof input.detail !== 'string') throw new Error('invalid detail: expected a string');
+  var reportIndex = input.reportIndex;
+  if (!Number.isInteger(reportIndex) || reportIndex < 0) {
+    throw new Error('invalid reportIndex: expected a non-negative integer');
+  }
+  var detail = assertCleanText(input.detail, { maxLength: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH });
+  return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
 function makeUnit(input) {
@@ -368,6 +387,9 @@ module.exports = {
   REPORT_EVENT_FIELDS: REPORT_EVENT_FIELDS,
   REPORT_EVENT_DETAIL_MAX_LENGTH: REPORT_EVENT_DETAIL_MAX_LENGTH,
   makeReportEvent: makeReportEvent,
+  RESPONSE_TO_REPORT_FIELDS: RESPONSE_TO_REPORT_FIELDS,
+  RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH,
+  makeResponseToReport: makeResponseToReport,
   UNIT_FIELDS: UNIT_FIELDS,
   makeUnit: makeUnit
 };
