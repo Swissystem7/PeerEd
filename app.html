@@ -255,7 +255,7 @@
   <!-- ============ קשר (src/lib/contact.js) ============ -->
   <div class="card" id="contactBox" hidden>
     <h2>רוצים לנסות בסבב השיבוץ שלכם?</h2>
-    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank"></a></p>
+    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank" aria-describedby="contactNote"></a></p>
     <p class="hint" id="contactNote"></p>
   </div>
 </main>
@@ -3053,6 +3053,17 @@ module.exports = {
     if (!c) return;
     $('contactLink').href = c.href;
     $('contactLink').textContent = c.label;
+    if (c.kind === 'email') {
+      if ($('contactLink').removeAttribute) {
+        $('contactLink').removeAttribute('target');
+        $('contactLink').removeAttribute('rel');
+        $('contactLink').removeAttribute('aria-label');
+      }
+    } else {
+      $('contactLink').setAttribute('target', '_blank');
+      $('contactLink').setAttribute('rel', 'noopener noreferrer');
+      $('contactLink').setAttribute('aria-label', c.label + ' (נפתח בלשונית חדשה)');
+    }
     $('contactNote').textContent = c.kind === 'issue'
       ? 'הפנייה בגיטהאב ציבורית ודורשת חשבון GitHub. אל תכתבו שם טלפון, מייל או פרטים של תלמידים.'
       : 'אין צורך לשלוח שום פרט של תלמיד כדי לנסות.';
