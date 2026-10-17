@@ -7,6 +7,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');  // test-support/ sits next to test/
+const TAB_IDS = ['nav-people', 'nav-match', 'nav-text', 'nav-units', 'nav-sessions'];
 
 function fakeElement(id) {
   const handlers = {};
@@ -36,6 +37,7 @@ function openApp(opts) {
   if (scripts.length < 3) throw new Error('app.html should carry its scripts inline');
   const els = {};
   const $ = (id) => (els[id] = els[id] || fakeElement(id));
+  TAB_IDS.forEach((id) => { $(id).setAttribute('aria-controls', id.replace('nav-', 'tab-')); });
   const store = Object.assign({}, opts.store || {});
   const downloads = [];
   const created = [];
@@ -50,8 +52,9 @@ function openApp(opts) {
   };
   const ctx = {
     document: {
+      documentElement: { dir: 'rtl' },
       getElementById: $,
-      querySelectorAll: () => [],
+      querySelectorAll: (sel) => (sel === '[role="tab"]' ? TAB_IDS.map($) : []),
       createElement: (tag) => { const e = fakeElement('<' + tag + '>'); created.push(e); return e; },
       body: fakeElement('body')
     },
