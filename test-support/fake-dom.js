@@ -13,13 +13,14 @@ function fakeElement(id) {
   const attrs = {};
   return {
     id, value: '', textContent: '', className: '', innerHTML: '', hidden: false, children: [], style: {},
-    href: '', download: '', clicked: 0,
+    href: '', download: '', clicked: 0, focused: false,
     addEventListener(type, fn) { (handlers[type] = handlers[type] || []).push(fn); },
     setAttribute(k, v) { attrs[k] = String(v); },
     getAttribute(k) { return k in attrs ? attrs[k] : null; },
     removeAttribute(k) { delete attrs[k]; },
     appendChild() {}, removeChild() {},
     click() { this.clicked += 1; },
+    focus() { this.focused = true; },
     fire(type, ev) { (handlers[type] || []).forEach((fn) => fn(ev || { target: this })); }
   };
 }
@@ -50,6 +51,11 @@ function openApp(opts) {
     document: {
       getElementById: $,
       querySelectorAll: () => [],
+      querySelector: (sel) => {
+        const m = sel && sel.match(/\[data-reason="([^"]+)"\]/);
+        if (m) return $('reason-' + m[1]);
+        return null;
+      },
       createElement: (tag) => { const e = fakeElement('<' + tag + '>'); created.push(e); return e; },
       body: fakeElement('body')
     },
