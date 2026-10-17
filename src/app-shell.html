@@ -422,7 +422,11 @@
     var loaded = store.load();
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
     // problem is store.js's English message; the status line is Hebrew like every other one
-    if (loaded.problem) say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '.', true);
+    if (loaded.problem) {
+      say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '. ' +
+        (loaded.kept ? 'עותק שלה נשמר בצד באחסון המקומי, כך ששינוי חדש לא ימחק אותה.'
+          : 'הדפדפן לא אפשר לשמור עותק שלה בצד, ושינוי חדש יכתוב עליה.'), true);
+    }
     resetMatchView();
   }
 
@@ -1034,7 +1038,8 @@
   // Everything the app holds sits under one key of this browser's storage (store.js), so ending a pilot
   // or handing the phone on means removing that key. The wipe asks twice on the screen itself, not with
   // window.confirm (it cannot be styled, read right-to-left reliably, or tested), and it goes through
-  // store.clear, never through saving an empty document: afterwards the key is gone, not blank. The
+  // store.clear, never through saving an empty document: afterwards the key is gone, not blank, and so
+  // is the copy of a refused document that load() kept beside it. The
   // in-memory state is emptied either way, so a blocked storage cannot leave the roster on the screen.
 
   var WIPE_LABEL = 'מחק הכול מהמכשיר הזה';

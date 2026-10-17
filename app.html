@@ -1958,6 +1958,9 @@ const SCHEMA = 'peered/1';
 const DEFAULT_KEY = 'peered_app_v1';
 const ACCEPTED_FIELDS = Object.freeze(['schema', 'people', 'queue', 'log']);
 const INVALID_STATE_ERROR = 'invalid stored state';
+// Where load() puts a document it refused. The app then starts empty, and its first save writes over the
+// main key: without this copy one added person erased the whole refused roster, queue and log for good.
+const REJECTED_SUFFIX = ':rejected';
 
 function emptyState() {
   return Object.freeze({ people: Object.freeze([]), queue: emptyQueue(), log: emptyLog() });
@@ -2030,8 +2033,10 @@ function isBackend(b) {
 }
 
 // createStore(backend, key): save(state) writes, load() reads. load never throws: it returns
-// { state, problem } where problem is null on success and the reason otherwise, with state reset to
-// empty - the app keeps opening, and the screen can say why the roster is gone instead of guessing.
+// { state, problem, kept } where problem is null on success and the reason otherwise, with state reset
+// to empty - the app keeps opening, and the screen can say why the roster is gone instead of guessing.
+// A refused document is copied as is to key + REJECTED_SUFFIX before anything can overwrite it; kept
+// says whether that copy was written. clear() removes both keys.
 function createStore(backend, key) {
   if (!isBackend(backend)) throw new Error('invalid backend: expected getItem, setItem, removeItem');
   const storageKey = key === undefined ? DEFAULT_KEY : key;
@@ -2046,15 +2051,20 @@ function createStore(backend, key) {
     load: function () {
       let text;
       try { text = backend.getItem(storageKey); } catch (e) { text = null; }
-      if (text === null || text === undefined) return { state: emptyState(), problem: null };
+      if (text === null || text === undefined) return { state: emptyState(), problem: null, kept: false };
       try {
-        return { state: deserialize(text), problem: null };
+        return { state: deserialize(text), problem: null, kept: false };
       } catch (err) {
-        return { state: emptyState(), problem: err.message };
+        let kept = true;
+        try { backend.setItem(storageKey + REJECTED_SUFFIX, String(text)); } catch (e) { kept = false; }
+        return { state: emptyState(), problem: err.message, kept: kept };
       }
     },
     clear: function () {
-      try { backend.removeItem(storageKey); } catch (e) { return false; }
+      try {
+        backend.removeItem(storageKey);
+        backend.removeItem(storageKey + REJECTED_SUFFIX);
+      } catch (e) { return false; }
       return true;
     }
   });
@@ -2065,6 +2075,7 @@ module.exports = {
   DEFAULT_KEY,
   ACCEPTED_FIELDS,
   INVALID_STATE_ERROR,
+  REJECTED_SUFFIX,
   emptyState,
   serialize,
   deserialize,
@@ -2297,7 +2308,11 @@ module.exports = {
     var loaded = store.load();
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
     // problem is store.js's English message; the status line is Hebrew like every other one
-    if (loaded.problem) say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '.', true);
+    if (loaded.problem) {
+      say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '. ' +
+        (loaded.kept ? 'עותק שלה נשמר בצד באחסון המקומי, כך ששינוי חדש לא ימחק אותה.'
+          : 'הדפדפן לא אפשר לשמור עותק שלה בצד, ושינוי חדש יכתוב עליה.'), true);
+    }
     resetMatchView();
   }
 
@@ -2909,7 +2924,8 @@ module.exports = {
   // Everything the app holds sits under one key of this browser's storage (store.js), so ending a pilot
   // or handing the phone on means removing that key. The wipe asks twice on the screen itself, not with
   // window.confirm (it cannot be styled, read right-to-left reliably, or tested), and it goes through
-  // store.clear, never through saving an empty document: afterwards the key is gone, not blank. The
+  // store.clear, never through saving an empty document: afterwards the key is gone, not blank, and so
+  // is the copy of a refused document that load() kept beside it. The
   // in-memory state is emptied either way, so a blocked storage cannot leave the roster on the screen.
 
   var WIPE_LABEL = 'מחק הכול מהמכשיר הזה';
