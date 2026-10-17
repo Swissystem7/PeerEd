@@ -58,3 +58,27 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
+
+test('a11y: consentRow has accessible region and resets checked state when switching away from pupil', () => {
+  const currentShell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  assert.ok(/<div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">/.test(currentShell),
+    'consentRow must have role="region" and aria-label="אישור הורה לשידוך"');
+  assert.ok(/<p class="hint" id="consentHint">/.test(currentShell),
+    'consent hint paragraph must have id="consentHint"');
+
+  const $ = openApp();
+  assert.equal($('consent').checked, false);
+
+  $('role').value = 'pupil';
+  $('role').fire('change');
+  assert.equal($('consentRow').hidden, false, 'consentRow should be visible for pupil');
+
+  $('consent').checked = true;
+  assert.equal($('consent').checked, true);
+
+  $('role').value = 'student';
+  $('role').fire('change');
+  assert.equal($('consentRow').hidden, true, 'consentRow should be hidden for student');
+  assert.equal($('consent').checked, false, 'consent checkbox should be reset to unchecked when changing away from pupil');
+});
+

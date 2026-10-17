@@ -13,7 +13,7 @@ function fakeElement(id) {
   const attrs = {};
   return {
     id, value: '', textContent: '', className: '', innerHTML: '', hidden: false, children: [], style: {},
-    href: '', download: '', clicked: 0,
+    checked: false, href: '', download: '', clicked: 0,
     addEventListener(type, fn) { (handlers[type] = handlers[type] || []).push(fn); },
     setAttribute(k, v) { attrs[k] = String(v); },
     getAttribute(k) { return k in attrs ? attrs[k] : null; },
