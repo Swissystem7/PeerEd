@@ -2920,7 +2920,13 @@ module.exports = {
     resetMatchView();
     $('reportBox').hidden = true;
     $('reportText').value = '';
-    ['addStatus', 'matchStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
+    $('checkText').value = '';
+    $('findings').innerHTML = '';
+    $('unitTitle').value = '';
+    $('unitBody').value = '';
+    $('unitDuration').value = '20';
+    if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
+    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
       say(id, '');
     });
     renderPeople(); renderUnits(); renderSessionForm(); renderSessions();
