@@ -865,8 +865,11 @@
       state.queue = next;
     } catch (err) { say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     renderUnits();
+    // A unit edited while still pending never left the queue, so it does not "return" to it.
+    var revision = state.queue.entries[made.id].revision;
     say('unitStatus', before === null ? 'הוגש וממתין לאישור. מזהה: ' + made.id
-      : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + state.queue.entries[made.id].revision + '.');
+      : before === 'pending' ? 'הטקסט עודכן, היחידה עדיין ממתינה לאישור, עכשיו כגרסה ' + revision + '.'
+      : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + revision + '.');
     save('unitStatus');
   }
 
