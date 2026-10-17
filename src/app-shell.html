@@ -431,7 +431,7 @@
       return '<option value="' + r + '">' + esc(REGION_HE[r] || r) + '</option>';
     }).join('');
     $('subjects').innerHTML = profile.SUBJECTS.map(function (s) {
-      return '<button type="button" class="chip" data-subject="' + s + '" aria-pressed="false">' +
+      return '<button type="button" class="chip" id="subjectBtn-' + s + '" data-subject="' + s + '" aria-pressed="false">' +
         esc(SUBJECT_HE[s] || s) + '</button>';
     }).join('');
     var cells = ['<span></span>'];
@@ -440,7 +440,7 @@
       cells.push('<span>' + h + ':00</span>');
       profile.DAYS.forEach(function (d) {
         var slot = d + '_' + h;
-        cells.push('<button type="button" data-slot="' + slot + '" aria-pressed="false" aria-label="' +
+        cells.push('<button type="button" id="slotBtn-' + slot + '" data-slot="' + slot + '" aria-pressed="false" aria-describedby="hoursHint" aria-label="' +
           esc(slotHe(slot)) + '">.</button>');
       });
     });
