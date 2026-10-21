@@ -104,3 +104,26 @@ test('a11y: dynamic match result regions have role="region", aria-live="polite",
     'across must have role="region", aria-live="polite", and aria-label="שידוך בין אזורים (חירום)"');
 });
 
+test('a11y: wipe device controls have aria attributes and manage aria-expanded and focus', () => {
+  assert.ok(/<button type="button" class="ghost" id="wipeBtn"[^>]*aria-expanded="false"[^>]*aria-controls="wipeCancel wipeStatus"[^>]*aria-describedby="wipeStatus"/.test(shell),
+    'wipeBtn must have aria-expanded="false", aria-controls="wipeCancel wipeStatus", and aria-describedby="wipeStatus"');
+  assert.ok(/<button type="button" class="ghost" id="wipeCancel"[^>]*aria-label="בטל מחיקה מהמכשיר"[^>]*aria-describedby="wipeStatus"/.test(shell),
+    'wipeCancel must have aria-label="בטל מחיקה מהמכשיר" and aria-describedby="wipeStatus"');
+
+  const $ = openApp();
+  assert.equal($('wipeBtn').getAttribute('aria-expanded'), 'false');
+  assert.equal($('wipeCancel').hidden, true);
+
+  // Arm wipe
+  $('wipeBtn').fire('click');
+  assert.equal($('wipeBtn').getAttribute('aria-expanded'), 'true');
+  assert.equal($('wipeCancel').hidden, false);
+
+  // Cancel wipe
+  $('wipeBtn').focused = false;
+  $('wipeCancel').fire('click');
+  assert.equal($('wipeBtn').getAttribute('aria-expanded'), 'false');
+  assert.equal($('wipeCancel').hidden, true);
+  assert.equal($('wipeBtn').focused, true, 'focus must be restored to wipeBtn upon cancellation');
+});
+
