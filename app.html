@@ -123,8 +123,8 @@
         לפחות מקצוע אחד.
         קודם נלקחים הזוגות עם הכי הרבה שעות משותפות, ואז השיבוץ מתקן כך שייצא מספר הזוגות הגדול ביותר האפשרי.
         אותו קלט נותן תמיד אותה תוצאה.</p>
-      <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button>
-        <button type="button" class="ghost" id="exportCsv">הורד זוגות (CSV)</button></div>
+      <div class="actions"><button type="button" class="act" id="runMatch" aria-describedby="matchStatus">חשב שידוך</button>
+        <button type="button" class="ghost" id="exportCsv" aria-describedby="matchStatus">הורד זוגות (CSV)</button></div>
       <p class="status" id="matchStatus" role="status"></p>
       <p class="hint">הקובץ מכיל רק מספרים מהרשימה, אזור, מקצועות ושעות. את השמות מצליבים בגיליון שלך.</p>
     </div>
@@ -2624,7 +2624,13 @@ module.exports = {
 
   $('runMatch').addEventListener('click', function () {
     var m = computeMatch();
-    if (!m) { resetMatchView(); say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return; }
+    if (!m) {
+      resetMatchView();
+      var rm = $('runMatch');
+      if (rm && rm.focus) rm.focus();
+      say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true);
+      return;
+    }
     last = m;
     $('pairs').innerHTML = m.pairs.length ? m.pairs.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
@@ -2658,7 +2664,12 @@ module.exports = {
   function csvRow(cells) { return cells.map(csvCell).join(','); }
 
   $('exportCsv').addEventListener('click', function () {
-    if (!last) { say('matchStatus', 'קודם לחץ "חשב שידוך" — הקובץ נבנה מהשידוך האחרון.', true); return; }
+    if (!last) {
+      var rm = $('runMatch');
+      if (rm && rm.focus) rm.focus();
+      say('matchStatus', 'קודם לחץ "חשב שידוך" — הקובץ נבנה מהשידוך האחרון.', true);
+      return;
+    }
     var rows = [csvRow(['זוג', 'אזור', 'סטודנט (מספר ברשימה)', 'תלמיד (מספר ברשימה)', 'מקצועות משותפים', 'שעות משותפות'])];
     last.pairs.forEach(function (p, i) {
       rows.push(csvRow([i + 1, REGION_HE[p.region] || p.region, p.student, p.pupil,

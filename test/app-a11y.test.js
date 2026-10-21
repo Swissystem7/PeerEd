@@ -104,3 +104,32 @@ test('a11y: dynamic match result regions have role="region", aria-live="polite",
     'across must have role="region", aria-live="polite", and aria-label="שידוך בין אזורים (חירום)"');
 });
 
+test('a11y: match screen action buttons have aria attributes', () => {
+  assert.ok(/<button type="button" class="act" id="runMatch"[^>]*aria-describedby="matchStatus"/.test(shell),
+    'runMatch button must have aria-describedby="matchStatus"');
+  assert.ok(/<button type="button" class="ghost" id="exportCsv"[^>]*aria-describedby="matchStatus"/.test(shell),
+    'exportCsv button must have aria-describedby="matchStatus"');
+});
+
+test('a11y: exporting csv before computing match focuses runMatch button and reports Hebrew error', () => {
+  const $ = openApp();
+  $('runMatch').focused = false;
+  $('exportCsv').fire('click');
+
+  const status = $('matchStatus');
+  assert.ok(status.className.includes('bad'), 'export before match must be rejected');
+  assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
+  assert.equal($('runMatch').focused, true, 'runMatch button must be focused on error');
+});
+
+test('a11y: running match without participants focuses runMatch button and reports Hebrew error', () => {
+  const $ = openApp();
+  $('runMatch').focused = false;
+  $('runMatch').fire('click');
+
+  const status = $('matchStatus');
+  assert.ok(status.className.includes('bad'), 'running match with empty roster must be rejected');
+  assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
+  assert.equal($('runMatch').focused, true, 'runMatch button must be focused on error');
+});
+
