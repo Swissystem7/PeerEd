@@ -10,13 +10,14 @@ const path = require('node:path');
 const { makeUnit } = require('../src/lib/unit.js');
 const approval = require('../src/lib/approval.js');
 const { emptyState, serialize, deserialize } = require('../src/lib/store.js');
+const { openApp } = require('../test-support/fake-dom.js');
 
 const ROOT = path.join(__dirname, '..');
 const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
 
 test('units screen: the shell has the tab, the form and the three lists', () => {
   for (const id of ['tab-units', 'nav-units', 'unitTitle', 'unitSubject', 'unitDuration', 'unitBody',
-    'submitUnit', 'pendingList', 'approvedList', 'rejectedList']) {
+    'submitUnit', 'unitDemoBtn', 'clearUnitBtn', 'pendingList', 'approvedList', 'rejectedList']) {
     assert.ok(shell.indexOf('id="' + id + '"') !== -1, 'missing #' + id);
   }
   const tabs = shell.match(/role="tab"/g) || [];
@@ -76,4 +77,23 @@ test('units screen: a unit with a phone number in its body never reaches the que
   assert.throws(() => makeUnit({ title: 'שיעור', subject: 'MATH', durationMinutes: 20,
     body: 'תתקשרו אליי 050-1234567' }), /personal data/);
   assert.equal(approval.listPending(q).length, 0);
+});
+
+test('units screen: clear button resets form fields, clears status, and focuses title input', () => {
+  const $ = openApp();
+  $('unitSubject').value = 'PHYSICS';
+  $('unitDuration').value = '45';
+  $('unitTitle').value = 'כוחות ותנועה';
+  $('unitBody').value = 'שיעור על חוקי ניוטון בכיתה';
+  $('unitStatus').textContent = 'הדוגמה מולאה.';
+
+  $('unitTitle').focused = false;
+  $('clearUnitBtn').fire('click');
+
+  assert.equal($('unitTitle').value, '');
+  assert.equal($('unitBody').value, '');
+  assert.equal($('unitDuration').value, '20');
+  assert.equal($('unitSubject').value, 'MATH');
+  assert.equal($('unitStatus').textContent, '');
+  assert.equal($('unitTitle').focused, true, 'unitTitle should receive focus after clearing');
 });
