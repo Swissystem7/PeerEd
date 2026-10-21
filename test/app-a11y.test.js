@@ -122,6 +122,13 @@ test('a11y: exporting csv before computing match focuses runMatch button and rep
   assert.equal($('runMatch').focused, true, 'runMatch button must be focused on error');
 });
 
+test('a11y: dynamic people and pending unit list containers have role="region", aria-live="polite", and aria-label', () => {
+  assert.ok(/<div id="peopleList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="רשימת המשתתפים"/.test(shell),
+    'peopleList must have role="region", aria-live="polite", and aria-label="רשימת המשתתפים"');
+  assert.ok(/<div id="pendingList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יחידות שממתינות לאישור"/.test(shell),
+    'pendingList must have role="region", aria-live="polite", and aria-label="יחידות שממתינות לאישור"');
+});
+
 test('a11y: running match without participants focuses runMatch button and reports Hebrew error', () => {
   const $ = openApp();
   $('runMatch').focused = false;
