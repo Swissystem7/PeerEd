@@ -81,9 +81,9 @@
     <div class="card">
       <h2>הוספת משתתף</h2>
       <div class="row">
-        <div><label for="role">תפקיד</label><select id="role">
+        <div><label for="role">תפקיד</label><select id="role" aria-required="true" aria-describedby="addStatus">
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
-        <div><label for="region">אזור</label><select id="region"></select></div>
+        <div><label for="region">אזור</label><select id="region" aria-required="true" aria-describedby="addStatus"></select></div>
       </div>
       <div id="consentRow" hidden>
         <label class="check"><input type="checkbox" id="consent"> התקבל אישור הורה לשידוך</label>
@@ -95,7 +95,7 @@
       <label id="hoursLabel">שעות פנויות</label>
       <p class="hint" id="hoursHint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint"></div>
-      <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
+      <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
         <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
     </div>
@@ -109,8 +109,8 @@
       <h2>מחיקה מהמכשיר הזה</h2>
       <p class="hint">הכול נשמר רק בדפדפן הזה. לפני שמוסרים את הטלפון או כשפיילוט נגמר מוחקים מכאן את הרשימה, את תור
         היחידות ואת יומן השיעורים. אין גיבוי ואין שחזור.</p>
-      <div class="actions"><button type="button" class="ghost" id="wipeBtn">מחק הכול מהמכשיר הזה</button>
-        <button type="button" class="ghost" id="wipeCancel" hidden>ביטול</button></div>
+      <div class="actions"><button type="button" class="ghost" id="wipeBtn" aria-describedby="wipeStatus">מחק הכול מהמכשיר הזה</button>
+        <button type="button" class="ghost" id="wipeCancel" aria-describedby="wipeStatus" hidden>ביטול</button></div>
       <p class="status" id="wipeStatus" role="status"></p>
     </div>
   </section>
@@ -2464,7 +2464,27 @@ module.exports = {
     if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
-    catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
+    catch (err) {
+      if (/availability|slot/i.test(err.message)) {
+        var h = $('hours');
+        var hb = h && h.querySelector ? h.querySelector('button') : null;
+        if (hb && hb.focus) hb.focus();
+        else if (h && h.focus) h.focus();
+      } else if (/subject/i.test(err.message)) {
+        var s = $('subjects');
+        var sb = s && s.querySelector ? s.querySelector('button') : null;
+        if (sb && sb.focus) sb.focus();
+        else if (s && s.focus) s.focus();
+      } else if (/role/i.test(err.message)) {
+        var r = $('role');
+        if (r && r.focus) r.focus();
+      } else if (/region/i.test(err.message)) {
+        var rg = $('region');
+        if (rg && rg.focus) rg.focus();
+      }
+      say('addStatus', 'נדחה: ' + errorHe(err) + '.', true);
+      return;
+    }
     state.people.push(made);
     resetMatchView();
     clearDraft();
