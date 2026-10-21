@@ -856,7 +856,13 @@
       .filter(function (e) { return e.status === 'rejected'; })
       .sort(function (a, b) { return a.seq - b.seq; });
     $('rejectedList').innerHTML = rejected.length ? rejected.map(function (entry) {
-      return unitCard(entry, '<div class="flag">סיבה: ' + esc(entry.reason) + '</div>');
+      var id = esc(entry.unit.id);
+      var title = esc(entry.unit.title);
+      return unitCard(entry,
+        '<div class="flag">סיבה: ' + esc(entry.reason) + '</div>' +
+        '<div class="actions"><button type="button" class="ghost small" id="reviseBtn-' + id +
+        '" data-revise="' + id + '" aria-describedby="unitStatus" aria-label="' +
+        esc('טען לעריכה את ' + title) + '">טען לטופס לעריכה</button></div>');
     }).join('') : '<p class="empty">אין יחידות שנדחו.</p>';
   }
 
@@ -928,6 +934,21 @@
       return;
     }
     renderUnits(); save('decideStatus');
+  });
+
+  $('rejectedList').addEventListener('click', function (ev) {
+    var reviseId = ev.target.getAttribute('data-revise');
+    if (reviseId === null) return;
+    var entry = state.queue && state.queue.entries ? state.queue.entries[reviseId] : null;
+    if (!entry) return;
+    var u = entry.unit;
+    $('unitTitle').value = u.title;
+    $('unitSubject').value = u.subject;
+    $('unitDuration').value = String(u.durationMinutes);
+    $('unitBody').value = u.body;
+    var ub = $('unitBody');
+    if (ub && ub.focus) ub.focus();
+    say('unitStatus', 'היחידה "' + u.title + '" נטענה לטופס. תקן את התוכן ולחץ "הגש לאישור".');
   });
 
   // ---------- sessions (MVP item 6) ----------
