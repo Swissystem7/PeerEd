@@ -93,3 +93,14 @@ test('a11y: rejecting a pending unit without a reason focuses the reason input a
   assert.equal($('reason-' + unitId).focused, true, 'reason input must be focused on error');
 });
 
+test('a11y: dynamic match result regions have role="region", aria-live="polite", and aria-label', () => {
+  assert.ok(/<div id="summary"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="סיכום לרשות"/.test(shell),
+    'summary must have role="region", aria-live="polite", and aria-label="סיכום לרשות"');
+  assert.ok(/<div id="pairs"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="רשימת הזוגות"/.test(shell),
+    'pairs must have role="region", aria-live="polite", and aria-label="רשימת הזוגות"');
+  assert.ok(/<div id="unmatched"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="מי נשאר בלי זוג"/.test(shell),
+    'unmatched must have role="region", aria-live="polite", and aria-label="מי נשאר בלי זוג"');
+  assert.ok(/<div id="across"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="שידוך בין אזורים \(חירום\)"/.test(shell),
+    'across must have role="region", aria-live="polite", and aria-label="שידוך בין אזורים (חירום)"');
+});
+
