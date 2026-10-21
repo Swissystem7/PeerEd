@@ -2768,11 +2768,11 @@ module.exports = {
       var title = esc(entry.unit.title);
       return unitCard(entry,
         '<label for="reason-' + id + '">סיבת דחייה עבור ' + title + ' (חובה רק לדחייה)</label>' +
-        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '" aria-label="סיבת דחייה עבור ' + title + '" placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה">' +
-        '<div class="actions"><button type="button" class="act small" data-approve="' + id +
-        '" aria-label="אשר ' + title + '">אשר</button>' +
-        '<button type="button" class="ghost small" data-reject="' + id +
-        '" aria-label="דחה ' + title + '">דחה</button></div>');
+        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '" aria-label="סיבת דחייה עבור ' + title + '" placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה" aria-describedby="decideStatus">' +
+        '<div class="actions"><button type="button" class="act small" id="approveBtn-' + id + '" data-approve="' + id +
+        '" aria-describedby="decideStatus" aria-label="אשר ' + title + '">אשר</button>' +
+        '<button type="button" class="ghost small" id="rejectBtn-' + id + '" data-reject="' + id +
+        '" aria-describedby="decideStatus" aria-label="דחה ' + title + '">דחה</button></div>');
     }).join('') : '<p class="empty">אין יחידות שממתינות. אפשר להגיש אחת למעלה או לטעון דוגמה.</p>';
 
     var approved = approval.approvedUnits(q).map(function (u) { return q.entries[u.id]; });
@@ -2838,6 +2838,12 @@ module.exports = {
     var approveId = ev.target.getAttribute('data-approve');
     var rejectId = ev.target.getAttribute('data-reject');
     if (approveId === null && rejectId === null) return;
+    var targetId = approveId !== null ? approveId : rejectId;
+    var pendingBefore = approval.listPending(state.queue);
+    var targetIndex = -1;
+    for (var pi = 0; pi < pendingBefore.length; pi += 1) {
+      if (pendingBefore[pi].unit.id === targetId) { targetIndex = pi; break; }
+    }
     try {
       if (approveId !== null) {
         state.queue = approval.approve(state.queue, approveId);
@@ -2855,7 +2861,18 @@ module.exports = {
       say('decideStatus', 'לא בוצע: ' + errorHe(err) + '.', true);
       return;
     }
-    renderUnits(); save('decideStatus');
+    renderUnits();
+    save('decideStatus');
+    var remaining = approval.listPending(state.queue);
+    if (remaining.length > 0) {
+      var nextIdx = Math.min(targetIndex >= 0 ? targetIndex : 0, remaining.length - 1);
+      var nextId = remaining[nextIdx].unit.id;
+      var nextBtn = $('approveBtn-' + nextId) || $('rejectBtn-' + nextId);
+      if (nextBtn && nextBtn.focus) nextBtn.focus();
+    } else {
+      var su = $('submitUnit');
+      if (su && su.focus) su.focus();
+    }
   });
 
   // ---------- sessions (MVP item 6) ----------
