@@ -183,12 +183,12 @@
       <div class="row">
         <div><label for="unitSubject">מקצוע</label><select id="unitSubject"></select></div>
         <div><label for="unitDuration">משך בדקות (5–60)</label>
-          <input id="unitDuration" type="number" min="5" max="60" step="1" value="20"></div>
+          <input id="unitDuration" type="number" min="5" max="60" step="1" value="20" aria-describedby="unitStatus"></div>
       </div>
       <label for="unitTitle">כותרת (שורה אחת)</label>
-      <input id="unitTitle" type="text" maxlength="120" placeholder="שברים פשוטים: חיבור וחיסור">
+      <input id="unitTitle" type="text" maxlength="120" placeholder="שברים פשוטים: חיבור וחיסור" aria-required="true" aria-describedby="unitStatus">
       <label for="unitBody">תוכן היחידה</label>
-      <textarea id="unitBody" placeholder="פתחו בדוגמה אחת מהחיים, אחר כך 3 תרגילים מפרק 12..."></textarea>
+      <textarea id="unitBody" placeholder="פתחו בדוגמה אחת מהחיים, אחר כך 3 תרגילים מפרק 12..." aria-required="true" aria-describedby="unitStatus"></textarea>
       <div class="actions">
         <button type="button" class="act" id="submitUnit">הגש לאישור</button>
         <button type="button" class="ghost" id="unitDemoBtn">טען דוגמה</button>
@@ -866,7 +866,20 @@
         return;
       }
       state.queue = next;
-    } catch (err) { say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
+    } catch (err) {
+      if (/title/i.test(err.message)) {
+        var t = $('unitTitle');
+        if (t && t.focus) t.focus();
+      } else if (/body/i.test(err.message)) {
+        var b = $('unitBody');
+        if (b && b.focus) b.focus();
+      } else if (/duration/i.test(err.message)) {
+        var d = $('unitDuration');
+        if (d && d.focus) d.focus();
+      }
+      say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true);
+      return;
+    }
     renderUnits();
     // A unit edited while still pending never left the queue, so it does not "return" to it.
     var revision = state.queue.entries[made.id].revision;
