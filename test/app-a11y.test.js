@@ -104,3 +104,28 @@ test('a11y: dynamic match result regions have role="region", aria-live="polite",
     'across must have role="region", aria-live="polite", and aria-label="שידוך בין אזורים (חירום)"');
 });
 
+test('a11y: report export controls have aria attributes and manage aria-expanded and focus', () => {
+  assert.ok(/<button type="button" class="ghost" id="exportReport"[^>]*aria-expanded="false"[^>]*aria-controls="reportBox reportStatus"[^>]*aria-describedby="reportStatus"/.test(shell),
+    'exportReport must have aria-expanded="false", aria-controls="reportBox reportStatus", and aria-describedby="reportStatus"');
+  assert.ok(/<textarea id="reportText"[^>]*aria-describedby="reportStatus"/.test(shell),
+    'reportText must have aria-describedby="reportStatus"');
+
+  const $ = openApp();
+  const exportBtn = $('exportReport');
+  assert.equal(exportBtn.getAttribute('aria-expanded'), 'false');
+  assert.equal($('reportBox').hidden, true);
+
+  exportBtn.fire('click');
+  assert.equal(exportBtn.getAttribute('aria-expanded'), 'true');
+  assert.equal($('reportBox').hidden, false);
+  assert.equal($('reportText').focused, true, 'reportText must receive focus upon export');
+  assert.equal($('reportText').selected, true, 'reportText must be selected for easy copying');
+  assert.match($('reportStatus').textContent, /הדוח מוכן/);
+
+  // Wiping device resets reportBox and aria-expanded
+  $('wipeBtn').fire('click'); // arm
+  $('wipeBtn').fire('click'); // confirm wipe
+  assert.equal($('reportBox').hidden, true);
+  assert.equal(exportBtn.getAttribute('aria-expanded'), 'false');
+});
+
