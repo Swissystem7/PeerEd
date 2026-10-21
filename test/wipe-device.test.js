@@ -260,3 +260,37 @@ test('demo: on a roster that is not empty the demo loads nothing, so no particip
   assert.equal($('addStatus').className, 'status bad');
   assert.equal($('addStatus').textContent.indexOf('הדוגמה לא נטענה: יש כבר 6 משתתפים') === 0, true, $('addStatus').textContent);
 });
+
+test('wipe: clears text gate demo inputs, findings, unit draft fields, and all status lines', () => {
+  const storage = fakeStorage();
+  const { $ } = runApp(storage);
+
+  // Populate text gate
+  $('checkText').value = 'דנה 050-1234567';
+  $('checkBtn').click();
+  assert.notEqual($('findings').innerHTML, '', 'findings should have flags before wipe');
+  assert.notEqual($('checkStatus').textContent, '', 'checkStatus should be set before wipe');
+
+  // Trigger gate demo
+  $('gateBtn').click();
+  assert.notEqual($('gateStatus').textContent, '', 'gateStatus should be set before wipe');
+
+  // Populate unit form
+  $('unitTitle').value = 'כותרת לדוגמה';
+  $('unitBody').value = 'תוכן לדוגמה';
+  $('unitDuration').value = '45';
+  $('unitSubject').value = 'PHYSICS';
+
+  // Wipe device
+  $('wipeBtn').click();
+  $('wipeBtn').click();
+
+  assert.equal($('checkText').value, '', 'checkText must be empty after wipe');
+  assert.equal($('findings').innerHTML, '', 'findings must be empty after wipe');
+  assert.equal($('checkStatus').textContent, '', 'checkStatus must be cleared on wipe');
+  assert.equal($('gateStatus').textContent, '', 'gateStatus must be cleared on wipe');
+  assert.equal($('unitTitle').value, '', 'unitTitle must be cleared on wipe');
+  assert.equal($('unitBody').value, '', 'unitBody must be cleared on wipe');
+  assert.equal($('unitDuration').value, '20', 'unitDuration must be reset to default 20');
+  assert.equal($('unitSubject').value, 'MATH', 'unitSubject must be reset to first subject');
+});
