@@ -133,3 +133,25 @@ test('a11y: running match without participants focuses runMatch button and repor
   assert.equal($('runMatch').focused, true, 'runMatch button must be focused on error');
 });
 
+test('a11y: consentRow has accessible region and resets checked state when switching away from pupil', () => {
+  assert.ok(/<div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">/.test(shell),
+    'consentRow must have role="region" and aria-label="אישור הורה לשידוך"');
+  assert.ok(/<p class="hint" id="consentHint">/.test(shell),
+    'consent hint paragraph must have id="consentHint"');
+
+  const $ = openApp();
+  assert.equal($('consent').checked, false);
+
+  $('role').value = 'pupil';
+  $('role').fire('change');
+  assert.equal($('consentRow').hidden, false, 'consentRow should be visible for pupil');
+
+  $('consent').checked = true;
+  assert.equal($('consent').checked, true);
+
+  $('role').value = 'student';
+  $('role').fire('change');
+  assert.equal($('consentRow').hidden, true, 'consentRow should be hidden for student');
+  assert.equal($('consent').checked, false, 'consent checkbox should be reset to unchecked when changing away from pupil');
+});
+
