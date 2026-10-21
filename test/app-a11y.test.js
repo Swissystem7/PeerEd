@@ -104,3 +104,27 @@ test('a11y: dynamic match result regions have role="region", aria-live="polite",
     'across must have role="region", aria-live="polite", and aria-label="שידוך בין אזורים (חירום)"');
 });
 
+test('a11y: demo buttons have unambiguous labels and aria-describedby pointing to status messages', () => {
+  assert.ok(/<button type="button" class="ghost" id="demoBtn"[^>]*aria-label="טען משתתפים לדוגמה"[^>]*aria-describedby="addStatus"/.test(shell),
+    'demoBtn must have aria-label="טען משתתפים לדוגמה" and aria-describedby="addStatus"');
+  assert.ok(/<button type="button" class="ghost" id="unitDemoBtn"[^>]*aria-label="טען יחידת העשרה לדוגמה"[^>]*aria-describedby="unitStatus"/.test(shell),
+    'unitDemoBtn must have aria-label="טען יחידת העשרה לדוגמה" and aria-describedby="unitStatus"');
+  assert.ok(/<button type="button" class="ghost" id="badBtn"[^>]*aria-describedby="checkStatus"/.test(shell),
+    'badBtn must have aria-describedby="checkStatus"');
+  assert.ok(/<button type="button" class="ghost" id="rudeBtn"[^>]*aria-describedby="checkStatus"/.test(shell),
+    'rudeBtn must have aria-describedby="checkStatus"');
+
+  const $ = openApp();
+  $('demoBtn').fire('click');
+  assert.match($('addStatus').textContent, /נטענו \d+ משתתפים לדוגמה/);
+
+  $('unitDemoBtn').fire('click');
+  assert.match($('unitStatus').textContent, /הדוגמה מולאה/);
+
+  $('badBtn').fire('click');
+  assert.match($('checkStatus').textContent, /לחץ "בדוק"/);
+
+  $('rudeBtn').fire('click');
+  assert.match($('checkStatus').textContent, /לחץ "בדוק"/);
+});
+
