@@ -1757,6 +1757,11 @@ function loadQueue(data) {
     }
     const entry = { unit: unit, status: raw.status, revision: raw.revision, seq: raw.seq };
     if (raw.status !== 'pending') {
+      // the flow records only that the role decided; a name written there on disk (or the role
+      // missing) is a record it never wrote, refused like any other, not quietly repaired to the role
+      if (raw.decidedBy !== APPROVER_ROLE) {
+        throw new Error('invalid stored entry: decidedBy is not the approver role: ' + ids[i]);
+      }
       entry.decidedBy = APPROVER_ROLE;
     } else if (raw.decidedBy !== undefined) {
       // nobody has decided a pending unit; a decider on one is a record the flow never writes, refused
