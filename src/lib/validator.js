@@ -295,35 +295,10 @@ function assertCleanText(text, opts) {
   return cleaned;
 }
 
-var SUBJECTS = require('./profile.js').SUBJECTS;
 var REPORT_EVENT_FIELDS = Object.freeze(['userId', 'detail']);
 var REPORT_EVENT_DETAIL_MAX_LENGTH = 300;
 var RESPONSE_TO_REPORT_FIELDS = Object.freeze(['reportIndex', 'detail']);
 var RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH = 300;
-
-var UNIT_FIELDS = Object.freeze(['title', 'subject', 'minutes', 'text']);
-var UNIT_TITLE_MAX_LENGTH = 120;
-var UNIT_MINUTES_MIN = 1;
-var UNIT_MINUTES_MAX = 60;
-var UNIT_ID_PREFIX = 'u-';
-
-function fnv1a32(text) {
-  var hash = 0x811c9dc5 >>> 0;
-  for (var i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash >>> 0;
-}
-
-function hex8(n) {
-  return ('00000000' + n.toString(16)).slice(-8);
-}
-
-function unitRecordId(title, subject, minutes) {
-  var key = title + '|' + subject + '|' + String(minutes);
-  return UNIT_ID_PREFIX + hex8(fnv1a32(key));
-}
 
 function makeReportEvent(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
@@ -356,35 +331,6 @@ function makeResponseToReport(input) {
   return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
-function makeUnit(input) {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('unit input must be an object with title, subject, minutes, text');
-  }
-  var keys = Object.keys(input);
-  for (var i = 0; i < keys.length; i += 1) {
-    if (UNIT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
-  }
-  var subject = input.subject;
-  if (typeof subject !== 'string' || SUBJECTS.indexOf(subject) === -1) {
-    throw new Error('invalid subject: expected one of the SUBJECTS codes');
-  }
-  var minutes = input.minutes;
-  if (!Number.isInteger(minutes) || minutes < UNIT_MINUTES_MIN || minutes > UNIT_MINUTES_MAX) {
-    throw new Error('invalid minutes: expected an integer ' + UNIT_MINUTES_MIN + '..' + UNIT_MINUTES_MAX);
-  }
-  if (typeof input.title !== 'string') throw new Error('invalid title: expected a string');
-  if (typeof input.text !== 'string') throw new Error('invalid text: expected a string');
-  var title = assertCleanText(input.title, { maxLength: UNIT_TITLE_MAX_LENGTH });
-  var text = assertCleanText(input.text);
-  return Object.freeze({
-    id: unitRecordId(title, subject, minutes),
-    title: title,
-    subject: subject,
-    minutes: minutes,
-    text: text
-  });
-}
-
 module.exports = {
   PATTERNS: PATTERNS,
   PROFANITY: PROFANITY,
@@ -404,7 +350,5 @@ module.exports = {
   makeReportEvent: makeReportEvent,
   RESPONSE_TO_REPORT_FIELDS: RESPONSE_TO_REPORT_FIELDS,
   RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH,
-  makeResponseToReport: makeResponseToReport,
-  UNIT_FIELDS: UNIT_FIELDS,
-  makeUnit: makeUnit
+  makeResponseToReport: makeResponseToReport
 };
