@@ -1300,6 +1300,15 @@ function cleanText(text) {
   return s.trim();
 }
 
+// The length a limit is held against, counted the way the person who typed the text counts it and the
+// way the screen counts it back to them (the preview clip, the "תו N" position): in characters, one per
+// code point. String.length counts UTF-16 units, so to it an emoji is two characters and a body of 2001
+// emoji was refused as over 4000 characters; a message that says "עד 4000 תווים" has to count the same
+// characters the writer sees.
+function charCount(text) {
+  return Array.from(text).length;
+}
+
 function assertCleanText(text, opts) {
   opts = opts || {};
   var maxLength = typeof opts.maxLength === 'number' ? opts.maxLength : DEFAULT_MAX_LENGTH;
@@ -1319,8 +1328,8 @@ function assertCleanText(text, opts) {
   // as written, so 'א<RLM>ב' is kept with its mark. cleanText runs again over what is left, because
   // dropping the invisible characters can leave the spaces that stood between them ('<RLM> <ZWSP>'):
   // trimmed away, that box is empty too.
-  if (cleanText(stripInvisible(cleaned)).length < minLength) throw new Error('text too short');
-  if (cleaned.length > maxLength) throw new Error('text too long');
+  if (charCount(cleanText(stripInvisible(cleaned))) < minLength) throw new Error('text too short');
+  if (charCount(cleaned) > maxLength) throw new Error('text too long');
   return cleaned;
 }
 
