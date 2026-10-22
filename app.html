@@ -10,12 +10,21 @@
           --key:#7cc4ff; --warm:#ffb27c; --bad:#ff8f8f; --ok:#8fe0a8; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; background:var(--bg); color:var(--ink);
-         font-family:Arial,"Segoe UI",sans-serif; min-height:100vh; padding-bottom:78px; }
-  .wrap { max-width:820px; margin:auto; padding:16px 14px 24px; }
+         font-family:Arial,"Segoe UI",sans-serif; min-height:100vh;
+         padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px)); }
+  /* viewport-fit=cover lets the page draw under the notch and the home indicator, so the fixed tab bar
+     and the content above it add the safe-area insets; without them the tabs sit under the iPhone home
+     bar and the last card hides behind the tabs. env() is 0 on every screen without an inset. The insets
+     are physical (left/right), so they use padding-left/right, not padding-inline: this page is RTL. */
+  .wrap { max-width:820px; margin:auto; padding:16px 14px 24px;
+          padding-left:max(14px, env(safe-area-inset-left, 0px));
+          padding-right:max(14px, env(safe-area-inset-right, 0px)); }
   header h1 { font-size:1.5rem; margin:4px 0 2px; letter-spacing:-.01em; }
   header p { color:var(--muted); font-size:.85rem; line-height:1.6; margin:0; }
   nav { position:fixed; bottom:0; inset-inline:0; display:flex; background:#0b0d13;
-        border-top:1px solid var(--line); z-index:20; }
+        border-top:1px solid var(--line); z-index:20;
+        padding-bottom:env(safe-area-inset-bottom, 0px);
+        padding-left:env(safe-area-inset-left, 0px); padding-right:env(safe-area-inset-right, 0px); }
   nav button { flex:1; background:none; border:0; color:var(--muted); font:inherit; font-size:.8rem;
                padding:12px 4px; cursor:pointer; border-top:2px solid transparent; }
   nav button[aria-selected="true"] { color:var(--key); border-top-color:var(--key); font-weight:700; }
