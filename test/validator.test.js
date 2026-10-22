@@ -87,6 +87,21 @@ test('validator: assertCleanText enforces length bounds on the cleaned text', ()
   assert.throws(() => assertCleanText('אבגדה', { maxLength: 4 }), { message: 'text too long' });
 });
 
+// The screen counts characters the way a person does (one per code point: the preview clip, the "תו N"
+// position), so the limit it names has to be counted the same way. String.length counts UTF-16 units,
+// and a body of 2001 emoji (4002 units) was refused as over 4000 characters.
+test('validator: assertCleanText counts a limit in characters, so an emoji is one and not two', () => {
+  const smile = String.fromCodePoint(0x1F600);
+  assert.equal(smile.length, 2, 'an emoji is two UTF-16 units');
+  assert.equal(assertCleanText(smile.repeat(2001)), smile.repeat(2001), 'before: text too long');
+  assert.equal(assertCleanText(smile.repeat(4000)), smile.repeat(4000));
+  assert.throws(() => assertCleanText(smile.repeat(4001)), { message: 'text too long' });
+  assert.throws(() => assertCleanText(smile.repeat(5), { maxLength: 4 }), { message: 'text too long' });
+  assert.equal(assertCleanText(smile.repeat(4), { maxLength: 4 }), smile.repeat(4));
+  assert.equal(assertCleanText(smile, { minLength: 1 }), smile);
+  assert.throws(() => assertCleanText(smile.repeat(2), { minLength: 3 }), { message: 'text too short' });
+});
+
 test('validator: assertCleanText returns trimmed, collapsed text and keeps a single newline', () => {
   assert.equal(assertCleanText('  שיעור   על   שברים  '), 'שיעור על שברים');
   assert.equal(assertCleanText('שורה ראשונה \n  שורה שנייה'), 'שורה ראשונה\nשורה שנייה');
