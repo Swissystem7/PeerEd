@@ -3424,7 +3424,14 @@ module.exports = {
     if (!pair) {
       var sp = $('sessionPair');
       if (sp && sp.focus) sp.focus();
-      say('sessionStatus', 'אין זוג לרשום לו שיעור. טען משתתפים במסך "אנשים" ובדוק במסך "שידוך" שנוצר זוג.', true);
+      // "טען משתתפים" fits an empty roster only: over a roster with people and no pair it sent the
+      // coordinator to load people who are already there, and "בדוק שנוצר זוג" read as if the match
+      // screen made pairs - the pair option above says it only shows them and why someone is left out.
+      say('sessionStatus', 'אין זוג לרשום לו שיעור. ' + (state.people.length
+        ? 'ברשימה במסך "אנשים" יש ' + countHe(state.people.length, 'משתתף', 'משתתפים') +
+          ' ואין ביניהם סטודנט ותלמיד עם אישור הורה מאותו אזור שחולקים שעה ומקצוע; ' +
+          '"חשב שידוך" במסך השידוך מראה אצל כל מי שנשאר בלי זוג למה.'
+        : 'הרשימה במסך "אנשים" ריקה - הוסף שם סטודנט ותלמיד, או טען דוגמה.'), true);
       return;
     }
     try {
