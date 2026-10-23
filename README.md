@@ -80,8 +80,10 @@ TalkBack; the card and field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.1
 cover borders because lightening them is a look still to be chosen; no Arabic or Russian, regions are national rather than one
 municipality's neighbourhoods. Nothing here has been used by a real coordinator.
 
-The gateway for AI content in `PURPOSE.md` is not offered; the text gate stays as a demonstration of the
-privacy rule.
+No AI: nothing generates or rewrites a unit, and `PURPOSE.md` says PeerEd is not an AI content tool. The
+text gate is not a demonstration: every unit title and body a teacher sends and every rejection reason the
+approver writes passes it before it is stored, a stored queue is gated again on load, and the privacy tab is
+only the place to try it on any text.
 
 ## Why the profile is so narrow
 
