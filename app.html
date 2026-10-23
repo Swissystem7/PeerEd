@@ -249,7 +249,7 @@
       <div id="sessionSummary"></div>
       <p class="hint">הייצוא הוא אותן ספירות כקובץ CSV: מדד, קוד, כמות. אין בו שורות של היומן, אין שעה, אין
         מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
-      <div class="actions"><button type="button" class="ghost" id="exportReport">ייצא דוח CSV</button></div>
+      <div class="actions"><button type="button" class="ghost" id="exportReport" aria-expanded="false" aria-controls="reportBox reportStatus" aria-describedby="reportStatus">ייצא דוח CSV</button></div>
       <div id="reportBox" hidden>
         <label for="reportText">הדוח (לקריאה בלבד)</label>
         <textarea id="reportText" readonly dir="ltr" spellcheck="false" aria-describedby="reportStatus"></textarea>
@@ -3016,6 +3016,8 @@ module.exports = {
       say('reportStatus', 'היומן השתנה, אז הדוח שבתיבה עודכן: ' + (lines === 1 ? 'שורה אחת' : lines + ' שורות') +
         ' של ספירות. מה שהועתק קודם ללוח הוא הדוח הקודם - לחץ שוב כדי להעתיק את זה.');
     }
+    var er = $('exportReport');
+    if (er) er.setAttribute('aria-expanded', $('reportBox').hidden ? 'false' : 'true');
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
@@ -3023,11 +3025,17 @@ module.exports = {
   // box and is selected; the clipboard is tried on top of that, never instead of it (a phone browser
   // may refuse it, and a refused copy must not look like a copy).
   $('exportReport').addEventListener('click', function () {
+    var er = $('exportReport');
     var text;
-    try { text = session.reportCsv(state.log); } catch (err) { say('reportStatus', 'לא יוצא: ' + errorHe(err) + '.', true); return; }
+    try { text = session.reportCsv(state.log); } catch (err) {
+      if (er && er.focus) er.focus();
+      say('reportStatus', 'לא יוצא: ' + errorHe(err) + '.', true);
+      return;
+    }
     var box = $('reportText');
     box.value = text;
     $('reportBox').hidden = false;
+    if (er) er.setAttribute('aria-expanded', 'true');
     if (box.focus) box.focus();
     if (box.select) box.select();
     var lines = text.split('\n').length - 2;
@@ -3124,6 +3132,8 @@ module.exports = {
     resetMatchView();
     $('reportBox').hidden = true;
     $('reportText').value = '';
+    var er = $('exportReport');
+    if (er) er.setAttribute('aria-expanded', 'false');
     $('checkText').value = '';
     $('findings').innerHTML = '';
     $('unitTitle').value = '';

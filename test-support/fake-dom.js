@@ -14,7 +14,7 @@ function fakeElement(id) {
   const attrs = {};
   return {
     id, value: '', textContent: '', className: '', innerHTML: '', hidden: false, children: [], style: {},
-    checked: false, href: '', download: '', clicked: 0, focused: false,
+    checked: false, href: '', download: '', clicked: 0, focused: false, selected: false,
     addEventListener(type, fn) { (handlers[type] = handlers[type] || []).push(fn); },
     setAttribute(k, v) { attrs[k] = String(v); },
     getAttribute(k) { return k in attrs ? attrs[k] : null; },
@@ -22,7 +22,7 @@ function fakeElement(id) {
     appendChild() {}, removeChild() {},
     click() { this.clicked += 1; },
     focus() { this.focused = true; },
-    select() {},
+    select() { this.selected = true; },
     fire(type, ev) { (handlers[type] || []).forEach((fn) => fn(ev || { target: this })); }
   };
 }
@@ -36,7 +36,19 @@ function openApp(opts) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   if (scripts.length < 3) throw new Error('app.html should carry its scripts inline');
   const els = {};
-  const $ = (id) => (els[id] = els[id] || fakeElement(id));
+  const hiddenIds = new Set(
+    [...html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)]
+      .filter((m) => /\bhidden\b/.test(m[0]))
+      .map((m) => m[1])
+  );
+  const $ = (id) => {
+    if (!els[id]) {
+      const el = fakeElement(id);
+      if (hiddenIds.has(id)) el.hidden = true;
+      els[id] = el;
+    }
+    return els[id];
+  };
   TAB_IDS.forEach((id) => { $(id).setAttribute('aria-controls', id.replace('nav-', 'tab-')); });
   const store = Object.assign({}, opts.store || {});
   const downloads = [];
