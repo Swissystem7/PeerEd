@@ -641,6 +641,9 @@
       if (fileNo) filePeople[fileNo - 1] = flipped;
       // Granting the reverse way: the file lists this pupil under "לא שובצו" with the no-consent reason.
       var fileSaysNoConsent = fileNo && fileNoConsent && fileNoConsent.indexOf(fileNo) !== -1;
+      // A pupil the file does not pair may still be in its cross-region section, offered to a student there.
+      var inFileAcross = null;
+      if (!inFile && fileNo) (fileAcross || []).forEach(function (fa) { if (!inFileAcross && fa.pupil === fileNo) inFileAcross = fa; });
       resetMatchView();
       renderPeople();
       say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.' + (fileSaysNoConsent
@@ -650,6 +653,9 @@
         : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.' + (inFile
           ? ' בקובץ הזוגות שירד קודם הוא עדיין בזוג ' + inFile.pair + ' (תלמיד #' + inFile.pupil + ' עם סטודנט מלמד #' +
             inFile.student + '): הקובץ לא מתעדכן לבד - לחץ "חשב שידוך" והורד אותו מחדש.'
+          : inFileAcross
+          ? ' בקובץ הזוגות שירד קודם הוא עדיין בהצעות בין אזורים (תלמיד #' + inFileAcross.pupil + ' עם סטודנט מלמד #' +
+            inFileAcross.student + '): הקובץ לא מתעדכן לבד - לחץ "חשב שידוך" והורד אותו מחדש.'
           : ''));
       save('addStatus');
       var consentBtn = $('consentBtn-' + c);
@@ -668,7 +674,9 @@
     state.people.splice(delIndex, 1);
     resetMatchView();
     renderPeople();
-    if (!state.people.length) { pairsFileDownloaded = false; filePairs = null; filePeople = null; fileNoConsent = null; }
+    if (!state.people.length) {
+      pairsFileDownloaded = false; filePairs = null; filePeople = null; fileNoConsent = null; fileAcross = null;
+    }
     // The file names everyone who was on the list when it went down, so deleting one of them - the last
     // one too, who moves nobody - leaves a number in the file for someone no longer here: the next one
     // added takes that number on the screen, and a pair in the file may still hold the deleted one.
@@ -769,6 +777,9 @@
   // The file numbers of the pupils that file lists under "לא שובצו" for want of parent consent, so a
   // grant can say the file still gives that reason. Null when no file went down.
   var fileNoConsent = null;
+  // The cross-region suggestions that file holds, by its numbers, so a revoke can say the file still
+  // offers that pupil to a student in another region. Null when no file went down.
+  var fileAcross = null;
   // How many pairs files went down in this visit. Unlike the flags above it is never cleared - not when
   // the list is emptied, not by the wipe: the file sits in the device's downloads, outside the browser
   // storage the wipe clears, so after a wipe it is still there. The wipe lines name it instead of
@@ -946,6 +957,7 @@
     });
     fileNoConsent = last.left.filter(function (x) { return x.role === 'pupil' && x.reason === 'NO_PARENT_CONSENT'; })
       .map(function (x) { return x.e.number; });
+    fileAcross = last.across.map(function (p) { return { pupil: p.pupil, student: p.student }; });
     say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
       (last.left.length === 0 ? 'כולם שובצו.' : last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
@@ -1571,6 +1583,7 @@
     filePairs = null;
     filePeople = null;
     fileNoConsent = null;
+    fileAcross = null;
     var empty = storeLib.emptyState();
     state = { people: [], queue: empty.queue, log: empty.log };
     clearDraft();
