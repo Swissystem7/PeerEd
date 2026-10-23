@@ -169,13 +169,13 @@ test('sessions screen: the pair dropdown names the same list numbers as the matc
 test('sessions screen: form selects have informative empty state options on load', () => {
   const $ = openApp();
   assert.equal($('sessionPair').disabled, true);
-  assert.match($('sessionPair').innerHTML, /אין עדיין זוגות משודכים/);
+  assert.match($('sessionPair').innerHTML, /אין עדיין זוג\. הזוגות נגזרים מהרשימה/);
   assert.equal($('sessionSlot').disabled, true);
-  assert.match($('sessionSlot').innerHTML, /אין שעות פנויות לבחירה/);
+  assert.match($('sessionSlot').innerHTML, /אין זוג, אז אין שעה לבחירה/);
   assert.equal($('sessionSubject').disabled, true);
-  assert.match($('sessionSubject').innerHTML, /אין מקצועות משותפים לבחירה/);
+  assert.match($('sessionSubject').innerHTML, /אין זוג, אז אין מקצוע לבחירה/);
   assert.equal($('sessionUnit').disabled, true);
-  assert.match($('sessionUnit').innerHTML, /אין יחידה לבחירה — בחר זוג תחילה/);
+  assert.match($('sessionUnit').innerHTML, /אין זוג, אז אין יחידה לבחירה/);
 });
 
 test('sessions screen: report export with one count line reads as Hebrew "שורה אחת"', () => {
