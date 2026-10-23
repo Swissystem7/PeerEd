@@ -246,6 +246,11 @@ function typedPositions(typed, folded) {
   return out === folded ? map : null;
 }
 
+function assertSafeText(text) {
+  if (typeof text !== 'string') throw new TypeError('קלט לא תקין: יש להזין טקסט בלבד');
+  return text;
+}
+
 function cleanText(text) {
   var s = String(text == null ? '' : text);
   // A line break pasted from Windows (CR LF) or an old Mac (CR alone) is a line break, and a vertical tab
@@ -255,6 +260,15 @@ function cleanText(text) {
   s = s.replace(/[^\S\n]+/g, ' ');   // collapse horizontal whitespace, keep newlines
   s = s.replace(/ *\n */g, '\n');    // no padding around a newline
   return s.trim();
+}
+
+// The length a limit is held against, counted the way the person who typed the text counts it and the
+// way the screen counts it back to them (the preview clip, the "תו N" position): in characters, one per
+// code point. String.length counts UTF-16 units, so to it an emoji is two characters and a body of 2001
+// emoji was refused as over 4000 characters; a message that says "עד 4000 תווים" has to count the same
+// characters the writer sees.
+function charCount(text) {
+  return Array.from(text).length;
 }
 
 function assertCleanText(text, opts) {
@@ -276,38 +290,15 @@ function assertCleanText(text, opts) {
   // as written, so 'א<RLM>ב' is kept with its mark. cleanText runs again over what is left, because
   // dropping the invisible characters can leave the spaces that stood between them ('<RLM> <ZWSP>'):
   // trimmed away, that box is empty too.
-  if (cleanText(stripInvisible(cleaned)).length < minLength) throw new Error('text too short');
-  if (cleaned.length > maxLength) throw new Error('text too long');
+  if (charCount(cleanText(stripInvisible(cleaned))) < minLength) throw new Error('text too short');
+  if (charCount(cleaned) > maxLength) throw new Error('text too long');
   return cleaned;
 }
 
-var SUBJECTS = require('./profile.js').SUBJECTS;
 var REPORT_EVENT_FIELDS = Object.freeze(['userId', 'detail']);
 var REPORT_EVENT_DETAIL_MAX_LENGTH = 300;
-
-var UNIT_FIELDS = Object.freeze(['title', 'subject', 'minutes', 'text']);
-var UNIT_TITLE_MAX_LENGTH = 120;
-var UNIT_MINUTES_MIN = 1;
-var UNIT_MINUTES_MAX = 60;
-var UNIT_ID_PREFIX = 'u-';
-
-function fnv1a32(text) {
-  var hash = 0x811c9dc5 >>> 0;
-  for (var i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash >>> 0;
-}
-
-function hex8(n) {
-  return ('00000000' + n.toString(16)).slice(-8);
-}
-
-function unitRecordId(title, subject, minutes) {
-  var key = title + '|' + subject + '|' + String(minutes);
-  return UNIT_ID_PREFIX + hex8(fnv1a32(key));
-}
+var RESPONSE_TO_REPORT_FIELDS = Object.freeze(['reportIndex', 'detail']);
+var RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH = 300;
 
 function makeReportEvent(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
@@ -323,33 +314,21 @@ function makeReportEvent(input) {
   return Object.freeze({ userId: userId, detail: detail });
 }
 
-function makeUnit(input) {
+function makeResponseToReport(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('unit input must be an object with title, subject, minutes, text');
+    throw new Error('response to report input must be an object with reportIndex, detail');
   }
   var keys = Object.keys(input);
   for (var i = 0; i < keys.length; i += 1) {
-    if (UNIT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+    if (RESPONSE_TO_REPORT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
-  var subject = input.subject;
-  if (typeof subject !== 'string' || SUBJECTS.indexOf(subject) === -1) {
-    throw new Error('invalid subject: expected one of the SUBJECTS codes');
+  if (typeof input.detail !== 'string') throw new Error('invalid detail: expected a string');
+  var reportIndex = input.reportIndex;
+  if (!Number.isInteger(reportIndex) || reportIndex < 0) {
+    throw new Error('invalid reportIndex: expected a non-negative integer');
   }
-  var minutes = input.minutes;
-  if (!Number.isInteger(minutes) || minutes < UNIT_MINUTES_MIN || minutes > UNIT_MINUTES_MAX) {
-    throw new Error('invalid minutes: expected an integer ' + UNIT_MINUTES_MIN + '..' + UNIT_MINUTES_MAX);
-  }
-  if (typeof input.title !== 'string') throw new Error('invalid title: expected a string');
-  if (typeof input.text !== 'string') throw new Error('invalid text: expected a string');
-  var title = assertCleanText(input.title, { maxLength: UNIT_TITLE_MAX_LENGTH });
-  var text = assertCleanText(input.text);
-  return Object.freeze({
-    id: unitRecordId(title, subject, minutes),
-    title: title,
-    subject: subject,
-    minutes: minutes,
-    text: text
-  });
+  var detail = assertCleanText(input.detail, { maxLength: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH });
+  return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
 module.exports = {
@@ -364,10 +343,12 @@ module.exports = {
   findProfanity: findProfanity,
   cleanText: cleanText,
   stripInvisible: stripInvisible,
+  assertSafeText: assertSafeText,
   assertCleanText: assertCleanText,
   REPORT_EVENT_FIELDS: REPORT_EVENT_FIELDS,
   REPORT_EVENT_DETAIL_MAX_LENGTH: REPORT_EVENT_DETAIL_MAX_LENGTH,
   makeReportEvent: makeReportEvent,
-  UNIT_FIELDS: UNIT_FIELDS,
-  makeUnit: makeUnit
+  RESPONSE_TO_REPORT_FIELDS: RESPONSE_TO_REPORT_FIELDS,
+  RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH,
+  makeResponseToReport: makeResponseToReport
 };
