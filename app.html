@@ -110,8 +110,12 @@
     </div>
     <div class="card">
       <h2>המשתתפים</h2>
-      <p class="hint">הרשימה נשמרת בדפדפן הזה בלבד: היא לא עוברת לטלפון אחר, ונמחקת עם ניקוי נתוני הגלישה.
-        לעותק — "הורד זוגות (CSV)" במסך השידוך.</p>
+      <!-- The pairs file is the result of a match by list number, not the list: a person's hours outside the
+           pair's shared ones and the parent-consent flag are not in it, and nothing loads it back. The wipe
+           card under this one says there is no backup, so this one cannot point at that file "for a copy". -->
+      <p class="hint">הרשימה נשמרת בדפדפן הזה בלבד: היא לא עוברת לטלפון אחר, נמחקת עם ניקוי נתוני הגלישה, ואין ממנה גיבוי.
+        "הורד זוגות (CSV)" במסך השידוך מוריד את תוצאת השידוך לפי מספרי הרשימה, לא את הרשימה: שעות שאינן משותפות
+        לזוג ואישור הורה לא נמצאים בקובץ, ואי אפשר לטעון אותו בחזרה.</p>
       <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
     </div>
     <div class="card">
