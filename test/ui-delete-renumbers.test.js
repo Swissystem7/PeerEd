@@ -51,19 +51,20 @@ test('after a pairs file went down, the line says its numbers are the ones from 
   assert.equal($.downloads.length, 1);
   assert.match($.downloads[0].text, /\n1,מרכז,1,2,/, 'the file keys the pair by list numbers');
   press($('peopleList'), 'data-del', '0');
-  assert.equal($('addStatus').textContent,
-    'נמחק סטודנט מלמד #1. מי שהיו #2 עד #3 ירדו במספר אחד, וקובץ הזוגות שירד קודם מתייחס למספרים שלפני המחיקה.');
+  // the pair the deleted one is in is named after this (ui-delete-file-number)
+  assert.ok($('addStatus').textContent.startsWith(
+    'נמחק סטודנט מלמד #1. מי שהיו #2 עד #3 ירדו במספר אחד, וקובץ הזוגות שירד קודם מתייחס למספרים שלפני המחיקה.'));
   // the match cards are reset as before: nothing on the screen describes the old numbers
   assert.match($('pairs').innerHTML, /מופיע אחרי חישוב שידוך/);
 });
 
-test('with a file down, deleting the last one still moves nobody: the file names the same people', () => {
+test('with a file down, deleting the last one moves nobody, but the file still names them (ui-delete-file-number)', () => {
   const $ = openApp();
   three($);
   $('runMatch').fire('click');
   $('exportCsv').fire('click');
   press($('peopleList'), 'data-del', '2');
-  assert.equal($('addStatus').textContent, 'נמחק.');
+  assert.match($('addStatus').textContent, /^נמחק תלמיד #3\. בקובץ הזוגות שירד קודם הוא עדיין #3/);
 });
 
 test('a file of a list that was emptied is forgotten: a new list does not inherit the warning', () => {
