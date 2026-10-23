@@ -3076,7 +3076,7 @@ module.exports = {
         '" aria-describedby="decideStatus" aria-label="אשר ' + title + '">אשר</button>' +
         '<button type="button" class="ghost small" id="rejectBtn-' + id + '" data-reject="' + id +
         '" aria-describedby="decideStatus" aria-label="דחה ' + title + '">דחה</button></div>');
-    }).join('') : '<p class="empty">אין יחידות שממתינות. אפשר להגיש אחת למעלה או לטעון דוגמה.</p>';
+    }).join('') : '<p class="empty">אין יחידות שממתינות. אפשר להגיש אחת בטופס למעלה ("טען דוגמה" ממלא אותו, ההגשה היא "הגש לאישור").</p>';
 
     var approved = approval.approvedUnits(q).map(function (u) { return q.entries[u.id]; });
     $('approvedList').innerHTML = approved.length ? approved.map(function (entry) {
@@ -3176,7 +3176,25 @@ module.exports = {
     $('unitBody').value = 'מתחילים בפיצה שחולקה ל-8. כמה זה 3/8 ועוד 2/8? אחר כך 3 תרגילים עם מכנה שונה: ' +
       '1/2 + 1/4, 2/3 - 1/6, 3/5 + 1/10. מי שסיים מנסה לכתוב תרגיל משלו לחבר.';
     revising = null;
-    say('unitStatus', 'הדוגמה מולאה. לחץ "הגש לאישור".');
+    // The sample is always the same unit, so after one submission "לחץ הגש לאישור" sent the teacher to a
+    // button that answers "כבר בתור" / "כבר מאושרת" / "לא הוגש: הטקסט זהה לגרסה שנדחתה", or that revises a
+    // unit already in the queue. The line says where the sample stands and what the button will do.
+    var demoUnit = unitLib.makeUnit({
+      title: $('unitTitle').value, subject: $('unitSubject').value,
+      durationMinutes: Number($('unitDuration').value), body: $('unitBody').value
+    });
+    var demoId = demoUnit.id;
+    var demoEntry = state.queue.entries[demoId];
+    var demoStatus = approval.statusOf(state.queue, demoId);
+    var demoWhereHe = { pending: 'כבר ממתינה לאישור', approved: 'כבר אושרה', rejected: 'נדחתה' }[demoStatus];
+    say('unitStatus', !demoEntry ? 'הדוגמה מולאה. לחץ "הגש לאישור".'
+      : demoEntry.unit.body === demoUnit.body
+        ? 'הדוגמה מולאה, אבל היא ' + demoWhereHe + ' בדיוק בטקסט הזה, אז "הגש לאישור" לא ישנה דבר' +
+          (demoStatus === 'rejected' ? ': מתקנים את הטקסט לפי סיבת הדחייה ואז מגישים.'
+            : '. אפשר לשנות כותרת, מקצוע או משך ולהגיש אותה כיחידה חדשה.')
+        : 'הדוגמה מולאה. יחידה עם הכותרת, המקצוע והמשך האלה ' + demoWhereHe + ' בטקסט אחר: "הגש לאישור" יחליף את הטקסט ' +
+          'שלה בטקסט הדוגמה כגרסה ' + (demoEntry.revision + 1) + ' שממתינה לאישור' +
+          (demoStatus === 'approved' ? ', ועד שתאושר שוב תלמידים לא יראו אותה.' : '.'));
   });
 
   $('clearUnitBtn').addEventListener('click', function () {
