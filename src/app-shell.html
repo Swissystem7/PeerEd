@@ -763,6 +763,19 @@
     });
     return out;
   }
+  // A roster that holds only students, or only pupils: computeMatch() returns nothing for it, so the match
+  // screen puts no one on the "מי נשאר בלי זוג" card and gives no reason next to anybody. The no-pair line
+  // on the lessons screen sent the coordinator there ("מראה אצל כל מי שנשאר בלי זוג למה"), and the match
+  // line said only "צריך לפחות סטודנט אחד ותלמיד אחד" without saying which of the two the list lacks.
+  // This names what the list holds and the role it has none of; '' when both roles are there, or the
+  // list is empty (each caller already says that one).
+  function oneRoleHe() {
+    var r = splitByRole();
+    if (!state.people.length || (r.students.length && r.pupils.length)) return '';
+    return 'ברשימה במסך "אנשים" יש ' + (r.students.length
+      ? countHe(r.students.length, 'סטודנט', 'סטודנטים') + ' ואין אף תלמיד - הוסף שם תלמיד'
+      : countHe(r.pupils.length, 'תלמיד', 'תלמידים') + ' ואין אף סטודנט - הוסף שם סטודנט');
+  }
 
   // One sentence per explainUnmatched() code. The other side is named by role.
   // For a student, the hour and subject codes are judged over the pupils in the region that have parent
@@ -922,7 +935,8 @@
       resetMatchView();
       var rm = $('runMatch');
       if (rm && rm.focus) rm.focus();
-      say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true);
+      say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד. ' + (oneRoleHe() ||
+        'הרשימה במסך "אנשים" ריקה - הוסף שם סטודנט ותלמיד, או טען דוגמה') + '.', true);
       return;
     }
     last = m;
@@ -1519,10 +1533,11 @@
       // "טען משתתפים" fits an empty roster only: over a roster with people and no pair it sent the
       // coordinator to load people who are already there, and "בדוק שנוצר זוג" read as if the match
       // screen made pairs - the pair option above says it only shows them and why someone is left out.
+      // A roster of one role has no one on the match screen's left-out card (oneRoleHe), so it is not sent there.
       say('sessionStatus', 'אין זוג לרשום לו שיעור. ' + (state.people.length
-        ? 'ברשימה במסך "אנשים" יש ' + countHe(state.people.length, 'משתתף', 'משתתפים') +
+        ? (oneRoleHe() ? oneRoleHe() + '.' : 'ברשימה במסך "אנשים" יש ' + countHe(state.people.length, 'משתתף', 'משתתפים') +
           ' ואין ביניהם סטודנט ותלמיד עם אישור הורה מאותו אזור שחולקים שעה ומקצוע; ' +
-          '"חשב שידוך" במסך השידוך מראה אצל כל מי שנשאר בלי זוג למה.'
+          '"חשב שידוך" במסך השידוך מראה אצל כל מי שנשאר בלי זוג למה.')
         : 'הרשימה במסך "אנשים" ריקה - הוסף שם סטודנט ותלמיד, או טען דוגמה.'), true);
       return;
     }
