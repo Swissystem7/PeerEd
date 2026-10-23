@@ -24,7 +24,7 @@ test('a pupil waiting for parent consent is not counted as missing a student', (
   addPupilWithoutConsent($, 'NORTH', ['HISTORY'], ['THU_16']);
   $('runMatch').fire('click');
   const s = text($('summary').innerHTML);
-  assert.match(s, /תלמיד אחד בלי סטודנט/, s);
+  assert.match(s, /0 תלמידים בלי סטודנט/, s);
   assert.match(s, /תלמיד אחד מחכה לאישור הורה, לא לסטודנט\./, s);
   assert.doesNotMatch(s, /חסרים סטודנטים/, s);
 });

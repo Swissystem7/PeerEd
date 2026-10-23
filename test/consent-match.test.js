@@ -141,7 +141,7 @@ test('consent: the people screen has the checkbox, sets the flag through the pro
   const table = app.slice(app.indexOf('function reasonHe('), app.indexOf('function computeMatch('));
   assert.ok(table.indexOf("case 'NO_PARENT_CONSENT':") !== -1);
   assert.ok(table.indexOf('אין עדיין אישור הורה') !== -1, 'the pupil-side sentence');
-  assert.ok(table.indexOf('לאף אחד מהם אין עדיין אישור הורה') !== -1, 'the student-side sentence');
+  assert.ok(table.indexOf('לאף תלמיד באזור אין עדיין אישור הורה') !== -1, 'the student-side sentence');
   // The demo roster has at least one pupil with consent and one without, so the screen shows both.
   const demo = app.slice(app.indexOf("$('demoBtn')"), app.indexOf('// ---------- match'));
   const demoPupils = demo.match(/role: 'pupil'[^\n]*/g) || [];
