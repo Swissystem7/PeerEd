@@ -99,6 +99,37 @@ test('approval: resubmitting the same text is a no-op; a revised body goes back 
   assert.equal('reason' in q3.entries[A.id], false);
 });
 
+test('approval: a title the reader sees as the same (an RLM from a paste, another case) is a repeat, not a revision', () => {
+  // the same id, the same body, a title that differs only by a bidi mark nobody sees
+  const pasted = makeUnit({ title: A.title + '‏', subject: 'MATH', durationMinutes: 20, body: A.body });
+  assert.equal(pasted.id, A.id, 'the mark is not part of the id');
+  assert.notEqual(pasted.title, A.title, 'the gate keeps the mark in the stored title');
+  const approved = approve(submit(emptyQueue(), A), A.id);
+  assert.equal(submit(approved, pasted), approved, 'an approved unit pasted back unchanged stays approved');
+  assert.equal(submit(approved, pasted).entries[A.id].unit.title, A.title, 'the title it was approved with is kept');
+  assert.deepEqual(approvedUnits(submit(approved, pasted)).map((u) => u.id), [A.id], 'pupils still see it');
+
+  const pending = submit(emptyQueue(), A);
+  assert.equal(submit(pending, pasted), pending, 'a pending unit pasted back is still its first version');
+  assert.equal(submit(pending, pasted).entries[A.id].revision, 1);
+
+  // an English title retyped in another case
+  const E = makeUnit({ title: 'Quadratic equations', subject: 'MATH', durationMinutes: 20, body: 'Three examples.' });
+  const E2 = makeUnit({ title: 'QUADRATIC EQUATIONS', subject: 'MATH', durationMinutes: 20, body: 'Three examples.' });
+  assert.equal(E2.id, E.id);
+  const approvedE = approve(submit(emptyQueue(), E), E.id);
+  assert.equal(submit(approvedE, E2), approvedE);
+  assert.equal(statusOf(submit(approvedE, E2), E.id), 'approved');
+
+  // a revised body with the retyped title is still a revision, and takes the new text whole
+  const revised = makeUnit({ title: 'QUADRATIC EQUATIONS', subject: 'MATH', durationMinutes: 20, body: 'Five examples, worked.' });
+  const q2 = submit(approvedE, revised);
+  assert.equal(q2.entries[E.id].status, 'pending');
+  assert.equal(q2.entries[E.id].revision, 2);
+  assert.equal(q2.entries[E.id].unit.title, 'QUADRATIC EQUATIONS');
+  assert.equal(q2.entries[E.id].unit.body, revised.body);
+});
+
 test('approval: only a record from makeUnit can be submitted - extra keys, forged ids and raw text are refused', () => {
   const q = emptyQueue();
   // an extra key is what makeUnit refuses as personal data, with that message, not a unit of another shape

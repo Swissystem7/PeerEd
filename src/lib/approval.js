@@ -73,11 +73,18 @@ function withEntry(queue, id, entry, nextSeq) {
 // changes nothing, not even the counter. The same id with a different body is a revision: it goes back
 // to pending with the revision number raised, whatever the previous decision was, because the approver
 // has not read the new text. A rejection reason is dropped with the text it was about.
+// The same id already says the title is the same to a reader: unit.js hashes the title as a reader
+// compares it (case, spacing, the marks nobody sees - an RLM a WhatsApp paste leaves in a Hebrew title),
+// so only the body is compared here. Until this the stored title was compared character by character
+// as well, and a unit pasted back with that RLM, or an English title retyped in another case, was a
+// "revision" of nothing: it pulled an approved unit from every pupil's screen and put it back in the
+// queue as a second version the approver could not tell from the first. A repeat keeps the title
+// spelling the entry was approved with; a real revision takes the new text, title and body both.
 function submit(queue, unit) {
   assertQueue(queue);
   const clean = assertUnit(unit);
   const existing = queue.entries[clean.id];
-  if (existing && existing.unit.body === clean.body && existing.unit.title === clean.title) return queue;
+  if (existing && existing.unit.body === clean.body) return queue;
   if (existing) {
     return withEntry(queue, clean.id, {
       unit: clean, status: 'pending', revision: existing.revision + 1, seq: existing.seq
