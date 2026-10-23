@@ -22,6 +22,15 @@ const INVALID_STATE_ERROR = 'invalid stored state';
 // Where load() puts a document it refused. The app then starts empty, and its first save writes over the
 // main key: without this copy one added person erased the whole refused roster, queue and log for good.
 const REJECTED_SUFFIX = ':rejected';
+// A later refused load takes the next free slot (key:rejected:2, :3, ...) instead of writing over a copy
+// kept before: the screen told the coordinator that copy was kept, and the README that it stays until the
+// wipe, yet the next refused document - one saved after it and refused on a later visit - replaced it,
+// and the roster it held was gone with no line saying so. The same document refused again goes back
+// into its own slot, so reloading a refused page adds nothing.
+function rejectedSlot(storageKey, n) {
+  return storageKey + REJECTED_SUFFIX + (n === 1 ? '' : ':' + n);
+}
+function isHeld(text) { return text !== null && text !== undefined; }
 
 function emptyState() {
   return Object.freeze({ people: Object.freeze([]), queue: emptyQueue(), log: emptyLog() });
@@ -118,8 +127,9 @@ function isBackend(b) {
 // createStore(backend, key): save(state) writes, load() reads. load never throws: it returns
 // { state, problem, kept } where problem is null on success and the reason otherwise, with state reset
 // to empty - the app keeps opening, and the screen can say why the roster is gone instead of guessing.
-// A refused document is copied as is to key + REJECTED_SUFFIX before anything can overwrite it; kept
-// says whether that copy was written. clear() removes both keys.
+// A refused document is copied as is to key + REJECTED_SUFFIX (or the next free slot after it) before
+// anything can overwrite it; kept says whether that copy was written. copies() counts the copies held,
+// and clear() removes the key and every copy.
 function createStore(backend, key) {
   if (!isBackend(backend)) throw new Error('invalid backend: expected getItem, setItem, removeItem');
   const storageKey = key === undefined ? DEFAULT_KEY : key;
@@ -139,14 +149,34 @@ function createStore(backend, key) {
         return { state: deserialize(text), problem: null, kept: false };
       } catch (err) {
         let kept = true;
-        try { backend.setItem(storageKey + REJECTED_SUFFIX, String(text)); } catch (e) { kept = false; }
+        try {
+          let n = 1;
+          let held = backend.getItem(rejectedSlot(storageKey, n));
+          while (isHeld(held) && held !== String(text)) {
+            n += 1;
+            held = backend.getItem(rejectedSlot(storageKey, n));
+          }
+          backend.setItem(rejectedSlot(storageKey, n), String(text));
+        } catch (e) { kept = false; }
         return { state: emptyState(), problem: err.message, kept: kept };
       }
+    },
+    // How many refused documents are kept beside the key, from this visit or an earlier one.
+    copies: function () {
+      let n = 0;
+      try {
+        while (isHeld(backend.getItem(rejectedSlot(storageKey, n + 1)))) n += 1;
+      } catch (e) { return 0; }
+      return n;
     },
     clear: function () {
       try {
         backend.removeItem(storageKey);
-        backend.removeItem(storageKey + REJECTED_SUFFIX);
+        for (let n = 1; ; n += 1) {
+          const held = backend.getItem(rejectedSlot(storageKey, n));
+          backend.removeItem(rejectedSlot(storageKey, n));
+          if (!isHeld(held)) break;
+        }
       } catch (e) { return false; }
       return true;
     }
