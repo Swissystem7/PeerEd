@@ -1232,13 +1232,19 @@
       : '<p class="empty">היומן ריק. רושמים שיעור בטופס למעלה אחרי שנוצר זוג ואושרה יחידה.</p>';
     // An export that is already open follows the log, so a stale report is never on the screen. Its status
     // line follows too: the old one still counted the earlier lines and could say "הועתק גם ללוח" about
-    // a clipboard that now holds the earlier report.
+    // a clipboard that now holds the earlier report. What it says about the clipboard is what the export
+    // knows (reportCopied): until this it said "what was copied to the clipboard before is the earlier
+    // report" after an export whose copy the browser refused, or on a browser with no clipboard API - the
+    // export line had just, rightly, not said "הועתק" - so the one line that must not make a refused copy
+    // look like a copy did exactly that.
     if (!$('reportBox').hidden) {
       var text = session.reportCsv(state.log);
       $('reportText').value = text;
       var lines = text.split('\n').length - 2;
       say('reportStatus', 'היומן השתנה, אז הדוח שבתיבה עודכן: ' + (lines === 1 ? 'שורה אחת' : lines + ' שורות') +
-        ' של ספירות. מה שהועתק קודם ללוח הוא הדוח הקודם - לחץ שוב כדי להעתיק את זה.');
+        ' של ספירות. ' + (reportCopied
+          ? 'מה שהועתק קודם ללוח הוא דוח ישן, לא זה - לחץ שוב כדי להעתיק את זה.'
+          : 'ללוח לא הועתק דבר - לחץ שוב כדי לסמן את הדוח המעודכן להעתקה.'));
     }
     var er = $('exportReport');
     if (er) er.setAttribute('aria-expanded', $('reportBox').hidden ? 'false' : 'true');
@@ -1248,6 +1254,11 @@
   // the file can hold nothing the summary card does not already show. The text lands in a read-only
   // box and is selected; the clipboard is tried on top of that, never instead of it (a phone browser
   // may refuse it, and a refused copy must not look like a copy).
+  // Whether the clipboard has ever taken a report from here. A refused write leaves the clipboard as it
+  // was, so a refusal does not clear this: after one the clipboard still holds the report copied before
+  // it, if any, and the line renderSessions writes when the log changes says that, or that nothing was
+  // ever copied.
+  var reportCopied = false;
   $('exportReport').addEventListener('click', function () {
     var er = $('exportReport');
     var text;
@@ -1269,6 +1280,7 @@
     var done = 'הדוח מוכן: ' + linesHe + ' של ספירות' + emptyHe + ', מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
     if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
+        reportCopied = true;
         say('reportStatus', done + ' הועתק גם ללוח.');
       }, function () { say('reportStatus', done); });
     } else {
