@@ -111,11 +111,15 @@
     <div class="card">
       <h2>המשתתפים</h2>
       <!-- The pairs file is the result of a match by list number, not the list: a person's hours outside the
-           pair's shared ones and the parent-consent flag are not in it, and nothing loads it back. The wipe
-           card under this one says there is no backup, so this one cannot point at that file "for a copy". -->
+           pair's shared ones are not in it, and nothing loads it back. The wipe card under this one says
+           there is no backup, so this one cannot point at that file "for a copy". The parent-consent flag
+           is not a column of the file, but it is in it where it decided the match: the "לא שובצו" section
+           gives each one left out the reason, and for a pupil without consent (or a student whose region's
+           pupils have none) that reason says so, by list number. Until this the hint said the flag was not
+           in the file at all, over a reason column that spelled it out. -->
       <p class="hint">הרשימה נשמרת בדפדפן הזה בלבד: היא לא עוברת לטלפון אחר, נמחקת עם ניקוי נתוני הגלישה, ואין ממנה גיבוי.
         "הורד זוגות (CSV)" במסך השידוך מוריד את תוצאת השידוך לפי מספרי הרשימה, לא את הרשימה: שעות שאינן משותפות
-        לזוג ואישור הורה לא נמצאים בקובץ, ואי אפשר לטעון אותו בחזרה.</p>
+        לזוג לא נמצאות בקובץ, אישור הורה מופיע בו רק כסיבה אצל מי שנשאר בלי זוג בגללו, ואי אפשר לטעון אותו בחזרה.</p>
       <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
     </div>
     <div class="card">
@@ -139,7 +143,12 @@
       <div class="actions"><button type="button" class="act" id="runMatch" aria-describedby="matchStatus">חשב שידוך</button>
         <button type="button" class="ghost" id="exportCsv" aria-describedby="matchStatus">הורד זוגות (CSV)</button></div>
       <p class="status" id="matchStatus" role="status"></p>
-      <p class="hint">הקובץ מכיל רק מספרים מהרשימה, אזור, מקצועות ושעות. את השמות מצליבים בגיליון שלך.</p>
+      <!-- What the file holds is what the cards below show: the pairs, who was left out and why, and the
+           cross-region suggestions. The reason is a sentence from reasonHe, so for a pupil without parent
+           consent it is the consent that is written next to the list number; "numbers, region, subjects
+           and hours" alone left that out. -->
+      <p class="hint">הקובץ מכיל רק מספרים מהרשימה, אזור, מקצועות ושעות משותפות, ולמי שנשאר בלי זוג גם את הסיבה,
+        כולל תלמיד שחסר לו אישור הורה. את השמות מצליבים בגיליון שלך.</p>
     </div>
     <div class="card">
       <h2>סיכום לרשות</h2>

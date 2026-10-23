@@ -3,8 +3,9 @@
 // lives in this browser only and pointed at "הורד זוגות (CSV)" on the match screen "for a copy", while
 // the wipe card under it said there is no backup and no restore. The file is the result of a match by
 // list number - pairs, who was left out and why, cross-region suggestions - not the list: a person's
-// hours outside the pair's shared ones and the parent-consent flag are not in it, and nothing loads it
-// back. Now the list card says what the file is and that the list itself has no copy.
+// hours outside the pair's shared ones are not in it, and nothing loads it back. Now the list card says
+// what the file is and that the list itself has no copy. (The parent-consent flag is in the file where
+// it decided the match - as the reason of a pupil left out for it; test/ui-pairs-file-consent-hint.test.js.)
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -32,7 +33,7 @@ test('the participants card does not call the pairs file a copy of the list', ()
   assert.match(shell, /אין גיבוי ואין שחזור\./);
 });
 
-test('what the hint says is missing from the file is missing: hours outside the pair and parent consent', () => {
+test('what the hint says is missing from the file is missing: hours outside the pair', () => {
   const $ = openApp();
   addPerson($, 'student', 'CENTER', ['MATH'], ['SUN_16', 'TUE_17']); // #1: TUE_17 is his alone
   addPerson($, 'pupil', 'CENTER', ['MATH'], ['SUN_16']);             // #2 pairs with #1
@@ -44,7 +45,8 @@ test('what the hint says is missing from the file is missing: hours outside the 
   assert.match(csv, /יום א 16:00/, 'the shared hour is in the file');
   assert.doesNotMatch(csv, /יום ג 17:00/, 'an hour only one of the pair has is not');
   assert.doesNotMatch(csv, /יום ד 17:00/, 'the hours of someone left out are not');
-  assert.doesNotMatch(csv, /אישור הורה: (יש|אין)/, 'the consent flag is not');
+  // the consent flag is no column: with consent everywhere, the word is not in the file at all
+  assert.doesNotMatch(csv, /אישור הורה/, 'no consent column, and nobody was left out for consent');
   // the list card, by contrast, shows every one of them
   const list = $('peopleList').innerHTML;
   assert.match(list, /2 שעות פנויות/);
