@@ -381,6 +381,13 @@ function daysHe(days) {
   return days === 1 ? 'יום אחד' : days + ' ימים';
 }
 
+// The deletion protocol says what the app does, not what a server would: the list, the units queue and
+// the lessons log sit in the browser's storage only, a stored person carries no date (makeProfile refuses
+// every key it does not know, a recordedAt too), and no screen runs cycle-manager's sweep. So nothing is
+// removed on its own when a window ends - the coordinator removes it, a person at a time or with the
+// wipe card. Until this the protocol said expired records "מוסרות מהמערכת", over a roster that stays
+// until someone deletes it; and the match line said pairs are kept, over a screen that recomputes them
+// on every match and stores none - the only copy is a pairs file the coordinator downloads.
 // The profile line lists what a stored person holds. A pupil's record also holds parentConsent (a yes or
 // a no, nothing about the parent), and the match engine pairs no pupil without it; the participants
 // screen's banner names it, so a statement for a regulator that left it out described less than the
@@ -399,16 +406,17 @@ function generateAuditReport(policy) {
     'מידע שנאסף:',
     '• נתוני פרופיל (תפקיד, אזור, זמינות, מקצועות לימוד, ולתלמיד גם האם התקבל אישור הורה) — לצורך התאמת חונכות.',
     '• אישור הורה נשמר ככן או לא בלבד, בלי שם ההורה, בלי תאריך ובלי מסמך; תלמיד בלי אישור הורה לא נכנס לשידוך.',
-    '• נתוני התאמות חונכות (מי שויך למי ובאילו שעות) — לצורך ניהול מחזור החונכות.',
+    '• נתוני התאמות חונכות (מי שויך למי ובאילו שעות) — לצורך ניהול מחזור החונכות. הזוגות מחושבים מחדש מהרשימה בכל שידוך ולא נשמרים; הם נמצאים רק בקובץ זוגות שהרכז מוריד.',
     '',
     'משך שמירה (לפי מדיניות השמירה הפעילה במערכת):',
     '• נתוני פרופיל: עד ' + daysHe(profileDays) + ' ממועד עדכון אחרון.',
     '• נתוני התאמות: עד ' + daysHe(matchDays) + ' ממועד יצירת ההתאמה או סיום מחזור החונכות.',
     '',
     'פרוטוקול מחיקה:',
-    '• בסיום תקופת השמירה, רשומות פרופיל והתאמה שעברו את המגבלה מוסרות מהמערכת.',
-    '• לא נשמר עותק ארכיוני של נתונים אישיים מעבר לתקופות המפורטות לעיל.',
-    '• מחיקה מוחלטת: הנתונים לא זמינים למנוע ההתאמות ולא משמשים לצורך התאמות עתידיות.'
+    '• הרשימה, תור היחידות ויומן השיעורים נשמרים בדפדפן של המכשיר בלבד, בלי שרת ובלי גיבוי. לא נשמר עותק ארכיוני של הנתונים.',
+    '• המערכת לא מוחקת רשומה מעצמה בתום תקופת השמירה: רשומת משתתף לא נושאת תאריך, ואין סריקה אוטומטית. את המגבלות לעיל אוכף הרכז.',
+    '• מחיקה: הרכז מוחק משתתף מהרשימה, ובסוף הפיילוט או לפני מסירת המכשיר לוחץ "מחק הכול מהמכשיר הזה". אין שחזור, והנתונים לא משמשים עוד למנוע ההתאמות.',
+    '• קובץ זוגות שהורד נמצא בהורדות של המכשיר, מחוץ לדפדפן, והמחיקה לא מגיעה אליו: אותו מוחקים משם.'
   ].join('\n');
 }
 
