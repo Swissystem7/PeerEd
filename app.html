@@ -105,7 +105,7 @@
       <p class="hint" id="hoursHint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint"></div>
       <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
-        <button type="button" class="ghost" id="demoBtn">טען דוגמה</button></div>
+        <button type="button" class="ghost" id="demoBtn" aria-label="טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
     </div>
     <div class="card">
@@ -167,8 +167,8 @@
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12" aria-required="true" aria-describedby="checkStatus"></textarea>
       <div class="actions">
         <button type="button" class="act" id="checkBtn">בדוק</button>
-        <button type="button" class="ghost" id="badBtn">טען דוגמה עם פרטים אישיים</button>
-        <button type="button" class="ghost" id="rudeBtn">טען דוגמה עם שפה פוגענית</button>
+        <button type="button" class="ghost" id="badBtn" aria-describedby="checkStatus">טען דוגמה עם פרטים אישיים</button>
+        <button type="button" class="ghost" id="rudeBtn" aria-describedby="checkStatus">טען דוגמה עם שפה פוגענית</button>
         <button type="button" class="ghost" id="clearTextBtn">נקה טקסט</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
@@ -201,7 +201,7 @@
       <textarea id="unitBody" placeholder="פתחו בדוגמה אחת מהחיים, אחר כך 3 תרגילים מפרק 12..." aria-required="true" aria-describedby="unitStatus"></textarea>
       <div class="actions">
         <button type="button" class="act" id="submitUnit">הגש לאישור</button>
-        <button type="button" class="ghost" id="unitDemoBtn">טען דוגמה</button>
+        <button type="button" class="ghost" id="unitDemoBtn" aria-label="טען יחידת העשרה לדוגמה" aria-describedby="unitStatus">טען דוגמה</button>
         <button type="button" class="ghost" id="clearUnitBtn" aria-label="נקה טופס יחידה">נקה טופס</button>
       </div>
       <p class="status" id="unitStatus" role="status"></p>
