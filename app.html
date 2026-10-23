@@ -271,8 +271,12 @@
     <div class="card">
       <h2>סיכום לרשות — ספירות בלבד</h2>
       <div id="sessionSummary" role="region" aria-live="polite" aria-label="סיכום לרשות"></div>
-      <p class="hint">הייצוא הוא אותן ספירות כקובץ CSV: מדד, קוד, כמות. אין בו שורות של היומן, אין שעה, אין
-        מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
+      <!-- The export is CSV text, not a file: it opens in the read-only box below, selected, and the
+           clipboard is tried on top of that; nothing lands in the device's files. The hint said "כקובץ CSV"
+           a card away from "הורד זוגות (CSV)", which does save a file, so a coordinator looked for the
+           report among the saved files, while the line under the button says "מסומן להעתקה". -->
+      <p class="hint">הייצוא הוא אותן ספירות כטקסט CSV: מדד, קוד, כמות. הוא נפתח בתיבה למטה מסומן להעתקה, ולא
+        יורד כקובץ. אין בו שורות של היומן, אין שעה, אין מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
       <div class="actions"><button type="button" class="ghost" id="exportReport" aria-expanded="false" aria-controls="reportBox reportStatus" aria-describedby="reportStatus">ייצא דוח CSV</button></div>
       <div id="reportBox" hidden>
         <label for="reportText">הדוח (לקריאה בלבד)</label>
