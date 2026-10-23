@@ -2687,10 +2687,19 @@ module.exports = {
         flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(who) : profile.grantParentConsent(who);
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
       state.people[Number(c)] = flipped;
+      // A pairs file already down still pairs this pupil if they were in it: "לא ישודך" alone left the
+      // coordinator crossing names against a file that pairs a pupil whose parent consent is withdrawn.
+      var inFile = null;
+      (filePairs || []).forEach(function (fp) {
+        if (fp.person === who) { fp.person = flipped; inFile = fp; }
+      });
       resetMatchView();
       renderPeople();
       say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
-        : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.');
+        : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.' + (inFile
+          ? ' בקובץ הזוגות שירד קודם הוא עדיין בזוג ' + inFile.pair + ' (תלמיד #' + inFile.pupil + ' עם סטודנט מלמד #' +
+            inFile.student + '): הקובץ לא מתעדכן לבד - לחץ "חשב שידוך" והורד אותו מחדש.'
+          : ''));
       save('addStatus');
       var consentBtn = $('consentBtn-' + c);
       if (consentBtn && consentBtn.focus) consentBtn.focus();
@@ -2708,7 +2717,7 @@ module.exports = {
     state.people.splice(delIndex, 1);
     resetMatchView();
     renderPeople();
-    if (!state.people.length) pairsFileDownloaded = false;
+    if (!state.people.length) { pairsFileDownloaded = false; filePairs = null; }
     say('addStatus', moved
       ? 'נמחק ' + ROLE_HE[gone.role] + ' #' + (delIndex + 1) + '. ' +
         (moved === 1 ? 'מי שהיה #' + (delIndex + 2) + ' הוא עכשיו #' + (delIndex + 1)
@@ -2787,6 +2796,11 @@ module.exports = {
   // file's numbers are the old ones. Cleared when the list is emptied: a file of a list that is gone has
   // no numbers left to point at.
   var pairsFileDownloaded = false;
+  // The pairs in the last file that went down, each with the pupil's record as it was then, so a consent
+  // toggle can tell whether the file pairs that pupil (a record is replaced on a toggle and followed here;
+  // a deletion moves list numbers but not records). The numbers are the file's. Null when no file went
+  // down, or the list it came from is gone.
+  var filePairs = null;
 
   function resetMatchView() {
     last = null;
@@ -2951,6 +2965,10 @@ module.exports = {
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
     pairsFileDownloaded = true;
+    // last is reset on every change to the list, so its numbers are places in state.people right now
+    filePairs = last.pairs.map(function (p, i) {
+      return { pair: i + 1, pupil: p.pupil, student: p.student, person: state.people[p.pupil - 1] };
+    });
     say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
       (last.left.length === 0 ? 'כולם שובצו.' : last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
@@ -3550,6 +3568,7 @@ module.exports = {
     var removed = store.clear();
     if (removed) { refusedOnKey = false; refusedKept = false; }
     pairsFileDownloaded = false;
+    filePairs = null;
     var empty = storeLib.emptyState();
     state = { people: [], queue: empty.queue, log: empty.log };
     clearDraft();
