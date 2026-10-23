@@ -37,10 +37,14 @@ test('the shipped config: CONTACT is the owner\'s Google Form; the fallback is t
   assert.match(contact.ISSUE_FORM, /^https:\/\/github\.com\/Swissystem7\/PeerEd\/issues\/new\?template=pilot\.yml$/);
 });
 
-test('the issue form exists, is Hebrew, and warns that the request is public', () => {
+test('the issue form exists, is Hebrew, and warns who can read the request (the repo is private)', () => {
   const yml = fs.readFileSync(path.join(ROOT, '.github', 'ISSUE_TEMPLATE', 'pilot.yml'), 'utf8');
   assert.match(yml, /^name: .*[֐-׿]/m);
-  assert.match(yml, /ציבורי/);
+  assert.match(yml, /גלויה לכל מי שיש לו גישה לריפו/);
+  assert.doesNotMatch(yml, /ציבורי/, 'the repo is private, the request is not public');
+  const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  assert.match(shell, /הריפו בגיטהאב פרטי: רק מי שקיבל גישה אליו יכול לפתוח את הטופס/);
+  assert.doesNotMatch(shell, /בגיטהאב ציבורית/);
   assert.match(yml, /אל תכתבו/);
   assert.doesNotMatch(yml, /id: (phone|email|name)\b/, 'the form asks for no contact detail');
 });
