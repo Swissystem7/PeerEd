@@ -3037,6 +3037,13 @@ module.exports = {
     }).join('') : '<p class="empty">אין יחידות שנדחו.</p>';
   }
 
+  // The rejected unit "טען לטופס לעריכה" put in the form, until the form is sent, cleared or replaced. A
+  // unit's id is its title, subject and duration (unit.js), so a fix to the body goes back to the queue
+  // as the next version of that unit - the promise the rejection line makes - while a fix to the title,
+  // the subject or the duration is a different unit: it is submitted beside the rejected one, which stays
+  // in the rejected list, reason and edit button and all. The submit line says which of the two happened.
+  var revising = null;
+
   function submitUnit(input) {
     var made;
     try {
@@ -3072,9 +3079,18 @@ module.exports = {
     renderUnits();
     // A unit edited while still pending never left the queue, so it does not "return" to it.
     var revision = state.queue.entries[made.id].revision;
-    say('unitStatus', before === null ? 'הוגש וממתין לאישור. מזהה: ' + made.id
-      : before === 'pending' ? 'הטקסט עודכן, היחידה עדיין ממתינה לאישור, עכשיו כגרסה ' + revision + '.'
-      : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + revision + '.');
+    // The form held a rejected unit and what was sent has another id: the rejected one was not revised,
+    // it is still in the rejected list, and the line says so instead of "submitted" as if it had moved.
+    var besideRejected = revising && revising.id !== made.id;
+    say('unitStatus', before === null
+      ? (besideRejected
+        ? 'הוגש כיחידה חדשה וממתין לאישור. מזהה: ' + made.id + '. הכותרת, המקצוע או המשך שונים מאלה של "' +
+          revising.title + '", אז היא יחידה אחרת: "' + revising.title + '" נשארה ברשימת הנדחות כפי שהיא.'
+        : 'הוגש וממתין לאישור. מזהה: ' + made.id)
+      : (before === 'pending' ? 'הטקסט עודכן, היחידה עדיין ממתינה לאישור, עכשיו כגרסה ' + revision + '.'
+        : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + revision + '.') +
+        (besideRejected ? ' זו יחידה אחרת מ"' + revising.title + '", שנשארה ברשימת הנדחות כפי שהיא.' : ''));
+    revising = null;
     save('unitStatus');
   }
 
@@ -3093,6 +3109,7 @@ module.exports = {
     $('unitTitle').value = 'שברים פשוטים: חיבור וחיסור';
     $('unitBody').value = 'מתחילים בפיצה שחולקה ל-8. כמה זה 3/8 ועוד 2/8? אחר כך 3 תרגילים עם מכנה שונה: ' +
       '1/2 + 1/4, 2/3 - 1/6, 3/5 + 1/10. מי שסיים מנסה לכתוב תרגיל משלו לחבר.';
+    revising = null;
     say('unitStatus', 'הדוגמה מולאה. לחץ "הגש לאישור".');
   });
 
@@ -3100,6 +3117,7 @@ module.exports = {
     $('unitTitle').value = '';
     $('unitBody').value = '';
     $('unitDuration').value = '20';
+    revising = null;
     if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
     say('unitStatus', '');
     var ut = $('unitTitle');
@@ -3123,7 +3141,8 @@ module.exports = {
       } else {
         var reasonBox = $('reason-' + rejectId) || (document.querySelector && document.querySelector('[data-reason="' + rejectId + '"]'));
         state.queue = approval.reject(state.queue, rejectId, reasonBox ? reasonBox.value : '');
-        say('decideStatus', 'נדחה עם סיבה. המורה יכול לתקן ולהגיש שוב - זה יחזור לתור כגרסה חדשה.');
+        say('decideStatus', 'נדחה עם סיבה. המורה יכול לתקן את התוכן ולהגיש שוב - זה יחזור לתור כגרסה חדשה. ' +
+          'כותרת, מקצוע או משך אחרים הם יחידה חדשה, והדחויה נשארת ברשימה.');
       }
     } catch (err) {
       if (rejectId !== null) {
@@ -3159,7 +3178,9 @@ module.exports = {
     $('unitBody').value = u.body;
     var ub = $('unitBody');
     if (ub && ub.focus) ub.focus();
-    say('unitStatus', 'היחידה "' + u.title + '" נטענה לטופס. תקן את התוכן ולחץ "הגש לאישור".');
+    revising = { id: u.id, title: u.title };
+    say('unitStatus', 'היחידה "' + u.title + '" נטענה לטופס. תקן את התוכן ולחץ "הגש לאישור" - היא תחזור לתור כגרסה חדשה. ' +
+      'כותרת, מקצוע או משך אחרים הם יחידה חדשה: היא תוגש בנפרד, והגרסה שנדחתה תישאר ברשימת הנדחות.');
   });
 
   // ---------- sessions (MVP item 6) ----------
@@ -3425,6 +3446,7 @@ module.exports = {
     $('unitBody').value = '';
     $('unitDuration').value = '20';
     if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
+    revising = null;
     ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
       say(id, '');
     });
