@@ -82,7 +82,7 @@
   </header>
 
   <!-- ============ אנשים ============ -->
-  <section role="tabpanel" id="tab-people" aria-labelledby="nav-people">
+  <section role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">
     <div class="banner">
       הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות, ולתלמיד גם האם התקבל אישור הורה (כן/לא
       בלבד). כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "פרטיות".
@@ -125,7 +125,7 @@
   </section>
 
   <!-- ============ שידוך ============ -->
-  <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" hidden>
+  <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
     <div class="card">
       <h2>שידוך</h2>
       <p class="hint">זוג נוצר רק כשלתלמיד יש אישור הורה, שניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים
@@ -158,7 +158,7 @@
   </section>
 
   <!-- ============ טקסט ============ -->
-  <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" hidden>
+  <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" tabindex="-1" hidden>
     <div class="card">
       <h2>הדגמה: שער הטקסט</h2>
       <p class="hint">הטקסט החופשי שהאפליקציה שומרת הוא רק כותרת ותוכן של יחידה וסיבת דחייה, וכל אחד מהם עובר
@@ -183,7 +183,7 @@
   </section>
 
   <!-- ============ יחידות ============ -->
-  <section role="tabpanel" id="tab-units" aria-labelledby="nav-units" hidden>
+  <section role="tabpanel" id="tab-units" aria-labelledby="nav-units" tabindex="-1" hidden>
     <div class="banner">
       יחידת העשרה היא שיעור טקסט קצר שמורה מגיש. היא לא מגיעה לאף תלמיד עד שהמאשר קרא אותה ואישר.
       התור שומר רק שהתפקיד החליט, לא מי. אותה כותרת, מקצוע ומשך — אותו מזהה, גם אם הטקסט תוקן.
@@ -223,7 +223,7 @@
   </section>
 
   <!-- ============ שיעורים ============ -->
-  <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" hidden>
+  <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
     <div class="banner">
       יומן השיעורים רושם שהתקיים שיעור טקסט של זוג משודך: אזור, שעה, מקצוע, היחידה המאושרת שנלמדה ואיך
       השיעור הסתיים. מספרי הסטודנט והתלמיד לא נכתבים ליומן. רשות מקבלת ספירות בלבד, לא שורות.
@@ -1306,7 +1306,11 @@
       var on = t === tab;
       t.setAttribute('aria-selected', on ? 'true' : 'false');
       t.tabIndex = on ? 0 : -1;
-      $(t.getAttribute('aria-controls')).hidden = !on;
+      var panel = $(t.getAttribute('aria-controls'));
+      if (panel) {
+        panel.hidden = !on;
+        panel.setAttribute('tabindex', on ? '0' : '-1');
+      }
     });
     // The roster and the queue may have changed on other tabs: the pairs and the units are recomputed.
     if (tab.id === 'nav-sessions') renderSessionForm();
