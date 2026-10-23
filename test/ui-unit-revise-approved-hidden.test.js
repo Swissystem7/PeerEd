@@ -67,5 +67,7 @@ test('revising a pending unit or a rejected one does not get the approved note',
   $('reason-' + id).value = 'קצר מדי';
   $('pendingList').fire('click', { target: { getAttribute: (k) => (k === 'data-reject' ? id : null) } });
   submitDemoUnit($, 'גוף שלישי אחרי הדחייה.');
-  assert.match($('unitStatus').textContent, /^הטקסט עודכן, היחידה חזרה להמתנה כגרסה 3\.$/, $('unitStatus').textContent);
+  // Typed from scratch, not loaded by "טען לטופס לעריכה": the line also names the text it replaced.
+  assert.match($('unitStatus').textContent, /^הטקסט עודכן, היחידה חזרה להמתנה כגרסה 3\. הטקסט הקודם של /, $('unitStatus').textContent);
+  assert.doesNotMatch($('unitStatus').textContent, /תלמידים לא רואים/);
 });

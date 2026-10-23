@@ -1216,13 +1216,21 @@
     var wasApprovedHe = before === 'approved'
       ? ' עד שתאושר שוב תלמידים לא רואים אותה, ובמסך "שיעורים" אי אפשר לרשום איתה שיעור; שיעורים שכבר נרשמו איתה נשארים ביומן.'
       : '';
+    // A unit typed from scratch (not loaded by "טען לטופס לעריכה") whose title, subject and duration match one
+    // already in the queue is that unit: its text was replaced and the old text is kept nowhere. "הטקסט עודכן"
+    // alone did not say which unit's text, nor that the form had overwritten something it never showed.
+    var replacedHe = before !== null && !(revising && revising.id === made.id)
+      ? ' הטקסט הקודם של "' + made.title + '" (מזהה ' + made.id + '), שהייתה ' +
+        { pending: 'בתור', approved: 'מאושרת', rejected: 'ברשימת הנדחות' }[before] +
+        ', הוחלף בטקסט מהטופס ולא נשמר: כותרת, מקצוע ומשך זהים הם אותה יחידה.'
+      : '';
     say('unitStatus', before === null
       ? (besideRejected
         ? 'הוגש כיחידה חדשה וממתין לאישור. מזהה: ' + made.id + '. הכותרת, המקצוע או המשך שונים מאלה של "' +
           revising.title + '", אז היא יחידה אחרת: "' + revising.title + '" נשארה ברשימת הנדחות כפי שהיא.'
         : 'הוגש וממתין לאישור. מזהה: ' + made.id)
       : (before === 'pending' ? 'הטקסט עודכן, היחידה עדיין ממתינה לאישור, עכשיו כגרסה ' + revision + '.'
-        : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + revision + '.' + wasApprovedHe) +
+        : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + revision + '.' + wasApprovedHe) + replacedHe +
         (besideRejected ? ' זו יחידה אחרת מ"' + revising.title + '", שנשארה ברשימת הנדחות כפי שהיא.' : ''));
     revising = null;
     save('unitStatus');
