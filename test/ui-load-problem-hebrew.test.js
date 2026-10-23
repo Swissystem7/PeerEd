@@ -44,6 +44,21 @@ test('a saved session row that does not load is reported in Hebrew', () => {
   assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
 });
 
+test('a saved session row with an hour, a subject or a unit that does not fit is reported as a bad stored row, not as a pair', () => {
+  // nobody picked an hour or a subject on load and there is no pair: the line for a stored row is the one
+  // that shows, not "בשעה הזאת הזוג לא פנוי יחד" or "אפשר לרשום רק יחידה מאושרת"
+  for (const patch of [{ slot: 'SUN_08' }, { subject: 'ART' }, { outcome: 'great' }, {}]) {
+    const $ = openWith(JSON.stringify({
+      schema: 'peered/1', people: [],
+      log: { nextSeq: 2, entries: [Object.assign(
+        { seq: 1, region: 'CENTER', slot: 'SUN_16', subject: 'MATH', unitId: 'u-x', outcome: 'held' }, patch)] }
+    }));
+    assert.match($('addStatus').textContent, /נדחתה ולא נטענה: שיעור שמור לא תקין\./, JSON.stringify(patch));
+    assert.doesNotMatch($('addStatus').textContent, /הזוג|יחידה מאושרת/, JSON.stringify(patch));
+    assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
+  }
+});
+
 test('a saved person whose retention stamp is not one the app writes is reported in Hebrew', () => {
   const $ = openWith(JSON.stringify({
     schema: 'peered/1',

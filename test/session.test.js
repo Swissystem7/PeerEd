@@ -165,7 +165,8 @@ test('session: a stored log round-trips through JSON and is re-checked against t
   assert.equal(Object.isFrozen(back.entries[1]), true);
   // the queue the log is loaded with decides: with the unit no longer approved, the row is refused
   const queueWithout = submit(submit(emptyQueue(), MATH), PHYSICS);
-  assert.throws(() => loadLog(JSON.parse(JSON.stringify(l)), queueWithout), { message: UNIT_NOT_APPROVED_ERROR });
+  assert.throws(() => loadLog(JSON.parse(JSON.stringify(l)), queueWithout),
+    { message: 'invalid stored session: unit not approved at 0' });
   // nextSeq is repaired from the rows when it is missing or stale
   assert.equal(loadLog({ entries: JSON.parse(JSON.stringify(l.entries)) }, QUEUE).nextSeq, 3);
 });
@@ -182,6 +183,28 @@ test('session: a lesson already logged still loads after its unit is revised, pe
   // a unit on its first text was never approved: a stored row on it is still refused
   const neverApproved = Object.assign({}, HELD, { unitId: PENDING.id });
   assert.throws(() => loadLog({ entries: [Object.assign({ region: 'SOUTH', seq: 1 }, neverApproved)] }, QUEUE),
+    { message: 'invalid stored session: unit not approved at 0' });
+});
+
+test('session: a stored row that does not fit is refused as a stored row, never as a lesson the pair does not share', () => {
+  // there is no pair on load and nobody chose an hour or a subject: the refusal names the row, like a bad
+  // region or seq does, so the screen's line for a stored row is the one that shows - not the pair's
+  const row = { region: 'SOUTH', slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held', seq: 1 };
+  const cases = [
+    [{ slot: 'SUN_08' }, 'bad slot'], [{ slot: 'דנה' }, 'bad slot'], [{ slot: undefined }, 'bad slot'],
+    [{ subject: 'ART' }, 'bad subject'], [{ subject: 'דנה' }, 'bad subject'],
+    [{ outcome: 'great' }, 'bad outcome'],
+    [{ unitId: PENDING.id }, 'unit not approved'], [{ unitId: 'u-0000000000000000' }, 'unit not approved'],
+    [{ subject: 'PHYSICS' }, 'subject is not the unit\'s']
+  ];
+  for (const [patch, what] of cases) {
+    assert.throws(() => loadLog({ entries: [row, Object.assign({}, row, patch, { seq: 2 })] }, QUEUE),
+      { message: 'invalid stored session: ' + what + ' at 1' });
+  }
+  // the live wording is unchanged: the coordinator picked the hour and the subject from the pair's lists
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { slot: 'SUN_16' })),
+    { message: 'invalid slot: expected a slot the pair shares' });
+  assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { unitId: PENDING.id })),
     { message: UNIT_NOT_APPROVED_ERROR });
 });
 
@@ -206,12 +229,12 @@ test('session: a row edited on disk cannot bring an extra key, a bad region or a
   const row = { region: 'SOUTH', slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held', seq: 1 };
   assert.throws(() => loadLog({ entries: [Object.assign({}, row, { pupil: 'x' })] }, QUEUE), { message: PERSONAL_DATA_ERROR });
   assert.throws(() => loadLog({ entries: [Object.assign({}, row, { region: 'MARS' })] }, QUEUE), /bad region/);
-  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'MON_7' })] }, QUEUE), /invalid slot/);
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'MON_7' })] }, QUEUE), /bad slot at 0/);
   // logSession only writes the canonical spelling of an hour, so a stored 'MON_018' or 'SUN_08' is refused
-  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'MON_018' })] }, QUEUE), /invalid slot/);
-  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'SUN_08' })] }, QUEUE), /invalid slot/);
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'MON_018' })] }, QUEUE), /bad slot at 0/);
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { slot: 'SUN_08' })] }, QUEUE), /bad slot at 0/);
   assert.equal(loadLog({ entries: [Object.assign({}, row, { slot: 'SUN_8' })] }, QUEUE).entries[0].slot, 'SUN_8');
-  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { outcome: 'x' })] }, QUEUE), /invalid outcome/);
+  assert.throws(() => loadLog({ entries: [Object.assign({}, row, { outcome: 'x' })] }, QUEUE), /bad outcome at 0/);
   assert.throws(() => loadLog({ entries: [row, Object.assign({}, row, { seq: 1 })] }, QUEUE), /seq out of order/);
   assert.throws(() => loadLog({ entries: [null] }, QUEUE), /invalid stored session/);
   assert.throws(() => loadLog({ entries: {} }, QUEUE), /invalid stored log/);

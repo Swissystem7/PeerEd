@@ -1876,7 +1876,15 @@ function unitTaughtOk(queue, unitId, stored) {
 // The checks shared by a live report and a stored record: the slot and subject are ones the pair
 // shares, the unit is approved in the queue (or was, for a stored row - unitTaughtOk), and the
 // subject is the unit's own subject.
-function cleanEntry(queue, region, sharedSlots, sharedSubjects, input, stored) {
+// `at` is the row's index in the stored log, undefined for a live report. A refusal names what the
+// coordinator did - 'expected a slot the pair shares': the hour is in the grid, the subject in the
+// list - or, for a stored row, the row, the way loadLog already names a bad region or seq. A stored
+// row has no pair and nobody chose anything on it; with the live wording a row that did not fit was
+// reported on load as the screen's line for an hour the pair is not free at, a sentence about a pair
+// that does not exist, while the line for a stored row that does not fit went unused.
+function cleanEntry(queue, region, sharedSlots, sharedSubjects, input, at) {
+  const stored = at !== undefined;
+  const refused = (live, what) => new Error(stored ? 'invalid stored session: ' + what + ' at ' + at : live);
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('session input must be an object with slot, subject, unitId, outcome');
   }
@@ -1887,19 +1895,19 @@ function cleanEntry(queue, region, sharedSlots, sharedSubjects, input, stored) {
     if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   if (!isSlot(input.slot) || sharedSlots.indexOf(input.slot) === -1) {
-    throw new Error('invalid slot: expected a slot the pair shares');
+    throw refused('invalid slot: expected a slot the pair shares', 'bad slot');
   }
   if (SUBJECTS.indexOf(input.subject) === -1 || sharedSubjects.indexOf(input.subject) === -1) {
-    throw new Error('invalid subject: expected a subject the pair shares');
+    throw refused('invalid subject: expected a subject the pair shares', 'bad subject');
   }
   if (OUTCOMES.indexOf(input.outcome) === -1) {
-    throw new Error('invalid outcome: expected one of ' + OUTCOMES.join(', '));
+    throw refused('invalid outcome: expected one of ' + OUTCOMES.join(', '), 'bad outcome');
   }
   if (typeof input.unitId !== 'string' || !unitTaughtOk(queue, input.unitId, stored)) {
-    throw new Error(UNIT_NOT_APPROVED_ERROR);
+    throw refused(UNIT_NOT_APPROVED_ERROR, 'unit not approved');
   }
   if (queue.entries[input.unitId].unit.subject !== input.subject) {
-    throw new Error('invalid subject: expected the subject of the unit');
+    throw refused('invalid subject: expected the subject of the unit', 'subject is not the unit\'s');
   }
   return { region: region, slot: input.slot, subject: input.subject, unitId: input.unitId, outcome: input.outcome };
 }
@@ -1997,7 +2005,7 @@ function loadLog(data, queue) {
       throw new Error('invalid stored session: seq out of order at ' + i);
     }
     const clean = cleanEntry(queue, raw.region, [normalizeSlot(raw.slot)], [raw.subject],
-      { slot: raw.slot, subject: raw.subject, unitId: raw.unitId, outcome: raw.outcome }, true);
+      { slot: raw.slot, subject: raw.subject, unitId: raw.unitId, outcome: raw.outcome }, i);
     clean.seq = raw.seq;
     entries.push(Object.freeze(clean));
     lastSeq = raw.seq;
