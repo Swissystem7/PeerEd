@@ -89,6 +89,6 @@ test('a pair with no approved unit in its subject keeps the units-screen line, n
   $('nav-sessions').fire('click');
   $('sessionSubject').value = 'MATH';
   $('sessionSubject').fire('change');
-  assert.equal($('sessionUnit').innerHTML, '<option value="">אין יחידה מאושרת במקצוע הזה - אשר אחת במסך יחידות</option>');
+  assert.equal($('sessionUnit').innerHTML, '<option value="">אין יחידה מאושרת במקצוע הזה, ואף אחת לא ממתינה לאישור - מגישים יחידה במקצוע הזה במסך יחידות ומאשרים אותה</option>');
   assert.equal($('sessionUnit').disabled, true);
 });
