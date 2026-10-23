@@ -76,7 +76,9 @@ test('a file of a list that was emptied is forgotten: a new list does not inheri
   press($('peopleList'), 'data-del', '0');
   assert.match($('addStatus').textContent, /קובץ הזוגות שירד קודם/);
   press($('peopleList'), 'data-del', '0');
-  assert.equal($('addStatus').textContent, 'נמחק.');
+  // the last one deleted is still in the file's pair, so the line says so before the file is forgotten
+  assert.equal($('addStatus').textContent, 'נמחק תלמיד #1. בקובץ הזוגות שירד קודם הוא עדיין #2, בזוג 1 (תלמיד #2 עם סטודנט מלמד #1)' +
+    ': הקובץ לא מתעדכן לבד - לחץ "חשב שידוך" והורד אותו מחדש.');
   three($);
   press($('peopleList'), 'data-del', '0');
   assert.equal($('addStatus').textContent, 'נמחק סטודנט מלמד #1. מי שהיו #2 עד #3 ירדו במספר אחד.');

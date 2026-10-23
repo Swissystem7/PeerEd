@@ -2731,9 +2731,6 @@ module.exports = {
     state.people.splice(delIndex, 1);
     resetMatchView();
     renderPeople();
-    if (!state.people.length) {
-      pairsFileDownloaded = false; filePairs = null; filePeople = null; fileNoConsent = null; fileAcross = null;
-    }
     // The file names everyone who was on the list when it went down, so deleting one of them - the last
     // one too, who moves nobody - leaves a number in the file for someone no longer here: the next one
     // added takes that number on the screen, and a pair in the file may still hold the deleted one.
@@ -2758,6 +2755,12 @@ module.exports = {
           : 'מי שהיו #' + (delIndex + 2) + ' עד #' + (delIndex + 1 + moved) + ' ירדו במספר אחד') +
         (pairsFileDownloaded ? ', וקובץ הזוגות שירד קודם מתייחס למספרים שלפני המחיקה.' : '.') + fileNote
       : fileNote ? 'נמחק ' + ROLE_HE[gone.role] + ' #' + (delIndex + 1) + '.' + fileNote : 'נמחק.');
+    // A list emptied is a list the file no longer describes, so the flags go - but only after the line:
+    // cleared before it, the one deleted last got "נמחק." over a file that still names them, by the
+    // number the next one added takes.
+    if (!state.people.length) {
+      pairsFileDownloaded = false; filePairs = null; filePeople = null; fileNoConsent = null; fileAcross = null;
+    }
     save('addStatus');
     if (state.people.length > 0) {
       var nextIdx = Math.min(delIndex, state.people.length - 1);
