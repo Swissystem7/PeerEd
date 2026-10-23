@@ -1596,9 +1596,10 @@ const { makeUnit } = require('./unit.js');
 const { assertCleanText, PROFANITY_ERROR } = require('./validator.js');
 
 const STATUSES = Object.freeze(['pending', 'approved', 'rejected']);
-// The keys a stored entry may carry. The unit inside has its own gate (assertUnit); this list is the
-// gate for the record around it, so a teacher name or a note written next to a unit on disk is refused
-// with the same message as everywhere else, not dropped on the way in.
+// The keys a stored entry may carry. The unit inside has its own gate (assertUnit, through makeUnit);
+// this list is the gate for the record around it, so a teacher name or a note written next to a unit on
+// disk is refused with the same message as everywhere else - and as one written inside the unit - not
+// dropped on the way in.
 const ENTRY_FIELDS = Object.freeze(['unit', 'status', 'revision', 'seq', 'decidedBy', 'reason']);
 // the queue itself is only ever written with these two keys
 const QUEUE_FIELDS = Object.freeze(['nextSeq', 'entries']);
@@ -1626,13 +1627,19 @@ function assertQueue(queue) {
 // A unit is accepted only if it is exactly what makeUnit produces for its own fields: the privacy
 // gate and the id rule are re-applied here, so a hand-built record with an extra key, a forged id or
 // an uncleaned body cannot enter the queue through a stale copy.
+// makeUnit sees the whole record, less the id it wrote itself, so its own gate is the one that refuses
+// a key it does not know - a teacher name, a school - with the message that rule has everywhere. Until
+// this only the four fields were handed to it and the extra key was caught by the shape check below,
+// as 'invalid unit': a name written inside a stored unit was the one key on disk refused under another
+// name, while the same name beside the unit (ENTRY_FIELDS), on a stored person or on a session row is
+// personal data, and the card said "the stored queue entry is invalid" about a record that held a name.
 function assertUnit(unit) {
   if (unit === null || typeof unit !== 'object' || Array.isArray(unit)) {
     throw new Error('invalid unit: expected a record from makeUnit');
   }
-  const rebuilt = makeUnit({
-    title: unit.title, subject: unit.subject, durationMinutes: unit.durationMinutes, body: unit.body
-  });
+  const input = Object.assign({}, unit);
+  delete input.id;
+  const rebuilt = makeUnit(input);
   const keys = Object.keys(unit).sort();
   if (keys.join(',') !== 'body,durationMinutes,id,subject,title' || rebuilt.id !== unit.id
     || rebuilt.title !== unit.title || rebuilt.body !== unit.body) {
