@@ -56,7 +56,10 @@ never who) and a municipality sees counts only. The people screen ends with a wi
 | `src/lib/contact.js` | The one place for a contact channel. Since 28.9 `CONTACT` is the Google Form "משוב על האפליקציות", pre-filled with PeerEd. If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
 
 On screen: add participants (or load a sample), compute the match, see who is left out and why, download
-the pairs as CSV (list numbers only, to line up with the coordinator's sheet), a card of cross-region suggestions for pupils whose region has no free student (also in the CSV; the coordinator decides), and the "סיכום לרשות" card: counts
+the pairs as CSV (people by list number, never by name, to line up with the coordinator's sheet: each pair with its
+region, shared subjects and shared hours, then a "לא שובצו" section with the role, list number, region, subjects and
+reason of everyone left out - for a pupil without parent consent that reason says so - and the cross-region
+suggestions; hours a pair does not share are not in it, and nothing loads it back), a card of cross-region suggestions for pupils whose region has no free student (also in the CSV; the coordinator decides), and the "סיכום לרשות" card: counts
 only (pairs, pupils without a student, students without a pupil, pupils waiting for a parent's consent counted
 apart, and the students missing by region and subject), on the screen with no file to download.
 
