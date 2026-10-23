@@ -118,8 +118,8 @@
       <h2>מחיקה מהמכשיר הזה</h2>
       <p class="hint">הכול נשמר רק בדפדפן הזה. לפני שמוסרים את הטלפון או כשפיילוט נגמר מוחקים מכאן את הרשימה, את תור
         היחידות ואת יומן השיעורים. אין גיבוי ואין שחזור.</p>
-      <div class="actions"><button type="button" class="ghost" id="wipeBtn" aria-describedby="wipeStatus">מחק הכול מהמכשיר הזה</button>
-        <button type="button" class="ghost" id="wipeCancel" aria-describedby="wipeStatus" hidden>ביטול</button></div>
+      <div class="actions"><button type="button" class="ghost" id="wipeBtn" aria-expanded="false" aria-controls="wipeCancel wipeStatus" aria-describedby="wipeStatus">מחק הכול מהמכשיר הזה</button>
+        <button type="button" class="ghost" id="wipeCancel" aria-label="בטל מחיקה מהמכשיר" aria-describedby="wipeStatus" hidden>ביטול</button></div>
       <p class="status" id="wipeStatus" role="status"></p>
     </div>
   </section>
@@ -1244,7 +1244,9 @@
   var wipeArmed = false;
   function setWipeArmed(on) {
     wipeArmed = on;
-    $('wipeBtn').textContent = on ? 'כן, מחק הכול' : WIPE_LABEL;
+    var wb = $('wipeBtn');
+    wb.textContent = on ? 'כן, מחק הכול' : WIPE_LABEL;
+    wb.setAttribute('aria-expanded', on ? 'true' : 'false');
     $('wipeCancel').hidden = !on;
   }
   $('wipeBtn').addEventListener('click', function () {
@@ -1288,6 +1290,8 @@
   });
   $('wipeCancel').addEventListener('click', function () {
     setWipeArmed(false);
+    var wb = $('wipeBtn');
+    if (wb && wb.focus) wb.focus();
     say('wipeStatus', 'בוטל. לא נמחק דבר.');
   });
 
