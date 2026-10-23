@@ -13,9 +13,9 @@
 // in retention.js must delete more at the next sweep, not leave old rows on their old terms. No clock
 // of its own either: the caller passes the day the cycle ends, and the caller's arrays are untouched.
 //
-// Two entry points share the same day arithmetic:
+// Two entry points share the same day arithmetic and the same limit:
 //   sweep(rows, asOf)                 - one flat array, judged by the policy's limit for the row's category
-//   applyRetentionPolicy(stored, asOf) - { matches, profiles }, judged by the maxAgeDays stamped on the row
+//   applyRetentionPolicy(stored, asOf) - { matches, profiles }, the same judgement on the two stored arrays
 
 const { getRetentionPolicy } = require('./retention.js');
 
@@ -76,9 +76,13 @@ function sweep(records, asOf) {
   return Object.freeze({ kept: kept, dropped: dropped });
 }
 
-// The row-level check behind applyRetentionPolicy(): the limit is the maxAgeDays the row was stamped with.
-// A stamp that is not a whole number of days (Infinity, NaN, -1, 1.5) is refused: Infinity would keep the
-// row forever, which retention.js promises never happens.
+// The row-level check behind applyRetentionPolicy(). The row carries the maxAgeDays it was stamped with
+// (profile.js, match.js), and a stamp that is not a whole number of days (Infinity, NaN, -1, 1.5) is a row
+// the app never wrote and is refused. But the stamp is not the limit: this sweep read it as one, so a
+// row stamped 99999 - by an older, longer policy or by an edit on disk - was kept past the window that
+// retention.js states today, and shortening the window there deleted nothing already stored. The limit
+// is the policy's, for the row's category, exactly as in sweep(); a category the policy does not name is
+// refused there, not kept forever.
 function isRetained(record, currentDate) {
   if (record === null || typeof record !== 'object') {
     throw new Error('retention record must be an object');
@@ -92,7 +96,7 @@ function isRetained(record, currentDate) {
   if (record.recordedAt === undefined || record.recordedAt === null) {
     throw new Error('retention record is missing recordedAt');
   }
-  return ageInDays(record.recordedAt, currentDate) <= record.retention.maxAgeDays;
+  return !isExpired(record, currentDate);
 }
 
 // { matches, profiles } are parallel arrays of stored records (each with recordedAt + retention metadata).
