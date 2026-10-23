@@ -34,9 +34,32 @@ function assertLog(log) {
 
 // A pair is what matchPairs returns: region plus the shared slots and subjects. Only those three are
 // read; the roster positions on the pair are ignored on purpose and never reach the entry.
+// The two lists hold nothing but codes: slots in the one spelling makeProfile writes ('SUN_8', never
+// 'SUN_08') and SUBJECTS codes, at least one of each, since candidatesOf drops a pair without. That is
+// checked here, not taken on trust. Until this check the lists only had to be arrays, and the row's
+// slot only had to be some spelling of an hour the pair listed: a hand-built pair with 'SUN_08' in
+// sharedSlots had its session written as 'SUN_08', the one spelling loadLog refuses - so the next load
+// threw the whole saved state away, roster, queue and log, over a row the app itself had written.
+// A pair with anything else in it is not a pair from matchPairs() and is refused as one.
+function isCodeList(list, isCode) {
+  if (!Array.isArray(list) || list.length === 0) return false;
+  for (let i = 0; i < list.length; i += 1) {
+    if (!isCode(list[i])) return false;
+  }
+  return true;
+}
+
+function isCanonicalSlot(slot) {
+  return normalizeSlot(slot) === slot;
+}
+
+function isSubject(code) {
+  return typeof code === 'string' && SUBJECTS.indexOf(code) !== -1;
+}
+
 function assertPair(pair) {
-  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)
-    || !isRegion(pair.region) || !Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) {
+  if (pair === null || typeof pair !== 'object' || Array.isArray(pair) || !isRegion(pair.region)
+    || !isCodeList(pair.sharedSlots, isCanonicalSlot) || !isCodeList(pair.sharedSubjects, isSubject)) {
     throw new Error('invalid pair: expected a pair from matchPairs');
   }
 }
@@ -147,8 +170,9 @@ function reportCsv(log) {
 // row edited on disk cannot bring an extra key, an unapproved unit or a foreign region into the app.
 // A stored row carries its own region and no pair, so the slot and subject are checked for shape and
 // the unit for approval and subject; the pair check happened when the row was written. The slot must be
-// in its canonical spelling: the pair's slots come from makeProfile, so logSession only ever writes
-// 'SUN_8', and a stored 'SUN_08' is a row the app never wrote - refused, not quietly kept.
+// in its canonical spelling: assertPair lets only slots in makeProfile's spelling onto a pair, so
+// logSession only ever writes 'SUN_8', and a stored 'SUN_08' is a row the app never wrote - refused,
+// not quietly kept.
 function loadLog(data, queue) {
   if (data === null || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.entries)) {
     throw new Error('invalid stored log');
