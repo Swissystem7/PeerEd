@@ -101,7 +101,8 @@ test('approval: resubmitting the same text is a no-op; a revised body goes back 
 
 test('approval: only a record from makeUnit can be submitted - extra keys, forged ids and raw text are refused', () => {
   const q = emptyQueue();
-  assert.throws(() => submit(q, Object.assign({}, A, { author: 'x' })), /invalid unit/);
+  // an extra key is what makeUnit refuses as personal data, with that message, not a unit of another shape
+  assert.throws(() => submit(q, Object.assign({}, A, { author: 'x' })), { message: PERSONAL_DATA_ERROR });
   assert.throws(() => submit(q, Object.assign({}, A, { id: 'u-0000000000000000' })), /invalid unit/);
   assert.throws(() => submit(q, Object.assign({}, A, { body: '  לא נקי  ' })), /invalid unit/);
   assert.throws(() => submit(q, Object.assign({}, A, { body: 'מייל: a@b.co' })), { message: PERSONAL_DATA_ERROR });
@@ -134,7 +135,7 @@ test('approval: stored data that was edited on disk cannot smuggle personal data
   const edit = (fn) => { const copy = JSON.parse(JSON.stringify(stored)); fn(copy); return copy; };
   assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].unit.body = 'טלפון 052-1234567'; })),
     { message: PERSONAL_DATA_ERROR });
-  assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].unit.teacher = 'x'; })), /invalid unit/);
+  assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].unit.teacher = 'x'; })), { message: PERSONAL_DATA_ERROR });
   assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].status = 'published'; })), /bad status/);
   assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].reason = 'a@b.co'; })), { message: PERSONAL_DATA_ERROR });
   assert.throws(() => loadQueue(edit((s) => { delete s.entries[A.id].reason; })), /without a reason/);
@@ -215,7 +216,7 @@ test('approval: a stored unit or reason that does not fit is refused as a stored
     [(u) => { u.body = ''; }, 'invalid body: text too short, it is empty'],
     [(u) => { u.durationMinutes = 99; }, 'invalid durationMinutes: expected an integer 5..60'],
     [(u) => { u.subject = 'ART'; }, 'invalid subject: expected one of the SUBJECTS codes'],
-    [(u) => { u.teacher = 'x'; }, 'invalid unit: expected a record from makeUnit'],
+    [(u) => { delete u.id; }, 'invalid unit: expected a record from makeUnit'],
     [(u) => { u.body = '  לא נקי  '; }, 'invalid unit: expected a record from makeUnit']
   ];
   for (const [patch, inner] of unitCases) {
@@ -239,6 +240,7 @@ test('approval: a stored unit or reason that does not fit is refused as a stored
   assert.throws(() => loadQueue(edit((e) => { e.reason = 'חרא'; })), { message: PROFANITY_ERROR });
   assert.throws(() => loadQueue(edit((e) => { e.unit.body = 'טלפון 052-1234567'; })), { message: PERSONAL_DATA_ERROR });
   assert.throws(() => loadQueue(edit((e) => { e.unit.title = 'חרא'; })), { message: PROFANITY_ERROR });
+  assert.throws(() => loadQueue(edit((e) => { e.unit.teacher = 'x'; })), { message: PERSONAL_DATA_ERROR });
   // the live wording is unchanged: the approver typed the reason and the teacher the unit
   assert.throws(() => reject(submit(emptyQueue(), A), A.id, ''), /^Error: invalid reason: text too short/);
   assert.throws(() => submit(emptyQueue(), Object.assign({}, A, { title: 'א'.repeat(121) })),

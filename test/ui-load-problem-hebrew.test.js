@@ -79,7 +79,7 @@ test('a saved queue entry whose unit or reason does not pass the gate is reporte
     (e) => { e.unit.title = 'א'.repeat(121); },
     (e) => { e.unit.body = ''; },
     (e) => { e.unit.durationMinutes = 99; },
-    (e) => { e.unit.teacher = 'x'; },
+    (e) => { delete e.unit.id; },
     (e) => { e.reason = ''; },
     (e) => { e.reason = 'א'.repeat(approval.REASON_MAX_LENGTH + 1); },
     (e) => { e.reason = '  חסר   הסבר  '; }   // was loaded without a word, cleaned on the way in
@@ -90,6 +90,16 @@ test('a saved queue entry whose unit or reason does not pass the gate is reporte
     const $ = openWith(JSON.stringify(doc));
     assert.match($('addStatus').textContent, /נדחתה ולא נטענה: רשומה שמורה בתור לא תקינה\./, patch.toString());
     assert.doesNotMatch($('addStatus').textContent, /הכותרת|תוכן היחידה|משך הזמן|טקסט לבדוק|הטקסט ארוך|היחידה לא בנויה/, patch.toString());
+    assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
+  }
+  // a name written inside a stored unit is personal data, the line every other stored record gets for a
+  // key the app never writes - not "the stored queue entry is invalid"
+  for (const patch of [(e) => { e.unit.teacher = 'דנה'; }, (e) => { e.teacher = 'דנה'; }]) {
+    const doc = JSON.parse(JSON.stringify({ schema: 'peered/1', people: [], queue: queue }));
+    patch(doc.queue.entries[unit.id]);
+    const $ = openWith(JSON.stringify(doc));
+    assert.match($('addStatus').textContent, /נדחתה ולא נטענה: פרטים אישיים לא מתקבלים\./, patch.toString());
+    assert.doesNotMatch($('addStatus').textContent, /רשומה שמורה בתור|היחידה לא בנויה/, patch.toString());
     assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
   }
   // the queue as the flow wrote it still loads with no complaint
