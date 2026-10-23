@@ -456,10 +456,20 @@
   // would delete more (or other things) than the counts the first click put on the screen.
   // statusId is the line that just said what was done: it is called after that say(), so a failed write
   // is added to the line the user is looking at instead of being overwritten by "נוסף" right after.
+  // It also tells which of the three stored things the wipe card names (the roster, the units queue, the
+  // lessons log) just changed, so the disarm line names that one: a submitted unit or a logged lesson
+  // disarms the wipe too, and "הרשימה השתנתה" over a roster nobody touched would send the coordinator to
+  // look for a change in the participants list that is not there.
+  var CHANGED_HE = {
+    addStatus: 'הרשימה השתנתה',
+    unitStatus: 'תור היחידות השתנה',
+    decideStatus: 'תור היחידות השתנה',
+    sessionStatus: 'יומן השיעורים השתנה'
+  };
   function save(statusId) {
     if (wipeArmed) {
       setWipeArmed(false);
-      say('wipeStatus', 'הרשימה השתנתה, אז המחיקה בוטלה. לחץ שוב כדי לראות מה יימחק.');
+      say('wipeStatus', (CHANGED_HE[statusId] || 'הנתונים השתנו') + ', אז המחיקה בוטלה. לחץ שוב כדי לראות מה יימחק.');
     }
     // a save into the memory fallback "works", but nothing reached the browser's storage: same line
     if (!store.save(state) || storageBlocked) {
