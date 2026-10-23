@@ -439,13 +439,26 @@
     if (!store.save(state)) {
       say(statusId, $(statusId).textContent + ' נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי?), ' +
         'וזה ייעלם כשהדף ייסגר.', true);
+      return;
     }
+    // the key now holds this state: the document load() refused is no longer under it (its copy, if one
+    // was written, still sits beside it)
+    refusedOnKey = false;
   }
+  // What load() left in the storage besides the state on the screen. A document it refused stays under
+  // the key until the first save writes over it (refusedOnKey), and the copy load() put beside it stays
+  // until a wipe (refusedKept). The wipe names them before it removes them: the participants card has just
+  // told the coordinator that copy was kept, so a wipe line saying the device holds nothing would be
+  // deleting, unnamed, the one thing that card promised to keep.
+  var refusedOnKey = false;
+  var refusedKept = false;
   // load() never throws. A document that fails the privacy gate - an extra key, an unapproved unit -
   // comes back as an empty roster plus the reason, and the screen says so instead of guessing.
   function load() {
     var loaded = store.load();
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
+    refusedOnKey = !!loaded.problem;
+    refusedKept = !!(loaded.problem && loaded.kept);
     // problem is store.js's English message; the status line is Hebrew like every other one
     if (loaded.problem) {
       say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '. ' +
@@ -1266,11 +1279,19 @@
   // or handing the phone on means removing that key. The wipe asks twice on the screen itself, not with
   // window.confirm (it cannot be styled, read right-to-left reliably, or tested), and it goes through
   // store.clear, never through saving an empty document: afterwards the key is gone, not blank, and so
-  // is the copy of a refused document that load() kept beside it. The
+  // is the copy of a refused document that load() kept beside it - and the first click says so when
+  // there is one, since the participants card promised that copy would be kept. The
   // in-memory state is emptied either way, so a blocked storage cannot leave the roster on the screen.
 
   var WIPE_LABEL = 'מחק הכול מהמכשיר הזה';
   var wipeArmed = false;
+  // The refused document still in the storage, named for the wipe lines; '' when there is none.
+  function refusedHe() {
+    if (refusedOnKey && refusedKept) return 'הרשימה השמורה שנדחתה בטעינה והעותק שלה שנשמר בצד';
+    if (refusedOnKey) return 'הרשימה השמורה שנדחתה בטעינה';
+    if (refusedKept) return 'העותק שנשמר בצד של הרשימה השמורה שנדחתה בטעינה';
+    return '';
+  }
   function setWipeArmed(on) {
     wipeArmed = on;
     var wb = $('wipeBtn');
@@ -1284,17 +1305,23 @@
       var lessons = state.log.entries.length;
       var units = Object.keys(state.queue.entries).length;
       // Nothing on the screen to count: say so instead of "0 משתתפים, 0 יחידות ו-0 שיעורים". The second
-      // press still clears the stored keys, since an unreadable document may still be sitting there.
+      // press still clears the stored keys, since an unreadable document may still be sitting there -
+      // and when load() refused one, that document (and the copy it kept) is named, not "cleaned anyway".
+      var refused = refusedHe();
       if (!state.people.length && !units && !lessons) {
-        say('wipeStatus', 'אין במכשיר הזה משתתפים, יחידות או שיעורים. לחץ שוב כדי לנקות בכל זאת את האחסון, או ביטול.');
+        say('wipeStatus', refused
+          ? 'על המסך אין משתתפים, יחידות או שיעורים, אבל באחסון עדיין יש ' + refused + '. לחץ שוב כדי למחוק את זה מהאחסון, או ביטול.'
+          : 'אין במכשיר הזה משתתפים, יחידות או שיעורים. לחץ שוב כדי לנקות בכל זאת את האחסון, או ביטול.');
         return;
       }
       say('wipeStatus', 'יימחקו ' + countHe(state.people.length, 'משתתף', 'משתתפים') + ', ' +
         countHe(units, 'יחידה', 'יחידות', 'אחת') + (lessons === 1 ? ' ו' : ' ו-') +
-        countHe(lessons, 'שיעור', 'שיעורים') + '. לחץ שוב כדי לאשר, או ביטול.');
+        countHe(lessons, 'שיעור', 'שיעורים') + (refused ? ', ואיתם גם ' + refused : '') + '. לחץ שוב כדי לאשר, או ביטול.');
       return;
     }
+    var refusedGone = refusedHe();
     var removed = store.clear();
+    if (removed) { refusedOnKey = false; refusedKept = false; }
     var empty = storeLib.emptyState();
     state = { people: [], queue: empty.queue, log: empty.log };
     clearDraft();
@@ -1314,7 +1341,8 @@
     });
     renderPeople(); renderUnits(); renderSessionForm(); renderSessions();
     setWipeArmed(false);
-    say('wipeStatus', removed ? 'נמחק. במכשיר הזה לא נשאר דבר מהרשימה, מהיחידות ומהיומן.'
+    say('wipeStatus', removed ? 'נמחק. במכשיר הזה לא נשאר דבר מהרשימה, מהיחידות ומהיומן.' +
+        (refusedGone ? ' גם ' + refusedGone + ' כבר לא באחסון.' : '')
       : 'נמחק מהמסך, אבל הדפדפן לא אפשר למחוק מהאחסון המקומי. נקה את נתוני האתר בהגדרות הדפדפן.', !removed);
   });
   $('wipeCancel').addEventListener('click', function () {
