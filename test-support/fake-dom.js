@@ -67,6 +67,11 @@ function openApp(opts) {
       documentElement: { dir: 'rtl' },
       getElementById: $,
       querySelectorAll: (sel) => (sel === '[role="tab"]' ? TAB_IDS.map($) : []),
+      querySelector: (sel) => {
+        const m = sel && sel.match(/\[data-reason="([^"]+)"\]/);
+        if (m) return $('reason-' + m[1]);
+        return null;
+      },
       createElement: (tag) => { const e = fakeElement('<' + tag + '>'); created.push(e); return e; },
       body: fakeElement('body')
     },
