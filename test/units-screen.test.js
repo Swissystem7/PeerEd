@@ -98,3 +98,48 @@ test('units screen: clear button resets form fields, clears status, and focuses 
   assert.equal($('unitStatus').textContent, '');
   assert.equal($('unitTitle').focused, true, 'unitTitle should receive focus after clearing');
 });
+
+test('units screen: a rejected unit has an edit button that reloads the unit into the form for revision and resubmission', () => {
+  const $ = openApp();
+  $('unitTitle').value = 'שברים פשוטים';
+  $('unitSubject').value = 'MATH';
+  $('unitDuration').value = '20';
+  $('unitBody').value = 'פיצה שחולקה ל-8 חלקים שווים.';
+  $('submitUnit').fire('click');
+
+  const pendingMatches = [...$('pendingList').innerHTML.matchAll(/data-reject="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(pendingMatches.length, 1);
+  const unitId = pendingMatches[0];
+
+  $('reason-' + unitId).value = 'נא להוסיף דוגמה מספרית';
+  $('pendingList').fire('click', { target: { getAttribute: (k) => (k === 'data-reject' ? unitId : null) } });
+
+  // Rejected list shows the card, reason flag, and revise button
+  assert.match($('rejectedList').innerHTML, /סיבה: נא להוסיף דוגמה מספרית/);
+  assert.ok($('rejectedList').innerHTML.includes('data-revise="' + unitId + '"'));
+  assert.ok($('rejectedList').innerHTML.includes('id="reviseBtn-' + unitId + '"'));
+  assert.ok($('rejectedList').innerHTML.includes('aria-label="טען לעריכה את שברים פשוטים"'));
+
+  // Reset form inputs to check that clicking revise re-populates them
+  $('unitTitle').value = '';
+  $('unitBody').value = '';
+  $('unitDuration').value = '0';
+
+  $('unitBody').focused = false;
+  $('rejectedList').fire('click', { target: { getAttribute: (k) => (k === 'data-revise' ? unitId : null) } });
+
+  assert.equal($('unitTitle').value, 'שברים פשוטים');
+  assert.equal($('unitSubject').value, 'MATH');
+  assert.equal($('unitDuration').value, '20');
+  assert.equal($('unitBody').value, 'פיצה שחולקה ל-8 חלקים שווים.');
+  assert.equal($('unitBody').focused, true, 'unitBody must receive focus upon reloading for revision');
+  assert.match($('unitStatus').textContent, /נטענה לטופס/);
+
+  // Edit body and submit revision
+  $('unitBody').value = 'פיצה שחולקה ל-8 חלקים שווים. דוגמה: 3/8 ועוד 2/8.';
+  $('submitUnit').fire('click');
+
+  assert.match($('unitStatus').textContent, /גרסה 2/);
+  assert.match($('pendingList').innerHTML, /גרסה 2/);
+  assert.match($('rejectedList').innerHTML, /אין יחידות שנדחו/);
+});

@@ -2,7 +2,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { PATTERNS, PERSONAL_DATA_ERROR, findPersonalData, assertCleanText } = require('../src/lib/validator.js');
+const {
+  PATTERNS, PERSONAL_DATA_ERROR, findPersonalData, assertSafeText, assertCleanText
+} = require('../src/lib/validator.js');
+
+const INVALID_TEXT_TYPE = 'קלט לא תקין: יש להזין טקסט בלבד';
 
 function kindsIn(text) {
   return findPersonalData(text).map((h) => h.kind);
@@ -55,6 +59,19 @@ test('validator: ordinary Hebrew lesson text with numbers is clean', () => {
   }
 });
 
+test('validator: assertSafeText refuses non-strings before any other gate runs', () => {
+  for (const bad of [1, null, undefined, {}, [], true]) {
+    assert.throws(() => assertSafeText(bad), (err) => err instanceof TypeError && err.message === INVALID_TEXT_TYPE,
+      String(bad));
+  }
+});
+
+test('validator: assertSafeText returns a string unchanged', () => {
+  const lesson = 'שיעור על שברים';
+  assert.equal(assertSafeText(lesson), lesson);
+  assert.equal(assertSafeText(''), '');
+});
+
 test('validator: assertCleanText refuses personal data with the same message as the profile gate', () => {
   assert.throws(() => assertCleanText('כתבו לי ל dana@example.com'), { message: PERSONAL_DATA_ERROR });
   assert.throws(() => assertCleanText('הטלפון שלי 050-1234567'), { message: PERSONAL_DATA_ERROR });
@@ -68,6 +85,21 @@ test('validator: assertCleanText enforces length bounds on the cleaned text', ()
   assert.throws(() => assertCleanText(''), { message: 'text too short' });
   assert.throws(() => assertCleanText('אב', { minLength: 5 }), { message: 'text too short' });
   assert.throws(() => assertCleanText('אבגדה', { maxLength: 4 }), { message: 'text too long' });
+});
+
+// The screen counts characters the way a person does (one per code point: the preview clip, the "תו N"
+// position), so the limit it names has to be counted the same way. String.length counts UTF-16 units,
+// and a body of 2001 emoji (4002 units) was refused as over 4000 characters.
+test('validator: assertCleanText counts a limit in characters, so an emoji is one and not two', () => {
+  const smile = String.fromCodePoint(0x1F600);
+  assert.equal(smile.length, 2, 'an emoji is two UTF-16 units');
+  assert.equal(assertCleanText(smile.repeat(2001)), smile.repeat(2001), 'before: text too long');
+  assert.equal(assertCleanText(smile.repeat(4000)), smile.repeat(4000));
+  assert.throws(() => assertCleanText(smile.repeat(4001)), { message: 'text too long' });
+  assert.throws(() => assertCleanText(smile.repeat(5), { maxLength: 4 }), { message: 'text too long' });
+  assert.equal(assertCleanText(smile.repeat(4), { maxLength: 4 }), smile.repeat(4));
+  assert.equal(assertCleanText(smile, { minLength: 1 }), smile);
+  assert.throws(() => assertCleanText(smile.repeat(2), { minLength: 3 }), { message: 'text too short' });
 });
 
 test('validator: assertCleanText returns trimmed, collapsed text and keeps a single newline', () => {
