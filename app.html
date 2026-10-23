@@ -10,12 +10,21 @@
           --key:#7cc4ff; --warm:#ffb27c; --bad:#ff8f8f; --ok:#8fe0a8; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; background:var(--bg); color:var(--ink);
-         font-family:Arial,"Segoe UI",sans-serif; min-height:100vh; padding-bottom:78px; }
-  .wrap { max-width:820px; margin:auto; padding:16px 14px 24px; }
+         font-family:Arial,"Segoe UI",sans-serif; min-height:100vh;
+         padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px)); }
+  /* viewport-fit=cover lets the page draw under the notch and the home indicator, so the fixed tab bar
+     and the content above it add the safe-area insets; without them the tabs sit under the iPhone home
+     bar and the last card hides behind the tabs. env() is 0 on every screen without an inset. The insets
+     are physical (left/right), so they use padding-left/right, not padding-inline: this page is RTL. */
+  .wrap { max-width:820px; margin:auto; padding:16px 14px 24px;
+          padding-left:max(14px, env(safe-area-inset-left, 0px));
+          padding-right:max(14px, env(safe-area-inset-right, 0px)); }
   header h1 { font-size:1.5rem; margin:4px 0 2px; letter-spacing:-.01em; }
   header p { color:var(--muted); font-size:.85rem; line-height:1.6; margin:0; }
   nav { position:fixed; bottom:0; inset-inline:0; display:flex; background:#0b0d13;
-        border-top:1px solid var(--line); z-index:20; }
+        border-top:1px solid var(--line); z-index:20;
+        padding-bottom:env(safe-area-inset-bottom, 0px);
+        padding-left:env(safe-area-inset-left, 0px); padding-right:env(safe-area-inset-right, 0px); }
   nav button { flex:1; background:none; border:0; color:var(--muted); font:inherit; font-size:.8rem;
                padding:12px 4px; cursor:pointer; border-top:2px solid transparent; }
   nav button[aria-selected="true"] { color:var(--key); border-top-color:var(--key); font-weight:700; }
@@ -85,9 +94,9 @@
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region"></select></div>
       </div>
-      <div id="consentRow" hidden>
+      <div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">
         <label class="check"><input type="checkbox" id="consent"> התקבל אישור הורה לשידוך</label>
-        <p class="hint">נשמר רק כן או לא: בלי שם ההורה, בלי תאריך, בלי מסמך. תלמיד בלי אישור נשמר ברשימה אבל לא נכנס
+        <p class="hint" id="consentHint">נשמר רק כן או לא: בלי שם ההורה, בלי תאריך, בלי מסמך. תלמיד בלי אישור נשמר ברשימה אבל לא נכנס
           לשידוך בכלל, עד שמסמנים לו אישור.</p>
       </div>
       <label id="subjectsLabel">מקצועות</label>
@@ -103,7 +112,7 @@
       <h2>המשתתפים</h2>
       <p class="hint">הרשימה נשמרת בדפדפן הזה בלבד: היא לא עוברת לטלפון אחר, ונמחקת עם ניקוי נתוני הגלישה.
         לעותק — "הורד זוגות (CSV)" במסך השידוך.</p>
-      <div id="peopleList"></div>
+      <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
     </div>
     <div class="card">
       <h2>מחיקה מהמכשיר הזה</h2>
@@ -123,28 +132,28 @@
         לפחות מקצוע אחד.
         קודם נלקחים הזוגות עם הכי הרבה שעות משותפות, ואז השיבוץ מתקן כך שייצא מספר הזוגות הגדול ביותר האפשרי.
         אותו קלט נותן תמיד אותה תוצאה.</p>
-      <div class="actions"><button type="button" class="act" id="runMatch">חשב שידוך</button>
-        <button type="button" class="ghost" id="exportCsv">הורד זוגות (CSV)</button></div>
+      <div class="actions"><button type="button" class="act" id="runMatch" aria-describedby="matchStatus">חשב שידוך</button>
+        <button type="button" class="ghost" id="exportCsv" aria-describedby="matchStatus">הורד זוגות (CSV)</button></div>
       <p class="status" id="matchStatus" role="status"></p>
       <p class="hint">הקובץ מכיל רק מספרים מהרשימה, אזור, מקצועות ושעות. את השמות מצליבים בגיליון שלך.</p>
     </div>
     <div class="card">
       <h2>סיכום לרשות</h2>
-      <div id="summary"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <div id="summary" role="region" aria-live="polite" aria-label="סיכום לרשות"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
       <h2>הזוגות</h2>
-      <div id="pairs"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <div id="pairs" role="region" aria-live="polite" aria-label="רשימת הזוגות"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
       <h2>מי נשאר בלי זוג</h2>
-      <div id="unmatched"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <div id="unmatched" role="region" aria-live="polite" aria-label="מי נשאר בלי זוג"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
       <h2>שידוך בין אזורים (חירום)</h2>
       <p class="hint">המפגשים בטקסט בלבד, אז תלמיד מאזור שאין בו סטודנט פנוי — למשל יישוב שפונה — יכול ללמוד עם סטודנט
         מאזור אחר. כאן רק מי שנשאר בלי זוג, עם שעה ומקצוע משותפים; הזוגות באותו אזור לא משתנים. זו הצעה: הרכז מחליט.</p>
-      <div id="across"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <div id="across" role="region" aria-live="polite" aria-label="שידוך בין אזורים (חירום)"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
   </section>
 
@@ -152,14 +161,15 @@
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" hidden>
     <div class="card">
       <h2>הדגמה: שער הטקסט</h2>
-      <p class="hint">האפליקציה לא שומרת שום טקסט חופשי — רק את רשימת המשתתפים. זה השער שכל טקסט יעבור בו
-        אם יתווסף בעתיד. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
+      <p class="hint">הטקסט החופשי שהאפליקציה שומרת הוא רק כותרת ותוכן של יחידה וסיבת דחייה, וכל אחד מהם עובר
+        קודם בשער הזה. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
       <div class="actions">
         <button type="button" class="act" id="checkBtn">בדוק</button>
         <button type="button" class="ghost" id="badBtn">טען דוגמה עם פרטים אישיים</button>
         <button type="button" class="ghost" id="rudeBtn">טען דוגמה עם שפה פוגענית</button>
+        <button type="button" class="ghost" id="clearTextBtn">נקה טקסט</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
       <div id="findings"></div>
@@ -198,7 +208,7 @@
     <div class="card">
       <h2>ממתינות לאישור</h2>
       <p class="hint">המאשר ב-MVP הוא אבירן. דחייה דורשת סיבה שעוברת את שער הטקסט — היא מוצגת למורה.</p>
-      <div id="pendingList"></div>
+      <div id="pendingList" role="region" aria-live="polite" aria-label="יחידות שממתינות לאישור"></div>
       <p class="status" id="decideStatus" role="status"></p>
     </div>
     <div class="card">
@@ -255,7 +265,7 @@
   <!-- ============ קשר (src/lib/contact.js) ============ -->
   <div class="card" id="contactBox" hidden>
     <h2>רוצים לנסות בסבב השיבוץ שלכם?</h2>
-    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank"></a></p>
+    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank" aria-describedby="contactNote"></a></p>
     <p class="hint" id="contactNote"></p>
   </div>
 </main>
@@ -350,6 +360,11 @@ function wholeDays(active, category) {
   return days;
 }
 
+// One day reads "יום אחד", not "1 ימים".
+function daysHe(days) {
+  return days === 1 ? 'יום אחד' : days + ' ימים';
+}
+
 function generateAuditReport(policy) {
   const active = policy === undefined ? getRetentionPolicy() : policy;
   if (active === null || typeof active !== 'object' || Array.isArray(active)) {
@@ -366,8 +381,8 @@ function generateAuditReport(policy) {
     '• נתוני התאמות חונכות (מי שויך למי ובאילו שעות) — לצורך ניהול מחזור החונכות.',
     '',
     'משך שמירה (לפי מדיניות השמירה הפעילה במערכת):',
-    '• נתוני פרופיל: עד ' + profileDays + ' ימים ממועד עדכון אחרון.',
-    '• נתוני התאמות: עד ' + matchDays + ' ימים ממועד יצירת ההתאמה או סיום מחזור החונכות.',
+    '• נתוני פרופיל: עד ' + daysHe(profileDays) + ' ממועד עדכון אחרון.',
+    '• נתוני התאמות: עד ' + daysHe(matchDays) + ' ממועד יצירת ההתאמה או סיום מחזור החונכות.',
     '',
     'פרוטוקול מחיקה:',
     '• בסיום תקופת השמירה, רשומות פרופיל והתאמה שעברו את המגבלה מוסרות מהמערכת.',
@@ -401,9 +416,9 @@ module.exports = {
 // in retention.js must delete more at the next sweep, not leave old rows on their old terms. No clock
 // of its own either: the caller passes the day the cycle ends, and the caller's arrays are untouched.
 //
-// Two entry points share the same day arithmetic:
+// Two entry points share the same day arithmetic and the same limit:
 //   sweep(rows, asOf)                 - one flat array, judged by the policy's limit for the row's category
-//   applyRetentionPolicy(stored, asOf) - { matches, profiles }, judged by the maxAgeDays stamped on the row
+//   applyRetentionPolicy(stored, asOf) - { matches, profiles }, the same judgement on the two stored arrays
 
 const { getRetentionPolicy } = require('./retention.js');
 
@@ -464,9 +479,13 @@ function sweep(records, asOf) {
   return Object.freeze({ kept: kept, dropped: dropped });
 }
 
-// The row-level check behind applyRetentionPolicy(): the limit is the maxAgeDays the row was stamped with.
-// A stamp that is not a whole number of days (Infinity, NaN, -1, 1.5) is refused: Infinity would keep the
-// row forever, which retention.js promises never happens.
+// The row-level check behind applyRetentionPolicy(). The row carries the maxAgeDays it was stamped with
+// (profile.js, match.js), and a stamp that is not a whole number of days (Infinity, NaN, -1, 1.5) is a row
+// the app never wrote and is refused. But the stamp is not the limit: this sweep read it as one, so a
+// row stamped 99999 - by an older, longer policy or by an edit on disk - was kept past the window that
+// retention.js states today, and shortening the window there deleted nothing already stored. The limit
+// is the policy's, for the row's category, exactly as in sweep(); a category the policy does not name is
+// refused there, not kept forever.
 function isRetained(record, currentDate) {
   if (record === null || typeof record !== 'object') {
     throw new Error('retention record must be an object');
@@ -480,7 +499,7 @@ function isRetained(record, currentDate) {
   if (record.recordedAt === undefined || record.recordedAt === null) {
     throw new Error('retention record is missing recordedAt');
   }
-  return ageInDays(record.recordedAt, currentDate) <= record.retention.maxAgeDays;
+  return !isExpired(record, currentDate);
 }
 
 // { matches, profiles } are parallel arrays of stored records (each with recordedAt + retention metadata).
@@ -519,7 +538,7 @@ const { getRetentionPolicy } = require('./retention.js');
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent', 'responseToReport']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
@@ -627,6 +646,15 @@ function makeProfile(input) {
     }
   }
 
+  const responseToReports = [];
+  if (input.responseToReport !== undefined) {
+    if (!Array.isArray(input.responseToReport)) throw new Error('invalid responseToReport: expected an array');
+    const makeResponseToReport = validatorLib().makeResponseToReport;
+    for (let i = 0; i < input.responseToReport.length; i += 1) {
+      responseToReports.push(makeResponseToReport(input.responseToReport[i]));
+    }
+  }
+
   const profile = {
     role: role,
     region: region,
@@ -644,6 +672,10 @@ function makeProfile(input) {
 
   if (input.reportEvent !== undefined) {
     profile.reportEvent = Object.freeze(reportEvents.slice());
+  }
+
+  if (input.responseToReport !== undefined) {
+    profile.responseToReport = Object.freeze(responseToReports.slice());
   }
 
   const policy = getRetentionPolicy();
@@ -715,6 +747,18 @@ function reportEvent(profile, input) {
   return makeProfile(Object.assign(base, { reportEvent: current }));
 }
 
+function responseToReport(profile, input) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  const response = validatorLib().makeResponseToReport(input);
+  const base = Object.assign({}, profile);
+  delete base.retention;
+  const current = Array.isArray(profile.responseToReport) ? profile.responseToReport.slice() : [];
+  current.push(response);
+  return makeProfile(Object.assign(base, { responseToReport: current }));
+}
+
 module.exports = {
   ROLES,
   DAYS,
@@ -732,7 +776,8 @@ module.exports = {
   revokeParentConsent,
   checkBlocked,
   blockUser,
-  reportEvent
+  reportEvent,
+  responseToReport
 };
   __registry["profile"] = module.exports;
 })();
@@ -1243,6 +1288,11 @@ function typedPositions(typed, folded) {
   return out === folded ? map : null;
 }
 
+function assertSafeText(text) {
+  if (typeof text !== 'string') throw new TypeError('קלט לא תקין: יש להזין טקסט בלבד');
+  return text;
+}
+
 function cleanText(text) {
   var s = String(text == null ? '' : text);
   // A line break pasted from Windows (CR LF) or an old Mac (CR alone) is a line break, and a vertical tab
@@ -1252,6 +1302,15 @@ function cleanText(text) {
   s = s.replace(/[^\S\n]+/g, ' ');   // collapse horizontal whitespace, keep newlines
   s = s.replace(/ *\n */g, '\n');    // no padding around a newline
   return s.trim();
+}
+
+// The length a limit is held against, counted the way the person who typed the text counts it and the
+// way the screen counts it back to them (the preview clip, the "תו N" position): in characters, one per
+// code point. String.length counts UTF-16 units, so to it an emoji is two characters and a body of 2001
+// emoji was refused as over 4000 characters; a message that says "עד 4000 תווים" has to count the same
+// characters the writer sees.
+function charCount(text) {
+  return Array.from(text).length;
 }
 
 function assertCleanText(text, opts) {
@@ -1273,38 +1332,15 @@ function assertCleanText(text, opts) {
   // as written, so 'א<RLM>ב' is kept with its mark. cleanText runs again over what is left, because
   // dropping the invisible characters can leave the spaces that stood between them ('<RLM> <ZWSP>'):
   // trimmed away, that box is empty too.
-  if (cleanText(stripInvisible(cleaned)).length < minLength) throw new Error('text too short');
-  if (cleaned.length > maxLength) throw new Error('text too long');
+  if (charCount(cleanText(stripInvisible(cleaned))) < minLength) throw new Error('text too short');
+  if (charCount(cleaned) > maxLength) throw new Error('text too long');
   return cleaned;
 }
 
-var SUBJECTS = require('./profile.js').SUBJECTS;
 var REPORT_EVENT_FIELDS = Object.freeze(['userId', 'detail']);
 var REPORT_EVENT_DETAIL_MAX_LENGTH = 300;
-
-var UNIT_FIELDS = Object.freeze(['title', 'subject', 'minutes', 'text']);
-var UNIT_TITLE_MAX_LENGTH = 120;
-var UNIT_MINUTES_MIN = 1;
-var UNIT_MINUTES_MAX = 60;
-var UNIT_ID_PREFIX = 'u-';
-
-function fnv1a32(text) {
-  var hash = 0x811c9dc5 >>> 0;
-  for (var i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash >>> 0;
-}
-
-function hex8(n) {
-  return ('00000000' + n.toString(16)).slice(-8);
-}
-
-function unitRecordId(title, subject, minutes) {
-  var key = title + '|' + subject + '|' + String(minutes);
-  return UNIT_ID_PREFIX + hex8(fnv1a32(key));
-}
+var RESPONSE_TO_REPORT_FIELDS = Object.freeze(['reportIndex', 'detail']);
+var RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH = 300;
 
 function makeReportEvent(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
@@ -1320,33 +1356,21 @@ function makeReportEvent(input) {
   return Object.freeze({ userId: userId, detail: detail });
 }
 
-function makeUnit(input) {
+function makeResponseToReport(input) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('unit input must be an object with title, subject, minutes, text');
+    throw new Error('response to report input must be an object with reportIndex, detail');
   }
   var keys = Object.keys(input);
   for (var i = 0; i < keys.length; i += 1) {
-    if (UNIT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+    if (RESPONSE_TO_REPORT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
-  var subject = input.subject;
-  if (typeof subject !== 'string' || SUBJECTS.indexOf(subject) === -1) {
-    throw new Error('invalid subject: expected one of the SUBJECTS codes');
+  if (typeof input.detail !== 'string') throw new Error('invalid detail: expected a string');
+  var reportIndex = input.reportIndex;
+  if (!Number.isInteger(reportIndex) || reportIndex < 0) {
+    throw new Error('invalid reportIndex: expected a non-negative integer');
   }
-  var minutes = input.minutes;
-  if (!Number.isInteger(minutes) || minutes < UNIT_MINUTES_MIN || minutes > UNIT_MINUTES_MAX) {
-    throw new Error('invalid minutes: expected an integer ' + UNIT_MINUTES_MIN + '..' + UNIT_MINUTES_MAX);
-  }
-  if (typeof input.title !== 'string') throw new Error('invalid title: expected a string');
-  if (typeof input.text !== 'string') throw new Error('invalid text: expected a string');
-  var title = assertCleanText(input.title, { maxLength: UNIT_TITLE_MAX_LENGTH });
-  var text = assertCleanText(input.text);
-  return Object.freeze({
-    id: unitRecordId(title, subject, minutes),
-    title: title,
-    subject: subject,
-    minutes: minutes,
-    text: text
-  });
+  var detail = assertCleanText(input.detail, { maxLength: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH });
+  return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
 module.exports = {
@@ -1361,12 +1385,14 @@ module.exports = {
   findProfanity: findProfanity,
   cleanText: cleanText,
   stripInvisible: stripInvisible,
+  assertSafeText: assertSafeText,
   assertCleanText: assertCleanText,
   REPORT_EVENT_FIELDS: REPORT_EVENT_FIELDS,
   REPORT_EVENT_DETAIL_MAX_LENGTH: REPORT_EVENT_DETAIL_MAX_LENGTH,
   makeReportEvent: makeReportEvent,
-  UNIT_FIELDS: UNIT_FIELDS,
-  makeUnit: makeUnit
+  RESPONSE_TO_REPORT_FIELDS: RESPONSE_TO_REPORT_FIELDS,
+  RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH,
+  makeResponseToReport: makeResponseToReport
 };
   __registry["validator"] = module.exports;
 })();
@@ -1679,6 +1705,11 @@ function loadQueue(data) {
     }
     const entry = { unit: unit, status: raw.status, revision: raw.revision, seq: raw.seq };
     if (raw.status !== 'pending') {
+      // the flow records only that the role decided; a name written there on disk (or the role
+      // missing) is a record it never wrote, refused like any other, not quietly repaired to the role
+      if (raw.decidedBy !== APPROVER_ROLE) {
+        throw new Error('invalid stored entry: decidedBy is not the approver role: ' + ids[i]);
+      }
       entry.decidedBy = APPROVER_ROLE;
     } else if (raw.decidedBy !== undefined) {
       // nobody has decided a pending unit; a decider on one is a record the flow never writes, refused
@@ -1953,6 +1984,9 @@ const SCHEMA = 'peered/1';
 const DEFAULT_KEY = 'peered_app_v1';
 const ACCEPTED_FIELDS = Object.freeze(['schema', 'people', 'queue', 'log']);
 const INVALID_STATE_ERROR = 'invalid stored state';
+// Where load() puts a document it refused. The app then starts empty, and its first save writes over the
+// main key: without this copy one added person erased the whole refused roster, queue and log for good.
+const REJECTED_SUFFIX = ':rejected';
 
 function emptyState() {
   return Object.freeze({ people: Object.freeze([]), queue: emptyQueue(), log: emptyLog() });
@@ -2025,8 +2059,10 @@ function isBackend(b) {
 }
 
 // createStore(backend, key): save(state) writes, load() reads. load never throws: it returns
-// { state, problem } where problem is null on success and the reason otherwise, with state reset to
-// empty - the app keeps opening, and the screen can say why the roster is gone instead of guessing.
+// { state, problem, kept } where problem is null on success and the reason otherwise, with state reset
+// to empty - the app keeps opening, and the screen can say why the roster is gone instead of guessing.
+// A refused document is copied as is to key + REJECTED_SUFFIX before anything can overwrite it; kept
+// says whether that copy was written. clear() removes both keys.
 function createStore(backend, key) {
   if (!isBackend(backend)) throw new Error('invalid backend: expected getItem, setItem, removeItem');
   const storageKey = key === undefined ? DEFAULT_KEY : key;
@@ -2041,15 +2077,20 @@ function createStore(backend, key) {
     load: function () {
       let text;
       try { text = backend.getItem(storageKey); } catch (e) { text = null; }
-      if (text === null || text === undefined) return { state: emptyState(), problem: null };
+      if (text === null || text === undefined) return { state: emptyState(), problem: null, kept: false };
       try {
-        return { state: deserialize(text), problem: null };
+        return { state: deserialize(text), problem: null, kept: false };
       } catch (err) {
-        return { state: emptyState(), problem: err.message };
+        let kept = true;
+        try { backend.setItem(storageKey + REJECTED_SUFFIX, String(text)); } catch (e) { kept = false; }
+        return { state: emptyState(), problem: err.message, kept: kept };
       }
     },
     clear: function () {
-      try { backend.removeItem(storageKey); } catch (e) { return false; }
+      try {
+        backend.removeItem(storageKey);
+        backend.removeItem(storageKey + REJECTED_SUFFIX);
+      } catch (e) { return false; }
       return true;
     }
   });
@@ -2060,6 +2101,7 @@ module.exports = {
   DEFAULT_KEY,
   ACCEPTED_FIELDS,
   INVALID_STATE_ERROR,
+  REJECTED_SUFFIX,
   emptyState,
   serialize,
   deserialize,
@@ -2165,7 +2207,8 @@ module.exports = {
   var REGION_HE = { NORTH: 'צפון', HAIFA: 'חיפה', CENTER: 'מרכז', TEL_AVIV: 'תל אביב',
                     JERUSALEM: 'ירושלים', SOUTH: 'דרום' };
   var SUBJECT_HE = { MATH: 'מתמטיקה', PHYSICS: 'פיזיקה', CHEMISTRY: 'כימיה', BIOLOGY: 'ביולוגיה',
-                     ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב' };
+                     ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב',
+                     CIVICS: 'אזרחות' };
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
@@ -2190,6 +2233,12 @@ module.exports = {
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   function say(id, text, bad) { var e = $(id); e.textContent = text; e.className = 'status' + (bad ? ' bad' : ''); }
+  // A preview cut at n characters as a person counts them: slice() counts UTF-16 units, so an emoji at
+  // the cut was split in half and the screen showed a broken character before the "…".
+  function clip(text, n) {
+    var chars = Array.from(text);
+    return chars.length > n ? chars.slice(0, n).join('') + '…' : text;
+  }
   function slotHe(slot) {
     var parts = String(slot).split('_');
     return 'יום ' + (DAY_HE[parts[0]] || parts[0]) + ' ' + parts[1] + ':00';
@@ -2207,6 +2256,9 @@ module.exports = {
     ['invalid blockedUsers:', 'רשימת חסומים לא תקינה'],
     ['invalid reportEvent:', 'רשימת הדיווחים לא תקינה'],
     ['report event input must be an object with userId, detail', 'הדיווח לא בנוי נכון'],
+    ['invalid responseToReport:', 'רשימת התגובות לדיווחים לא תקינה'],
+    ['response to report input must be an object with reportIndex, detail', 'התגובה לדיווח לא בנויה נכון'],
+    ['invalid reportIndex:', 'מספר הדיווח בתגובה לא תקין'],
     ['invalid detail:', 'פירוט הדיווח לא תקין'],
     ['invalid user id:', 'מזהה משתמש לא תקין'],
     // session.js checks the lesson against the pair and the unit with the same 'invalid slot:' and
@@ -2234,7 +2286,8 @@ module.exports = {
     ['invalid title: text too long', 'הכותרת ארוכה מדי'],
     ['invalid title: expected a single line', 'הכותרת חייבת להיות בשורה אחת'],
     ['invalid body: text too short', 'תוכן היחידה ריק'],
-    ['invalid body: text too long', 'תוכן היחידה ארוך מדי'],
+    // The body box has no maxlength (a cut-off paste would lose the end silently), so the limit is said here.
+    ['invalid body: text too long', 'תוכן היחידה ארוך מדי: עד ' + unitLib.BODY_MAX_LENGTH + ' תווים'],
     ['invalid title:', 'כותרת לא תקינה'],
     ['invalid text:', 'טקסט לא תקין'],
     ['invalid body:', 'טקסט לא תקין'],
@@ -2292,7 +2345,11 @@ module.exports = {
     var loaded = store.load();
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
     // problem is store.js's English message; the status line is Hebrew like every other one
-    if (loaded.problem) say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '.', true);
+    if (loaded.problem) {
+      say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '. ' +
+        (loaded.kept ? 'עותק שלה נשמר בצד באחסון המקומי, כך ששינוי חדש לא ימחק אותה.'
+          : 'הדפדפן לא אפשר לשמור עותק שלה בצד, ושינוי חדש יכתוב עליה.'), true);
+    }
     resetMatchView();
   }
 
@@ -2358,6 +2415,7 @@ module.exports = {
 
   $('role').addEventListener('change', function () {
     $('consentRow').hidden = $('role').value !== 'pupil';
+    if ($('role').value !== 'pupil') $('consent').checked = false;
   });
 
   function clearDraft() {
@@ -2413,7 +2471,14 @@ module.exports = {
     save('addStatus');
   });
 
+  // The demo replaces the roster, so it only ever loads into an empty one: on a list a coordinator has
+  // typed, one click would have deleted every participant and saved the demo over them for good.
   $('demoBtn').addEventListener('click', function () {
+    if (state.people.length) {
+      say('addStatus', 'הדוגמה לא נטענה: יש כבר ' + countHe(state.people.length, 'משתתף', 'משתתפים') +
+        ' ברשימה, והדוגמה הייתה מוחקת אותם. היא נטענת רק לרשימה ריקה.', true);
+      return;
+    }
     var demo = [
       { role: 'student', region: 'CENTER', availability: ['SUN_16', 'MON_18', 'TUE_16'], subjects: ['MATH', 'CS'] },
       { role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] },
@@ -2449,10 +2514,10 @@ module.exports = {
     switch (code) {
       case 'NO_PARENT_CONSENT': return role === 'pupil'
         ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים".'
-        : 'יש תלמידים באזור, אבל לאף אחד מהם אין עדיין אישור הורה.';
+        : 'לאף תלמיד באזור אין עדיין אישור הורה, אז אין עם מי לשדך.';
       case 'NO_ONE_IN_REGION': return 'אין באזור הזה אף ' + other + '.';
-      case 'NO_SHARED_HOUR': return 'יש ' + other + ' באזור, אבל אף אחד לא פנוי באותה שעה.';
-      case 'NO_SHARED_SUBJECT': return 'יש ' + other + ' באזור, אבל בלי מקצוע משותף.';
+      case 'NO_SHARED_HOUR': return 'אף ' + other + ' באזור לא פנוי באותה שעה.';
+      case 'NO_SHARED_SUBJECT': return 'לאף ' + other + ' באזור אין מקצוע משותף.';
       case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש מי שפנוי באותה שעה ויש מי שחולק מקצוע, אבל לא אותו אחד.';
       case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
       default: return '';
@@ -2521,7 +2586,7 @@ module.exports = {
     });
     keys.sort(function (a, b) { return (counts[b] - counts[a]) || (a < b ? -1 : a > b ? 1 : 0); });
     $('summary').innerHTML = '<p class="hint">' + countHe(m.pairs.length, 'זוג', 'זוגות') + '. ' +
-      countHe(shortPupils.length, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
+      countHe(shortPupils.length - noConsent, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
       countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.' +
       (m.across.length ? ' אפשר עוד ' + countHe(m.across.length, 'זוג', 'זוגות') + ' בין אזורים.' : '') + '</p>' +
       (noConsent ? '<p class="hint">' + (noConsent === 1 ? 'תלמיד אחד מחכה' : noConsent + ' תלמידים מחכים') + ' לאישור הורה, לא לסטודנט.</p>' : '') +
@@ -2532,7 +2597,13 @@ module.exports = {
 
   $('runMatch').addEventListener('click', function () {
     var m = computeMatch();
-    if (!m) { resetMatchView(); say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true); return; }
+    if (!m) {
+      resetMatchView();
+      var rm = $('runMatch');
+      if (rm && rm.focus) rm.focus();
+      say('matchStatus', 'צריך לפחות סטודנט אחד ותלמיד אחד.', true);
+      return;
+    }
     last = m;
     $('pairs').innerHTML = m.pairs.length ? m.pairs.map(function (p, i) {
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
@@ -2555,7 +2626,7 @@ module.exports = {
     }).join('') : '<p class="empty">אין הצעה: אף אחד מאלה שנשארו לא חולק שעה ומקצוע עם מישהו מאזור אחר.</p>';
     renderSummary(m);
     say('matchStatus', countHe(m.pairs.length, 'זוג', 'זוגות') + ' מתוך ' +
-      countHe(m.students, 'סטודנט', 'סטודנטים') + ' ו-' + countHe(m.pupils, 'תלמיד', 'תלמידים') +
+      countHe(m.students, 'סטודנט', 'סטודנטים') + (m.pupils === 1 ? ' ו' : ' ו-') + countHe(m.pupils, 'תלמיד', 'תלמידים') +
       '. המספרים הם המקום ברשימת המשתתפים.');
   });
 
@@ -2566,7 +2637,12 @@ module.exports = {
   function csvRow(cells) { return cells.map(csvCell).join(','); }
 
   $('exportCsv').addEventListener('click', function () {
-    if (!last) { say('matchStatus', 'קודם לחץ "חשב שידוך" — הקובץ נבנה מהשידוך האחרון.', true); return; }
+    if (!last) {
+      var rm = $('runMatch');
+      if (rm && rm.focus) rm.focus();
+      say('matchStatus', 'קודם לחץ "חשב שידוך" — הקובץ נבנה מהשידוך האחרון.', true);
+      return;
+    }
     var rows = [csvRow(['זוג', 'אזור', 'סטודנט (מספר ברשימה)', 'תלמיד (מספר ברשימה)', 'מקצועות משותפים', 'שעות משותפות'])];
     last.pairs.forEach(function (p, i) {
       rows.push(csvRow([i + 1, REGION_HE[p.region] || p.region, p.student, p.pupil,
@@ -2597,7 +2673,7 @@ module.exports = {
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
     say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
-      (last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
+      (last.left.length === 0 ? 'כולם שובצו.' : last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
 
   // ---------- text gate ----------
@@ -2616,6 +2692,14 @@ module.exports = {
     $('findings').innerHTML = '';
   });
 
+  $('clearTextBtn').addEventListener('click', function () {
+    $('checkText').value = '';
+    $('findings').innerHTML = '';
+    say('checkStatus', '');
+    var ct = $('checkText');
+    if (ct && ct.focus) ct.focus();
+  });
+
   $('checkBtn').addEventListener('click', function () {
     var text = $('checkText').value;
     var hits = validator.findPersonalData(text);
@@ -2623,9 +2707,9 @@ module.exports = {
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
       catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
-      // Nothing stores this text: the app keeps the participants list only.
+      // Nothing stores this text: it is a demo of the gate that units and rejection reasons go through.
       say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
-        cleaned.slice(0, 120) + (cleaned.length > 120 ? '…' : '') + '"');
+        clip(cleaned, 120) + '"');
       $('findings').innerHTML = '';
       return;
     }
@@ -2635,7 +2719,7 @@ module.exports = {
     if (personal) parts.push(personal === 1 ? 'פרט אישי אחד' : personal + ' פרטים אישיים');
     if (rude) parts.push(rude === 1 ? 'מילה פוגענית אחת' : rude + ' מילים פוגעניות');
     var found = hits.length > 1 ? 'נמצאו ' : (rude ? 'נמצאה ' : 'נמצא ');
-    say('checkStatus', 'נחסם. ' + found + parts.join(' ו-') + '.', true);
+    say('checkStatus', 'נחסם. ' + found + parts.join(rude === 1 ? ' ו' : ' ו-') + '.', true);
     // h.index is a 0-based offset in UTF-16 units; a person counts characters from 1, and an emoji is one
     // character to them, not two.
     $('findings').innerHTML = hits.map(function (h) {
@@ -2665,7 +2749,7 @@ module.exports = {
     return '<div class="item' + (entry.status === 'approved' ? ' pair' : '') + '"><b>' + esc(u.title) + '</b>' +
       '<span class="meta">' + esc(SUBJECT_HE[u.subject] || u.subject) + ' · ' + u.durationMinutes + ' דקות · ' +
       'גרסה ' + entry.revision + ' · <span class="pill">' + esc(u.id) + '</span><br>' +
-      esc(u.body.length > 160 ? u.body.slice(0, 160) + '…' : u.body) + '</span>' + (extraHtml || '') + '</div>';
+      esc(clip(u.body, 160)) + '</span>' + (extraHtml || '') + '</div>';
   }
 
   function renderUnits() {
@@ -2675,8 +2759,8 @@ module.exports = {
       var id = esc(entry.unit.id);
       var title = esc(entry.unit.title);
       return unitCard(entry,
-        '<label for="reason-' + id + '">סיבת דחייה (חובה רק לדחייה)</label>' +
-        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '">' +
+        '<label for="reason-' + id + '">סיבת דחייה עבור ' + title + ' (חובה רק לדחייה)</label>' +
+        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '" aria-label="סיבת דחייה עבור ' + title + '" placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה">' +
         '<div class="actions"><button type="button" class="act small" data-approve="' + id +
         '" aria-label="אשר ' + title + '">אשר</button>' +
         '<button type="button" class="ghost small" data-reject="' + id +
@@ -2692,7 +2776,13 @@ module.exports = {
       .filter(function (e) { return e.status === 'rejected'; })
       .sort(function (a, b) { return a.seq - b.seq; });
     $('rejectedList').innerHTML = rejected.length ? rejected.map(function (entry) {
-      return unitCard(entry, '<div class="flag">סיבה: ' + esc(entry.reason) + '</div>');
+      var id = esc(entry.unit.id);
+      var title = esc(entry.unit.title);
+      return unitCard(entry,
+        '<div class="flag">סיבה: ' + esc(entry.reason) + '</div>' +
+        '<div class="actions"><button type="button" class="ghost small" id="reviseBtn-' + id +
+        '" data-revise="' + id + '" aria-describedby="unitStatus" aria-label="' +
+        esc('טען לעריכה את ' + title) + '">טען לטופס לעריכה</button></div>');
     }).join('') : '<p class="empty">אין יחידות שנדחו.</p>';
   }
 
@@ -2702,12 +2792,25 @@ module.exports = {
       made = unitLib.makeUnit(input);
       var before = approval.statusOf(state.queue, made.id);
       var next = approval.submit(state.queue, made);
-      if (next === state.queue) { say('unitStatus', 'כבר בתור, ללא שינוי: אותה יחידה בדיוק כבר הוגשה.'); return; }
+      // The same text again changes nothing, whatever the unit's status: the line says where it stands,
+      // so a rejected unit sent back unchanged is not reported as waiting in the queue.
+      if (next === state.queue) {
+        if (before === 'rejected') {
+          say('unitStatus', 'לא הוגש: הטקסט זהה לגרסה שנדחתה. מתקנים לפי סיבת הדחייה ומגישים שוב.', true);
+        } else {
+          say('unitStatus', before === 'approved' ? 'כבר מאושרת, ללא שינוי: אותה יחידה בדיוק כבר אושרה.'
+            : 'כבר בתור, ללא שינוי: אותה יחידה בדיוק כבר הוגשה.');
+        }
+        return;
+      }
       state.queue = next;
     } catch (err) { say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
     renderUnits();
+    // A unit edited while still pending never left the queue, so it does not "return" to it.
+    var revision = state.queue.entries[made.id].revision;
     say('unitStatus', before === null ? 'הוגש וממתין לאישור. מזהה: ' + made.id
-      : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + state.queue.entries[made.id].revision + '.');
+      : before === 'pending' ? 'הטקסט עודכן, היחידה עדיין ממתינה לאישור, עכשיו כגרסה ' + revision + '.'
+      : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + revision + '.');
     save('unitStatus');
   }
 
@@ -2738,12 +2841,34 @@ module.exports = {
         state.queue = approval.approve(state.queue, approveId);
         say('decideStatus', 'אושר. מעכשיו תלמידים רואים את היחידה.');
       } else {
-        var reasonBox = document.querySelector('[data-reason="' + rejectId + '"]');
+        var reasonBox = $('reason-' + rejectId) || (document.querySelector && document.querySelector('[data-reason="' + rejectId + '"]'));
         state.queue = approval.reject(state.queue, rejectId, reasonBox ? reasonBox.value : '');
         say('decideStatus', 'נדחה עם סיבה. המורה יכול לתקן ולהגיש שוב - זה יחזור לתור כגרסה חדשה.');
       }
-    } catch (err) { say('decideStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
+    } catch (err) {
+      if (rejectId !== null) {
+        var box = $('reason-' + rejectId) || (document.querySelector && document.querySelector('[data-reason="' + rejectId + '"]'));
+        if (box && box.focus) box.focus();
+      }
+      say('decideStatus', 'לא בוצע: ' + errorHe(err) + '.', true);
+      return;
+    }
     renderUnits(); save('decideStatus');
+  });
+
+  $('rejectedList').addEventListener('click', function (ev) {
+    var reviseId = ev.target.getAttribute('data-revise');
+    if (reviseId === null) return;
+    var entry = state.queue && state.queue.entries ? state.queue.entries[reviseId] : null;
+    if (!entry) return;
+    var u = entry.unit;
+    $('unitTitle').value = u.title;
+    $('unitSubject').value = u.subject;
+    $('unitDuration').value = String(u.durationMinutes);
+    $('unitBody').value = u.body;
+    var ub = $('unitBody');
+    if (ub && ub.focus) ub.focus();
+    say('unitStatus', 'היחידה "' + u.title + '" נטענה לטופס. תקן את התוכן ולחץ "הגש לאישור".');
   });
 
   // ---------- sessions (MVP item 6) ----------
@@ -2802,9 +2927,13 @@ module.exports = {
   }
   function renderSessionForm() {
     var pairs = currentPairs();
+    // currentPairs() splits the roster in list order like splitByRole(), so its indexes map to list numbers
+    var r = splitByRole();
     fillSelect('sessionPair', pairs.map(function (p, i) { return String(i); }), function (v, i) {
       var p = pairs[i];
       return 'זוג ' + (i + 1) + ' · ' + (REGION_HE[p.region] || p.region) + ' · ' +
+        ROLE_HE.student + ' #' + r.students[p.studentIndex].number + ' עם ' +
+        ROLE_HE.pupil + ' #' + r.pupils[p.pupilIndex].number + ' · ' +
         p.sharedSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ');
     }, 'אין עדיין זוגות משודכים — הוסף משתתפים וחשב שידוך');
     renderSessionChoices(pairs);
@@ -2838,8 +2967,16 @@ module.exports = {
     $('sessionList').innerHTML = state.log.entries.length
       ? state.log.entries.slice().reverse().map(sessionRow).join('')
       : '<p class="empty">היומן ריק. רושמים שיעור בטופס למעלה אחרי שנוצר זוג ואושרה יחידה.</p>';
-    // An export that is already open follows the log, so a stale report is never on the screen.
-    if (!$('reportBox').hidden) $('reportText').value = session.reportCsv(state.log);
+    // An export that is already open follows the log, so a stale report is never on the screen. Its status
+    // line follows too: the old one still counted the earlier lines and could say "הועתק גם ללוח" about
+    // a clipboard that now holds the earlier report.
+    if (!$('reportBox').hidden) {
+      var text = session.reportCsv(state.log);
+      $('reportText').value = text;
+      var lines = text.split('\n').length - 2;
+      say('reportStatus', 'היומן השתנה, אז הדוח שבתיבה עודכן: ' + (lines === 1 ? 'שורה אחת' : lines + ' שורות') +
+        ' של ספירות. מה שהועתק קודם ללוח הוא הדוח הקודם - לחץ שוב כדי להעתיק את זה.');
+    }
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
@@ -2856,7 +2993,9 @@ module.exports = {
     if (box.select) box.select();
     var lines = text.split('\n').length - 2;
     var linesHe = lines === 1 ? 'שורה אחת' : lines + ' שורות';
-    var done = 'הדוח מוכן: ' + linesHe + ' של ספירות, מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
+    // An empty log still exports its "sessions,,0" line; the status says so, as the summary card does.
+    var emptyHe = state.log.entries.length ? '' : ' - 0 שיעורים, כי היומן ריק';
+    var done = 'הדוח מוכן: ' + linesHe + ' של ספירות' + emptyHe + ', מסומן להעתקה. אין בו שורות יומן ואין מי לימד את מי.';
     if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
         say('reportStatus', done + ' הועתק גם ללוח.');
@@ -2912,7 +3051,8 @@ module.exports = {
   // Everything the app holds sits under one key of this browser's storage (store.js), so ending a pilot
   // or handing the phone on means removing that key. The wipe asks twice on the screen itself, not with
   // window.confirm (it cannot be styled, read right-to-left reliably, or tested), and it goes through
-  // store.clear, never through saving an empty document: afterwards the key is gone, not blank. The
+  // store.clear, never through saving an empty document: afterwards the key is gone, not blank, and so
+  // is the copy of a refused document that load() kept beside it. The
   // in-memory state is emptied either way, so a blocked storage cannot leave the roster on the screen.
 
   var WIPE_LABEL = 'מחק הכול מהמכשיר הזה';
@@ -2926,8 +3066,15 @@ module.exports = {
     if (!wipeArmed) {
       setWipeArmed(true);
       var lessons = state.log.entries.length;
+      var units = Object.keys(state.queue.entries).length;
+      // Nothing on the screen to count: say so instead of "0 משתתפים, 0 יחידות ו-0 שיעורים". The second
+      // press still clears the stored keys, since an unreadable document may still be sitting there.
+      if (!state.people.length && !units && !lessons) {
+        say('wipeStatus', 'אין במכשיר הזה משתתפים, יחידות או שיעורים. לחץ שוב כדי לנקות בכל זאת את האחסון, או ביטול.');
+        return;
+      }
       say('wipeStatus', 'יימחקו ' + countHe(state.people.length, 'משתתף', 'משתתפים') + ', ' +
-        countHe(Object.keys(state.queue.entries).length, 'יחידה', 'יחידות', 'אחת') + (lessons === 1 ? ' ו' : ' ו-') +
+        countHe(units, 'יחידה', 'יחידות', 'אחת') + (lessons === 1 ? ' ו' : ' ו-') +
         countHe(lessons, 'שיעור', 'שיעורים') + '. לחץ שוב כדי לאשר, או ביטול.');
       return;
     }
@@ -2938,7 +3085,13 @@ module.exports = {
     resetMatchView();
     $('reportBox').hidden = true;
     $('reportText').value = '';
-    ['addStatus', 'matchStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
+    $('checkText').value = '';
+    $('findings').innerHTML = '';
+    $('unitTitle').value = '';
+    $('unitBody').value = '';
+    $('unitDuration').value = '20';
+    if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
+    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
       say(id, '');
     });
     renderPeople(); renderUnits(); renderSessionForm(); renderSessions();
@@ -2988,6 +3141,17 @@ module.exports = {
     if (!c) return;
     $('contactLink').href = c.href;
     $('contactLink').textContent = c.label;
+    if (c.kind === 'email') {
+      if ($('contactLink').removeAttribute) {
+        $('contactLink').removeAttribute('target');
+        $('contactLink').removeAttribute('rel');
+        $('contactLink').removeAttribute('aria-label');
+      }
+    } else {
+      $('contactLink').setAttribute('target', '_blank');
+      $('contactLink').setAttribute('rel', 'noopener noreferrer');
+      $('contactLink').setAttribute('aria-label', c.label + ' (נפתח בלשונית חדשה)');
+    }
     $('contactNote').textContent = c.kind === 'issue'
       ? 'הפנייה בגיטהאב ציבורית ודורשת חשבון GitHub. אל תכתבו שם טלפון, מייל או פרטים של תלמידים.'
       : 'אין צורך לשלוח שום פרט של תלמיד כדי לנסות.';

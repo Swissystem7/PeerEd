@@ -141,9 +141,14 @@ test('approval: stored data that was edited on disk cannot smuggle personal data
   assert.throws(() => loadQueue(edit((s) => { s.entries['u-0000000000000000'] = s.entries[A.id]; })), /id mismatch/);
   assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].seq = 0; })), /bad revision or seq/);
   for (const bad of [null, [], 'x', { entries: null }]) assert.throws(() => loadQueue(bad), /invalid stored queue/);
-  // a decided entry that was given a name on disk comes back with only the role
-  const renamed = loadQueue(edit((s) => { s.entries[A.id].decidedBy = 'Aviran'; }));
-  assert.equal(renamed.entries[A.id].decidedBy, APPROVER_ROLE);
+  // a decided entry that was given a name on disk is refused, not quietly repaired to the role: the
+  // flow never writes a name there, and a loader that rewrites it would hide that the file was edited
+  for (const who of ['Aviran', 'OWNER', '', null, 7]) {
+    assert.throws(() => loadQueue(edit((s) => { s.entries[A.id].decidedBy = who; })),
+      /decidedBy is not the approver role/);
+  }
+  assert.throws(() => loadQueue(edit((s) => { delete s.entries[A.id].decidedBy; })),
+    /decidedBy is not the approver role/);
 });
 
 test('approval: a stored entry with a key the flow never writes is refused, not quietly dropped', () => {
