@@ -2,7 +2,8 @@
 // PeerEd - the ONE place for a contact channel. Nothing here is invented.
 //   CONTACT     an email (name@host.tld) or an https link to a form. Empty = use ISSUE_FORM. Since 28.9
 //               it is the Google Form "משוב על האפליקציות", pre-filled with PeerEd.
-//   ISSUE_FORM  the Hebrew GitHub issue form of this repository (.github/ISSUE_TEMPLATE/pilot.yml).
+//   ISSUE_FORM  the Hebrew GitHub issue form of this repository (.github/ISSUE_TEMPLATE/pilot.yml). The repo is
+//               private: only people given access can open it, everyone else gets GitHub's not-found page.
 // A malformed value shows NO contact rather than a broken one. The link is only ever an <a href> the
 // user clicks: the app itself still sends nothing anywhere (test/app-build.test.js).
 
