@@ -91,7 +91,7 @@ test('cycle sweep: ageInDays counts whole UTC days', () => {
   assert.deepEqual(sweep([], ASOF), { kept: [], dropped: [] });
 });
 
-// applyRetentionPolicy(): the { matches, profiles } shape, judged by the maxAgeDays stamped on each row.
+// applyRetentionPolicy(): the { matches, profiles } shape, judged by the policy's limit like sweep().
 const st = () => makeProfile({ role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'] });
 const pu = () => makeProfile({ role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'], parentConsent: true });
 
@@ -174,6 +174,20 @@ test('cycle-manager: a maxAgeDays that is not a whole number of days is refused,
     assert.throws(() => applyRetentionPolicy({ matches: [stamped(bad)], profiles: [] }, ASOF), /maxAgeDays/, String(bad));
   }
   assert.deepEqual(applyRetentionPolicy({ matches: [stamped(0)], profiles: [] }, ASOF).matches, []);
+});
+
+test('cycle-manager: the stamp on a row is not its limit, so a tightened policy deletes what an older one kept', () => {
+  // the same row the sweep test refuses to keep: a match from past the window, stamped 99999 on disk
+  const stale = { recordedAt: daysBefore(POLICY.match + 1), retention: { dataCategory: 'match', maxAgeDays: 99999 } };
+  const fresh = { recordedAt: daysBefore(POLICY.match), retention: { dataCategory: 'match', maxAgeDays: 99999 } };
+  const out = applyRetentionPolicy({ matches: [stale, fresh], profiles: [] }, ASOF);
+  assert.deepEqual(out.matches, [fresh], 'the policy window, not the stamp, decides');
+  // and a stamp shorter than the policy does not delete early either: the limit is the policy's
+  const short = { recordedAt: daysBefore(10), retention: { dataCategory: 'profile', maxAgeDays: 1 } };
+  assert.deepEqual(applyRetentionPolicy({ matches: [], profiles: [short] }, ASOF).profiles, [short]);
+  // a category the policy does not name is refused here as in sweep(), never kept on its own stamp
+  const foreign = { recordedAt: ASOF, retention: { dataCategory: 'audit-log', maxAgeDays: 30 } };
+  assert.throws(() => applyRetentionPolicy({ matches: [foreign], profiles: [] }, ASOF), /no limit for audit-log/);
 });
 
 test('cycle sweep: a day is read only from a Date or an ISO string, and only if the calendar has it', () => {
