@@ -56,13 +56,15 @@ never who) and a municipality sees counts only. The people screen ends with a wi
 | `src/lib/contact.js` | The one place for a contact channel. Since 28.9 `CONTACT` is the Google Form "משוב על האפליקציות", pre-filled with PeerEd. If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`. |
 
 On screen: add participants (or load a sample), compute the match, see who is left out and why, download
-the pairs as CSV (list numbers only, to line up with the coordinator's sheet), a card of cross-region suggestions for pupils whose region has no free student (also in the CSV; the coordinator decides), and a summary of pupils left
-without a student by region and subject.
+the pairs as CSV (list numbers only, to line up with the coordinator's sheet), a card of cross-region suggestions for pupils whose region has no free student (also in the CSV; the coordinator decides), and the "סיכום לרשות" card: counts
+only (pairs, pupils without a student, students without a pupil, pupils waiting for a parent's consent counted
+apart, and the students missing by region and subject), on the screen with no file to download.
 
 ## What does not exist
 
 No accounts, no sharing between devices (the state lives in one browser's localStorage), no reports for a
-municipality beyond the session counts on the sessions screen and their CSV export, no accessibility work
+municipality beyond two on-screen count cards, both titled "סיכום לרשות" (the match screen's, which has no
+file, and the session counts on the sessions screen with their CSV export), no accessibility work
 beyond keyboard navigation of the tab bar and the text contrast audit (no screen-reader pass; the card and
 field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.11, and the audit does not cover borders because
 lightening them is a look still to be chosen), no Arabic or Russian, regions are national rather than one
