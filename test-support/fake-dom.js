@@ -28,7 +28,8 @@ function fakeElement(id) {
 }
 
 // opts.store: initial localStorage content. opts.saveFails: setItem throws, like a full or blocked
-// storage. Returns $ (element lookup) plus what the app handed out
+// storage. opts.noStorage: window.localStorage itself throws, like a browser with site data blocked.
+// Returns $ (element lookup) plus what the app handed out
 // (downloads: every Blob the app turned into a file, with its text).
 function openApp(opts) {
   opts = opts || {};
@@ -89,7 +90,13 @@ function openApp(opts) {
     },
     // the app reads window.localStorage, so opts.store only reaches it through window
     localStorage: localStorage,
-    window: { scrollTo() {}, localStorage: localStorage },
+    window: {
+      scrollTo() {},
+      get localStorage() {
+        if (opts.noStorage) throw new Error('SecurityError: access to localStorage is denied');
+        return localStorage;
+      }
+    },
     Blob: FakeBlob,
     URL: {
       createObjectURL: (b) => { downloads.push(b); return 'blob:fake/' + downloads.length; },

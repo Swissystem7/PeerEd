@@ -2377,12 +2377,23 @@ module.exports = {
   // record is re-validated by src/lib/store.js on every load, so devtools cannot smuggle a name in.
   var state = { people: [], queue: null, log: null };
   var draft = { subjects: [], availability: [] };
+  // When the browser does not hand out its storage at all (site data blocked in the settings, a sandboxed
+  // frame, some private modes), the store falls back to memory: the app keeps working for this visit and
+  // nothing is kept past it. The screen says so (storageBlocked) - at the start and on every save - the way
+  // save() already says it when the browser refuses one write. Until this the fallback was silent: the
+  // participants card promised the list is kept in this browser, every add said "נוסף", and the roster was
+  // gone when the page closed. The same browser refusing a write and refusing the storage are one condition
+  // to the coordinator, so they get one line.
+  var storageBlocked = false;
   var store = (function () {
     var backend;
     try { backend = window.localStorage; backend.getItem(storeLib.DEFAULT_KEY); }
-    catch (e) { backend = storeLib.memoryBackend(); /* private mode: this visit only */ }
-    return storeLib.createStore(backend || storeLib.memoryBackend());
+    catch (e) { backend = null; }
+    if (!backend) { backend = storeLib.memoryBackend(); storageBlocked = true; }
+    return storeLib.createStore(backend);
   })();
+  var MEMORY_ONLY_HE = 'נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי או אחסון חסום?), ' +
+    'וזה ייעלם כשהדף ייסגר.';
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -2493,9 +2504,9 @@ module.exports = {
       setWipeArmed(false);
       say('wipeStatus', 'הרשימה השתנתה, אז המחיקה בוטלה. לחץ שוב כדי לראות מה יימחק.');
     }
-    if (!store.save(state)) {
-      say(statusId, $(statusId).textContent + ' נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי?), ' +
-        'וזה ייעלם כשהדף ייסגר.', true);
+    // a save into the memory fallback "works", but nothing reached the browser's storage: same line
+    if (!store.save(state) || storageBlocked) {
+      say(statusId, $(statusId).textContent + ' ' + MEMORY_ONLY_HE, true);
       return;
     }
     // the key now holds this state: the document load() refused is no longer under it (its copy, if one
@@ -2521,6 +2532,10 @@ module.exports = {
       say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '. ' +
         (loaded.kept ? 'עותק שלה נשמר בצד באחסון המקומי, כך ששינוי חדש לא ימחק אותה.'
           : 'הדפדפן לא אפשר לשמור עותק שלה בצד, ושינוי חדש יכתוב עליה.'), true);
+    } else if (storageBlocked) {
+      // nothing could be read either: a list saved on an earlier visit, if there is one, is not on the screen
+      say('addStatus', 'הדפדפן לא מאפשר אחסון מקומי (מצב פרטי או אחסון חסום?), אז רשימה שנשמרה כאן קודם לא נטענה, ' +
+        'ומה שיתווסף עכשיו יישמר בזיכרון בלבד וייעלם כשהדף ייסגר.', true);
     }
     resetMatchView();
   }
