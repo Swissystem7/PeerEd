@@ -544,6 +544,27 @@
     }).join('');
   }
 
+  // The list's empty line is read on its own card, away from the start line on the add card (which the
+  // next action overwrites). "אין עדיין משתתפים" there said the device had no list yet, over a stored
+  // document load() refused - roster, queue and log, kept beside or about to be written over - and over
+  // a blocked storage that could not read a list saved on an earlier visit. It now names which.
+  function emptyRosterHe() {
+    if (refusedOnKey) {
+      return 'אין משתתפים על המסך: הנתונים שנשמרו בדפדפן הזה נדחו בטעינה ולא נטענו, ' + (refusedKept
+        ? 'ועותק שלהם נשמר בצד באחסון המקומי. אפשר להוסיף משתתף או לטעון דוגמה.'
+        : 'ועותק שלהם לא נשמר בצד: משתתף חדש או דוגמה יישמרו מעליהם.');
+    }
+    if (refusedKept) {
+      return 'אין משתתפים על המסך. עותק של הנתונים השמורים שנדחו בטעינה נשמר בצד באחסון המקומי. ' +
+        'אפשר להוסיף משתתף או לטעון דוגמה.';
+    }
+    if (storageBlocked) {
+      return 'אין עדיין משתתפים בביקור הזה. הדפדפן לא מאפשר אחסון מקומי, אז רשימה שנשמרה כאן בביקור קודם, ' +
+        'אם יש כזו, לא נטענה, ומי שיתווסף יישמר בזיכרון בלבד.';
+    }
+    return 'אין עדיין משתתפים. אפשר לטעון דוגמה.';
+  }
+
   function renderPeople() {
     $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
       var pupil = p.role === 'pupil';
@@ -562,7 +583,7 @@
           (consented ? 'בטל אישור הורה' : 'סמן אישור הורה') + '</button>' : '') +
         '<button type="button" class="ghost small" id="delBtn-' + i + '" data-del="' + i + '" aria-describedby="addStatus" aria-label="' +
         esc('מחק ' + personLabel) + '">מחק</button></div></div>';
-    }).join('') : '<p class="empty">אין עדיין משתתפים. אפשר לטעון דוגמה.</p>';
+    }).join('') : '<p class="empty">' + esc(emptyRosterHe()) + '</p>';
   }
 
   $('subjects').addEventListener('click', function (ev) {
@@ -1703,6 +1724,8 @@
     });
     // The roster and the queue may have changed on other tabs: the pairs and the units are recomputed.
     if (tab.id === 'nav-sessions') renderSessionForm();
+    // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
+    if (tab.id === 'nav-people') renderPeople();
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
