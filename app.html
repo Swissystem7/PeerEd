@@ -3308,7 +3308,13 @@ module.exports = {
     }
     var units = approval.approvedUnits(state.queue).filter(function (u) { return u.subject === subject; });
     if (!units.length) {
-      $('sessionUnit').innerHTML = '<option value="">אין יחידה מאושרת במקצוע הזה - אשר אחת במסך יחידות</option>';
+      // "אשר אחת" fits only a subject with a unit waiting: over a pending list with nothing in this
+      // subject it sent the coordinator to approve a unit that is not there, and the units screen then
+      // said "אין יחידות שממתינות". The option says what the queue holds in this subject.
+      var waiting = approval.listPending(state.queue).filter(function (e) { return e.unit.subject === subject; }).length;
+      $('sessionUnit').innerHTML = '<option value="">' + esc('אין יחידה מאושרת במקצוע הזה' + (waiting
+        ? ' - ' + (waiting === 1 ? 'אחת ממתינה' : waiting + ' ממתינות') + ' לאישור במסך יחידות'
+        : ', ואף אחת לא ממתינה לאישור - מגישים יחידה במקצוע הזה במסך יחידות ומאשרים אותה')) + '</option>';
       $('sessionUnit').disabled = true;
       return;
     }
