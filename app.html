@@ -90,9 +90,9 @@
     <div class="card">
       <h2>הוספת משתתף</h2>
       <div class="row">
-        <div><label for="role">תפקיד</label><select id="role">
+        <div><label for="role">תפקיד</label><select id="role" aria-required="true" aria-describedby="addStatus">
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
-        <div><label for="region">אזור</label><select id="region"></select></div>
+        <div><label for="region">אזור</label><select id="region" aria-required="true" aria-describedby="addStatus"></select></div>
       </div>
       <div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">
         <label class="check"><input type="checkbox" id="consent"> התקבל אישור הורה לשידוך</label>
@@ -104,7 +104,7 @@
       <label id="hoursLabel">שעות פנויות</label>
       <p class="hint" id="hoursHint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint"></div>
-      <div class="actions"><button type="button" class="act" id="addPerson">הוסף</button>
+      <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
         <button type="button" class="ghost" id="demoBtn" aria-label="טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
     </div>
@@ -118,8 +118,8 @@
       <h2>מחיקה מהמכשיר הזה</h2>
       <p class="hint">הכול נשמר רק בדפדפן הזה. לפני שמוסרים את הטלפון או כשפיילוט נגמר מוחקים מכאן את הרשימה, את תור
         היחידות ואת יומן השיעורים. אין גיבוי ואין שחזור.</p>
-      <div class="actions"><button type="button" class="ghost" id="wipeBtn">מחק הכול מהמכשיר הזה</button>
-        <button type="button" class="ghost" id="wipeCancel" hidden>ביטול</button></div>
+      <div class="actions"><button type="button" class="ghost" id="wipeBtn" aria-describedby="wipeStatus">מחק הכול מהמכשיר הזה</button>
+        <button type="button" class="ghost" id="wipeCancel" aria-describedby="wipeStatus" hidden>ביטול</button></div>
       <p class="status" id="wipeStatus" role="status"></p>
     </div>
   </section>
@@ -164,7 +164,7 @@
       <p class="hint">הטקסט החופשי שהאפליקציה שומרת הוא רק כותרת ותוכן של יחידה וסיבת דחייה, וכל אחד מהם עובר
         קודם בשער הזה. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
-      <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12"></textarea>
+      <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12" aria-required="true" aria-describedby="checkStatus"></textarea>
       <div class="actions">
         <button type="button" class="act" id="checkBtn">בדוק</button>
         <button type="button" class="ghost" id="badBtn" aria-describedby="checkStatus">טען דוגמה עם פרטים אישיים</button>
@@ -172,12 +172,12 @@
         <button type="button" class="ghost" id="clearTextBtn">נקה טקסט</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
-      <div id="findings"></div>
+      <div id="findings" role="region" aria-live="polite" aria-label="ממצאי בדיקת טקסט"></div>
     </div>
     <div class="card">
       <h2>הדגמה: שדה אסור נדחה</h2>
       <p class="hint">אותו שער, על הרשומה עצמה ולא על הטקסט: מנסה לשמור משתתף עם שדה שאינו ברשימה.</p>
-      <div class="actions"><button type="button" class="ghost" id="gateBtn">נסה לשמור עם טלפון</button></div>
+      <div class="actions"><button type="button" class="ghost" id="gateBtn" aria-describedby="gateStatus">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
     </div>
   </section>
@@ -193,15 +193,16 @@
       <div class="row">
         <div><label for="unitSubject">מקצוע</label><select id="unitSubject"></select></div>
         <div><label for="unitDuration">משך בדקות (5–60)</label>
-          <input id="unitDuration" type="number" min="5" max="60" step="1" value="20"></div>
+          <input id="unitDuration" type="number" min="5" max="60" step="1" value="20" aria-describedby="unitStatus"></div>
       </div>
       <label for="unitTitle">כותרת (שורה אחת)</label>
-      <input id="unitTitle" type="text" maxlength="120" placeholder="שברים פשוטים: חיבור וחיסור">
+      <input id="unitTitle" type="text" maxlength="120" placeholder="שברים פשוטים: חיבור וחיסור" aria-required="true" aria-describedby="unitStatus">
       <label for="unitBody">תוכן היחידה</label>
-      <textarea id="unitBody" placeholder="פתחו בדוגמה אחת מהחיים, אחר כך 3 תרגילים מפרק 12..."></textarea>
+      <textarea id="unitBody" placeholder="פתחו בדוגמה אחת מהחיים, אחר כך 3 תרגילים מפרק 12..." aria-required="true" aria-describedby="unitStatus"></textarea>
       <div class="actions">
         <button type="button" class="act" id="submitUnit">הגש לאישור</button>
         <button type="button" class="ghost" id="unitDemoBtn" aria-label="טען יחידת העשרה לדוגמה" aria-describedby="unitStatus">טען דוגמה</button>
+        <button type="button" class="ghost" id="clearUnitBtn" aria-label="נקה טופס יחידה">נקה טופס</button>
       </div>
       <p class="status" id="unitStatus" role="status"></p>
     </div>
@@ -232,15 +233,15 @@
       <p class="hint">הזוגות מחושבים מחדש מהרשימה (אותו קלט, אותם זוגות). אפשר לרשום רק שעה ומקצוע שהזוג
         חולק, ורק יחידה שאושרה במסך "יחידות" באותו מקצוע.</p>
       <label for="sessionPair">זוג</label>
-      <select id="sessionPair"></select>
+      <select id="sessionPair" aria-required="true" aria-describedby="sessionStatus"></select>
       <div class="row">
-        <div><label for="sessionSlot">שעה</label><select id="sessionSlot"></select></div>
-        <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject"></select></div>
+        <div><label for="sessionSlot">שעה</label><select id="sessionSlot" aria-required="true" aria-describedby="sessionStatus"></select></div>
+        <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject" aria-required="true" aria-describedby="sessionStatus"></select></div>
       </div>
       <label for="sessionUnit">יחידה מאושרת</label>
-      <select id="sessionUnit"></select>
+      <select id="sessionUnit" aria-required="true" aria-describedby="sessionStatus"></select>
       <label for="sessionOutcome">איך הסתיים</label>
-      <select id="sessionOutcome"></select>
+      <select id="sessionOutcome" aria-required="true" aria-describedby="sessionStatus"></select>
       <div class="actions"><button type="button" class="act" id="logSession">רשום שיעור</button></div>
       <p class="status" id="sessionStatus" role="status"></p>
     </div>
@@ -249,10 +250,10 @@
       <div id="sessionSummary"></div>
       <p class="hint">הייצוא הוא אותן ספירות כקובץ CSV: מדד, קוד, כמות. אין בו שורות של היומן, אין שעה, אין
         מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
-      <div class="actions"><button type="button" class="ghost" id="exportReport">ייצא דוח CSV</button></div>
+      <div class="actions"><button type="button" class="ghost" id="exportReport" aria-expanded="false" aria-controls="reportBox reportStatus" aria-describedby="reportStatus">ייצא דוח CSV</button></div>
       <div id="reportBox" hidden>
         <label for="reportText">הדוח (לקריאה בלבד)</label>
-        <textarea id="reportText" readonly dir="ltr" spellcheck="false"></textarea>
+        <textarea id="reportText" readonly dir="ltr" spellcheck="false" aria-describedby="reportStatus"></textarea>
       </div>
       <p class="status" id="reportStatus" role="status"></p>
     </div>
@@ -2358,7 +2359,7 @@ module.exports = {
       return '<option value="' + r + '">' + esc(REGION_HE[r] || r) + '</option>';
     }).join('');
     $('subjects').innerHTML = profile.SUBJECTS.map(function (s) {
-      return '<button type="button" class="chip" data-subject="' + s + '" aria-pressed="false">' +
+      return '<button type="button" class="chip" id="subjectBtn-' + s + '" data-subject="' + s + '" aria-pressed="false">' +
         esc(SUBJECT_HE[s] || s) + '</button>';
     }).join('');
     var cells = ['<span></span>'];
@@ -2367,7 +2368,7 @@ module.exports = {
       cells.push('<span>' + h + ':00</span>');
       profile.DAYS.forEach(function (d) {
         var slot = d + '_' + h;
-        cells.push('<button type="button" data-slot="' + slot + '" aria-pressed="false" aria-label="' +
+        cells.push('<button type="button" id="slotBtn-' + slot + '" data-slot="' + slot + '" aria-pressed="false" aria-describedby="hoursHint" aria-label="' +
           esc(slotHe(slot)) + '">.</button>');
       });
     });
@@ -2389,10 +2390,11 @@ module.exports = {
         (pupil ? ' · אישור הורה: ' + (consented ? 'יש' : 'אין') : '') + '</span>' +
         (pupil && !consented ? '<div class="flag">בלי אישור הורה התלמיד לא נכנס לשידוך.</div>' : '') +
         '<div class="actions">' +
-        (pupil ? '<button type="button" class="ghost small" data-consent="' + i + '" aria-label="' +
+        (pupil ? '<button type="button" class="ghost small" id="consentBtn-' + i + '" data-consent="' + i + '" aria-pressed="' +
+          (consented ? 'true' : 'false') + '" aria-describedby="addStatus" aria-label="' +
           esc((consented ? 'בטל אישור הורה ל' : 'סמן אישור הורה ל') + personLabel) + '">' +
           (consented ? 'בטל אישור הורה' : 'סמן אישור הורה') + '</button>' : '') +
-        '<button type="button" class="ghost small" data-del="' + i + '" aria-label="' +
+        '<button type="button" class="ghost small" id="delBtn-' + i + '" data-del="' + i + '" aria-describedby="addStatus" aria-label="' +
         esc('מחק ' + personLabel) + '">מחק</button></div></div>';
     }).join('') : '<p class="empty">אין עדיין משתתפים. אפשר לטעון דוגמה.</p>';
   }
@@ -2437,7 +2439,27 @@ module.exports = {
     if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
-    catch (err) { say('addStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
+    catch (err) {
+      if (/availability|slot/i.test(err.message)) {
+        var h = $('hours');
+        var hb = h && h.querySelector ? h.querySelector('button') : null;
+        if (hb && hb.focus) hb.focus();
+        else if (h && h.focus) h.focus();
+      } else if (/subject/i.test(err.message)) {
+        var s = $('subjects');
+        var sb = s && s.querySelector ? s.querySelector('button') : null;
+        if (sb && sb.focus) sb.focus();
+        else if (s && s.focus) s.focus();
+      } else if (/role/i.test(err.message)) {
+        var r = $('role');
+        if (r && r.focus) r.focus();
+      } else if (/region/i.test(err.message)) {
+        var rg = $('region');
+        if (rg && rg.focus) rg.focus();
+      }
+      say('addStatus', 'נדחה: ' + errorHe(err) + '.', true);
+      return;
+    }
     state.people.push(made);
     resetMatchView();
     clearDraft();
@@ -2460,15 +2482,26 @@ module.exports = {
       say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
         : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.');
       save('addStatus');
+      var consentBtn = $('consentBtn-' + c);
+      if (consentBtn && consentBtn.focus) consentBtn.focus();
       return;
     }
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
-    state.people.splice(Number(i), 1);
+    var delIndex = Number(i);
+    state.people.splice(delIndex, 1);
     resetMatchView();
     renderPeople();
     say('addStatus', 'נמחק.');
     save('addStatus');
+    if (state.people.length > 0) {
+      var nextIdx = Math.min(delIndex, state.people.length - 1);
+      var nextBtn = $('delBtn-' + nextIdx);
+      if (nextBtn && nextBtn.focus) nextBtn.focus();
+    } else {
+      var ap = $('addPerson');
+      if (ap && ap.focus) ap.focus();
+    }
   });
 
   // The demo replaces the roster, so it only ever loads into an empty one: on a list a coordinator has
@@ -2706,7 +2739,13 @@ module.exports = {
     if (!hits.length) {
       var cleaned;
       try { cleaned = validator.assertCleanText(text); }
-      catch (err) { say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true); $('findings').innerHTML = ''; return; }
+      catch (err) {
+        var ct = $('checkText');
+        if (ct && ct.focus) ct.focus();
+        say('checkStatus', 'נדחה: ' + errorHe(err) + '.', true);
+        $('findings').innerHTML = '';
+        return;
+      }
       // Nothing stores this text: it is a demo of the gate that units and rejection reasons go through.
       say('checkStatus', 'נקי. הטקסט לא נשמר — זו הדגמה. אחרי ניקוי רווחים: "' +
         clip(cleaned, 120) + '"');
@@ -2760,11 +2799,11 @@ module.exports = {
       var title = esc(entry.unit.title);
       return unitCard(entry,
         '<label for="reason-' + id + '">סיבת דחייה עבור ' + title + ' (חובה רק לדחייה)</label>' +
-        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '" aria-label="סיבת דחייה עבור ' + title + '" placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה">' +
-        '<div class="actions"><button type="button" class="act small" data-approve="' + id +
-        '" aria-label="אשר ' + title + '">אשר</button>' +
-        '<button type="button" class="ghost small" data-reject="' + id +
-        '" aria-label="דחה ' + title + '">דחה</button></div>');
+        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '" aria-label="סיבת דחייה עבור ' + title + '" placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה" aria-describedby="decideStatus">' +
+        '<div class="actions"><button type="button" class="act small" id="approveBtn-' + id + '" data-approve="' + id +
+        '" aria-describedby="decideStatus" aria-label="אשר ' + title + '">אשר</button>' +
+        '<button type="button" class="ghost small" id="rejectBtn-' + id + '" data-reject="' + id +
+        '" aria-describedby="decideStatus" aria-label="דחה ' + title + '">דחה</button></div>');
     }).join('') : '<p class="empty">אין יחידות שממתינות. אפשר להגיש אחת למעלה או לטעון דוגמה.</p>';
 
     var approved = approval.approvedUnits(q).map(function (u) { return q.entries[u.id]; });
@@ -2804,7 +2843,20 @@ module.exports = {
         return;
       }
       state.queue = next;
-    } catch (err) { say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true); return; }
+    } catch (err) {
+      if (/title/i.test(err.message)) {
+        var t = $('unitTitle');
+        if (t && t.focus) t.focus();
+      } else if (/body/i.test(err.message)) {
+        var b = $('unitBody');
+        if (b && b.focus) b.focus();
+      } else if (/duration/i.test(err.message)) {
+        var d = $('unitDuration');
+        if (d && d.focus) d.focus();
+      }
+      say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true);
+      return;
+    }
     renderUnits();
     // A unit edited while still pending never left the queue, so it does not "return" to it.
     var revision = state.queue.entries[made.id].revision;
@@ -2832,10 +2884,26 @@ module.exports = {
     say('unitStatus', 'הדוגמה מולאה. לחץ "הגש לאישור".');
   });
 
+  $('clearUnitBtn').addEventListener('click', function () {
+    $('unitTitle').value = '';
+    $('unitBody').value = '';
+    $('unitDuration').value = '20';
+    if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
+    say('unitStatus', '');
+    var ut = $('unitTitle');
+    if (ut && ut.focus) ut.focus();
+  });
+
   $('pendingList').addEventListener('click', function (ev) {
     var approveId = ev.target.getAttribute('data-approve');
     var rejectId = ev.target.getAttribute('data-reject');
     if (approveId === null && rejectId === null) return;
+    var targetId = approveId !== null ? approveId : rejectId;
+    var pendingBefore = approval.listPending(state.queue);
+    var targetIndex = -1;
+    for (var pi = 0; pi < pendingBefore.length; pi += 1) {
+      if (pendingBefore[pi].unit.id === targetId) { targetIndex = pi; break; }
+    }
     try {
       if (approveId !== null) {
         state.queue = approval.approve(state.queue, approveId);
@@ -2853,7 +2921,18 @@ module.exports = {
       say('decideStatus', 'לא בוצע: ' + errorHe(err) + '.', true);
       return;
     }
-    renderUnits(); save('decideStatus');
+    renderUnits();
+    save('decideStatus');
+    var remaining = approval.listPending(state.queue);
+    if (remaining.length > 0) {
+      var nextIdx = Math.min(targetIndex >= 0 ? targetIndex : 0, remaining.length - 1);
+      var nextId = remaining[nextIdx].unit.id;
+      var nextBtn = $('approveBtn-' + nextId) || $('rejectBtn-' + nextId);
+      if (nextBtn && nextBtn.focus) nextBtn.focus();
+    } else {
+      var su = $('submitUnit');
+      if (su && su.focus) su.focus();
+    }
   });
 
   $('rejectedList').addEventListener('click', function (ev) {
@@ -2977,6 +3056,8 @@ module.exports = {
       say('reportStatus', 'היומן השתנה, אז הדוח שבתיבה עודכן: ' + (lines === 1 ? 'שורה אחת' : lines + ' שורות') +
         ' של ספירות. מה שהועתק קודם ללוח הוא הדוח הקודם - לחץ שוב כדי להעתיק את זה.');
     }
+    var er = $('exportReport');
+    if (er) er.setAttribute('aria-expanded', $('reportBox').hidden ? 'false' : 'true');
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
@@ -2984,11 +3065,17 @@ module.exports = {
   // box and is selected; the clipboard is tried on top of that, never instead of it (a phone browser
   // may refuse it, and a refused copy must not look like a copy).
   $('exportReport').addEventListener('click', function () {
+    var er = $('exportReport');
     var text;
-    try { text = session.reportCsv(state.log); } catch (err) { say('reportStatus', 'לא יוצא: ' + errorHe(err) + '.', true); return; }
+    try { text = session.reportCsv(state.log); } catch (err) {
+      if (er && er.focus) er.focus();
+      say('reportStatus', 'לא יוצא: ' + errorHe(err) + '.', true);
+      return;
+    }
     var box = $('reportText');
     box.value = text;
     $('reportBox').hidden = false;
+    if (er) er.setAttribute('aria-expanded', 'true');
     if (box.focus) box.focus();
     if (box.select) box.select();
     var lines = text.split('\n').length - 2;
@@ -3012,6 +3099,8 @@ module.exports = {
     var pairs = currentPairs();
     var pair = pairs[Number($('sessionPair').value)];
     if (!pair) {
+      var sp = $('sessionPair');
+      if (sp && sp.focus) sp.focus();
       say('sessionStatus', 'אין זוג לרשום לו שיעור. טען משתתפים במסך "אנשים" ובדוק במסך "שידוך" שנוצר זוג.', true);
       return;
     }
@@ -3022,7 +3111,23 @@ module.exports = {
         unitId: $('sessionUnit').value,
         outcome: $('sessionOutcome').value
       });
-    } catch (err) { say('sessionStatus', 'לא נרשם: ' + errorHe(err) + '.', true); return; }
+    } catch (err) {
+      if (/unit/i.test(err.message)) {
+        var u = $('sessionUnit');
+        if (u && u.focus) u.focus();
+      } else if (/slot/i.test(err.message)) {
+        var sl = $('sessionSlot');
+        if (sl && sl.focus) sl.focus();
+      } else if (/subject/i.test(err.message)) {
+        var sub = $('sessionSubject');
+        if (sub && sub.focus) sub.focus();
+      } else if (/outcome/i.test(err.message)) {
+        var oc = $('sessionOutcome');
+        if (oc && oc.focus) oc.focus();
+      }
+      say('sessionStatus', 'לא נרשם: ' + errorHe(err) + '.', true);
+      return;
+    }
     renderSessions();
     say('sessionStatus', 'נרשם שיעור ' + (state.log.nextSeq - 1) +
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
@@ -3067,6 +3172,8 @@ module.exports = {
     resetMatchView();
     $('reportBox').hidden = true;
     $('reportText').value = '';
+    var er = $('exportReport');
+    if (er) er.setAttribute('aria-expanded', 'false');
     $('checkText').value = '';
     $('findings').innerHTML = '';
     $('unitTitle').value = '';
