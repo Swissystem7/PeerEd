@@ -834,11 +834,35 @@
     if (ct && ct.focus) ct.focus();
   });
 
+  // The gate reads the text after cleanText (assertCleanText in src/lib/validator.js): a control character
+  // dropped from inside a phone number, or two spaces inside it collapsed to one, makes a number the text
+  // as typed hid. Read on the typed text, the demo found nothing and then said "נדחה" with no finding under
+  // it, though the hint promises to show what was blocked. So the findings are read on the cleaned text,
+  // as the gate reads them, and each position is walked back to the text as typed for "תו N": cleanText
+  // only drops a character or swaps one for one (a CR for a newline, a form feed for a space, a run of
+  // spaces for its first), so every cleaned character came from one typed character, found in order.
+  function sameAfterClean(typedCh, cleanedCh) {
+    if (typedCh === cleanedCh) return true;
+    if (cleanedCh === ' ') return /[^\S\n\r]/.test(typedCh);
+    if (cleanedCh === '\n') return typedCh === '\r';
+    return false;
+  }
+  function typedIndexes(typed, cleaned) {
+    var map = [];
+    var at = 0;
+    for (var j = 0; j < cleaned.length; j += 1) {
+      while (at < typed.length && !sameAfterClean(typed[at], cleaned[j])) at += 1;
+      map.push(at);
+      at += 1;
+    }
+    return map;
+  }
+
   $('checkBtn').addEventListener('click', function () {
     var text = $('checkText').value;
-    var hits = validator.findPersonalData(text);
+    var cleaned = validator.cleanText(text);
+    var hits = validator.findPersonalData(cleaned);
     if (!hits.length) {
-      var cleaned;
       try { cleaned = validator.assertCleanText(text); }
       catch (err) {
         var ct = $('checkText');
@@ -860,11 +884,13 @@
     if (rude) parts.push(rude === 1 ? 'מילה פוגענית אחת' : rude + ' מילים פוגעניות');
     var found = hits.length > 1 ? 'נמצאו ' : (rude ? 'נמצאה ' : 'נמצא ');
     say('checkStatus', 'נחסם. ' + found + parts.join(rude === 1 ? ' ו' : ' ו-') + '.', true);
-    // h.index is a 0-based offset in UTF-16 units; a person counts characters from 1, and an emoji is one
-    // character to them, not two.
+    // h.index is a 0-based offset in UTF-16 units of the cleaned text; back[] takes it to the text as
+    // typed, and a person counts characters from 1, with an emoji as one character to them, not two.
+    var back = typedIndexes(text, cleaned);
     $('findings').innerHTML = hits.map(function (h) {
+      var at = h.index in back ? back[h.index] : h.index;
       return '<div class="flag"><b>' + esc(KIND_HE[h.kind] || h.kind) + '</b> — "' + esc(h.match) +
-        '" (תו ' + (Array.from(text.slice(0, h.index)).length + 1) + ')</div>';
+        '" (תו ' + (Array.from(text.slice(0, at)).length + 1) + ')</div>';
     }).join('');
   });
 
