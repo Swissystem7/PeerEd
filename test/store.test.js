@@ -7,6 +7,7 @@ const {
   INVALID_STATE_ERROR
 } = require('../src/lib/store.js');
 const { makeProfile, PERSONAL_DATA_ERROR } = require('../src/lib/profile.js');
+const { PROFANITY_ERROR } = require('../src/lib/validator.js');
 const { emptyQueue, submit, approve, statusOf } = require('../src/lib/approval.js');
 const { makeUnit } = require('../src/lib/unit.js');
 const { emptyLog, logSession, summarize } = require('../src/lib/session.js');
@@ -83,6 +84,45 @@ test('store: an unknown top-level key is refused with the personal-data message'
   const doc = JSON.parse(serialize(STATE));
   doc.contacts = [];
   assert.throws(() => deserialize(JSON.stringify(doc)), { message: PERSONAL_DATA_ERROR });
+});
+
+test('store: a stored person that does not fit is refused as a stored person, never as a form the coordinator filled', () => {
+  // on load nobody filled the add form: the refusal names the person's place in the list, like loadLog
+  // names a row and loadQueue an entry, so the screen shows its line for a stored person and not the
+  // form's "mark at least one free hour"
+  const edit = (fn) => { const doc = JSON.parse(serialize(STATE)); fn(doc.people); return JSON.stringify(doc); };
+  const cases = [
+    [(p) => { p[1].availability = []; }, 'invalid availability: expected a non-empty array of DAY_HOUR slots'],
+    [(p) => { p[1].availability = ['SUN_7']; }, 'invalid availability slot: SUN_7'],
+    [(p) => { p[1].subjects = []; }, 'invalid subjects: expected a non-empty array'],
+    [(p) => { p[1].subjects = ['ART']; }, 'invalid subjects entry: ART'],
+    [(p) => { p[1].role = 'teacher'; }, 'invalid role: expected student or pupil'],
+    [(p) => { p[1].region = 'MOON'; }, 'invalid region: expected one of the REGIONS codes'],
+    [(p) => { p[1].parentConsent = 'yes'; }, 'invalid parentConsent: expected boolean'],
+    [(p) => { p[1] = 'דנה'; }, 'profile input must be an object with role, region, availability, subjects']
+  ];
+  for (const [patch, inner] of cases) {
+    assert.throws(() => deserialize(edit(patch)), { message: 'invalid stored person at 1: ' + inner }, inner);
+  }
+  // the place is the person's own: the first record is "at 0"
+  assert.throws(() => deserialize(edit((p) => { p[0].availability = []; })), { message: /^invalid stored person at 0: / });
+  // the gate's own refusals read the same on every screen, so on load they are not reworded - and a bad
+  // retention stamp is already named as the stored record's
+  assert.throws(() => deserialize(edit((p) => { p[1].name = 'דנה'; })), { message: PERSONAL_DATA_ERROR });
+  assert.throws(() => deserialize(edit((p) => { p[1].reportEvent = [{ userId: 'p-0123abcd', detail: 'חרא' }]; })),
+    { message: PROFANITY_ERROR });
+  assert.throws(() => deserialize(edit((p) => { p[1].retention = 'דנה'; })), { message: /^invalid retention:/ });
+  // load() hands the same reason to the screen, with the refused document kept beside the key
+  const backend = memoryBackend();
+  backend.setItem('k', edit((p) => { p[1].availability = []; }));
+  const loaded = createStore(backend, 'k').load();
+  assert.match(loaded.problem, /^invalid stored person at 1: invalid availability:/);
+  assert.deepEqual(loaded.state, emptyState());
+  // the live wording is unchanged: the coordinator did leave the hours empty
+  assert.throws(() => makeProfile({ role: 'student', region: 'SOUTH', availability: [], subjects: ['MATH'] }),
+    { message: 'invalid availability: expected a non-empty array of DAY_HOUR slots' });
+  // a roster the app wrote still loads as it was
+  assert.deepEqual(deserialize(serialize(STATE)).people, [STUDENT, PUPIL]);
 });
 
 test('store: a session row for a unit the stored queue did not approve is refused', () => {
