@@ -45,6 +45,40 @@ test('store: a stored person with a name is refused, not trimmed', () => {
   assert.throws(() => deserialize(JSON.stringify(doc)), { message: PERSONAL_DATA_ERROR });
 });
 
+test('store: a name kept under the retention key of a stored person is refused, not dropped', () => {
+  // Before this test the stored stamp was deleted unread before makeProfile ran, so a record whose
+  // retention held a name or a phone loaded without complaint, and the first save wrote over it with no
+  // copy kept. The same gate as a name beside the stamp, with the same message.
+  const doc = JSON.parse(serialize(STATE));
+  doc.people[1].retention = { dataCategory: 'profile', maxAgeDays: 730, name: 'דנה' };
+  assert.throws(() => deserialize(JSON.stringify(doc)), { message: PERSONAL_DATA_ERROR });
+  const backend = memoryBackend();
+  const store = createStore(backend, 'k');
+  backend.setItem('k', JSON.stringify(doc));
+  const loaded = store.load();
+  assert.equal(loaded.problem, PERSONAL_DATA_ERROR);
+  assert.deepEqual(loaded.state, emptyState());
+  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), JSON.stringify(doc));
+  // a stamp of a shape makeProfile never writes is a record the app never wrote
+  for (const stamp of ['דנה 050-1234567', ['profile', 730], null,
+    { dataCategory: 'match', maxAgeDays: 365 }, { dataCategory: 'profile' }, { dataCategory: 'profile', maxAgeDays: 'forever' },
+    { dataCategory: 'profile', maxAgeDays: -1 }, { dataCategory: 'profile', maxAgeDays: 1.5 }]) {
+    doc.people[1].retention = stamp;
+    assert.throws(() => deserialize(JSON.stringify(doc)), { message: /^invalid retention:/ }, JSON.stringify(stamp));
+  }
+});
+
+test('store: a stamp from an older policy still loads, and comes back as today\'s', () => {
+  // cycle-manager.js judges a row by today's limit, never by the stamp (#273), so a longer stamp from an
+  // older policy is a record the app did write: it is shed and makeProfile puts today's back.
+  const doc = JSON.parse(serialize(STATE));
+  doc.people[1].retention = { dataCategory: 'profile', maxAgeDays: 99999 };
+  const back = deserialize(JSON.stringify(doc));
+  assert.deepEqual(back.people[1], PUPIL);
+  doc.people[1].retention = { dataCategory: 'profile', maxAgeDays: 0 };
+  assert.deepEqual(deserialize(JSON.stringify(doc)).people[1], PUPIL);
+});
+
 test('store: an unknown top-level key is refused with the personal-data message', () => {
   const doc = JSON.parse(serialize(STATE));
   doc.contacts = [];

@@ -80,6 +80,30 @@ test('setParentConsent keeps the privacy gate: a record with personal data is re
   );
 });
 
+test('setParentConsent sheds only the stamp makeProfile writes: a name under retention is refused', () => {
+  // Before this test the retention key was deleted unread, so a record could carry a name or a phone
+  // under it through the consent path (and blockUser, reportEvent, responseToReport) unrefused.
+  const pupil = makeProfile({ role: 'pupil', region: getValidRegion(), availability: ['SUN_16'], subjects: ['MATH'] });
+  assert.throws(
+    () => profileLib.setParentConsent(Object.assign({}, pupil, {
+      retention: { dataCategory: 'profile', maxAgeDays: 730, name: 'x' }
+    }), true),
+    { message: profileLib.PERSONAL_DATA_ERROR }
+  );
+  assert.throws(
+    () => profileLib.blockUser(Object.assign({}, pupil, { retention: 'x 0501234567' }), 'p-0123abcd'),
+    { message: /^invalid retention:/ }
+  );
+  assert.throws(
+    () => profileLib.reportEvent(Object.assign({}, pupil, { retention: { dataCategory: 'match', maxAgeDays: 365 } }),
+      { userId: 'p-0123abcd', detail: 'detail' }),
+    { message: /^invalid retention:/ }
+  );
+  // an older policy's stamp is still one this module wrote: shed, and today's put back
+  const older = Object.assign({}, pupil, { retention: { dataCategory: 'profile', maxAgeDays: 1 } });
+  assert.deepStrictEqual(profileLib.grantParentConsent(older).retention, pupil.retention);
+});
+
 test('setParentConsent returns a frozen profile with copied arrays, like makeProfile', () => {
   const pupil = makeProfile({ role: 'pupil', region: getValidRegion(), availability: ['SUN_16'], subjects: ['MATH'] });
   const approved = profileLib.grantParentConsent(pupil);

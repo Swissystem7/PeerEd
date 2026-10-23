@@ -9,6 +9,8 @@ const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
 const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent', 'responseToReport']);
+// the stamp makeProfile derives and writes next to those fields is only ever these two keys
+const RETENTION_FIELDS = Object.freeze(['dataCategory', 'maxAgeDays']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
@@ -157,6 +159,35 @@ function makeProfile(input) {
   return Object.freeze(profile);
 }
 
+// The one key a profile carries that makeProfile does not take as input: the retention stamp it derives
+// itself. A record on its way back in - from storage (store.js), or a stale copy handed to
+// setParentConsent, blockUser, reportEvent or responseToReport - sheds the stamp before it is re-validated,
+// and makeProfile puts today's back. Only a stamp this module could have written is shed: the category is
+// 'profile' and the day count is a whole number, 0 or more - any whole number, since an older, longer
+// policy stamped the rows it wrote and cycle-manager.js judges a row by today's limit, never by the stamp.
+// Anything else under the key was dropped unread: the gate checked every other key of a stored record, and
+// the one it skipped was the one place a name or a phone written on disk could sit without being refused.
+// A third field in the stamp is refused with the same message as a name beside it; a stamp of another
+// shape (a string, a list, another category, no day count) is a record the app never wrote.
+function withoutRetentionStamp(profile) {
+  const stamp = profile.retention;
+  if (stamp !== undefined) {
+    if (stamp === null || typeof stamp !== 'object' || Array.isArray(stamp)) {
+      throw new Error('invalid retention: expected the stamp makeProfile writes');
+    }
+    const keys = Object.keys(stamp);
+    for (let i = 0; i < keys.length; i += 1) {
+      if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+    }
+    if (stamp.dataCategory !== 'profile' || !Number.isInteger(stamp.maxAgeDays) || stamp.maxAgeDays < 0) {
+      throw new Error('invalid retention: expected the stamp makeProfile writes');
+    }
+  }
+  const input = Object.assign({}, profile);
+  delete input.retention;
+  return input;
+}
+
 // Returns a new frozen profile with parentConsent set. The result goes through makeProfile again, so
 // the privacy gate holds here too: a plain object with a name or a phone cannot be turned into a
 // "profile" by asking for consent on it, and a stale or hand-built record is re-validated on the way.
@@ -170,9 +201,8 @@ function setParentConsent(profile, consent) {
     throw new Error('invalid parentConsent: expected boolean');
   }
   const consentValue = consent === undefined ? true : consent;
-  // retention is derived by makeProfile itself, not an input field: drop it before re-validating.
-  const input = Object.assign({}, profile);
-  delete input.retention;
+  // retention is derived by makeProfile itself, not an input field: shed it before re-validating.
+  const input = withoutRetentionStamp(profile);
   return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
 
@@ -198,8 +228,7 @@ function blockUser(profile, userId) {
     throw new Error('profile must be an object');
   }
   assertPeerUserId(userId);
-  const input = Object.assign({}, profile);
-  delete input.retention;
+  const input = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.blockedUsers) ? profile.blockedUsers.slice() : [];
   if (current.indexOf(userId) === -1) current.push(userId);
   return makeProfile(Object.assign(input, { blockedUsers: current }));
@@ -210,8 +239,7 @@ function reportEvent(profile, input) {
     throw new Error('profile must be an object');
   }
   const event = validatorLib().makeReportEvent(input);
-  const base = Object.assign({}, profile);
-  delete base.retention;
+  const base = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.reportEvent) ? profile.reportEvent.slice() : [];
   current.push(event);
   return makeProfile(Object.assign(base, { reportEvent: current }));
@@ -222,8 +250,7 @@ function responseToReport(profile, input) {
     throw new Error('profile must be an object');
   }
   const response = validatorLib().makeResponseToReport(input);
-  const base = Object.assign({}, profile);
-  delete base.retention;
+  const base = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.responseToReport) ? profile.responseToReport.slice() : [];
   current.push(response);
   return makeProfile(Object.assign(base, { responseToReport: current }));
@@ -240,6 +267,7 @@ module.exports = {
   isSlot,
   normalizeSlot,
   makeProfile,
+  withoutRetentionStamp,
   getSlotHour,
   setParentConsent,
   grantParentConsent,

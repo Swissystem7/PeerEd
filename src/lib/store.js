@@ -10,7 +10,7 @@
 // status into the app. A document that does not fit is reported, not silently repaired, and the app
 // starts from an empty state rather than from a half-trusted one.
 
-const { makeProfile, PERSONAL_DATA_ERROR } = require('./profile.js');
+const { makeProfile, withoutRetentionStamp, PERSONAL_DATA_ERROR } = require('./profile.js');
 const { emptyQueue, loadQueue } = require('./approval.js');
 const { emptyLog, loadLog } = require('./session.js');
 
@@ -35,13 +35,15 @@ function assertState(state) {
 }
 
 // A stored profile carries `retention`, which makeProfile derives itself and does not accept as an
-// input key (profile.js, setParentConsent does the same): drop it, makeProfile puts it back. Every
-// other key still goes through the gate, so a name or a phone in a stored record is refused.
+// input key. profile.js sheds it (setParentConsent does the same) and makeProfile puts today's back -
+// but only a stamp profile.js could have written is shed. Until this check the key was deleted unread,
+// so a name or a phone kept under it was the one thing in a stored record the gate never saw: it loaded
+// without complaint and the first save wrote over it, with no copy kept. Now it is refused like a name
+// beside it, and load() keeps the refused document. A record that is not an object is left to
+// makeProfile, which names the problem.
 function storedProfileInput(person) {
   if (person === null || typeof person !== 'object' || Array.isArray(person)) return person;
-  const input = Object.assign({}, person);
-  delete input.retention;
-  return input;
+  return withoutRetentionStamp(person);
 }
 
 // Re-validate a plain document (parsed JSON) into a frozen state. Order matters: the queue is rebuilt

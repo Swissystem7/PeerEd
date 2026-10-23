@@ -44,6 +44,15 @@ test('a saved session row that does not load is reported in Hebrew', () => {
   assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
 });
 
+test('a saved person whose retention stamp is not one the app writes is reported in Hebrew', () => {
+  const $ = openWith(JSON.stringify({
+    schema: 'peered/1',
+    people: [{ role: 'student', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'], retention: 'Dana 0501234567' }]
+  }));
+  assert.match($('addStatus').textContent, /חותמת השמירה ברשומה לא תקינה/);
+  assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
+});
+
 test('a good saved list loads with no complaint', () => {
   const $ = openWith(JSON.stringify({ schema: 'peered/1', people: [] }));
   assert.equal($('addStatus').textContent, '');
