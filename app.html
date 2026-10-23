@@ -172,10 +172,15 @@
       <div id="unmatched" role="region" aria-live="polite" aria-label="מי נשאר בלי זוג"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
+      <!-- "הרכז מחליט" left the coordinator who says yes to a suggestion looking for that pair in the lessons
+           screen: its pair list is matchPairs over the roster, same region only, and session.logSession refuses
+           a pair with no single region - so a lesson of such a pair cannot be logged and is in no count the
+           municipality gets. The hint says so where the suggestion is made. -->
       <h2>שידוך בין אזורים (חירום)</h2>
       <p class="hint">המפגשים בטקסט בלבד, אז תלמיד מאזור שאין בו סטודנט פנוי — למשל יישוב שפונה — יכול ללמוד עם סטודנט
         מאזור אחר. כאן רק מי שנשאר בלי זוג, עם שעה ומקצוע משותפים, ולתלמיד גם אישור הורה; הזוגות באותו אזור לא משתנים.
-        זו הצעה: הרכז מחליט.</p>
+        זו הצעה: הרכז מחליט. יומן השיעורים רושם רק זוג מאותו אזור, אז זוג כזה לא מופיע במסך "שיעורים", שיעור שלו
+        לא נרשם ביומן ולא נספר בסיכום לרשות.</p>
       <div id="across" role="region" aria-live="polite" aria-label="שידוך בין אזורים (חירום)"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
   </section>
