@@ -1039,10 +1039,22 @@
         '" aria-describedby="decideStatus" aria-label="דחה ' + title + '">דחה</button></div>');
     }).join('') : '<p class="empty">אין יחידות שממתינות. אפשר להגיש אחת בטופס למעלה ("טען דוגמה" ממלא אותו, ההגשה היא "הגש לאישור").</p>';
 
+    // "עדיין לא אושרה אף יחידה" was also said after the only approved unit was revised back to pending
+    // (or then rejected), over a log whose lessons were logged with it - a row needs the unit approved
+    // when it is written. With such rows the line says none is approved now, not that none ever was.
     var approved = approval.approvedUnits(q).map(function (u) { return q.entries[u.id]; });
+    var taughtRows = state.log.entries.length;
+    var taughtUnits = Object.keys(session.summarize(state.log).byUnit).length;
     $('approvedList').innerHTML = approved.length ? approved.map(function (entry) {
       return unitCard(entry);
-    }).join('') : '<p class="empty">עדיין לא אושרה אף יחידה, אז תלמיד לא רואה כלום.</p>';
+    }).join('') : '<p class="empty">' + (taughtRows
+      ? 'אין כרגע יחידה מאושרת, אז תלמיד לא רואה כלום. ' +
+        (taughtRows === 1 ? 'שיעור אחד ביומן נרשם' : taughtRows + ' שיעורים ביומן נרשמו') +
+        (taughtUnits === 1
+          ? ' עם יחידה שהייתה מאושרת אז ועודכנה מאז, ועכשיו היא ממתינה או נדחתה'
+          : ' עם ' + taughtUnits + ' יחידות שהיו מאושרות אז ועודכנו מאז, ועכשיו הן ממתינות או נדחו') +
+        '; ' + (taughtRows === 1 ? 'השיעור נשאר' : 'השיעורים נשארים') + ' ביומן.'
+      : 'עדיין לא אושרה אף יחידה, אז תלמיד לא רואה כלום.') + '</p>';
 
     var rejected = Object.keys(q.entries).map(function (id) { return q.entries[id]; })
       .filter(function (e) { return e.status === 'rejected'; })
