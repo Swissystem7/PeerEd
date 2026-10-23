@@ -87,6 +87,9 @@ only the place to try it on any text.
 
 ## Why the profile is so narrow
 
-The matching only needs region, availability and subject. Every additional field would be personal data
-about a minor, so the code refuses it outright rather than trusting a future caller to be careful. That
-refusal is the feature a municipality's privacy officer will ask about first.
+The matching only needs role, region, availability and subject, and for a pupil the parent-consent yes or
+no. Besides those, `makeProfile` accepts only the three lists no screen writes (`blockedUsers`, `reportEvent`,
+`responseToReport`: opaque `p-` ids and short details that pass the free-text gate) and writes its own
+retention stamp (`retention`, holding only `dataCategory` and `maxAgeDays`). Every other field would be personal data about a minor, so
+the code refuses it outright rather than trusting a future caller to be careful. That refusal is the feature
+a municipality's privacy officer will ask about first.
