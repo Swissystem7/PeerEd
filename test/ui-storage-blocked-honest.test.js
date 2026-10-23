@@ -86,14 +86,14 @@ test('with the storage available nothing is said at the start and nothing is add
   assert.equal(typeof $.store.peered_app_v1, 'string', 'the roster reached the storage');
 });
 
-test('a wipe with the storage blocked still empties the screen and reports it as done', () => {
+test('a wipe with the storage blocked still empties the screen, and says the device itself was out of reach', () => {
   const $ = openApp({ noStorage: true });
   $('demoBtn').fire('click');
   $('wipeBtn').fire('click');
   assert.match($('wipeStatus').textContent, /^יימחקו 7 משתתפים/, $('wipeStatus').textContent);
   $('wipeBtn').fire('click');
-  assert.match($('wipeStatus').textContent, /^נמחק\. /, $('wipeStatus').textContent);
-  assert.equal($('wipeStatus').className, 'status');
+  // the wording of both clicks is test/ui-wipe-blocked-storage.test.js; here only that the wipe happened
+  assert.match($('wipeStatus').textContent, /^נמחק מהמסך ומהזיכרון\. /, $('wipeStatus').textContent);
   assert.ok($('peopleList').innerHTML.indexOf('אין עדיין משתתפים') !== -1);
   // the next change says again where it lands
   addStudent($);

@@ -229,13 +229,16 @@ test('wipe: a storage that refuses to remove the key still loses the screen, and
   assert.equal($('wipeStatus').textContent.indexOf('הדפדפן לא אפשר למחוק') !== -1, true, $('wipeStatus').textContent);
 });
 
-test('wipe: without any storage (private mode) the wipe still empties the screen and reports success', () => {
+test('wipe: without any storage (private mode) the wipe still empties the screen, and says the device was out of reach', () => {
   const { $ } = runApp(null);
   $('demoBtn').click();
   $('wipeBtn').click();
   $('wipeBtn').click();
   assert.equal($('peopleList').innerHTML.indexOf('אין עדיין משתתפים') !== -1, true);
-  assert.equal($('wipeStatus').textContent.indexOf('נמחק.') === 0, true, $('wipeStatus').textContent);
+  // not "נמחק. במכשיר הזה לא נשאר דבר": the browser handed out no storage, so a list saved on an earlier
+  // visit (the one load() said it could not read) is still wherever it was (test/ui-wipe-blocked-storage.test.js)
+  assert.equal($('wipeStatus').textContent.indexOf('נמחק מהמסך ומהזיכרון.') === 0, true, $('wipeStatus').textContent);
+  assert.equal($('wipeStatus').textContent.indexOf('לא נשאר דבר'), -1, $('wipeStatus').textContent);
 });
 
 test('wipe: the shell removes the key through store.clear and never saves an empty document instead', () => {
