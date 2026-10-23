@@ -487,10 +487,11 @@
         (pupil ? ' · אישור הורה: ' + (consented ? 'יש' : 'אין') : '') + '</span>' +
         (pupil && !consented ? '<div class="flag">בלי אישור הורה התלמיד לא נכנס לשידוך.</div>' : '') +
         '<div class="actions">' +
-        (pupil ? '<button type="button" class="ghost small" data-consent="' + i + '" aria-label="' +
+        (pupil ? '<button type="button" class="ghost small" id="consentBtn-' + i + '" data-consent="' + i + '" aria-pressed="' +
+          (consented ? 'true' : 'false') + '" aria-describedby="addStatus" aria-label="' +
           esc((consented ? 'בטל אישור הורה ל' : 'סמן אישור הורה ל') + personLabel) + '">' +
           (consented ? 'בטל אישור הורה' : 'סמן אישור הורה') + '</button>' : '') +
-        '<button type="button" class="ghost small" data-del="' + i + '" aria-label="' +
+        '<button type="button" class="ghost small" id="delBtn-' + i + '" data-del="' + i + '" aria-describedby="addStatus" aria-label="' +
         esc('מחק ' + personLabel) + '">מחק</button></div></div>';
     }).join('') : '<p class="empty">אין עדיין משתתפים. אפשר לטעון דוגמה.</p>';
   }
@@ -578,15 +579,26 @@
       say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
         : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.');
       save('addStatus');
+      var consentBtn = $('consentBtn-' + c);
+      if (consentBtn && consentBtn.focus) consentBtn.focus();
       return;
     }
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
-    state.people.splice(Number(i), 1);
+    var delIndex = Number(i);
+    state.people.splice(delIndex, 1);
     resetMatchView();
     renderPeople();
     say('addStatus', 'נמחק.');
     save('addStatus');
+    if (state.people.length > 0) {
+      var nextIdx = Math.min(delIndex, state.people.length - 1);
+      var nextBtn = $('delBtn-' + nextIdx);
+      if (nextBtn && nextBtn.focus) nextBtn.focus();
+    } else {
+      var ap = $('addPerson');
+      if (ap && ap.focus) ap.focus();
+    }
   });
 
   // The demo replaces the roster, so it only ever loads into an empty one: on a list a coordinator has
