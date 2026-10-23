@@ -202,6 +202,7 @@
       <div class="actions">
         <button type="button" class="act" id="submitUnit">הגש לאישור</button>
         <button type="button" class="ghost" id="unitDemoBtn">טען דוגמה</button>
+        <button type="button" class="ghost" id="clearUnitBtn" aria-label="נקה טופס יחידה">נקה טופס</button>
       </div>
       <p class="status" id="unitStatus" role="status"></p>
     </div>
@@ -2881,6 +2882,16 @@ module.exports = {
     $('unitBody').value = 'מתחילים בפיצה שחולקה ל-8. כמה זה 3/8 ועוד 2/8? אחר כך 3 תרגילים עם מכנה שונה: ' +
       '1/2 + 1/4, 2/3 - 1/6, 3/5 + 1/10. מי שסיים מנסה לכתוב תרגיל משלו לחבר.';
     say('unitStatus', 'הדוגמה מולאה. לחץ "הגש לאישור".');
+  });
+
+  $('clearUnitBtn').addEventListener('click', function () {
+    $('unitTitle').value = '';
+    $('unitBody').value = '';
+    $('unitDuration').value = '20';
+    if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
+    say('unitStatus', '');
+    var ut = $('unitTitle');
+    if (ut && ut.focus) ut.focus();
   });
 
   $('pendingList').addEventListener('click', function (ev) {
