@@ -165,7 +165,8 @@
     <div class="card">
       <h2>שידוך בין אזורים (חירום)</h2>
       <p class="hint">המפגשים בטקסט בלבד, אז תלמיד מאזור שאין בו סטודנט פנוי — למשל יישוב שפונה — יכול ללמוד עם סטודנט
-        מאזור אחר. כאן רק מי שנשאר בלי זוג, עם שעה ומקצוע משותפים; הזוגות באותו אזור לא משתנים. זו הצעה: הרכז מחליט.</p>
+        מאזור אחר. כאן רק מי שנשאר בלי זוג, עם שעה ומקצוע משותפים, ולתלמיד גם אישור הורה; הזוגות באותו אזור לא משתנים.
+        זו הצעה: הרכז מחליט.</p>
       <div id="across" role="region" aria-live="polite" aria-label="שידוך בין אזורים (חירום)"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
   </section>
@@ -731,8 +732,22 @@
                student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
                sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
     });
+    // The cross-region pass drops the region rule only: a pupil without parent consent is in no pair
+    // there either. So a pupil left out for consent who does share an hour and a subject with a free
+    // student from another region gets no suggestion - and the empty line under the card must not then
+    // say nobody left shares an hour and a subject with someone from another region. These pupils are
+    // counted here (the same hour and subject tests candidatesOf runs, over the people the local pass
+    // left), so that line can name the consent as the bar instead.
+    var freeStudents = left.filter(function (x) { return x.role === 'student'; });
+    var barredByConsent = left.filter(function (x) {
+      return x.role === 'pupil' && x.reason === 'NO_PARENT_CONSENT' && freeStudents.some(function (s) {
+        return s.e.person.region !== x.e.person.region &&
+          match.hasOverlap(s.e.person.availability, x.e.person.availability) &&
+          match.hasOverlap(s.e.person.subjects, x.e.person.subjects);
+      });
+    }).length;
     return {
-      students: S.length, pupils: P.length, left: left, across: across,
+      students: S.length, pupils: P.length, left: left, across: across, barredByConsent: barredByConsent,
       pairs: pairs.map(function (p) {
         return { region: p.region, student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
                  sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
@@ -798,7 +813,11 @@
         ') עם ' + ROLE_HE.student + ' #' + p.student + ' (' + esc(REGION_HE[p.studentRegion] || p.studentRegion) + ')</b>' +
         '<span class="meta">מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') + '</span></div>';
-    }).join('') : '<p class="empty">אין הצעה: אף אחד מאלה שנשארו לא חולק שעה ומקצוע עם מישהו מאזור אחר.</p>';
+    }).join('') : '<p class="empty">אין הצעה: ' + (m.barredByConsent
+      ? (m.barredByConsent === 1 ? 'תלמיד אחד שנשאר בלי זוג חולק' : m.barredByConsent + ' תלמידים שנשארו בלי זוג חולקים') +
+        ' שעה ומקצוע עם סטודנט פנוי מאזור אחר, אבל בלי אישור הורה תלמיד לא נכנס לשידוך בכלל, גם לא בין אזורים. ' +
+        'מסמנים אישור במסך "אנשים".'
+      : 'אף אחד מאלה שנשארו לא חולק שעה ומקצוע עם מישהו מאזור אחר.') + '</p>';
     renderSummary(m);
     say('matchStatus', countHe(m.pairs.length, 'זוג', 'זוגות') + ' מתוך ' +
       countHe(m.students, 'סטודנט', 'סטודנטים') + (m.pupils === 1 ? ' ו' : ' ו-') + countHe(m.pupils, 'תלמיד', 'תלמידים') +
