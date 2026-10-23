@@ -5,6 +5,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { openApp } = require('../test-support/fake-dom.js');
+const { makeUnit } = require('../src/lib/unit.js');
+const approval = require('../src/lib/approval.js');
 
 const KEY = 'peered_app_v1';
 const REJECTED_KEY = KEY + ':rejected';
@@ -66,6 +68,33 @@ test('a saved person whose retention stamp is not one the app writes is reported
   }));
   assert.match($('addStatus').textContent, /חותמת השמירה ברשומה לא תקינה/);
   assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
+});
+
+test('a saved queue entry whose unit or reason does not pass the gate is reported as a bad stored entry, not as a form the teacher filled', () => {
+  // nobody typed a title or a reason on load: the line for a stored queue entry is the one that shows,
+  // not the unit form's "הכותרת ארוכה מדי" or the check-text demo's "אין טקסט לבדוק"
+  const unit = makeUnit({ title: 'שברים', subject: 'MATH', durationMinutes: 20, body: 'גוף תקין.' });
+  const queue = approval.reject(approval.submit(approval.emptyQueue(), unit), unit.id, 'חסר הסבר');
+  const cases = [
+    (e) => { e.unit.title = 'א'.repeat(121); },
+    (e) => { e.unit.body = ''; },
+    (e) => { e.unit.durationMinutes = 99; },
+    (e) => { e.unit.teacher = 'x'; },
+    (e) => { e.reason = ''; },
+    (e) => { e.reason = 'א'.repeat(approval.REASON_MAX_LENGTH + 1); },
+    (e) => { e.reason = '  חסר   הסבר  '; }   // was loaded without a word, cleaned on the way in
+  ];
+  for (const patch of cases) {
+    const doc = JSON.parse(JSON.stringify({ schema: 'peered/1', people: [], queue: queue }));
+    patch(doc.queue.entries[unit.id]);
+    const $ = openWith(JSON.stringify(doc));
+    assert.match($('addStatus').textContent, /נדחתה ולא נטענה: רשומה שמורה בתור לא תקינה\./, patch.toString());
+    assert.doesNotMatch($('addStatus').textContent, /הכותרת|תוכן היחידה|משך הזמן|טקסט לבדוק|הטקסט ארוך|היחידה לא בנויה/, patch.toString());
+    assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
+  }
+  // the queue as the flow wrote it still loads with no complaint
+  const $ = openWith(JSON.stringify({ schema: 'peered/1', people: [], queue: queue }));
+  assert.equal($('addStatus').textContent, '');
 });
 
 test('a good saved list loads with no complaint', () => {

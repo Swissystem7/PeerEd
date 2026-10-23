@@ -203,3 +203,46 @@ test('approval: a seq or nextSeq past the safe integers is refused, so two units
   // a hand-built queue whose counter is already past the bound is not a queue
   assert.throws(() => submit({ nextSeq: 2 ** 53 + 2, entries: {} }, B), /invalid queue/);
 });
+
+test('approval: a stored unit or reason that does not fit is refused as a stored entry, never as text the teacher just typed', () => {
+  // on load nobody typed a title or a reason: the refusal names the entry, like a bad status or seq
+  // does, so the screen's line for a stored queue entry is the one that shows - not the unit form's
+  const q = reject(submit(emptyQueue(), A), A.id, 'חסר הסבר');
+  const stored = JSON.parse(JSON.stringify(q));
+  const edit = (fn) => { const copy = JSON.parse(JSON.stringify(stored)); fn(copy.entries[A.id]); return copy; };
+  const unitCases = [
+    [(u) => { u.title = 'א'.repeat(121); }, 'invalid title: text too long, at most 120 characters'],
+    [(u) => { u.body = ''; }, 'invalid body: text too short, it is empty'],
+    [(u) => { u.durationMinutes = 99; }, 'invalid durationMinutes: expected an integer 5..60'],
+    [(u) => { u.subject = 'ART'; }, 'invalid subject: expected one of the SUBJECTS codes'],
+    [(u) => { u.teacher = 'x'; }, 'invalid unit: expected a record from makeUnit'],
+    [(u) => { u.body = '  לא נקי  '; }, 'invalid unit: expected a record from makeUnit']
+  ];
+  for (const [patch, inner] of unitCases) {
+    assert.throws(() => loadQueue(edit((e) => patch(e.unit))),
+      { message: 'invalid stored entry: bad unit for ' + A.id + ': ' + inner });
+  }
+  assert.throws(() => loadQueue(edit((e) => { e.unit = 'x'; })), /^Error: invalid stored entry: bad unit for /);
+  const reasonCases = [['', 'text too short'], ['   ', 'text too short'], ['‏', 'text too short'],
+    ['א'.repeat(REASON_MAX_LENGTH + 1), 'text too long']];
+  for (const [reason, inner] of reasonCases) {
+    assert.throws(() => loadQueue(edit((e) => { e.reason = reason; })),
+      { message: 'invalid stored entry: bad reason for ' + A.id + ': ' + inner });
+  }
+  // a stored reason is the text reject() wrote, exactly: one the gate would change is refused, not cleaned
+  for (const uncleaned of ['  חסר הסבר', 'חסר הסבר  ', 'חסר  הסבר', 'חסר הסבר\n', 'חסר\tהסבר']) {
+    assert.throws(() => loadQueue(edit((e) => { e.reason = uncleaned; })),
+      { message: 'invalid stored entry: bad reason for ' + A.id + ': not the text reject() wrote' });
+  }
+  // the gate's own refusals read the same on every screen, so on load they are not reworded
+  assert.throws(() => loadQueue(edit((e) => { e.reason = 'a@b.co'; })), { message: PERSONAL_DATA_ERROR });
+  assert.throws(() => loadQueue(edit((e) => { e.reason = 'חרא'; })), { message: PROFANITY_ERROR });
+  assert.throws(() => loadQueue(edit((e) => { e.unit.body = 'טלפון 052-1234567'; })), { message: PERSONAL_DATA_ERROR });
+  assert.throws(() => loadQueue(edit((e) => { e.unit.title = 'חרא'; })), { message: PROFANITY_ERROR });
+  // the live wording is unchanged: the approver typed the reason and the teacher the unit
+  assert.throws(() => reject(submit(emptyQueue(), A), A.id, ''), /^Error: invalid reason: text too short/);
+  assert.throws(() => submit(emptyQueue(), Object.assign({}, A, { title: 'א'.repeat(121) })),
+    /^Error: invalid title: text too long/);
+  // a queue the flow wrote still loads as it was
+  assert.deepEqual(loadQueue(stored), q);
+});

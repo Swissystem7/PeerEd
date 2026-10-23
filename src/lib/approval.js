@@ -8,7 +8,7 @@
 
 const { PERSONAL_DATA_ERROR } = require('./profile.js');
 const { makeUnit } = require('./unit.js');
-const { assertCleanText } = require('./validator.js');
+const { assertCleanText, PROFANITY_ERROR } = require('./validator.js');
 
 const STATUSES = Object.freeze(['pending', 'approved', 'rejected']);
 // The keys a stored entry may carry. The unit inside has its own gate (assertUnit); this list is the
@@ -148,6 +148,25 @@ function statusOf(queue, id) {
   return queue.entries[id].status;
 }
 
+// A stored unit and a stored reason go through the same gates as a live submission and a live
+// rejection - makeUnit, through assertUnit, and the text gate - and those word a refusal for the
+// teacher or the approver who just typed the text: 'invalid title: text too long', 'text too short'.
+// On load nobody typed anything, so a stored entry those gates refuse is refused as a stored entry,
+// named like a bad status or seq below and the way loadLog names a stored row. Until this the
+// participants card reported a saved queue whose unit carried an over-long title as "the saved list
+// was refused: the title is too long", and one whose rejection reason was blank as "no text to
+// check" - the check-text demo's line - sentences about a form nobody filled, while the screen's line
+// for a stored queue entry went unused. The gate's own personal-data and profanity refusals pass
+// through unchanged: they read the same on every screen, on load too.
+function storedGate(id, what, check) {
+  try {
+    return check();
+  } catch (err) {
+    if (err.message === PERSONAL_DATA_ERROR || err.message === PROFANITY_ERROR) throw err;
+    throw new Error('invalid stored entry: bad ' + what + ' for ' + id + ': ' + err.message);
+  }
+}
+
 // Rebuild a queue from stored JSON (localStorage, a file). Every unit goes through makeUnit again and
 // every reason through the text gate, so a record edited on disk cannot bring personal data or a
 // forged status into the app. Anything that does not fit is an error, not a silent drop.
@@ -172,7 +191,7 @@ function loadQueue(data) {
     for (let k = 0; k < rawKeys.length; k += 1) {
       if (ENTRY_FIELDS.indexOf(rawKeys[k]) === -1) throw new Error(PERSONAL_DATA_ERROR);
     }
-    const unit = assertUnit(raw.unit);
+    const unit = storedGate(ids[i], 'unit', () => assertUnit(raw.unit));
     if (unit.id !== ids[i]) throw new Error('invalid stored entry: id mismatch for ' + ids[i]);
     if (STATUSES.indexOf(raw.status) === -1) throw new Error('invalid stored entry: bad status for ' + ids[i]);
     if (!Number.isInteger(raw.revision) || raw.revision < 1 || !Number.isInteger(raw.seq) || raw.seq < 1
@@ -196,7 +215,14 @@ function loadQueue(data) {
       if (typeof raw.reason !== 'string') {
         throw new Error('invalid stored entry: rejected without a reason: ' + ids[i]);
       }
-      entry.reason = assertCleanText(raw.reason, { maxLength: REASON_MAX_LENGTH });
+      // the same rule as the unit: reject() wrote the text the gate returns, so a stored reason is that
+      // text exactly, and one the gate would change (padding, doubled spaces) is a record the flow never
+      // wrote - refused, not quietly cleaned on the way in
+      const reason = storedGate(ids[i], 'reason', () => assertCleanText(raw.reason, { maxLength: REASON_MAX_LENGTH }));
+      if (reason !== raw.reason) {
+        throw new Error('invalid stored entry: bad reason for ' + ids[i] + ': not the text reject() wrote');
+      }
+      entry.reason = reason;
     } else if (raw.reason !== undefined) {
       // a reason belongs to a rejection only; one on a pending or approved unit is not a record the
       // flow could have written, so it is refused rather than dropped
