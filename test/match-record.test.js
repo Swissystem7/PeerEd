@@ -103,6 +103,29 @@ test('match record: anything that is not a matchPairs() candidate is refused', (
   }
 });
 
+test('match record: a pair holds only codes, so a name in a shared slot or subject is refused, not stored', () => {
+  const pair = onePair();
+  for (const bad of [
+    Object.assign({}, pair, { sharedSlots: ['Dana Cohen 050-1234567'] }),
+    Object.assign({}, pair, { sharedSlots: ['SUN_16', 'dana@example.com'] }),
+    Object.assign({}, pair, { sharedSlots: ['SUN_08'] }),           // an hour, but not the spelling makeProfile writes
+    Object.assign({}, pair, { sharedSlots: ['SUN_7'] }),            // an hour outside the grid
+    Object.assign({}, pair, { sharedSlots: [] }),                   // no pair without a shared hour
+    Object.assign({}, pair, { sharedSubjects: ['Dana Cohen'] }),
+    Object.assign({}, pair, { sharedSubjects: ['MATH', 'math'] }),
+    Object.assign({}, pair, { sharedSubjects: [] }),                // no pair without a shared subject
+    Object.assign({}, pair, { region: 'Dana Cohen' }),
+    Object.assign({}, pair, { region: 'ANY' }),                     // the cross-region pass's placeholder
+    Object.assign({}, pair, { region: 'center' }),
+    Object.assign({}, pair, { region: undefined, studentRegion: 'CENTER', pupilRegion: 'Dana Cohen' }),
+    Object.assign({}, pair, { region: undefined, studentRegion: 'ANY', pupilRegion: 'NORTH' })
+  ]) {
+    assert.throws(() => makeMatchRecord(bad, '2026-03-04'), /match pair/, 'accepted ' + JSON.stringify(bad));
+  }
+  // the pairs the engine itself returns still pass, local and cross-region alike
+  assert.deepEqual(makeMatchRecord(pair, '2026-03-04').sharedSlots, ['MON_18', 'SUN_16']);
+});
+
 test('match record: a matchAcrossRegions() pair keeps both regions after a JSON round trip', () => {
   const s = makeProfile({ role: 'student', region: 'CENTER', availability: ['MON_18'], subjects: ['MATH'] });
   const p = makeProfile({ role: 'pupil', region: 'NORTH', availability: ['MON_18'], subjects: ['MATH'], parentConsent: true });

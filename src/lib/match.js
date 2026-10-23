@@ -2,6 +2,8 @@
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
 const { getRetentionPolicy } = require('./retention.js');
+const { isRegion } = require('./regions.js');
+const { normalizeSlot, SUBJECTS } = require('./profile.js');
 
 // Returns true if two string arrays share at least one common element.
 function hasOverlap(a, b) {
@@ -155,20 +157,50 @@ function utcDay(value) {
   return d.toISOString().slice(0, 10);
 }
 
+// A non-empty list in which every item is a code: what shared() leaves on a pair, since candidatesOf
+// drops a pair with no shared hour or no shared subject before it is ever returned.
+function isCodeList(list, isCode) {
+  if (!Array.isArray(list) || list.length === 0) return false;
+  for (let i = 0; i < list.length; i += 1) {
+    if (!isCode(list[i])) return false;
+  }
+  return true;
+}
+
+// The pair's slots come from makeProfile, so they are already in the one spelling it writes ('SUN_8',
+// never 'SUN_08'); a slot in any other spelling is not one of them.
+function isCanonicalSlot(slot) {
+  return normalizeSlot(slot) === slot;
+}
+
+function isSubject(code) {
+  return typeof code === 'string' && SUBJECTS.indexOf(code) !== -1;
+}
+
 // A pair on its way into storage: a matchPairs() candidate plus the day it was kept and the retention
 // category a cycle sweep reads. Frozen and JSON-serializable, and with no clock of its own - the caller
 // passes recordedAt, so the same arguments always produce the same row. Still a module: nothing on
 // screen stores a match yet.
+// A candidate holds nothing but codes: a region from REGIONS (one for a local pair, two for a
+// matchAcrossRegions() pair), slots from makeProfile and subjects from SUBJECTS, at least one of each.
+// Those are checked here, not taken on trust. Until this check only the indexes and the day were read
+// and the three lists were copied as handed in, so a hand-built "pair" with a name or a phone in
+// sharedSlots became a stored row - the one row the privacy gate never looked at - and the sweep later
+// kept or dropped it on the policy's terms like any other. A pair with anything else in it is not a
+// pair from matchPairs() and is refused as one, with the same message as a missing index.
 function makeMatchRecord(pair, recordedAt) {
   if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) throw new Error(PAIR_ERROR);
   // an index is a position in the students / pupils arrays: -1 would be a stored row that points at nobody
   if (!Number.isInteger(pair.studentIndex) || pair.studentIndex < 0) throw new Error(PAIR_ERROR);
   if (!Number.isInteger(pair.pupilIndex) || pair.pupilIndex < 0) throw new Error(PAIR_ERROR);
-  if (!Array.isArray(pair.sharedSlots) || !Array.isArray(pair.sharedSubjects)) throw new Error(PAIR_ERROR);
+  if (!isCodeList(pair.sharedSlots, isCanonicalSlot) || !isCodeList(pair.sharedSubjects, isSubject)) {
+    throw new Error(PAIR_ERROR);
+  }
   // a local pair names one region, a matchAcrossRegions() pair names both; a row with neither would be
-  // stored with no region at all (JSON drops an undefined key)
+  // stored with no region at all (JSON drops an undefined key). 'ANY', the placeholder the cross-region
+  // pass matches under, is not a region either: a pair that still carries it never left that pass.
   const local = typeof pair.region === 'string';
-  if (!local && (typeof pair.studentRegion !== 'string' || typeof pair.pupilRegion !== 'string')) {
+  if (local ? !isRegion(pair.region) : (!isRegion(pair.studentRegion) || !isRegion(pair.pupilRegion))) {
     throw new Error(PAIR_ERROR);
   }
   if (recordedAt === undefined || recordedAt === null) {
