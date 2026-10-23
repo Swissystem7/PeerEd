@@ -1172,6 +1172,27 @@
   // in the rejected list, reason and edit button and all. The submit line says which of the two happened.
   var revising = null;
 
+  // "טען דוגמה" and "טען לטופס לעריכה" write over the form. A unit typed there and not sent sits in no
+  // store, so the teacher's text was replaced with no word, under a line that named only the unit loaded
+  // in its place. The line now says the form's earlier text is gone. Text the queue already holds as it
+  // is (a unit just sent) is not lost, nor is the very unit being loaded; text the gate refuses was never
+  // sent either, so it counts as unsent.
+  function replacedFormHe(next) {
+    var title = $('unitTitle').value, body = $('unitBody').value;
+    if (!title.trim() && !body.trim()) return '';
+    var input = { title: title, subject: $('unitSubject').value,
+                  durationMinutes: Number($('unitDuration').value), body: body };
+    if (input.title === next.title && input.subject === next.subject &&
+        input.durationMinutes === next.durationMinutes && input.body === next.body) return '';
+    try {
+      var u = unitLib.makeUnit(input);
+      var e = state.queue.entries[u.id];
+      if (e && e.unit.body === u.body) return '';
+    } catch (err) { /* refused by the gate: never sent */ }
+    return ' מה שהיה כתוב בטופס קודם' + (title.trim() ? ' ("' + clip(title.trim(), 60) + '")' : '') +
+      ' לא הוגש ולא נשמר בשום מקום - הוא הוחלף ואין לו גיבוי.';
+  }
+
   function submitUnit(input) {
     var made;
     try {
@@ -1238,11 +1259,14 @@
   });
 
   $('unitDemoBtn').addEventListener('click', function () {
-    $('unitSubject').value = 'MATH';
-    $('unitDuration').value = '20';
-    $('unitTitle').value = 'שברים פשוטים: חיבור וחיסור';
-    $('unitBody').value = 'מתחילים בפיצה שחולקה ל-8. כמה זה 3/8 ועוד 2/8? אחר כך 3 תרגילים עם מכנה שונה: ' +
-      '1/2 + 1/4, 2/3 - 1/6, 3/5 + 1/10. מי שסיים מנסה לכתוב תרגיל משלו לחבר.';
+    var sample = { title: 'שברים פשוטים: חיבור וחיסור', subject: 'MATH', durationMinutes: 20,
+      body: 'מתחילים בפיצה שחולקה ל-8. כמה זה 3/8 ועוד 2/8? אחר כך 3 תרגילים עם מכנה שונה: ' +
+        '1/2 + 1/4, 2/3 - 1/6, 3/5 + 1/10. מי שסיים מנסה לכתוב תרגיל משלו לחבר.' };
+    var replaced = replacedFormHe(sample);
+    $('unitSubject').value = sample.subject;
+    $('unitDuration').value = String(sample.durationMinutes);
+    $('unitTitle').value = sample.title;
+    $('unitBody').value = sample.body;
     revising = null;
     // The sample is always the same unit, so after one submission "לחץ הגש לאישור" sent the teacher to a
     // button that answers "כבר בתור" / "כבר מאושרת" / "לא הוגש: הטקסט זהה לגרסה שנדחתה", or that revises a
@@ -1255,14 +1279,14 @@
     var demoEntry = state.queue.entries[demoId];
     var demoStatus = approval.statusOf(state.queue, demoId);
     var demoWhereHe = { pending: 'כבר ממתינה לאישור', approved: 'כבר אושרה', rejected: 'נדחתה' }[demoStatus];
-    say('unitStatus', !demoEntry ? 'הדוגמה מולאה. לחץ "הגש לאישור".'
+    say('unitStatus', (!demoEntry ? 'הדוגמה מולאה. לחץ "הגש לאישור".'
       : demoEntry.unit.body === demoUnit.body
         ? 'הדוגמה מולאה, אבל היא ' + demoWhereHe + ' בדיוק בטקסט הזה, אז "הגש לאישור" לא ישנה דבר' +
           (demoStatus === 'rejected' ? ': מתקנים את הטקסט לפי סיבת הדחייה ואז מגישים.'
             : '. אפשר לשנות כותרת, מקצוע או משך ולהגיש אותה כיחידה חדשה.')
         : 'הדוגמה מולאה. יחידה עם הכותרת, המקצוע והמשך האלה ' + demoWhereHe + ' בטקסט אחר: "הגש לאישור" יחליף את הטקסט ' +
           'שלה בטקסט הדוגמה כגרסה ' + (demoEntry.revision + 1) + ' שממתינה לאישור' +
-          (demoStatus === 'approved' ? ', ועד שתאושר שוב תלמידים לא יראו אותה.' : '.'));
+          (demoStatus === 'approved' ? ', ועד שתאושר שוב תלמידים לא יראו אותה.' : '.')) + replaced);
   });
 
   $('clearUnitBtn').addEventListener('click', function () {
@@ -1324,6 +1348,7 @@
     var entry = state.queue && state.queue.entries ? state.queue.entries[reviseId] : null;
     if (!entry) return;
     var u = entry.unit;
+    var replaced = replacedFormHe(u);
     $('unitTitle').value = u.title;
     $('unitSubject').value = u.subject;
     $('unitDuration').value = String(u.durationMinutes);
@@ -1332,7 +1357,7 @@
     if (ub && ub.focus) ub.focus();
     revising = { id: u.id, title: u.title };
     say('unitStatus', 'היחידה "' + u.title + '" נטענה לטופס. תקן את התוכן ולחץ "הגש לאישור" - היא תחזור לתור כגרסה חדשה. ' +
-      'כותרת, מקצוע או משך אחרים הם יחידה חדשה: היא תוגש בנפרד, והגרסה שנדחתה תישאר ברשימת הנדחות.');
+      'כותרת, מקצוע או משך אחרים הם יחידה חדשה: היא תוגש בנפרד, והגרסה שנדחתה תישאר ברשימת הנדחות.' + replaced);
   });
 
   // ---------- sessions (MVP item 6) ----------
