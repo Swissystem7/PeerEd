@@ -1194,8 +1194,12 @@
         countRow('לפי תוצאה', s.byOutcome, function (k) { return OUTCOME_HE[k] || k; }) +
         countRow('לפי אזור', s.byRegion, function (k) { return REGION_HE[k] || k; }) +
         countRow('לפי מקצוע', s.bySubject, function (k) { return SUBJECT_HE[k] || k; }) +
+        // A unit's id is title + subject + duration, so two units can share a title: the row names each
+        // one the way the "רשום שיעור" select did - title, duration, id - not as two identical titles with
+        // different counts beside a CSV that keys them by id.
         countRow('לפי יחידה', s.byUnit, function (id) {
-          var e = state.queue.entries[id]; return e ? e.unit.title : id;
+          var e = state.queue.entries[id];
+          return e ? e.unit.title + ' · ' + e.unit.durationMinutes + ' דקות · ' + id : id;
         })
       : '<p class="empty">עדיין לא נרשם שיעור, אז לרשות אין מה לקבל.</p>';
     $('sessionList').innerHTML = state.log.entries.length
