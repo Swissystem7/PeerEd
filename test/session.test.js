@@ -63,6 +63,24 @@ test('session: any key outside the accepted fields is refused as personal data, 
   }
 });
 
+test('session: a pair whose shared lists hold anything but codes is not a pair from matchPairs', () => {
+  const bad = (patch) => Object.assign({}, PAIR, patch);
+  // a hand-built pair with the one spelling makeProfile never writes wrote a row loadLog then refused
+  const pair08 = bad({ sharedSlots: ['SUN_08'] });
+  assert.throws(() => logSession(emptyLog(), QUEUE, pair08, Object.assign({}, HELD, { slot: 'SUN_08' })),
+    /expected a pair from matchPairs/);
+  for (const slots of [['SUN_8', 'MON_018'], ['דנה כהן'], ['0501234567'], [], 'MON_18', null]) {
+    assert.throws(() => logSession(emptyLog(), QUEUE, bad({ sharedSlots: slots }), HELD), /expected a pair from matchPairs/);
+  }
+  for (const subjects of [['MATH', 'ART'], ['דנה כהן'], [''], [], 'MATH', null]) {
+    assert.throws(() => logSession(emptyLog(), QUEUE, bad({ sharedSubjects: subjects }), HELD),
+      /expected a pair from matchPairs/);
+  }
+  // so every slot the log holds is canonical and the saved state reloads
+  const l = logSession(emptyLog(), QUEUE, PAIR, HELD);
+  assert.deepEqual(loadLog(JSON.parse(JSON.stringify(l)), QUEUE), l);
+});
+
 test('session: a slot or a subject the pair does not share is refused', () => {
   assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { slot: 'SUN_16' })), /slot the pair shares/);
   assert.throws(() => logSession(emptyLog(), QUEUE, PAIR, Object.assign({}, HELD, { slot: 'MON_7' })), /slot the pair shares/);
