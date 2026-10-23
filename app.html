@@ -2693,6 +2693,7 @@ module.exports = {
       (filePairs || []).forEach(function (fp) {
         if (fp.person === who) { fp.person = flipped; inFile = fp; }
       });
+      if (filePeople && filePeople.indexOf(who) !== -1) filePeople[filePeople.indexOf(who)] = flipped;
       resetMatchView();
       renderPeople();
       say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
@@ -2717,13 +2718,24 @@ module.exports = {
     state.people.splice(delIndex, 1);
     resetMatchView();
     renderPeople();
-    if (!state.people.length) { pairsFileDownloaded = false; filePairs = null; }
+    if (!state.people.length) { pairsFileDownloaded = false; filePairs = null; filePeople = null; }
+    // The file names everyone who was on the list when it went down, so deleting one of them - the last
+    // one too, who moves nobody - leaves a number in the file for someone no longer here: the next one
+    // added takes that number on the screen, and a pair in the file may still hold the deleted one.
+    var fileNo = filePeople ? filePeople.indexOf(gone) + 1 : 0;
+    var filePair = null;
+    (filePairs || []).forEach(function (fp) { if (fileNo && (fp.pupil === fileNo || fp.student === fileNo)) filePair = fp; });
+    var fileNote = !fileNo || (moved && !filePair) ? ''
+      : (moved ? ' בקובץ הוא היה #' : ' בקובץ הזוגות שירד קודם הוא עדיין #') + fileNo +
+        (filePair ? ', בזוג ' + filePair.pair + ' (תלמיד #' + filePair.pupil + ' עם סטודנט מלמד #' + filePair.student + ')' : '') +
+        (!moved && fileNo === delIndex + 1 ? ', ומי שיתווסף עכשיו יקבל ברשימה את #' + fileNo : '') +
+        ': הקובץ לא מתעדכן לבד - לחץ "חשב שידוך" והורד אותו מחדש.';
     say('addStatus', moved
       ? 'נמחק ' + ROLE_HE[gone.role] + ' #' + (delIndex + 1) + '. ' +
         (moved === 1 ? 'מי שהיה #' + (delIndex + 2) + ' הוא עכשיו #' + (delIndex + 1)
           : 'מי שהיו #' + (delIndex + 2) + ' עד #' + (delIndex + 1 + moved) + ' ירדו במספר אחד') +
-        (pairsFileDownloaded ? ', וקובץ הזוגות שירד קודם מתייחס למספרים שלפני המחיקה.' : '.')
-      : 'נמחק.');
+        (pairsFileDownloaded ? ', וקובץ הזוגות שירד קודם מתייחס למספרים שלפני המחיקה.' : '.') + fileNote
+      : fileNote ? 'נמחק ' + ROLE_HE[gone.role] + ' #' + (delIndex + 1) + '.' + fileNote : 'נמחק.');
     save('addStatus');
     if (state.people.length > 0) {
       var nextIdx = Math.min(delIndex, state.people.length - 1);
@@ -2801,6 +2813,9 @@ module.exports = {
   // a deletion moves list numbers but not records). The numbers are the file's. Null when no file went
   // down, or the list it came from is gone.
   var filePairs = null;
+  // Everyone on the list when that file went down, in its order (index + 1 = the number the file gives
+  // them), followed through consent toggles like filePairs. Null when no file went down.
+  var filePeople = null;
 
   function resetMatchView() {
     last = null;
@@ -2966,6 +2981,7 @@ module.exports = {
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
     pairsFileDownloaded = true;
     // last is reset on every change to the list, so its numbers are places in state.people right now
+    filePeople = state.people.slice();
     filePairs = last.pairs.map(function (p, i) {
       return { pair: i + 1, pupil: p.pupil, student: p.student, person: state.people[p.pupil - 1] };
     });
@@ -3581,6 +3597,7 @@ module.exports = {
     if (removed) { refusedOnKey = false; refusedKept = false; }
     pairsFileDownloaded = false;
     filePairs = null;
+    filePeople = null;
     var empty = storeLib.emptyState();
     state = { people: [], queue: empty.queue, log: empty.log };
     clearDraft();
