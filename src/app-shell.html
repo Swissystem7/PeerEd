@@ -632,10 +632,22 @@
     var i = ev.target.getAttribute('data-del');
     if (i === null) return;
     var delIndex = Number(i);
+    var gone = state.people[delIndex];
+    // A list number is a place in the list (#1 = first added), so everyone after the deleted one moves up
+    // a number: the match cards are reset (below), but a pairs file already downloaded names people by
+    // the numbers they had, and "נמחק." alone left it pointing at other people. The line says who moved
+    // and, when a file went down, that its numbers are the ones from before this deletion.
+    var moved = state.people.length - 1 - delIndex;
     state.people.splice(delIndex, 1);
     resetMatchView();
     renderPeople();
-    say('addStatus', 'נמחק.');
+    if (!state.people.length) pairsFileDownloaded = false;
+    say('addStatus', moved
+      ? 'נמחק ' + ROLE_HE[gone.role] + ' #' + (delIndex + 1) + '. ' +
+        (moved === 1 ? 'מי שהיה #' + (delIndex + 2) + ' הוא עכשיו #' + (delIndex + 1)
+          : 'מי שהיו #' + (delIndex + 2) + ' עד #' + (delIndex + 1 + moved) + ' ירדו במספר אחד') +
+        (pairsFileDownloaded ? ', וקובץ הזוגות שירד קודם מתייחס למספרים שלפני המחיקה.' : '.')
+      : 'נמחק.');
     save('addStatus');
     if (state.people.length > 0) {
       var nextIdx = Math.min(delIndex, state.people.length - 1);
@@ -703,6 +715,11 @@
   // The last computed match, in list numbers. Cleared whenever the list changes, so an export can never
   // describe a list that is no longer on the screen.
   var last = null;
+  // Whether a pairs file has gone down from this list. The file keys people by list number, and the app
+  // cannot take it back, so a deletion that moves the numbers (the delete line, people screen) says the
+  // file's numbers are the old ones. Cleared when the list is emptied: a file of a list that is gone has
+  // no numbers left to point at.
+  var pairsFileDownloaded = false;
 
   function resetMatchView() {
     last = null;
@@ -866,6 +883,7 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
+    pairsFileDownloaded = true;
     say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
       (last.left.length === 0 ? 'כולם שובצו.' : last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
@@ -1419,6 +1437,7 @@
     var refusedGone = refusedHe();
     var removed = store.clear();
     if (removed) { refusedOnKey = false; refusedKept = false; }
+    pairsFileDownloaded = false;
     var empty = storeLib.emptyState();
     state = { people: [], queue: empty.queue, log: empty.log };
     clearDraft();
