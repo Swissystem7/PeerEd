@@ -97,6 +97,25 @@ test('a saved queue entry whose unit or reason does not pass the gate is reporte
   assert.equal($('addStatus').textContent, '');
 });
 
+test('a saved person with no hours, no subject or a bad role is reported as a bad stored person, not as a form the coordinator filled', () => {
+  // nobody filled the add form on load: the line for a stored person is the one that shows, not the
+  // form's "צריך לסמן לפחות שעה פנויה אחת" or "צריך לבחור לפחות מקצוע אחד"
+  const good = { role: 'pupil', region: 'CENTER', availability: ['SUN_16'], subjects: ['MATH'], parentConsent: true };
+  const cases = [{ availability: [] }, { availability: ['SUN_7'] }, { subjects: [] }, { subjects: ['ART'] },
+    { role: 'teacher' }, { region: 'MOON' }, { parentConsent: 'yes' }];
+  for (const patch of cases) {
+    const $ = openWith(JSON.stringify({ schema: 'peered/1', people: [Object.assign({}, good, patch)] }));
+    assert.match($('addStatus').textContent, /נדחתה ולא נטענה: משתתף שמור ברשימה לא תקין\./, JSON.stringify(patch));
+    assert.doesNotMatch($('addStatus').textContent, /צריך ל|שאינה בלוח|שאינו ברשימה|לא מוכר|אישור ההורה/, JSON.stringify(patch));
+    assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
+  }
+  // a person that is not a record at all is a bad stored person too
+  const $ = openWith(JSON.stringify({ schema: 'peered/1', people: ['דנה'] }));
+  assert.match($('addStatus').textContent, /משתתף שמור ברשימה לא תקין/);
+  // the roster as the app wrote it still loads with no complaint
+  assert.equal(openWith(JSON.stringify({ schema: 'peered/1', people: [good] }))('addStatus').textContent, '');
+});
+
 test('a good saved list loads with no complaint', () => {
   const $ = openWith(JSON.stringify({ schema: 'peered/1', people: [] }));
   assert.equal($('addStatus').textContent, '');

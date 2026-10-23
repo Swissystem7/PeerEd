@@ -11,6 +11,7 @@
 // starts from an empty state rather than from a half-trusted one.
 
 const { makeProfile, withoutRetentionStamp, PERSONAL_DATA_ERROR } = require('./profile.js');
+const { PROFANITY_ERROR } = require('./validator.js');
 const { emptyQueue, loadQueue } = require('./approval.js');
 const { emptyLog, loadLog } = require('./session.js');
 
@@ -46,6 +47,26 @@ function storedProfileInput(person) {
   return withoutRetentionStamp(person);
 }
 
+// A stored person goes through the same gate as one the coordinator just added - makeProfile - and that
+// gate words a refusal for the add form: 'invalid availability: expected a non-empty array' is the line
+// "mark at least one free hour", 'invalid subjects:' is "choose at least one subject". On load nobody
+// filled the form, so a stored person the gate refuses is refused as a stored person, named by its place
+// in the list the way loadLog names a row and loadQueue an entry. Until this the participants card
+// reported a saved roster whose person had no hours as "the saved list was refused and not loaded: you
+// need to mark at least one free hour" - an instruction about a form nobody filled - while a line for
+// a stored person did not exist. The gate's personal-data and profanity refusals pass through unchanged,
+// as they read the same on every screen; so does a bad retention stamp, which only a stored record
+// carries and whose line already names the record.
+function storedPerson(person, at) {
+  try {
+    return makeProfile(storedProfileInput(person));
+  } catch (err) {
+    if (err.message === PERSONAL_DATA_ERROR || err.message === PROFANITY_ERROR
+      || err.message.indexOf('invalid retention:') === 0) throw err;
+    throw new Error('invalid stored person at ' + at + ': ' + err.message);
+  }
+}
+
 // Re-validate a plain document (parsed JSON) into a frozen state. Order matters: the queue is rebuilt
 // first because the log's rows are checked against it.
 function fromDocument(doc) {
@@ -57,7 +78,7 @@ function fromDocument(doc) {
   if (doc.schema !== SCHEMA) throw new Error(INVALID_STATE_ERROR + ': unknown schema ' + String(doc.schema));
   if (!Array.isArray(doc.people)) throw new Error(INVALID_STATE_ERROR + ': people is not an array');
   const people = [];
-  for (let i = 0; i < doc.people.length; i += 1) people.push(makeProfile(storedProfileInput(doc.people[i])));
+  for (let i = 0; i < doc.people.length; i += 1) people.push(storedPerson(doc.people[i], i));
   const queue = loadQueue(doc.queue === undefined ? emptyQueue() : doc.queue);
   const log = loadLog(doc.log === undefined ? emptyLog() : doc.log, queue);
   return Object.freeze({ people: Object.freeze(people), queue: queue, log: log });
