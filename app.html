@@ -3438,6 +3438,20 @@ module.exports = {
   // "חשב שידוך" as if that made them: that button shows the pairs and why someone is left out.
   var NO_PAIR_HE = 'אין עדיין זוג. הזוגות נגזרים מהרשימה במסך "אנשים" - סטודנט ותלמיד עם אישור הורה מאותו אזור ' +
     'שחולקים שעה ומקצוע; "חשב שידוך" במסך השידוך רק מציג אותם ואת הסיבה אצל מי שנשאר בלי זוג.';
+  // A subject with no approved unit, and what the queue holds in it. `where` names the subject: "במקצוע
+  // הזה" in the unit option right under the subject select, the subject itself in a status line.
+  // "אשר אחת" fits only a subject with a unit waiting: over a pending list with nothing in this subject it
+  // sent the coordinator to approve a unit that is not there, and the units screen then said "אין יחידות
+  // שממתינות". So this says what the queue holds in the subject.
+  function noApprovedUnitHe(subject, where) {
+    var waiting = approval.listPending(state.queue).filter(function (e) { return e.unit.subject === subject; }).length;
+    return 'אין יחידה מאושרת ' + where + (waiting
+      ? ' - ' + (waiting === 1 ? 'אחת ממתינה' : waiting + ' ממתינות') + ' לאישור במסך יחידות'
+      : ', ואף אחת לא ממתינה לאישור - מגישים יחידה ' + where + ' במסך יחידות ומאשרים אותה');
+  }
+  function approvedIn(subject) {
+    return approval.approvedUnits(state.queue).filter(function (u) { return u.subject === subject; });
+  }
   function renderSessionUnits() {
     var subject = $('sessionSubject').value;
     if (!subject) {
@@ -3445,15 +3459,9 @@ module.exports = {
       $('sessionUnit').disabled = true;
       return;
     }
-    var units = approval.approvedUnits(state.queue).filter(function (u) { return u.subject === subject; });
+    var units = approvedIn(subject);
     if (!units.length) {
-      // "אשר אחת" fits only a subject with a unit waiting: over a pending list with nothing in this
-      // subject it sent the coordinator to approve a unit that is not there, and the units screen then
-      // said "אין יחידות שממתינות". The option says what the queue holds in this subject.
-      var waiting = approval.listPending(state.queue).filter(function (e) { return e.unit.subject === subject; }).length;
-      $('sessionUnit').innerHTML = '<option value="">' + esc('אין יחידה מאושרת במקצוע הזה' + (waiting
-        ? ' - ' + (waiting === 1 ? 'אחת ממתינה' : waiting + ' ממתינות') + ' לאישור במסך יחידות'
-        : ', ואף אחת לא ממתינה לאישור - מגישים יחידה במקצוע הזה במסך יחידות ומאשרים אותה')) + '</option>';
+      $('sessionUnit').innerHTML = '<option value="">' + esc(noApprovedUnitHe(subject, 'במקצוע הזה')) + '</option>';
       $('sessionUnit').disabled = true;
       return;
     }
@@ -3595,6 +3603,24 @@ module.exports = {
           ' ואין ביניהם סטודנט ותלמיד עם אישור הורה מאותו אזור שחולקים שעה ומקצוע; ' +
           '"חשב שידוך" במסך השידוך מראה אצל כל מי שנשאר בלי זוג למה.'
         : 'הרשימה במסך "אנשים" ריקה - הוסף שם סטודנט ותלמיד, או טען דוגמה.'), true);
+      return;
+    }
+    // No unit to choose in this subject: the unit select under it says there is no approved unit there,
+    // and the engine's "אפשר לרשום רק יחידה מאושרת" alone read as if an unapproved unit had been picked.
+    // The line names the subject, what the queue holds in it, and a subject the pair shares that does
+    // have an approved unit - the form starts on such a subject, so there is one only after a switch.
+    var chosenSubject = $('sessionSubject').value;
+    if (!$('sessionUnit').value && pair.sharedSlots.indexOf($('sessionSlot').value) !== -1 &&
+        pair.sharedSubjects.indexOf(chosenSubject) !== -1 && !approvedIn(chosenSubject).length) {
+      var otherSubjects = pair.sharedSubjects.filter(function (s) { return s !== chosenSubject && approvedIn(s).length; });
+      var focusTo = $(otherSubjects.length ? 'sessionSubject' : 'sessionUnit');
+      if (focusTo && focusTo.focus) focusTo.focus();
+      say('sessionStatus', 'לא נרשם: אפשר לרשום רק יחידה מאושרת, ולא נבחרה יחידה - ' +
+        noApprovedUnitHe(chosenSubject, 'במקצוע ' + (SUBJECT_HE[chosenSubject] || chosenSubject)) + '.' + (otherSubjects.length
+          ? ' לזוג הזה יש יחידה מאושרת ב' + (otherSubjects.length === 1 ? 'מקצוע ' : 'מקצועות ') +
+            otherSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ') +
+            (otherSubjects.length === 1 ? ' - בחר אותו' : ' - בחר אחד מהם') + ' ברשימת המקצועות.'
+          : ''), true);
       return;
     }
     try {
