@@ -13,11 +13,11 @@ const { openApp, addPerson, text, ROOT } = require('../test-support/fake-dom.js'
 test('match screen: the shell has empty states for pairs and unmatched on initial load', () => {
   const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
   assert.ok(
-    shell.includes('<div id="pairs"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>'),
+    /<div id="pairs"[^>]*><p class="empty">מופיע אחרי חישוב שידוך\.<\/p><\/div>/.test(shell),
     'pairs container should have initial empty state'
   );
   assert.ok(
-    shell.includes('<div id="unmatched"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>'),
+    /<div id="unmatched"[^>]*><p class="empty">מופיע אחרי חישוב שידוך\.<\/p><\/div>/.test(shell),
     'unmatched container should have initial empty state'
   );
 });

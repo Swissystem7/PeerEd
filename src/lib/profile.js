@@ -8,7 +8,7 @@ const { getRetentionPolicy } = require('./retention.js');
 const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
-const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent']);
+const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent', 'responseToReport']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
@@ -116,6 +116,15 @@ function makeProfile(input) {
     }
   }
 
+  const responseToReports = [];
+  if (input.responseToReport !== undefined) {
+    if (!Array.isArray(input.responseToReport)) throw new Error('invalid responseToReport: expected an array');
+    const makeResponseToReport = validatorLib().makeResponseToReport;
+    for (let i = 0; i < input.responseToReport.length; i += 1) {
+      responseToReports.push(makeResponseToReport(input.responseToReport[i]));
+    }
+  }
+
   const profile = {
     role: role,
     region: region,
@@ -133,6 +142,10 @@ function makeProfile(input) {
 
   if (input.reportEvent !== undefined) {
     profile.reportEvent = Object.freeze(reportEvents.slice());
+  }
+
+  if (input.responseToReport !== undefined) {
+    profile.responseToReport = Object.freeze(responseToReports.slice());
   }
 
   const policy = getRetentionPolicy();
@@ -204,6 +217,18 @@ function reportEvent(profile, input) {
   return makeProfile(Object.assign(base, { reportEvent: current }));
 }
 
+function responseToReport(profile, input) {
+  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
+    throw new Error('profile must be an object');
+  }
+  const response = validatorLib().makeResponseToReport(input);
+  const base = Object.assign({}, profile);
+  delete base.retention;
+  const current = Array.isArray(profile.responseToReport) ? profile.responseToReport.slice() : [];
+  current.push(response);
+  return makeProfile(Object.assign(base, { responseToReport: current }));
+}
+
 module.exports = {
   ROLES,
   DAYS,
@@ -221,5 +246,6 @@ module.exports = {
   revokeParentConsent,
   checkBlocked,
   blockUser,
-  reportEvent
+  reportEvent,
+  responseToReport
 };

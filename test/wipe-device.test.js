@@ -203,8 +203,8 @@ test('wipe: a change after arming disarms it, so the second click never deletes 
   fillDevice($);
   $('wipeBtn').click();
   assert.equal($('wipeStatus').textContent.indexOf('יימחקו 7 משתתפים') === 0, true, $('wipeStatus').textContent);
-  // the roster grows while the button is armed
-  $('demoBtn').click();
+  // the roster changes while the button is armed: a parent's consent is withdrawn
+  clickWith($('peopleList'), 'data-consent', '3');
   assert.equal($('wipeBtn').textContent, 'מחק הכול מהמכשיר הזה', 'the change disarmed the button');
   assert.equal($('wipeCancel').hidden, true);
   assert.equal($('wipeStatus').textContent.indexOf('הרשימה השתנתה') === 0, true, $('wipeStatus').textContent);
@@ -245,4 +245,52 @@ test('wipe: the shell removes the key through store.clear and never saves an emp
   assert.equal(block.indexOf('save()'), -1, 'a wipe is not a save of an empty state');
   assert.equal(block.indexOf('confirm('), -1, 'no window.confirm');
   assert.equal(block.indexOf('storeLib.emptyState()') !== -1, true, 'the fresh state comes from the store module');
+});
+
+test('demo: on a roster that is not empty the demo loads nothing, so no participant is lost', () => {
+  const storage = fakeStorage();
+  const { $ } = runApp(storage);
+  fillDevice($);
+  clickWith($('peopleList'), 'data-del', '0');
+  const before = storage.items[DEFAULT_KEY];
+  const list = $('peopleList').innerHTML;
+  $('demoBtn').click();
+  assert.equal(storage.items[DEFAULT_KEY], before, 'the saved roster is untouched');
+  assert.equal($('peopleList').innerHTML, list, 'the list on the screen is untouched');
+  assert.equal($('addStatus').className, 'status bad');
+  assert.equal($('addStatus').textContent.indexOf('הדוגמה לא נטענה: יש כבר 6 משתתפים') === 0, true, $('addStatus').textContent);
+});
+
+test('wipe: clears text gate demo inputs, findings, unit draft fields, and all status lines', () => {
+  const storage = fakeStorage();
+  const { $ } = runApp(storage);
+
+  // Populate text gate
+  $('checkText').value = 'דנה 050-1234567';
+  $('checkBtn').click();
+  assert.notEqual($('findings').innerHTML, '', 'findings should have flags before wipe');
+  assert.notEqual($('checkStatus').textContent, '', 'checkStatus should be set before wipe');
+
+  // Trigger gate demo
+  $('gateBtn').click();
+  assert.notEqual($('gateStatus').textContent, '', 'gateStatus should be set before wipe');
+
+  // Populate unit form
+  $('unitTitle').value = 'כותרת לדוגמה';
+  $('unitBody').value = 'תוכן לדוגמה';
+  $('unitDuration').value = '45';
+  $('unitSubject').value = 'PHYSICS';
+
+  // Wipe device
+  $('wipeBtn').click();
+  $('wipeBtn').click();
+
+  assert.equal($('checkText').value, '', 'checkText must be empty after wipe');
+  assert.equal($('findings').innerHTML, '', 'findings must be empty after wipe');
+  assert.equal($('checkStatus').textContent, '', 'checkStatus must be cleared on wipe');
+  assert.equal($('gateStatus').textContent, '', 'gateStatus must be cleared on wipe');
+  assert.equal($('unitTitle').value, '', 'unitTitle must be cleared on wipe');
+  assert.equal($('unitBody').value, '', 'unitBody must be cleared on wipe');
+  assert.equal($('unitDuration').value, '20', 'unitDuration must be reset to default 20');
+  assert.equal($('unitSubject').value, 'MATH', 'unitSubject must be reset to first subject');
 });
