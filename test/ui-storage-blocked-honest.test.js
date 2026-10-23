@@ -68,13 +68,16 @@ test('the demo roster, a unit, a decision and a lesson each warn, exactly as whe
   assert.equal(Object.keys($.store).length, 0);
 });
 
-test('the warning for a blocked storage and for a refused write are the same line', () => {
+// A refused write is not a blocked storage: the storage still holds the last document written, and the
+// next visit opens on it, so that line names it (test/ui-write-refused-names-stored.test.js). Both still
+// say the change is in memory only.
+test('a blocked storage and a refused write both say memory only, each with its own reason', () => {
   const blocked = openApp({ noStorage: true });
   addStudent(blocked);
   const refused = openApp({ saveFails: true });
   addStudent(refused);
-  const tail = (line) => line.slice(line.indexOf('נשמר בזיכרון בלבד'));
-  assert.equal(tail(blocked('addStatus').textContent), tail(refused('addStatus').textContent));
+  assert.match(blocked('addStatus').textContent, /נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי/);
+  assert.match(refused('addStatus').textContent, /נשמר בזיכרון בלבד: הדפדפן סירב לכתוב לאחסון המקומי/);
 });
 
 test('with the storage available nothing is said at the start and nothing is added to "נוסף"', () => {
