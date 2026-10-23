@@ -2694,10 +2694,16 @@ module.exports = {
       (filePairs || []).forEach(function (fp) {
         if (fp.person === who) { fp.person = flipped; inFile = fp; }
       });
-      if (filePeople && filePeople.indexOf(who) !== -1) filePeople[filePeople.indexOf(who)] = flipped;
+      var fileNo = filePeople ? filePeople.indexOf(who) + 1 : 0;
+      if (fileNo) filePeople[fileNo - 1] = flipped;
+      // Granting the reverse way: the file lists this pupil under "לא שובצו" with the no-consent reason.
+      var fileSaysNoConsent = fileNo && fileNoConsent && fileNoConsent.indexOf(fileNo) !== -1;
       resetMatchView();
       renderPeople();
-      say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.'
+      say('addStatus', match.hasParentConsent(flipped) ? 'סומן אישור הורה. התלמיד נכנס לשידוך הבא.' + (fileSaysNoConsent
+          ? ' בקובץ הזוגות שירד קודם הוא עדיין ברשימת "לא שובצו" (תלמיד #' + fileNo + ') עם הסיבה שאין אישור הורה: ' +
+            'הקובץ לא מתעדכן לבד - לחץ "חשב שידוך" והורד אותו מחדש.'
+          : '')
         : 'האישור בוטל. התלמיד נשאר ברשימה אבל לא ישודך.' + (inFile
           ? ' בקובץ הזוגות שירד קודם הוא עדיין בזוג ' + inFile.pair + ' (תלמיד #' + inFile.pupil + ' עם סטודנט מלמד #' +
             inFile.student + '): הקובץ לא מתעדכן לבד - לחץ "חשב שידוך" והורד אותו מחדש.'
@@ -2719,7 +2725,7 @@ module.exports = {
     state.people.splice(delIndex, 1);
     resetMatchView();
     renderPeople();
-    if (!state.people.length) { pairsFileDownloaded = false; filePairs = null; filePeople = null; }
+    if (!state.people.length) { pairsFileDownloaded = false; filePairs = null; filePeople = null; fileNoConsent = null; }
     // The file names everyone who was on the list when it went down, so deleting one of them - the last
     // one too, who moves nobody - leaves a number in the file for someone no longer here: the next one
     // added takes that number on the screen, and a pair in the file may still hold the deleted one.
@@ -2817,6 +2823,9 @@ module.exports = {
   // Everyone on the list when that file went down, in its order (index + 1 = the number the file gives
   // them), followed through consent toggles like filePairs. Null when no file went down.
   var filePeople = null;
+  // The file numbers of the pupils that file lists under "לא שובצו" for want of parent consent, so a
+  // grant can say the file still gives that reason. Null when no file went down.
+  var fileNoConsent = null;
   // How many pairs files went down in this visit. Unlike the flags above it is never cleared - not when
   // the list is emptied, not by the wipe: the file sits in the device's downloads, outside the browser
   // storage the wipe clears, so after a wipe it is still there. The wipe lines name it instead of
@@ -2992,6 +3001,8 @@ module.exports = {
     filePairs = last.pairs.map(function (p, i) {
       return { pair: i + 1, pupil: p.pupil, student: p.student, person: state.people[p.pupil - 1] };
     });
+    fileNoConsent = last.left.filter(function (x) { return x.role === 'pupil' && x.reason === 'NO_PARENT_CONSENT'; })
+      .map(function (x) { return x.e.number; });
     say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
       (last.left.length === 0 ? 'כולם שובצו.' : last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
   });
@@ -3616,6 +3627,7 @@ module.exports = {
     pairsFileDownloaded = false;
     filePairs = null;
     filePeople = null;
+    fileNoConsent = null;
     var empty = storeLib.emptyState();
     state = { people: [], queue: empty.queue, log: empty.log };
     clearDraft();
