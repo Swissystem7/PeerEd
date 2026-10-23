@@ -29,7 +29,7 @@
                padding:12px 4px; cursor:pointer; border-top:2px solid transparent; }
   nav button[aria-selected="true"] { color:var(--key); border-top-color:var(--key); font-weight:700; }
   nav button:focus-visible { outline:2px solid var(--key); outline-offset:-2px; }
-  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible {
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible, a:focus-visible {
     outline:2px solid var(--key); outline-offset:2px;
   }
   section[role="tabpanel"][hidden] { display:none; }
@@ -214,11 +214,11 @@
     </div>
     <div class="card">
       <h2>מאושרות — מה שתלמיד רואה</h2>
-      <div id="approvedList"></div>
+      <div id="approvedList" role="region" aria-live="polite" aria-label="יחידות מאושרות"></div>
     </div>
     <div class="card">
       <h2>נדחו</h2>
-      <div id="rejectedList"></div>
+      <div id="rejectedList" role="region" aria-live="polite" aria-label="יחידות שנדחו"></div>
     </div>
   </section>
 
@@ -242,12 +242,12 @@
       <select id="sessionUnit" aria-required="true" aria-describedby="sessionStatus"></select>
       <label for="sessionOutcome">איך הסתיים</label>
       <select id="sessionOutcome" aria-required="true" aria-describedby="sessionStatus"></select>
-      <div class="actions"><button type="button" class="act" id="logSession">רשום שיעור</button></div>
+      <div class="actions"><button type="button" class="act" id="logSession" aria-describedby="sessionStatus">רשום שיעור</button></div>
       <p class="status" id="sessionStatus" role="status"></p>
     </div>
     <div class="card">
       <h2>סיכום לרשות — ספירות בלבד</h2>
-      <div id="sessionSummary"></div>
+      <div id="sessionSummary" role="region" aria-live="polite" aria-label="סיכום לרשות"></div>
       <p class="hint">הייצוא הוא אותן ספירות כקובץ CSV: מדד, קוד, כמות. אין בו שורות של היומן, אין שעה, אין
         מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
       <div class="actions"><button type="button" class="ghost" id="exportReport" aria-expanded="false" aria-controls="reportBox reportStatus" aria-describedby="reportStatus">ייצא דוח CSV</button></div>
@@ -259,7 +259,7 @@
     </div>
     <div class="card">
       <h2>היומן</h2>
-      <div id="sessionList"></div>
+      <div id="sessionList" role="region" aria-live="polite" aria-label="יומן השיעורים"></div>
     </div>
   </section>
 
