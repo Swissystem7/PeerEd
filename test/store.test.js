@@ -3,7 +3,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  SCHEMA, DEFAULT_KEY, emptyState, serialize, deserialize, memoryBackend, createStore, INVALID_STATE_ERROR
+  SCHEMA, DEFAULT_KEY, REJECTED_SUFFIX, emptyState, serialize, deserialize, memoryBackend, createStore,
+  INVALID_STATE_ERROR
 } = require('../src/lib/store.js');
 const { makeProfile, PERSONAL_DATA_ERROR } = require('../src/lib/profile.js');
 const { emptyQueue, submit, approve, statusOf } = require('../src/lib/approval.js');
@@ -81,15 +82,16 @@ test('store: createStore saves and loads through a Web Storage shaped backend', 
   const backend = memoryBackend();
   const store = createStore(backend);
   assert.equal(store.key, DEFAULT_KEY);
-  assert.deepEqual(store.load(), { state: emptyState(), problem: null });
+  assert.deepEqual(store.load(), { state: emptyState(), problem: null, kept: false });
   assert.equal(store.save(STATE), true);
   assert.equal(backend.getItem(DEFAULT_KEY), serialize(STATE));
   const loaded = store.load();
   assert.equal(loaded.problem, null);
+  assert.equal(loaded.kept, false);
   assert.equal(serialize(loaded.state), serialize(STATE));
   assert.equal(store.clear(), true);
   assert.equal(backend.getItem(DEFAULT_KEY), null);
-  assert.deepEqual(store.load(), { state: emptyState(), problem: null });
+  assert.deepEqual(store.load(), { state: emptyState(), problem: null, kept: false });
 });
 
 test('store: a tampered or corrupt document loads as empty with the reason, never as half a roster', () => {
@@ -98,11 +100,23 @@ test('store: a tampered or corrupt document loads as empty with the reason, neve
   const doc = JSON.parse(serialize(STATE));
   doc.people[0] = Object.assign({}, doc.people[0], { phone: '050-1234567' });
   backend.setItem('k', JSON.stringify(doc));
+  const badText = JSON.stringify(doc);
   const tampered = store.load();
   assert.equal(tampered.problem, PERSONAL_DATA_ERROR);
   assert.deepEqual(tampered.state, emptyState());
+  assert.equal(tampered.kept, true);
+  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), badText);
+  assert.equal(store.save(STATE), true);
+  assert.equal(backend.getItem('k'), serialize(STATE));
+  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), badText);
   backend.setItem('k', '<<<');
-  assert.equal(store.load().problem, INVALID_STATE_ERROR + ': not JSON');
+  const corrupt = store.load();
+  assert.equal(corrupt.problem, INVALID_STATE_ERROR + ': not JSON');
+  assert.equal(corrupt.kept, true);
+  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), '<<<');
+  assert.equal(store.clear(), true);
+  assert.equal(backend.getItem('k'), null);
+  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), null);
 });
 
 test('store: a backend that throws (private mode, quota) makes save report false and load fall back to empty', () => {
@@ -113,7 +127,7 @@ test('store: a backend that throws (private mode, quota) makes save report false
   };
   const store = createStore(broken, 'k');
   assert.equal(store.save(STATE), false);
-  assert.deepEqual(store.load(), { state: emptyState(), problem: null });
+  assert.deepEqual(store.load(), { state: emptyState(), problem: null, kept: false });
   assert.equal(store.clear(), false);
   assert.throws(() => createStore({}), /invalid backend/);
   assert.throws(() => createStore(memoryBackend(), ''), /invalid key/);
@@ -122,7 +136,30 @@ test('store: a backend that throws (private mode, quota) makes save report false
 test('store: the memory backend keeps a "__proto__" key like any other key', () => {
   const store = createStore(memoryBackend(), '__proto__');
   assert.equal(store.save(STATE), true);
-  assert.deepEqual(store.load(), { state: STATE, problem: null });
+  assert.deepEqual(store.load(), { state: STATE, problem: null, kept: false });
   assert.equal(store.clear(), true);
-  assert.deepEqual(store.load(), { state: emptyState(), problem: null });
+  assert.deepEqual(store.load(), { state: emptyState(), problem: null, kept: false });
+});
+
+test('store: when the refused copy cannot be written, load reports kept false', () => {
+  const main = memoryBackend();
+  const rejected = memoryBackend();
+  const backend = {
+    getItem: function (key) { return main.getItem(key); },
+    setItem: function (key, value) {
+      if (key.endsWith(REJECTED_SUFFIX)) return rejected.setItem(key, value);
+      return main.setItem(key, value);
+    },
+    removeItem: function (key) {
+      main.removeItem(key);
+      rejected.removeItem(key);
+    }
+  };
+  rejected.setItem = function () { throw new Error('QuotaExceededError'); };
+  const store = createStore(backend, 'k');
+  main.setItem('k', '<<<');
+  const loaded = store.load();
+  assert.equal(loaded.problem, INVALID_STATE_ERROR + ': not JSON');
+  assert.equal(loaded.kept, false);
+  assert.equal(rejected.getItem('k' + REJECTED_SUFFIX), null);
 });
