@@ -83,9 +83,17 @@
 
   <!-- ============ אנשים ============ -->
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">
+    <!-- What profile.makeProfile takes is what this says: the four matching fields and the consent flag,
+         the three lists no screen here writes or shows (blockedUsers, reportEvent, responseToReport - a
+         stored person that carries them keeps them through a load, a consent flip and a save), and the
+         retention stamp it writes itself. Until this the banner called the four fields and the flag "the
+         only record that is kept" over an ACCEPTED_FIELDS of eight keys, the line the README dropped in #322. -->
     <div class="banner">
-      הרשומה היחידה שנשמרת היא תפקיד, אזור, שעות פנויות ומקצועות, ולתלמיד גם האם התקבל אישור הורה (כן/לא
-      בלבד). כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה בפעולה במסך "פרטיות".
+      על כל משתתף נשמרים תפקיד, אזור, שעות פנויות ומקצועות, ולתלמיד גם האם התקבל אישור הורה (כן/לא
+      בלבד), וחותמת שמירה שהקוד כותב בעצמו. הרשומה מקבלת עוד שלוש רשימות שאף מסך כאן לא כותב ולא מציג —
+      חסומים (מזהים אטומים בלבד), דיווחים ותגובות לדיווח, שהפירוט שלהם עובר את שער הטקסט — ורשימה שמורה
+      שמביאה אותן שומרת אותן. כל שדה אחר — שם, טלפון, מייל, כתובת — נדחה בקוד, לא בהנחיה. אפשר לראות את זה
+      בפעולה במסך "פרטיות".
     </div>
     <div class="card">
       <h2>הוספת משתתף</h2>
@@ -176,8 +184,8 @@
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" tabindex="-1" hidden>
     <div class="card">
       <h2>הדגמה: שער הטקסט</h2>
-      <p class="hint">הטקסט החופשי שהאפליקציה שומרת הוא רק כותרת ותוכן של יחידה וסיבת דחייה, וכל אחד מהם עובר
-        קודם בשער הזה. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
+      <p class="hint">הטקסט החופשי שהאפליקציה שומרת הוא כותרת ותוכן של יחידה, סיבת דחייה, והפירוט של דיווח או
+        של תגובה לדיווח ברשומת משתתף (אף מסך כאן לא כותב אותו), וכל אחד מהם עובר קודם בשער הזה. הדבק טקסט עם טלפון, מייל, תעודת זהות, קישור או מילה גסה ותראה מה נחסם.</p>
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12" aria-required="true" aria-describedby="checkStatus"></textarea>
       <div class="actions">
