@@ -29,6 +29,10 @@ function fakeElement(id) {
 
 // opts.store: initial localStorage content. opts.saveFails: setItem throws, like a full or blocked
 // storage. opts.noStorage: window.localStorage itself throws, like a browser with site data blocked.
+// opts.clipboard: 'ok' gives the app a navigator.clipboard whose writeText resolves and keeps the text
+// ($.clipboard()), 'refuse' one whose writeText rejects, like a phone browser without permission; read on
+// every call, so a test may flip it between clicks. Unset, there is no navigator, like a browser without
+// the API. writeText resolves in a later microtask, like the real one: await a tick before reading.
 // Returns $ (element lookup) plus what the app handed out
 // (downloads: every Blob the app turned into a file, with its text).
 function openApp(opts) {
@@ -105,11 +109,24 @@ function openApp(opts) {
     setTimeout: (fn) => fn(),
     console
   };
+  let clipboardText = null;
+  if (opts.clipboard) {
+    ctx.navigator = {
+      clipboard: {
+        writeText: (t) => {
+          if (opts.clipboard === 'refuse') return Promise.reject(new Error('NotAllowedError'));
+          clipboardText = String(t);
+          return Promise.resolve();
+        }
+      }
+    };
+  }
   vm.createContext(ctx);
   for (const code of scripts) vm.runInContext(code, ctx);
   $.downloads = downloads;
   $.created = created;
   $.store = store;
+  $.clipboard = () => clipboardText;
   return $;
 }
 
