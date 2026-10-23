@@ -2836,16 +2836,30 @@ module.exports = {
   }
 
   // One sentence per explainUnmatched() code. The other side is named by role.
-  function reasonHe(code, role) {
+  // For a student, the hour and subject codes are judged over the pupils in the region that have parent
+  // consent only (explainUnmatched applies the gate candidatesOf does). Until this the line said "אף
+  // תלמיד באזור" / "לאף תלמיד באזור" - over a pupil without consent from the same region, listed on the
+  // same card, who shares that hour or that subject. So when the region holds such pupils (x.waiting,
+  // from computeMatch) the line says it counts only pupils with consent, and names by list number the ones
+  // that share an hour and a subject with this student and wait only for the consent (x.fits).
+  function reasonHe(code, role, x) {
     var other = role === 'student' ? 'תלמיד' : 'סטודנט';
+    var gated = role === 'student' && x && x.waiting && x.waiting.length > 0;
+    var who = gated ? 'תלמיד עם אישור הורה' : other;
+    var fits = gated && x.fits && x.fits.length
+      ? (x.fits.length === 1 ? ' תלמיד #' + x.fits[0] + ' מהאזור חולק איתו שעה ומקצוע ומחכה רק'
+        : ' תלמידים ' + x.fits.map(function (n) { return '#' + n; }).join(', ') + ' מהאזור חולקים איתו שעה ומקצוע ומחכים רק') +
+        ' לאישור הורה. מסמנים אישור במסך "אנשים".'
+      : gated ? ' תלמידים בלי אישור הורה לא נספרים כאן.' : '';
     switch (code) {
       case 'NO_PARENT_CONSENT': return role === 'pupil'
         ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים".'
         : 'לאף תלמיד באזור אין עדיין אישור הורה, אז אין עם מי לשדך.';
       case 'NO_ONE_IN_REGION': return 'אין באזור הזה אף ' + other + '.';
-      case 'NO_SHARED_HOUR': return 'אף ' + other + ' באזור לא פנוי באותה שעה.';
-      case 'NO_SHARED_SUBJECT': return 'לאף ' + other + ' באזור אין מקצוע משותף.';
-      case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש מי שפנוי באותה שעה ויש מי שחולק מקצוע, אבל לא אותו אחד.';
+      case 'NO_SHARED_HOUR': return 'אף ' + who + ' באזור לא פנוי באותה שעה.' + fits;
+      case 'NO_SHARED_SUBJECT': return 'לאף ' + who + ' באזור אין מקצוע משותף.' + fits;
+      case 'NO_HOUR_AND_SUBJECT_TOGETHER': return 'באזור יש ' + (gated ? 'תלמיד עם אישור הורה ' : 'מי ') +
+        'שפנוי באותה שעה ויש ' + (gated ? 'תלמיד עם אישור ' : 'מי ') + 'שחולק מקצוע, אבל לא אותו אחד.' + fits;
       case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
       default: return '';
     }
@@ -2902,7 +2916,20 @@ module.exports = {
     why.students.forEach(function (w) { left.push({ role: 'student', e: r.students[w.index], reason: w.reason }); });
     why.pupils.forEach(function (w) { left.push({ role: 'pupil', e: r.pupils[w.index], reason: w.reason }); });
     left.sort(function (a, b) { return a.e.number - b.e.number; });
-    var across = match.matchAcrossRegions(S, P, pairs).map(function (p) {
+    // for reasonHe: the pupils without consent in a left student's region, and those of them that share
+    // an hour and a subject with that student
+    left.forEach(function (x) {
+      if (x.role !== 'student') return;
+      var me = x.e.person;
+      var waiting = r.pupils.filter(function (p) {
+        return p.person.region === me.region && !match.hasParentConsent(p.person);
+      });
+      x.waiting = waiting.map(function (p) { return p.number; });
+      x.fits = waiting.filter(function (p) {
+        return match.hasOverlap(me.availability, p.person.availability) && match.hasOverlap(me.subjects, p.person.subjects);
+      }).map(function (p) { return p.number; });
+    });
+    var across =match.matchAcrossRegions(S, P, pairs).map(function (p) {
       return { studentRegion: p.studentRegion, pupilRegion: p.pupilRegion,
                student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
                sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
@@ -2981,7 +3008,7 @@ module.exports = {
       return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
         esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
         x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        '<br>' + reasonHe(x.reason, x.role) + '</span></div>';
+        '<br>' + reasonHe(x.reason, x.role, x) + '</span></div>';
     }).join('') : '<p class="empty">כולם שובצו.</p>';
     $('across').innerHTML = m.across.length ? m.across.map(function (p) {
       return '<div class="item pair"><b>' + ROLE_HE.pupil + ' #' + p.pupil + ' (' + esc(REGION_HE[p.pupilRegion] || p.pupilRegion) +
@@ -3022,7 +3049,7 @@ module.exports = {
     rows.push(csvRow(['תפקיד', 'מספר ברשימה', 'אזור', 'מקצועות', 'סיבה']));
     last.left.forEach(function (x) {
       rows.push(csvRow([ROLE_HE[x.role], x.e.number, REGION_HE[x.e.person.region] || x.e.person.region,
-        subjectsHe(x.e.person.subjects), reasonHe(x.reason, x.role)]));
+        subjectsHe(x.e.person.subjects), reasonHe(x.reason, x.role, x)]));
     });
     if (last.across.length) {
       rows.push('');
