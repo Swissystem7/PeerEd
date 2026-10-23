@@ -3142,13 +3142,19 @@ module.exports = {
     // The form held a rejected unit and what was sent has another id: the rejected one was not revised,
     // it is still in the rejected list, and the line says so instead of "submitted" as if it had moved.
     var besideRejected = revising && revising.id !== made.id;
+    // A revised approved unit leaves the approved list: the approve line had said "מעכשיו תלמידים רואים
+    // את היחידה", and "חזרה להמתנה" alone did not say that promise is off until it is approved again, nor
+    // that the lessons form no longer offers it. The lessons already logged with it stay (unitTaughtOk).
+    var wasApprovedHe = before === 'approved'
+      ? ' עד שתאושר שוב תלמידים לא רואים אותה, ובמסך "שיעורים" אי אפשר לרשום איתה שיעור; שיעורים שכבר נרשמו איתה נשארים ביומן.'
+      : '';
     say('unitStatus', before === null
       ? (besideRejected
         ? 'הוגש כיחידה חדשה וממתין לאישור. מזהה: ' + made.id + '. הכותרת, המקצוע או המשך שונים מאלה של "' +
           revising.title + '", אז היא יחידה אחרת: "' + revising.title + '" נשארה ברשימת הנדחות כפי שהיא.'
         : 'הוגש וממתין לאישור. מזהה: ' + made.id)
       : (before === 'pending' ? 'הטקסט עודכן, היחידה עדיין ממתינה לאישור, עכשיו כגרסה ' + revision + '.'
-        : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + revision + '.') +
+        : 'הטקסט עודכן, היחידה חזרה להמתנה כגרסה ' + revision + '.' + wasApprovedHe) +
         (besideRejected ? ' זו יחידה אחרת מ"' + revising.title + '", שנשארה ברשימת הנדחות כפי שהיא.' : ''));
     revising = null;
     save('unitStatus');
