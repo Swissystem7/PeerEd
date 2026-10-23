@@ -125,7 +125,8 @@
     <div class="card">
       <h2>מחיקה מהמכשיר הזה</h2>
       <p class="hint">הכול נשמר רק בדפדפן הזה. לפני שמוסרים את הטלפון או כשפיילוט נגמר מוחקים מכאן את הרשימה, את תור
-        היחידות ואת יומן השיעורים. אין גיבוי ואין שחזור.</p>
+        היחידות ואת יומן השיעורים. אין גיבוי ואין שחזור. קובץ זוגות שהורד במסך השידוך כבר לא בדפדפן אלא בהורדות
+        של המכשיר, ואותו מוחקים משם.</p>
       <div class="actions"><button type="button" class="ghost" id="wipeBtn" aria-expanded="false" aria-controls="wipeCancel wipeStatus" aria-describedby="wipeStatus">מחק הכול מהמכשיר הזה</button>
         <button type="button" class="ghost" id="wipeCancel" aria-label="בטל מחיקה מהמכשיר" aria-describedby="wipeStatus" hidden>ביטול</button></div>
       <p class="status" id="wipeStatus" role="status"></p>
@@ -2816,6 +2817,11 @@ module.exports = {
   // Everyone on the list when that file went down, in its order (index + 1 = the number the file gives
   // them), followed through consent toggles like filePairs. Null when no file went down.
   var filePeople = null;
+  // How many pairs files went down in this visit. Unlike the flags above it is never cleared - not when
+  // the list is emptied, not by the wipe: the file sits in the device's downloads, outside the browser
+  // storage the wipe clears, so after a wipe it is still there. The wipe lines name it instead of
+  // saying the device holds nothing from the list. A file from an earlier visit is not known here.
+  var pairsFilesDown = 0;
 
   function resetMatchView() {
     last = null;
@@ -2980,6 +2986,7 @@ module.exports = {
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
     pairsFileDownloaded = true;
+    pairsFilesDown += 1;
     // last is reset on every change to the list, so its numbers are places in state.people right now
     filePeople = state.people.slice();
     filePairs = last.pairs.map(function (p, i) {
@@ -3556,6 +3563,14 @@ module.exports = {
     if (refusedKept) return 'העותק שנשמר בצד של הרשימה השמורה שנדחתה בטעינה';
     return '';
   }
+  // The pairs files that went down in this visit, which no click here removes; '' when none did.
+  function filesLeftHe() {
+    if (!pairsFilesDown) return '';
+    return pairsFilesDown === 1
+      ? ' קובץ הזוגות peered-pairs.csv שירד מכאן בביקור הזה נמצא בהורדות של המכשיר, מחוץ לדפדפן: הכפתור הזה לא מוחק אותו - מוחקים אותו מההורדות.'
+      : ' ' + pairsFilesDown + ' קובצי הזוגות (peered-pairs.csv) שירדו מכאן בביקור הזה נמצאים בהורדות של המכשיר, מחוץ לדפדפן: ' +
+        'הכפתור הזה לא מוחק אותם - מוחקים אותם מההורדות.';
+  }
   function setWipeArmed(on) {
     wipeArmed = on;
     var wb = $('wipeBtn');
@@ -3572,24 +3587,27 @@ module.exports = {
       // press still clears the stored keys, since an unreadable document may still be sitting there -
       // and when load() refused one, that document (and the copy it kept) is named, not "cleaned anyway".
       var refused = refusedHe();
+      var files = filesLeftHe();
       // With the storage blocked (storageBlocked) nothing here reaches the device: what is on the screen
       // sits in memory for this visit, and a list saved on an earlier visit - the one load() said it
       // could not read - is out of this button's reach as well. Both are said, so neither click claims
       // the device.
       if (!state.people.length && !units && !lessons) {
         say('wipeStatus', refused
-          ? 'על המסך אין משתתפים, יחידות או שיעורים, אבל באחסון עדיין יש ' + refused + '. לחץ שוב כדי למחוק את זה מהאחסון, או ביטול.'
+          ? 'על המסך אין משתתפים, יחידות או שיעורים, אבל באחסון עדיין יש ' + refused + '.' + files +
+            ' לחץ שוב כדי למחוק את זה מהאחסון, או ביטול.'
           : storageBlocked
             ? 'על המסך אין משתתפים, יחידות או שיעורים, והדפדפן לא מאפשר אחסון מקומי, אז מכאן אין מה למחוק. ' +
-              BLOCKED_LEFTOVER_HE + ' לחץ שוב כדי לנקות בכל זאת את הזיכרון, או ביטול.'
-            : 'אין במכשיר הזה משתתפים, יחידות או שיעורים. לחץ שוב כדי לנקות בכל זאת את האחסון, או ביטול.');
+              BLOCKED_LEFTOVER_HE + files + ' לחץ שוב כדי לנקות בכל זאת את הזיכרון, או ביטול.'
+            : (files ? 'בדפדפן הזה אין משתתפים, יחידות או שיעורים.' + files
+              : 'אין במכשיר הזה משתתפים, יחידות או שיעורים.') + ' לחץ שוב כדי לנקות בכל זאת את האחסון, או ביטול.');
         return;
       }
       say('wipeStatus', 'יימחקו ' + countHe(state.people.length, 'משתתף', 'משתתפים') + ', ' +
         countHe(units, 'יחידה', 'יחידות', 'אחת') + (lessons === 1 ? ' ו' : ' ו-') +
         countHe(lessons, 'שיעור', 'שיעורים') + (refused ? ', ואיתם גם ' + refused : '') +
         (storageBlocked ? ' - מהזיכרון בלבד, כי הדפדפן לא מאפשר אחסון מקומי ובאחסון הם לא נשמרו' : '') +
-        '. לחץ שוב כדי לאשר, או ביטול.');
+        '.' + files + ' לחץ שוב כדי לאשר, או ביטול.');
       return;
     }
     var refusedGone = refusedHe();
@@ -3622,12 +3640,14 @@ module.exports = {
     // was emptied (the screen and the memory) and what this button could not touch, instead of
     // "nothing is left on this device" over a storage load() has just said it could not read.
     if (storageBlocked) {
-      say('wipeStatus', 'נמחק מהמסך ומהזיכרון. הדפדפן לא מאפשר אחסון מקומי, אז ' + BLOCKED_LEFTOVER_HE, true);
+      say('wipeStatus', 'נמחק מהמסך ומהזיכרון. הדפדפן לא מאפשר אחסון מקומי, אז ' + BLOCKED_LEFTOVER_HE + filesLeftHe(), true);
       return;
     }
-    say('wipeStatus', removed ? 'נמחק. במכשיר הזה לא נשאר דבר מהרשימה, מהיחידות ומהיומן.' +
-        (refusedGone ? ' גם ' + refusedGone + ' כבר לא באחסון.' : '')
-      : 'נמחק מהמסך, אבל הדפדפן לא אפשר למחוק מהאחסון המקומי. נקה את נתוני האתר בהגדרות הדפדפן.', !removed);
+    // A pairs file that went down is the match result of this list, by list number, and it is on the
+    // device: "nothing is left on this device" over it would send the phone on with that file in it.
+    say('wipeStatus', removed ? 'נמחק. ' + (pairsFilesDown ? 'בדפדפן' : 'במכשיר') + ' הזה לא נשאר דבר מהרשימה, מהיחידות ומהיומן.' +
+        (refusedGone ? ' גם ' + refusedGone + ' כבר לא באחסון.' : '') + filesLeftHe()
+      : 'נמחק מהמסך, אבל הדפדפן לא אפשר למחוק מהאחסון המקומי. נקה את נתוני האתר בהגדרות הדפדפן.' + filesLeftHe(), !removed);
   });
   $('wipeCancel').addEventListener('click', function () {
     setWipeArmed(false);
