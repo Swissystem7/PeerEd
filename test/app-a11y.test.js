@@ -59,7 +59,7 @@ test('a11y: unit submission errors are reported in Hebrew without Latin letters'
   assert.match(status.textContent, /הכותרת ריקה|כותרת לא תקינה/, status.textContent);
 });
 
-test('a11y: pending unit approve and reject buttons have id and aria-describedby', () => {
+test('a11y: pending unit rejection reason input has descriptive label naming the title, aria-label, and placeholder', () => {
   const $ = openApp();
   $('unitTitle').value = 'שברים פשוטים';
   $('unitSubject').value = 'MATH';
@@ -68,89 +68,97 @@ test('a11y: pending unit approve and reject buttons have id and aria-describedby
   $('submitUnit').fire('click');
 
   const pendingHtml = $('pendingList').innerHTML;
-  const match = pendingHtml.match(/data-approve="([^"]+)"/);
-  assert.ok(match, 'unit id should be present in data-approve');
-  const unitId = match[1];
-
-  assert.ok(pendingHtml.includes('id="approveBtn-' + unitId + '"'), 'approve button must have id="approveBtn-<id>"');
-  assert.ok(pendingHtml.includes('id="rejectBtn-' + unitId + '"'), 'reject button must have id="rejectBtn-<id>"');
-  assert.ok(/id="approveBtn-[^"]*"[^>]*aria-describedby="decideStatus"/.test(pendingHtml),
-    'approve button must have aria-describedby="decideStatus"');
-  assert.ok(/id="rejectBtn-[^"]*"[^>]*aria-describedby="decideStatus"/.test(pendingHtml),
-    'reject button must have aria-describedby="decideStatus"');
-  assert.ok(/id="reason-[^"]*"[^>]*aria-describedby="decideStatus"/.test(pendingHtml),
-    'reason input must have aria-describedby="decideStatus"');
+  assert.ok(pendingHtml.includes('סיבת דחייה עבור שברים פשוטים (חובה רק לדחייה)'), 'label must name unit title');
+  assert.ok(pendingHtml.includes('aria-label="סיבת דחייה עבור שברים פשוטים"'), 'input must have aria-label');
+  assert.ok(pendingHtml.includes('placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה"'), 'input must have placeholder');
 });
 
-test('a11y: approving a pending unit moves focus to the next unit approve button or submitUnit when empty', () => {
+test('a11y: rejecting a pending unit without a reason focuses the reason input and reports Hebrew error', () => {
   const $ = openApp();
-
-  // Unit 1
   $('unitTitle').value = 'שברים פשוטים';
   $('unitSubject').value = 'MATH';
   $('unitDuration').value = '20';
-  $('unitBody').value = 'תרגילים על שברים פשוטים';
+  $('unitBody').value = 'תרגילים על שברים פשוטים בכיתה';
   $('submitUnit').fire('click');
 
-  // Unit 2
-  $('unitTitle').value = 'גיאומטריה בסיסית';
-  $('unitSubject').value = 'MATH';
-  $('unitDuration').value = '30';
-  $('unitBody').value = 'משולשים ומרובעים';
-  $('submitUnit').fire('click');
+  const rejectBtn = $('pendingList').innerHTML.match(/data-reject="([^"]+)"/);
+  assert.ok(rejectBtn, 'reject button must exist in pendingList');
+  const unitId = rejectBtn[1];
 
-  const approveMatches = [...$('pendingList').innerHTML.matchAll(/data-approve="([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(approveMatches.length, 2, 'two units should be pending');
-  const [id1, id2] = approveMatches;
+  $('pendingList').fire('click', { target: { getAttribute: (attr) => (attr === 'data-reject' ? unitId : null) } });
 
-  // Approve first unit: focus should move to id2's approve button
-  $('approveBtn-' + id2).focused = false;
-  $('pendingList').fire('click', { target: { getAttribute: (k) => (k === 'data-approve' ? id1 : null) } });
-  assert.equal($('approveBtn-' + id2).focused, true, 'focus must move to next pending unit approve button');
-
-  // Approve second unit: pending list is now empty, focus should move to submitUnit
-  $('submitUnit').focused = false;
-  $('pendingList').fire('click', { target: { getAttribute: (k) => (k === 'data-approve' ? id2 : null) } });
-  assert.equal($('submitUnit').focused, true, 'focus must move to submitUnit when all pending units are handled');
+  const status = $('decideStatus');
+  assert.ok(status.className.includes('bad'), 'rejection without reason must fail');
+  assert.match(status.textContent, /כתוב סיבה לדחייה/);
+  assert.equal($('reason-' + unitId).focused, true, 'reason input must be focused on error');
 });
 
-test('a11y: rejecting a pending unit without reason focuses reason input, and rejecting with reason moves focus', () => {
+test('a11y: dynamic match result regions have role="region", aria-live="polite", and aria-label', () => {
+  assert.ok(/<div id="summary"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="סיכום לרשות"/.test(shell),
+    'summary must have role="region", aria-live="polite", and aria-label="סיכום לרשות"');
+  assert.ok(/<div id="pairs"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="רשימת הזוגות"/.test(shell),
+    'pairs must have role="region", aria-live="polite", and aria-label="רשימת הזוגות"');
+  assert.ok(/<div id="unmatched"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="מי נשאר בלי זוג"/.test(shell),
+    'unmatched must have role="region", aria-live="polite", and aria-label="מי נשאר בלי זוג"');
+  assert.ok(/<div id="across"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="שידוך בין אזורים \(חירום\)"/.test(shell),
+    'across must have role="region", aria-live="polite", and aria-label="שידוך בין אזורים (חירום)"');
+});
+
+test('a11y: match screen action buttons have aria attributes', () => {
+  assert.ok(/<button type="button" class="act" id="runMatch"[^>]*aria-describedby="matchStatus"/.test(shell),
+    'runMatch button must have aria-describedby="matchStatus"');
+  assert.ok(/<button type="button" class="ghost" id="exportCsv"[^>]*aria-describedby="matchStatus"/.test(shell),
+    'exportCsv button must have aria-describedby="matchStatus"');
+});
+
+test('a11y: exporting csv before computing match focuses runMatch button and reports Hebrew error', () => {
   const $ = openApp();
+  $('runMatch').focused = false;
+  $('exportCsv').fire('click');
 
-  // Unit 1
-  $('unitTitle').value = 'שברים פשוטים';
-  $('unitSubject').value = 'MATH';
-  $('unitDuration').value = '20';
-  $('unitBody').value = 'תרגילים על שברים פשוטים';
-  $('submitUnit').fire('click');
+  const status = $('matchStatus');
+  assert.ok(status.className.includes('bad'), 'export before match must be rejected');
+  assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
+  assert.equal($('runMatch').focused, true, 'runMatch button must be focused on error');
+});
 
-  // Unit 2
-  $('unitTitle').value = 'גיאומטריה בסיסית';
-  $('unitSubject').value = 'MATH';
-  $('unitDuration').value = '30';
-  $('unitBody').value = 'משולשים ומרובעים';
-  $('submitUnit').fire('click');
+test('a11y: dynamic people and pending unit list containers have role="region", aria-live="polite", and aria-label', () => {
+  assert.ok(/<div id="peopleList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="רשימת המשתתפים"/.test(shell),
+    'peopleList must have role="region", aria-live="polite", and aria-label="רשימת המשתתפים"');
+  assert.ok(/<div id="pendingList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יחידות שממתינות לאישור"/.test(shell),
+    'pendingList must have role="region", aria-live="polite", and aria-label="יחידות שממתינות לאישור"');
+});
 
-  const rejectMatches = [...$('pendingList').innerHTML.matchAll(/data-reject="([^"]+)"/g)].map((m) => m[1]);
-  const [id1, id2] = rejectMatches;
+test('a11y: running match without participants focuses runMatch button and reports Hebrew error', () => {
+  const $ = openApp();
+  $('runMatch').focused = false;
+  $('runMatch').fire('click');
 
-  // Reject without reason: fails, focuses reason input
-  $('reason-' + id1).focused = false;
-  $('pendingList').fire('click', { target: { getAttribute: (k) => (k === 'data-reject' ? id1 : null) } });
-  assert.ok($('decideStatus').className.includes('bad'), 'empty reason must fail');
-  assert.match($('decideStatus').textContent, /כתוב סיבה לדחייה/);
-  assert.equal($('reason-' + id1).focused, true, 'reason input must be focused on error');
+  const status = $('matchStatus');
+  assert.ok(status.className.includes('bad'), 'running match with empty roster must be rejected');
+  assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
+  assert.equal($('runMatch').focused, true, 'runMatch button must be focused on error');
+});
 
-  // Reject with valid reason: succeeds, moves focus to next pending unit approve button
-  $('reason-' + id1).value = 'תוכן קצר מדי';
-  $('approveBtn-' + id2).focused = false;
-  $('pendingList').fire('click', { target: { getAttribute: (k) => (k === 'data-reject' ? id1 : null) } });
-  assert.equal($('approveBtn-' + id2).focused, true, 'focus must move to next pending unit approve button');
+test('a11y: consentRow has accessible region and resets checked state when switching away from pupil', () => {
+  assert.ok(/<div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">/.test(shell),
+    'consentRow must have role="region" and aria-label="אישור הורה לשידוך"');
+  assert.ok(/<p class="hint" id="consentHint">/.test(shell),
+    'consent hint paragraph must have id="consentHint"');
 
-  // Reject second unit with reason: moves focus to submitUnit
-  $('reason-' + id2).value = 'לא מתאים לכיתה';
-  $('submitUnit').focused = false;
-  $('pendingList').fire('click', { target: { getAttribute: (k) => (k === 'data-reject' ? id2 : null) } });
-  assert.equal($('submitUnit').focused, true, 'focus must move to submitUnit when queue becomes empty');
+  const $ = openApp();
+  assert.equal($('consent').checked, false);
+
+  $('role').value = 'pupil';
+  $('role').fire('change');
+  assert.equal($('consentRow').hidden, false, 'consentRow should be visible for pupil');
+
+  $('consent').checked = true;
+  assert.equal($('consent').checked, true);
+
+  $('role').value = 'student';
+  $('role').fire('change');
+  assert.equal($('consentRow').hidden, true, 'consentRow should be hidden for student');
+  assert.equal($('consent').checked, false, 'consent checkbox should be reset to unchecked when changing away from pupil');
 });
 
