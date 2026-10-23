@@ -2740,9 +2740,16 @@ module.exports = {
     var fileNo = filePeople ? filePeople.indexOf(gone) + 1 : 0;
     var filePair = null;
     (filePairs || []).forEach(function (fp) { if (fileNo && (fp.pupil === fileNo || fp.student === fileNo)) filePair = fp; });
-    var fileNote = !fileNo || (moved && !filePair) ? ''
+    // Someone the file does not pair may be in its cross-region section, offered to someone in another region.
+    var fileAcrossHit = null;
+    if (!filePair && fileNo) (fileAcross || []).forEach(function (fa) {
+      if (!fileAcrossHit && (fa.pupil === fileNo || fa.student === fileNo)) fileAcrossHit = fa;
+    });
+    var fileNote = !fileNo || (moved && !filePair && !fileAcrossHit) ? ''
       : (moved ? ' בקובץ הוא היה #' : ' בקובץ הזוגות שירד קודם הוא עדיין #') + fileNo +
-        (filePair ? ', בזוג ' + filePair.pair + ' (תלמיד #' + filePair.pupil + ' עם סטודנט מלמד #' + filePair.student + ')' : '') +
+        (filePair ? ', בזוג ' + filePair.pair + ' (תלמיד #' + filePair.pupil + ' עם סטודנט מלמד #' + filePair.student + ')'
+          : fileAcrossHit ? ', בהצעות בין אזורים (תלמיד #' + fileAcrossHit.pupil + ' עם סטודנט מלמד #' + fileAcrossHit.student + ')'
+          : '') +
         (!moved && fileNo === delIndex + 1 ? ', ומי שיתווסף עכשיו יקבל ברשימה את #' + fileNo : '') +
         ': הקובץ לא מתעדכן לבד - לחץ "חשב שידוך" והורד אותו מחדש.';
     say('addStatus', moved
