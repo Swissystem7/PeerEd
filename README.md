@@ -64,10 +64,14 @@ apart, and the students missing by region and subject), on the screen with no fi
 
 No accounts, no sharing between devices (the state lives in one browser's localStorage), no reports for a
 municipality beyond two on-screen count cards, both titled "סיכום לרשות" (the match screen's, which has no
-file, and the session counts on the sessions screen with their CSV export), no accessibility work
-beyond keyboard navigation of the tab bar and the text contrast audit (no screen-reader pass; the card and
-field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.11, and the audit does not cover borders because
-lightening them is a look still to be chosen), no Arabic or Russian, regions are national rather than one
+file, and the session counts on the sessions screen with their CSV export), no screen-reader pass: the
+accessibility work is markup and focus checked by the `test/a11y-*` and `test/app-a11y.test.js` files
+against a fake DOM (the tab bar's keyboard navigation and tab panels, every status line a `role="status"`,
+the lists `aria-live` regions, the hour and subject buttons and the consent button `aria-pressed`, hints tied
+by `aria-describedby`, a refused form moving focus to the field at fault, a delete or a decision moving it to
+the next button, a visible focus ring, the text contrast audit), never heard through NVDA, VoiceOver or
+TalkBack; the card and field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.11, and the audit does not
+cover borders because lightening them is a look still to be chosen; no Arabic or Russian, regions are national rather than one
 municipality's neighbourhoods. Nothing here has been used by a real coordinator.
 
 The gateway for AI content in `PURPOSE.md` is not offered; the text gate stays as a demonstration of the
