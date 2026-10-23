@@ -1200,10 +1200,18 @@
     }
     el.disabled = values.length === 0;
   }
+  // The form's empty options when there is no pair. A pair always shares an hour and a subject
+  // (match.candidatesOf), so an empty hour or subject list means no pair, not a pair short of them:
+  // "אין שעות פנויות לבחירה" read as if a pair had no free hour, and the unit option's "בחר זוג
+  // תחילה" asked for a pick from a pair list that has nothing in it. And the card's own hint says
+  // the pairs are derived from the roster, so the pair option must not send the coordinator to click
+  // "חשב שידוך" as if that made them: that button shows the pairs and why someone is left out.
+  var NO_PAIR_HE = 'אין עדיין זוג. הזוגות נגזרים מהרשימה במסך "אנשים" - סטודנט ותלמיד עם אישור הורה מאותו אזור ' +
+    'שחולקים שעה ומקצוע; "חשב שידוך" במסך השידוך רק מציג אותם ואת הסיבה אצל מי שנשאר בלי זוג.';
   function renderSessionUnits() {
     var subject = $('sessionSubject').value;
     if (!subject) {
-      $('sessionUnit').innerHTML = '<option value="">אין יחידה לבחירה — בחר זוג תחילה</option>';
+      $('sessionUnit').innerHTML = '<option value="">אין זוג, אז אין יחידה לבחירה</option>';
       $('sessionUnit').disabled = true;
       return;
     }
@@ -1219,9 +1227,9 @@
   }
   function renderSessionChoices(pairs) {
     var pair = pairs[Number($('sessionPair').value)];
-    fillSelect('sessionSlot', pair ? pair.sharedSlots : [], slotHe, 'אין שעות פנויות לבחירה');
+    fillSelect('sessionSlot', pair ? pair.sharedSlots : [], slotHe, 'אין זוג, אז אין שעה לבחירה');
     var subjects = pair ? pair.sharedSubjects : [];
-    fillSelect('sessionSubject', subjects, function (s) { return SUBJECT_HE[s] || s; }, 'אין מקצועות משותפים לבחירה');
+    fillSelect('sessionSubject', subjects, function (s) { return SUBJECT_HE[s] || s; }, 'אין זוג, אז אין מקצוע לבחירה');
     // Start on the first shared subject that has an approved unit, so the unit list is not empty by default.
     var approved = approval.approvedUnits(state.queue);
     for (var i = 0; i < subjects.length; i += 1) {
@@ -1240,7 +1248,7 @@
         ROLE_HE.student + ' #' + r.students[p.studentIndex].number + ' עם ' +
         ROLE_HE.pupil + ' #' + r.pupils[p.pupilIndex].number + ' · ' +
         p.sharedSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ');
-    }, 'אין עדיין זוגות משודכים — הוסף משתתפים וחשב שידוך');
+    }, NO_PAIR_HE);
     renderSessionChoices(pairs);
   }
 
