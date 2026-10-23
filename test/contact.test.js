@@ -54,3 +54,17 @@ test('the app shows the configured channel, and hides the box when there is none
   const built = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
   assert.ok(built.includes("var CONTACT = '" + OWNER_FORM + "';"), 'app.html is rebuilt with the form link');
 });
+
+test('a11y: contactLink has aria-describedby pointing to contactNote', () => {
+  const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  assert.ok(/<a id="contactLink"[^>]*aria-describedby="contactNote"/.test(shell),
+    'contactLink must have aria-describedby="contactNote"');
+});
+
+test('a11y: external contact link sets target, rel, and announces new tab', () => {
+  const $ = openApp();
+  assert.equal($('contactLink').getAttribute('target'), '_blank');
+  assert.equal($('contactLink').getAttribute('rel'), 'noopener noreferrer');
+  assert.equal($('contactLink').getAttribute('aria-label'), $('contactLink').textContent + ' (נפתח בלשונית חדשה)');
+});
+

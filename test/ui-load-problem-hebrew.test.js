@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const { openApp } = require('../test-support/fake-dom.js');
 
 const KEY = 'peered_app_v1';
+const REJECTED_KEY = KEY + ':rejected';
 const LATIN = /[A-Za-z]/;
 
 function openWith(text) {
@@ -20,6 +21,8 @@ test('a saved list that is not JSON is reported in Hebrew', () => {
   assert.ok($('addStatus').className.includes('bad'), $('addStatus').textContent);
   assert.match($('addStatus').textContent, /נדחתה/);
   assert.match($('addStatus').textContent, /הקובץ השמור פגום/);
+  assert.match($('addStatus').textContent, /עותק שלה נשמר בצד/);
+  assert.equal($.store[REJECTED_KEY], '{not json');
   assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
 });
 

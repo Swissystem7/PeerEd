@@ -18,6 +18,9 @@ const SCHEMA = 'peered/1';
 const DEFAULT_KEY = 'peered_app_v1';
 const ACCEPTED_FIELDS = Object.freeze(['schema', 'people', 'queue', 'log']);
 const INVALID_STATE_ERROR = 'invalid stored state';
+// Where load() puts a document it refused. The app then starts empty, and its first save writes over the
+// main key: without this copy one added person erased the whole refused roster, queue and log for good.
+const REJECTED_SUFFIX = ':rejected';
 
 function emptyState() {
   return Object.freeze({ people: Object.freeze([]), queue: emptyQueue(), log: emptyLog() });
@@ -90,8 +93,10 @@ function isBackend(b) {
 }
 
 // createStore(backend, key): save(state) writes, load() reads. load never throws: it returns
-// { state, problem } where problem is null on success and the reason otherwise, with state reset to
-// empty - the app keeps opening, and the screen can say why the roster is gone instead of guessing.
+// { state, problem, kept } where problem is null on success and the reason otherwise, with state reset
+// to empty - the app keeps opening, and the screen can say why the roster is gone instead of guessing.
+// A refused document is copied as is to key + REJECTED_SUFFIX before anything can overwrite it; kept
+// says whether that copy was written. clear() removes both keys.
 function createStore(backend, key) {
   if (!isBackend(backend)) throw new Error('invalid backend: expected getItem, setItem, removeItem');
   const storageKey = key === undefined ? DEFAULT_KEY : key;
@@ -106,15 +111,20 @@ function createStore(backend, key) {
     load: function () {
       let text;
       try { text = backend.getItem(storageKey); } catch (e) { text = null; }
-      if (text === null || text === undefined) return { state: emptyState(), problem: null };
+      if (text === null || text === undefined) return { state: emptyState(), problem: null, kept: false };
       try {
-        return { state: deserialize(text), problem: null };
+        return { state: deserialize(text), problem: null, kept: false };
       } catch (err) {
-        return { state: emptyState(), problem: err.message };
+        let kept = true;
+        try { backend.setItem(storageKey + REJECTED_SUFFIX, String(text)); } catch (e) { kept = false; }
+        return { state: emptyState(), problem: err.message, kept: kept };
       }
     },
     clear: function () {
-      try { backend.removeItem(storageKey); } catch (e) { return false; }
+      try {
+        backend.removeItem(storageKey);
+        backend.removeItem(storageKey + REJECTED_SUFFIX);
+      } catch (e) { return false; }
       return true;
     }
   });
@@ -125,6 +135,7 @@ module.exports = {
   DEFAULT_KEY,
   ACCEPTED_FIELDS,
   INVALID_STATE_ERROR,
+  REJECTED_SUFFIX,
   emptyState,
   serialize,
   deserialize,

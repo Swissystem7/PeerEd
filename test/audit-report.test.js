@@ -37,6 +37,18 @@ test('audit-report: generateAuditReport uses a supplied policy when one is passe
   assert.doesNotMatch(report, /\b730\b|\b365\b/, 'must not embed the live policy when another is supplied');
 });
 
+test('audit-report: regression — passed policy drives retention lines instead of the active default', () => {
+  const custom = { profile: 42, match: 99 };
+  const customReport = generateAuditReport(custom);
+  const defaultReport = generateAuditReport();
+
+  assert.notEqual(customReport, defaultReport);
+  assert.match(customReport, /עד 42 ימים ממועד עדכון אחרון/);
+  assert.match(customReport, /עד 99 ימים ממועד יצירת ההתאמה/);
+  assert.doesNotMatch(customReport, /\b730\b|\b365\b/);
+  assert.match(defaultReport, new RegExp('עד ' + getRetentionPolicy().profile + ' ימים'));
+});
+
 test('audit-report: a policy missing a category or stating a non-whole number of days is refused', () => {
   assert.throws(() => generateAuditReport({ profile: 100 }), /invalid policy: match/);
   assert.throws(() => generateAuditReport({ match: 50 }), /invalid policy: profile/);
