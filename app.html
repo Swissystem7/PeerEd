@@ -2251,7 +2251,6 @@ module.exports = {
     ['personal data is not accepted', 'פרטים אישיים לא מתקבלים'],
     ['offensive language is not accepted', 'שפה פוגענית לא מתקבלת'],
     ['profile input must be an object with role, region, availability, subjects', 'הרשומה לא בנויה נכון'],
-    ['unit input must be an object with title, subject, minutes, text', 'הרשומה לא בנויה נכון'],
     ['profile must be an object', 'הרשומה לא בנויה נכון'],
     ['invalid parentConsent:', 'אישור ההורה לא תקין'],
     ['invalid blockedUsers:', 'רשימת חסומים לא תקינה'],
@@ -2275,13 +2274,13 @@ module.exports = {
     ['invalid availability slot:', 'שעה שאינה בלוח'],
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
-    // The enrichment-unit record (units screen). Two modules build a unit and they name the fields
-    // differently - validator.js uses minutes/text, unit.js uses durationMinutes/body - so both wordings
-    // need a line; validator.js's 'unit input must be...' line is near the top. 'invalid subject:' and
-    // 'invalid title:' are shared; a key is matched as a prefix, so one line serves both callers.
+    // The enrichment-unit record (units screen). One module builds a unit: unit.js, which names the fields
+    // durationMinutes and body. validator.js's own makeUnit, which called them minutes and text, is gone
+    // (#272), and a line for a wording no module throws is a line no screen can reach - so none is kept.
+    // 'invalid subject:' is shared with session.js, whose specific lines come first; a key is matched as a
+    // prefix, so one line serves both callers.
     ['unit input must be an object with title, subject, durationMinutes, body', 'הרשומה לא בנויה נכון'],
     ['invalid subject:', 'מקצוע שאינו ברשימה'],
-    ['invalid minutes:', 'משך הזמן לא תקין'],
     ['invalid durationMinutes:', 'משך הזמן לא תקין'],
     ['invalid title: text too short', 'הכותרת ריקה'],
     ['invalid title: text too long', 'הכותרת ארוכה מדי'],
@@ -2290,7 +2289,6 @@ module.exports = {
     // The body box has no maxlength (a cut-off paste would lose the end silently), so the limit is said here.
     ['invalid body: text too long', 'תוכן היחידה ארוך מדי: עד ' + unitLib.BODY_MAX_LENGTH + ' תווים'],
     ['invalid title:', 'כותרת לא תקינה'],
-    ['invalid text:', 'טקסט לא תקין'],
     ['invalid body:', 'טקסט לא תקין'],
     // The approval queue and the session log (units and sessions screens).
     ['unit is not pending:', 'כבר הוחלט על היחידה הזאת'],

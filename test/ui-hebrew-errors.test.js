@@ -127,3 +127,19 @@ test('every error the modules can throw has a Hebrew line in the shell', () => {
     assert.ok(shell.includes("'" + key + "'"), 'no Hebrew translation for: ' + msg);
   }
 });
+
+// The other way round: a line whose key no module throws any more is dead - it was a wording of
+// validator.js's second makeUnit (minutes/text), which #272 removed - and a dead line reads as a promise
+// the screen keeps for an error that cannot happen. Every key must still be the start of some message a
+// module can throw. store.js is read too: its 'invalid stored state' reaches the screen through load().
+test('every Hebrew line in the shell answers a message some module still throws', () => {
+  const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  const lib = SCREEN_MODULES.concat(['store.js'])
+    .map((f) => fs.readFileSync(path.join(ROOT, 'src', 'lib', f), 'utf8')).join('\n');
+  const table = shell.slice(shell.indexOf('var ERROR_HE = ['), shell.indexOf('function errorHe('));
+  const keys = [...table.matchAll(/^\s*\['([^']+)', '/gm)].map((m) => m[1]);
+  assert.ok(keys.length >= 40, 'found ' + keys.length + ' lines');
+  for (const key of keys) {
+    assert.ok(lib.includes("'" + key), 'no module throws a message starting with: ' + key);
+  }
+});
