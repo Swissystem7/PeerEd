@@ -381,6 +381,10 @@ function daysHe(days) {
   return days === 1 ? 'יום אחד' : days + ' ימים';
 }
 
+// The profile line lists what a stored person holds. A pupil's record also holds parentConsent (a yes or
+// a no, nothing about the parent), and the match engine pairs no pupil without it; the participants
+// screen's banner names it, so a statement for a regulator that left it out described less than the
+// app keeps about a minor - and left out the one rule that keeps a minor out of the matching.
 function generateAuditReport(policy) {
   const active = policy === undefined ? getRetentionPolicy() : policy;
   if (active === null || typeof active !== 'object' || Array.isArray(active)) {
@@ -393,7 +397,8 @@ function generateAuditReport(policy) {
     'הצהרת פרטיות ושמירת מידע — PeerEd',
     '',
     'מידע שנאסף:',
-    '• נתוני פרופיל (תפקיד, אזור, זמינות, מקצועות לימוד) — לצורך התאמת חונכות.',
+    '• נתוני פרופיל (תפקיד, אזור, זמינות, מקצועות לימוד, ולתלמיד גם האם התקבל אישור הורה) — לצורך התאמת חונכות.',
+    '• אישור הורה נשמר ככן או לא בלבד, בלי שם ההורה, בלי תאריך ובלי מסמך; תלמיד בלי אישור הורה לא נכנס לשידוך.',
     '• נתוני התאמות חונכות (מי שויך למי ובאילו שעות) — לצורך ניהול מחזור החונכות.',
     '',
     'משך שמירה (לפי מדיניות השמירה הפעילה במערכת):',
