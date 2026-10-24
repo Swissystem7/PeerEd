@@ -18,6 +18,10 @@ test('a11y: text gate input and controls have aria attributes', () => {
     'checkText must have aria-required="true" and aria-describedby="checkStatus"');
   assert.ok(/<div id="findings"[^>]*role="region"[^>]*aria-live="polite"/.test(shell),
     'findings must have role="region" and aria-live="polite"');
+  assert.ok(/<button type="button" class="act" id="checkBtn"[^>]*aria-describedby="checkStatus"/.test(shell),
+    'checkBtn must have aria-describedby="checkStatus"');
+  assert.ok(/<button type="button" class="ghost" id="clearTextBtn"[^>]*aria-label="נקה טקסט לבדיקה"[^>]*aria-describedby="checkStatus"/.test(shell),
+    'clearTextBtn must have aria-label and aria-describedby="checkStatus"');
   assert.ok(/<button type="button" class="ghost" id="gateBtn"[^>]*aria-describedby="gateStatus"/.test(shell),
     'gateBtn must have aria-describedby="gateStatus"');
 });

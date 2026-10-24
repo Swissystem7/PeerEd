@@ -189,10 +189,10 @@
       <label for="checkText">טקסט לבדיקה</label>
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12" aria-required="true" aria-describedby="checkStatus"></textarea>
       <div class="actions">
-        <button type="button" class="act" id="checkBtn">בדוק</button>
+        <button type="button" class="act" id="checkBtn" aria-describedby="checkStatus">בדוק</button>
         <button type="button" class="ghost" id="badBtn" aria-describedby="checkStatus">טען דוגמה עם פרטים אישיים</button>
         <button type="button" class="ghost" id="rudeBtn" aria-describedby="checkStatus">טען דוגמה עם שפה פוגענית</button>
-        <button type="button" class="ghost" id="clearTextBtn">נקה טקסט</button>
+        <button type="button" class="ghost" id="clearTextBtn" aria-label="נקה טקסט לבדיקה" aria-describedby="checkStatus">נקה טקסט</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
       <div id="findings" role="region" aria-live="polite" aria-label="ממצאי בדיקת טקסט"></div>
@@ -214,7 +214,7 @@
     <div class="card">
       <h2>הגשת יחידה (מורה)</h2>
       <div class="row">
-        <div><label for="unitSubject">מקצוע</label><select id="unitSubject"></select></div>
+        <div><label for="unitSubject">מקצוע</label><select id="unitSubject" aria-required="true" aria-describedby="unitStatus"></select></div>
         <div><label for="unitDuration">משך בדקות (5–60)</label>
           <input id="unitDuration" type="number" min="5" max="60" step="1" value="20" aria-describedby="unitStatus"></div>
       </div>
@@ -223,9 +223,9 @@
       <label for="unitBody">תוכן היחידה</label>
       <textarea id="unitBody" placeholder="פתחו בדוגמה אחת מהחיים, אחר כך 3 תרגילים מפרק 12..." aria-required="true" aria-describedby="unitStatus"></textarea>
       <div class="actions">
-        <button type="button" class="act" id="submitUnit">הגש לאישור</button>
+        <button type="button" class="act" id="submitUnit" aria-describedby="unitStatus">הגש לאישור</button>
         <button type="button" class="ghost" id="unitDemoBtn" aria-label="טען יחידת העשרה לדוגמה" aria-describedby="unitStatus">טען דוגמה</button>
-        <button type="button" class="ghost" id="clearUnitBtn" aria-label="נקה טופס יחידה">נקה טופס</button>
+        <button type="button" class="ghost" id="clearUnitBtn" aria-label="נקה טופס יחידה" aria-describedby="unitStatus">נקה טופס</button>
       </div>
       <p class="status" id="unitStatus" role="status"></p>
     </div>
@@ -1200,6 +1200,9 @@
       } else if (/duration/i.test(err.message)) {
         var d = $('unitDuration');
         if (d && d.focus) d.focus();
+      } else if (/subject/i.test(err.message)) {
+        var s = $('unitSubject');
+        if (s && s.focus) s.focus();
       }
       say('unitStatus', 'נדחה: ' + errorHe(err) + '.', true);
       return;
