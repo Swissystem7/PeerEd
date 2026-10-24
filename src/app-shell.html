@@ -190,8 +190,8 @@
       <textarea id="checkText" placeholder="שיעור על שברים: פתרו 3 תרגילים מפרק 12" aria-required="true" aria-describedby="checkStatus"></textarea>
       <div class="actions">
         <button type="button" class="act" id="checkBtn">בדוק</button>
-        <button type="button" class="ghost" id="badBtn" aria-describedby="checkStatus">טען דוגמה עם פרטים אישיים</button>
-        <button type="button" class="ghost" id="rudeBtn" aria-describedby="checkStatus">טען דוגמה עם שפה פוגענית</button>
+        <button type="button" class="ghost" id="badBtn" aria-label="טען טקסט לדוגמה עם פרטים אישיים" aria-describedby="checkStatus">טען דוגמה עם פרטים אישיים</button>
+        <button type="button" class="ghost" id="rudeBtn" aria-label="טען טקסט לדוגמה עם שפה פוגענית" aria-describedby="checkStatus">טען דוגמה עם שפה פוגענית</button>
         <button type="button" class="ghost" id="clearTextBtn">נקה טקסט</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
@@ -200,7 +200,7 @@
     <div class="card">
       <h2>הדגמה: שדה אסור נדחה</h2>
       <p class="hint">אותו שער, על הרשומה עצמה ולא על הטקסט: מנסה לשמור משתתף עם שדה שאינו ברשימה.</p>
-      <div class="actions"><button type="button" class="ghost" id="gateBtn" aria-describedby="gateStatus">נסה לשמור עם טלפון</button></div>
+      <div class="actions"><button type="button" class="ghost" id="gateBtn" aria-label="נסה לשמור משתתף עם שדה טלפון אסור" aria-describedby="gateStatus">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
     </div>
   </section>
@@ -291,8 +291,8 @@
   </section>
 
   <!-- ============ קשר (src/lib/contact.js) ============ -->
-  <div class="card" id="contactBox" hidden>
-    <h2>רוצים לנסות בסבב השיבוץ שלכם?</h2>
+  <div class="card" id="contactBox" hidden role="region" aria-labelledby="contactTitle">
+    <h2 id="contactTitle">רוצים לנסות בסבב השיבוץ שלכם?</h2>
     <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank" aria-describedby="contactNote"></a></p>
     <p class="hint" id="contactNote"></p>
   </div>
