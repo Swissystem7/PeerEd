@@ -49,3 +49,84 @@ test('a11y: logging a session with unapproved unit focuses sessionUnit select an
   assert.equal($('sessionUnit').focused, true, 'sessionUnit must be focused on error');
 });
 
+test('a11y: logging a session with invalid slot focuses sessionSlot select and shows Hebrew error', () => {
+  const $ = openApp();
+  addPerson($, 'student', 'CENTER', ['MATH'], ['SUN_16']);
+  addPerson($, 'pupil', 'CENTER', ['MATH'], ['SUN_16']);
+  $('unitTitle').value = 'Title';
+  $('unitSubject').value = 'MATH';
+  $('unitDuration').value = '20';
+  $('unitBody').value = 'Body text here';
+  $('submitUnit').fire('click');
+  const id = $('unitStatus').textContent.match(/מזהה: (\S+)/)[1];
+  $('pendingList').fire('click', { target: { getAttribute: () => id } });
+  $('nav-sessions').fire('click');
+
+  $('sessionSlot').value = 'INVALID';
+  $('sessionSubject').value = 'MATH';
+  $('sessionUnit').value = id;
+  $('sessionOutcome').value = 'held';
+  $('sessionSlot').focused = false;
+  $('logSession').fire('click');
+
+  const status = $('sessionStatus');
+  assert.ok(status.className.includes('bad'), 'session logging with invalid slot must fail');
+  assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters');
+  assert.match(status.textContent, /בשעה הזאת הזוג לא פנוי יחד|שעה שאינה בלוח/);
+  assert.equal($('sessionSlot').focused, true, 'sessionSlot must be focused on error');
+});
+
+test('a11y: logging a session with invalid subject focuses sessionSubject select and shows Hebrew error', () => {
+  const $ = openApp();
+  addPerson($, 'student', 'CENTER', ['MATH'], ['SUN_16']);
+  addPerson($, 'pupil', 'CENTER', ['MATH'], ['SUN_16']);
+  $('unitTitle').value = 'Title';
+  $('unitSubject').value = 'MATH';
+  $('unitDuration').value = '20';
+  $('unitBody').value = 'Body text here';
+  $('submitUnit').fire('click');
+  const id = $('unitStatus').textContent.match(/מזהה: (\S+)/)[1];
+  $('pendingList').fire('click', { target: { getAttribute: () => id } });
+  $('nav-sessions').fire('click');
+
+  $('sessionSlot').value = 'SUN_16';
+  $('sessionSubject').value = 'INVALID';
+  $('sessionUnit').value = id;
+  $('sessionOutcome').value = 'held';
+  $('sessionSubject').focused = false;
+  $('logSession').fire('click');
+
+  const status = $('sessionStatus');
+  assert.ok(status.className.includes('bad'), 'session logging with invalid subject must fail');
+  assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters');
+  assert.match(status.textContent, /המקצוע הזה לא משותף לזוג|מקצוע שאינו ברשימה/);
+  assert.equal($('sessionSubject').focused, true, 'sessionSubject must be focused on error');
+});
+
+test('a11y: logging a session with invalid outcome focuses sessionOutcome select and shows Hebrew error', () => {
+  const $ = openApp();
+  addPerson($, 'student', 'CENTER', ['MATH'], ['SUN_16']);
+  addPerson($, 'pupil', 'CENTER', ['MATH'], ['SUN_16']);
+  $('unitTitle').value = 'Title';
+  $('unitSubject').value = 'MATH';
+  $('unitDuration').value = '20';
+  $('unitBody').value = 'Body text here';
+  $('submitUnit').fire('click');
+  const id = $('unitStatus').textContent.match(/מזהה: (\S+)/)[1];
+  $('pendingList').fire('click', { target: { getAttribute: () => id } });
+  $('nav-sessions').fire('click');
+
+  $('sessionSlot').value = 'SUN_16';
+  $('sessionSubject').value = 'MATH';
+  $('sessionUnit').value = id;
+  $('sessionOutcome').value = 'INVALID';
+  $('sessionOutcome').focused = false;
+  $('logSession').fire('click');
+
+  const status = $('sessionStatus');
+  assert.ok(status.className.includes('bad'), 'session logging with invalid outcome must fail');
+  assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters');
+  assert.match(status.textContent, /תוצאה לא מוכרת/);
+  assert.equal($('sessionOutcome').focused, true, 'sessionOutcome must be focused on error');
+});
+
