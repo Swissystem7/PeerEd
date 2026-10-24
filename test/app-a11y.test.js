@@ -143,11 +143,15 @@ test('a11y: running match without participants focuses runMatch button and repor
 test('a11y: consentRow has accessible region and resets checked state when switching away from pupil', () => {
   assert.ok(/<div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">/.test(shell),
     'consentRow must have role="region" and aria-label="אישור הורה לשידוך"');
+  assert.ok(/<input type="checkbox" id="consent"[^>]*aria-describedby="consentHint"/.test(shell),
+    'consent checkbox must have aria-describedby="consentHint"');
   assert.ok(/<p class="hint" id="consentHint">/.test(shell),
     'consent hint paragraph must have id="consentHint"');
 
   const $ = openApp();
   assert.equal($('consent').checked, false);
+  assert.equal($('consent').getAttribute('aria-describedby'), 'consentHint',
+    'consent checkbox must have aria-describedby="consentHint"');
 
   $('role').value = 'pupil';
   $('role').fire('change');
