@@ -62,7 +62,7 @@ On screen: add participants (or load a sample), compute the match, see who is le
 the pairs as CSV (people by list number, never by name, to line up with the coordinator's sheet: each pair with its
 region, shared subjects and shared hours, then a "לא שובצו" section with the role, list number, region, subjects and
 reason of everyone left out - for a pupil without parent consent that reason says so - and the cross-region
-suggestions; hours a pair does not share are not in it, and nothing loads it back), a card of cross-region suggestions for pupils whose region has no free student (also in the CSV; the coordinator decides), and the "סיכום לרשות" card: counts
+suggestions; hours a pair does not share are not in it, and nothing loads it back), a card of cross-region suggestions for pupils and students left without a local pair who share an hour and a subject across regions (the pupil still needs parent consent; also in the CSV; the coordinator decides), and the "סיכום לרשות" card: counts
 only (pairs, pupils without a student, students without a pupil, pupils waiting for a parent's consent counted
 apart, and the students missing by region and subject), on the screen with no file to download.
 
