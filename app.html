@@ -3251,15 +3251,36 @@ module.exports = {
       esc(clip(u.body, 160)) + '</span>' + (extraHtml || '') + '</div>';
   }
 
+  // The pending list is rebuilt from the queue on every decision and every submit, and a rebuilt box is
+  // empty: a reason typed for one unit was gone after "אשר" on another, and "דחה" then answered "כתוב
+  // סיבה לדחייה" over a reason the approver had written. So what is typed in a box is read before the
+  // rebuild and written back into it - only into the same version of that unit: a revised one is new
+  // text, and a reason written about the old text would reject the new one unread.
+  var reasonShown = {};
+  function typedReasons() {
+    var out = {};
+    Object.keys(reasonShown).forEach(function (id) {
+      var box = $('reason-' + id);
+      if (box && box.value) out[id] = { revision: reasonShown[id], text: box.value };
+    });
+    return out;
+  }
+
   function renderUnits() {
     var q = state.queue;
     var pending = approval.listPending(q);
+    var typed = typedReasons();
+    reasonShown = {};
     $('pendingList').innerHTML = pending.length ? pending.map(function (entry) {
       var id = esc(entry.unit.id);
       var title = esc(entry.unit.title);
+      var kept = typed[entry.unit.id] && typed[entry.unit.id].revision === entry.revision ? typed[entry.unit.id].text : '';
+      reasonShown[entry.unit.id] = entry.revision;
+      var box = $('reason-' + entry.unit.id);
+      if (box && !kept) box.value = '';
       return unitCard(entry,
         '<label for="reason-' + id + '">סיבת דחייה עבור ' + title + ' (חובה רק לדחייה)</label>' +
-        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '" aria-label="סיבת דחייה עבור ' + title + '" placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה" aria-describedby="decideStatus">' +
+        '<input id="reason-' + id + '" type="text" maxlength="' + approval.REASON_MAX_LENGTH + '" data-reason="' + id + '" value="' + esc(kept) + '" aria-label="סיבת דחייה עבור ' + title + '" placeholder="לדוגמה: תוכן קצר מדי או לא מתאים לרמת הכיתה" aria-describedby="decideStatus">' +
         '<div class="actions"><button type="button" class="act small" id="approveBtn-' + id + '" data-approve="' + id +
         '" aria-describedby="decideStatus" aria-label="אשר ' + title + '">אשר</button>' +
         '<button type="button" class="ghost small" id="rejectBtn-' + id + '" data-reject="' + id +
