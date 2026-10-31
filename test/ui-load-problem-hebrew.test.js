@@ -21,9 +21,9 @@ function openWith(text) {
 test('a saved list that is not JSON is reported in Hebrew', () => {
   const $ = openWith('{not json');
   assert.ok($('addStatus').className.includes('bad'), $('addStatus').textContent);
-  assert.match($('addStatus').textContent, /נדחתה/);
+  assert.match($('addStatus').textContent, /נדחו/);
   assert.match($('addStatus').textContent, /הקובץ השמור פגום/);
-  assert.match($('addStatus').textContent, /עותק שלה נשמר בצד/);
+  assert.match($('addStatus').textContent, /עותק שלהם נשמר בצד/);
   assert.equal($.store[REJECTED_KEY], '{not json');
   assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
 });
@@ -55,7 +55,7 @@ test('a saved session row with an hour, a subject or a unit that does not fit is
       log: { nextSeq: 2, entries: [Object.assign(
         { seq: 1, region: 'CENTER', slot: 'SUN_16', subject: 'MATH', unitId: 'u-x', outcome: 'held' }, patch)] }
     }));
-    assert.match($('addStatus').textContent, /נדחתה ולא נטענה: שיעור שמור לא תקין\./, JSON.stringify(patch));
+    assert.match($('addStatus').textContent, /נדחו ולא נטענו: שיעור שמור לא תקין\./, JSON.stringify(patch));
     assert.doesNotMatch($('addStatus').textContent, /הזוג|יחידה מאושרת/, JSON.stringify(patch));
     assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
   }
@@ -88,7 +88,7 @@ test('a saved queue entry whose unit or reason does not pass the gate is reporte
     const doc = JSON.parse(JSON.stringify({ schema: 'peered/1', people: [], queue: queue }));
     patch(doc.queue.entries[unit.id]);
     const $ = openWith(JSON.stringify(doc));
-    assert.match($('addStatus').textContent, /נדחתה ולא נטענה: רשומה שמורה בתור לא תקינה\./, patch.toString());
+    assert.match($('addStatus').textContent, /נדחו ולא נטענו: רשומה שמורה בתור לא תקינה\./, patch.toString());
     assert.doesNotMatch($('addStatus').textContent, /הכותרת|תוכן היחידה|משך הזמן|טקסט לבדוק|הטקסט ארוך|היחידה לא בנויה/, patch.toString());
     assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
   }
@@ -98,7 +98,7 @@ test('a saved queue entry whose unit or reason does not pass the gate is reporte
     const doc = JSON.parse(JSON.stringify({ schema: 'peered/1', people: [], queue: queue }));
     patch(doc.queue.entries[unit.id]);
     const $ = openWith(JSON.stringify(doc));
-    assert.match($('addStatus').textContent, /נדחתה ולא נטענה: פרטים אישיים לא מתקבלים\./, patch.toString());
+    assert.match($('addStatus').textContent, /נדחו ולא נטענו: פרטים אישיים לא מתקבלים\./, patch.toString());
     assert.doesNotMatch($('addStatus').textContent, /רשומה שמורה בתור|היחידה לא בנויה/, patch.toString());
     assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
   }
@@ -115,7 +115,7 @@ test('a saved person with no hours, no subject or a bad role is reported as a ba
     { role: 'teacher' }, { region: 'MOON' }, { parentConsent: 'yes' }];
   for (const patch of cases) {
     const $ = openWith(JSON.stringify({ schema: 'peered/1', people: [Object.assign({}, good, patch)] }));
-    assert.match($('addStatus').textContent, /נדחתה ולא נטענה: משתתף שמור ברשימה לא תקין\./, JSON.stringify(patch));
+    assert.match($('addStatus').textContent, /נדחו ולא נטענו: משתתף שמור ברשימה לא תקין\./, JSON.stringify(patch));
     assert.doesNotMatch($('addStatus').textContent, /צריך ל|שאינה בלוח|שאינו ברשימה|לא מוכר|אישור ההורה/, JSON.stringify(patch));
     assert.doesNotMatch($('addStatus').textContent, LATIN, $('addStatus').textContent);
   }

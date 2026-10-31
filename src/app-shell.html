@@ -507,11 +507,16 @@
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
     refusedOnKey = !!loaded.problem;
     refusedKept = !!(loaded.problem && loaded.kept);
-    // problem is store.js's English message; the status line is Hebrew like every other one
+    // problem is store.js's English message; the status line is Hebrew like every other one.
+    // The roster, the units queue and the lessons log are one document (store.js), so a refusal empties
+    // all three - a broken log row takes the roster with it. Until this the line said "הרשימה השמורה
+    // נדחתה" over a reason like "רשומה שמורה בתור לא תקינה", and the units and lessons screens then said
+    // "עדיין לא אושרה אף יחידה" and "עדיין לא נרשם שיעור" with nothing saying their stored part was refused.
     if (loaded.problem) {
-      say('addStatus', 'הרשימה השמורה נדחתה ולא נטענה: ' + errorHe(new Error(loaded.problem)) + '. ' +
-        (loaded.kept ? 'עותק שלה נשמר בצד באחסון המקומי, כך ששינוי חדש לא ימחק אותה.'
-          : 'הדפדפן לא אפשר לשמור עותק שלה בצד, ושינוי חדש יכתוב עליה.'), true);
+      say('addStatus', 'הנתונים השמורים נדחו ולא נטענו: ' + errorHe(new Error(loaded.problem)) + '. ' +
+        'הם נשמרים כמסמך אחד, אז רשימת המשתתפים, תור היחידות ויומן השיעורים לא נטענו יחד, וכל המסכים מתחילים ריקים. ' +
+        (loaded.kept ? 'עותק שלהם נשמר בצד באחסון המקומי, כך ששינוי חדש לא ימחק אותם.'
+          : 'הדפדפן לא אפשר לשמור עותק שלהם בצד, ושינוי חדש יכתוב עליהם.'), true);
     } else if (storageBlocked) {
       // nothing could be read either: a list saved on an earlier visit, if there is one, is not on the screen
       say('addStatus', 'הדפדפן לא מאפשר אחסון מקומי (מצב פרטי או אחסון חסום?), אז רשימה שנשמרה כאן קודם לא נטענה, ' +
@@ -1191,7 +1196,11 @@
           ? ' עם יחידה שהייתה מאושרת אז ועודכנה מאז, ועכשיו היא ממתינה או נדחתה'
           : ' עם ' + taughtUnits + ' יחידות שהיו מאושרות אז ועודכנו מאז, ועכשיו הן ממתינות או נדחו') +
         '; ' + (taughtRows === 1 ? 'השיעור נשאר' : 'השיעורים נשארים') + ' ביומן.'
-      : 'עדיין לא אושרה אף יחידה, אז תלמיד לא רואה כלום.') + '</p>';
+      : refusedHe()
+        // the stored queue went with the refused document (load()): it may have held approved units
+        ? 'אין יחידה מאושרת שנטענה, אז תלמיד לא רואה כלום. תור היחידות השמור נדחה בטעינה יחד עם שאר הנתונים השמורים ' +
+          '(מסך "אנשים"), אז יחידות שאושרו בו, אם היו, לא נטענו.'
+        : 'עדיין לא אושרה אף יחידה, אז תלמיד לא רואה כלום.') + '</p>';
 
     var rejected = Object.keys(q.entries).map(function (id) { return q.entries[id]; })
       .filter(function (e) { return e.status === 'rejected'; })
@@ -1487,7 +1496,11 @@
           var e = state.queue.entries[id];
           return e ? e.unit.title + ' · ' + e.unit.durationMinutes + ' דקות · ' + id : id;
         })
-      : '<p class="empty">עדיין לא נרשם שיעור, אז לרשות אין מה לקבל.</p>';
+      : '<p class="empty">' + (refusedHe()
+        // the stored log went with the refused document (load()): it may have held lessons
+        ? 'לא נטען שיעור ולא נרשם שיעור חדש, אז לרשות אין מה לקבל. יומן השיעורים השמור נדחה בטעינה יחד עם שאר ' +
+          'הנתונים השמורים (מסך "אנשים"), אז שיעורים שנרשמו בו, אם היו, לא נטענו.'
+        : 'עדיין לא נרשם שיעור, אז לרשות אין מה לקבל.') + '</p>';
     $('sessionList').innerHTML = state.log.entries.length
       ? state.log.entries.slice().reverse().map(sessionRow).join('')
       : '<p class="empty">היומן ריק. רושמים שיעור בטופס למעלה אחרי שנוצר זוג ואושרה יחידה.</p>';
@@ -1615,9 +1628,9 @@
   var BLOCKED_LEFTOVER_HE = 'רשימה שנשמרה כאן בביקור קודם, אם יש כזו, לא נמחקה: נקה את נתוני האתר בהגדרות הדפדפן.';
   // The refused document still in the storage, named for the wipe lines; '' when there is none.
   function refusedHe() {
-    if (refusedOnKey && refusedKept) return 'הרשימה השמורה שנדחתה בטעינה והעותק שלה שנשמר בצד';
-    if (refusedOnKey) return 'הרשימה השמורה שנדחתה בטעינה';
-    if (refusedKept) return 'העותק שנשמר בצד של הרשימה השמורה שנדחתה בטעינה';
+    if (refusedOnKey && refusedKept) return 'הנתונים השמורים שנדחו בטעינה והעותק שלהם שנשמר בצד';
+    if (refusedOnKey) return 'הנתונים השמורים שנדחו בטעינה';
+    if (refusedKept) return 'העותק שנשמר בצד של הנתונים השמורים שנדחו בטעינה';
     return '';
   }
   // The pairs files that went down in this visit, which no click here removes; '' when none did.

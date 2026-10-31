@@ -11,9 +11,9 @@ const { openApp } = require('../test-support/fake-dom.js');
 const KEY = 'peered_app_v1';
 const REJECTED_KEY = KEY + ':rejected';
 const BAD = '{not json';
-const LIST_AND_COPY = 'הרשימה השמורה שנדחתה בטעינה והעותק שלה שנשמר בצד';
-const COPY_ONLY = 'העותק שנשמר בצד של הרשימה השמורה שנדחתה בטעינה';
-const LIST_ONLY = 'הרשימה השמורה שנדחתה בטעינה';
+const LIST_AND_COPY = 'הנתונים השמורים שנדחו בטעינה והעותק שלהם שנשמר בצד';
+const COPY_ONLY = 'העותק שנשמר בצד של הנתונים השמורים שנדחו בטעינה';
+const LIST_ONLY = 'הנתונים השמורים שנדחו בטעינה';
 
 function openRefused(opts) {
   const store = {};
@@ -23,7 +23,7 @@ function openRefused(opts) {
 
 test('an empty screen over a refused document: the first click names the document and its copy, the second removes both and says so', () => {
   const $ = openRefused();
-  assert.match($('addStatus').textContent, /עותק שלה נשמר בצד/, 'the participants card promised the copy');
+  assert.match($('addStatus').textContent, /עותק שלהם נשמר בצד/, 'the participants card promised the copy');
   assert.equal($.store[REJECTED_KEY], BAD);
 
   $('wipeBtn').fire('click');
