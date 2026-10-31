@@ -69,3 +69,19 @@ test('a11y: adding a participant with invalid role focuses role select and repor
   assert.equal($('role').focused, true, 'role select must be focused on error');
 });
 
+test('a11y: adding a participant with invalid region focuses region select and reports Hebrew error', () => {
+  const $ = openApp();
+  $('role').value = 'student';
+  $('region').value = 'INVALID';
+  press($('hours'), 'data-slot', 'SUN_16');
+  press($('subjects'), 'data-subject', 'MATH');
+  $('region').focused = false;
+  $('addPerson').fire('click');
+
+  const status = $('addStatus');
+  assert.ok(status.className.includes('bad'), 'invalid region must be rejected');
+  assert.doesNotMatch(status.textContent, LATIN, 'error status should not have English letters: ' + status.textContent);
+  assert.match(status.textContent, /אזור לא מוכר/);
+  assert.equal($('region').focused, true, 'region select must be focused on error');
+});
+

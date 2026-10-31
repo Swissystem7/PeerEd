@@ -150,7 +150,7 @@
         קודם נלקחים הזוגות עם הכי הרבה שעות משותפות, ואז השיבוץ מתקן כך שייצא מספר הזוגות הגדול ביותר האפשרי.
         אותו קלט נותן תמיד אותה תוצאה.</p>
       <div class="actions"><button type="button" class="act" id="runMatch" aria-describedby="matchStatus">חשב שידוך</button>
-        <button type="button" class="ghost" id="exportCsv" aria-describedby="matchStatus">הורד זוגות (CSV)</button></div>
+        <button type="button" class="ghost" id="exportCsv" aria-label="הורד קובץ זוגות בפורמט CSV" aria-describedby="matchStatus">הורד זוגות (CSV)</button></div>
       <p class="status" id="matchStatus" role="status"></p>
       <!-- What the file holds is what the cards below show: the pairs, who was left out and why, and the
            cross-region suggestions. The reason is a sentence from reasonHe, so for a pupil without parent
@@ -287,8 +287,8 @@
            report among the saved files, while the line under the button says "מסומן להעתקה". -->
       <p class="hint">הייצוא הוא אותן ספירות כטקסט CSV: מדד, קוד, כמות. הוא נפתח בתיבה למטה מסומן להעתקה, ולא
         יורד כקובץ. אין בו שורות של היומן, אין שעה, אין מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
-      <div class="actions"><button type="button" class="ghost" id="exportReport" aria-expanded="false" aria-controls="reportBox reportStatus" aria-describedby="reportStatus">ייצא דוח CSV</button></div>
-      <div id="reportBox" hidden>
+      <div class="actions"><button type="button" class="ghost" id="exportReport" aria-label="ייצא דוח ספירות לרשות בפורמט CSV" aria-expanded="false" aria-controls="reportBox reportStatus" aria-describedby="reportStatus">ייצא דוח CSV</button></div>
+      <div id="reportBox" hidden role="region" aria-live="polite" aria-label="דוח ספירות לרשות">
         <label for="reportText">הדוח (לקריאה בלבד)</label>
         <textarea id="reportText" readonly dir="ltr" spellcheck="false" aria-describedby="reportStatus"></textarea>
       </div>
