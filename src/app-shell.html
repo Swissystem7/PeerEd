@@ -362,8 +362,8 @@
   // nothing is kept past it. The screen says so (storageBlocked) - at the start and on every save - the way
   // save() already says it when the browser refuses one write. Until this the fallback was silent: the
   // participants card promised the list is kept in this browser, every add said "נוסף", and the roster was
-  // gone when the page closed. The same browser refusing a write and refusing the storage are one condition
-  // to the coordinator, so they get one line.
+  // gone when the page closed. A refused write over a storage the browser does hand out says "memory only"
+  // too, but with what that storage still holds (writeRefusedHe, below): the next visit opens on it.
   var storageBlocked = false;
   var store = (function () {
     var backend;
@@ -374,6 +374,33 @@
   })();
   var MEMORY_ONLY_HE = 'נשמר בזיכרון בלבד: הדפדפן לא מאפשר אחסון מקומי (מצב פרטי או אחסון חסום?), ' +
     'וזה ייעלם כשהדף ייסגר.';
+  // A write the browser refuses over a storage it hands out (a full storage, a mode that reads but does
+  // not write) is not a blocked storage: load() read it when the page opened, and it still holds the
+  // document from the last write that worked - the next visit opens on that one. MEMORY_ONLY_HE said the
+  // browser allows no local storage and that this vanishes when the page closes, as if nothing would be
+  // there then: a participant deleted came back on the next visit, a withdrawn parent consent was "יש"
+  // again. The line says what the storage holds, read from it, so it is what the next visit loads.
+  function writeRefusedHe() {
+    var text = null;
+    try { text = window.localStorage.getItem(store.key); } catch (e) { text = null; }
+    var kept = null;
+    if (typeof text === 'string') {
+      try { kept = storeLib.deserialize(text); } catch (e) { kept = null; }
+    }
+    var next;
+    if (typeof text !== 'string') {
+      next = 'באחסון לא נשמר עדיין דבר, אז הפתיחה הבאה תתחיל ריקה.';
+    } else if (!kept) {
+      next = 'באחסון נשארו הנתונים השמורים שנדחו בטעינה, אז גם הפתיחה הבאה תתחיל בלעדיהם.';
+    } else {
+      var keptUnits = Object.keys(kept.queue.entries).length;
+      var keptLessons = kept.log.entries.length;
+      next = 'בפתיחה הבאה ייטען מה שנשמר בשמירה האחרונה שהצליחה: ' + countHe(kept.people.length, 'משתתף', 'משתתפים') +
+        ', ' + countHe(keptUnits, 'יחידה', 'יחידות', 'אחת') + (keptLessons === 1 ? ' ו' : ' ו-') +
+        countHe(keptLessons, 'שיעור', 'שיעורים') + ', ולא מה שעל המסך עכשיו.';
+    }
+    return 'נשמר בזיכרון בלבד: הדפדפן סירב לכתוב לאחסון המקומי (אולי הוא מלא), אז השינוי הזה ייעלם כשהדף ייסגר. ' + next;
+  }
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -496,7 +523,7 @@
     }
     // a save into the memory fallback "works", but nothing reached the browser's storage: same line
     if (!store.save(state) || storageBlocked) {
-      say(statusId, $(statusId).textContent + ' ' + MEMORY_ONLY_HE, true);
+      say(statusId, $(statusId).textContent + ' ' + (storageBlocked ? MEMORY_ONLY_HE : writeRefusedHe()), true);
       return;
     }
     // the key now holds this state: the document load() refused is no longer under it (its copy, if one
