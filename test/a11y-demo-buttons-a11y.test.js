@@ -19,10 +19,10 @@ test('a11y: demo buttons have unambiguous labels and aria-describedby pointing t
     'demoBtn must have aria-label="טען משתתפים לדוגמה" and aria-describedby="addStatus"');
   assert.ok(/<button type="button" class="ghost" id="unitDemoBtn"[^>]*aria-label="טען יחידת העשרה לדוגמה"[^>]*aria-describedby="unitStatus"/.test(currentShell),
     'unitDemoBtn must have aria-label="טען יחידת העשרה לדוגמה" and aria-describedby="unitStatus"');
-  assert.ok(/<button type="button" class="ghost" id="badBtn"[^>]*aria-describedby="checkStatus"/.test(currentShell),
-    'badBtn must have aria-describedby="checkStatus"');
-  assert.ok(/<button type="button" class="ghost" id="rudeBtn"[^>]*aria-describedby="checkStatus"/.test(currentShell),
-    'rudeBtn must have aria-describedby="checkStatus"');
+  assert.ok(/<button type="button" class="ghost" id="badBtn"[^>]*aria-label="טען טקסט לדוגמה עם פרטים אישיים"[^>]*aria-describedby="checkStatus"/.test(currentShell),
+    'badBtn must have aria-label="טען טקסט לדוגמה עם פרטים אישיים" and aria-describedby="checkStatus"');
+  assert.ok(/<button type="button" class="ghost" id="rudeBtn"[^>]*aria-label="טען טקסט לדוגמה עם שפה פוגענית"[^>]*aria-describedby="checkStatus"/.test(currentShell),
+    'rudeBtn must have aria-label="טען טקסט לדוגמה עם שפה פוגענית" and aria-describedby="checkStatus"');
 
   const $ = openApp();
   $('demoBtn').fire('click');

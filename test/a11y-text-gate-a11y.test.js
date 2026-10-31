@@ -22,8 +22,8 @@ test('a11y: text gate input and controls have aria attributes', () => {
     'checkBtn must have aria-describedby="checkStatus"');
   assert.ok(/<button type="button" class="ghost" id="clearTextBtn"[^>]*aria-label="נקה טקסט לבדיקה"[^>]*aria-describedby="checkStatus"/.test(shell),
     'clearTextBtn must have aria-label and aria-describedby="checkStatus"');
-  assert.ok(/<button type="button" class="ghost" id="gateBtn"[^>]*aria-describedby="gateStatus"/.test(shell),
-    'gateBtn must have aria-describedby="gateStatus"');
+  assert.ok(/<button type="button" class="ghost" id="gateBtn"[^>]*aria-label="נסה לשמור משתתף עם שדה טלפון אסור"[^>]*aria-describedby="gateStatus"/.test(shell),
+    'gateBtn must have aria-label and aria-describedby="gateStatus"');
 });
 
 test('a11y: checking empty text focuses the checkText textarea and reports Hebrew error', () => {
