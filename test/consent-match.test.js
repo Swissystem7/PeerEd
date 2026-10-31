@@ -122,7 +122,7 @@ test('consent: no session can be logged for a pupil without consent, because no 
 });
 
 test('consent: the people screen has the checkbox, sets the flag through the profile module, and says why a pupil is out', () => {
-  assert.ok(/<input type="checkbox" id="consent">/.test(shell), 'the consent checkbox is missing');
+  assert.ok(/<input type="checkbox" id="consent"[^>]*>/.test(shell), 'the consent checkbox is missing');
   assert.ok(/id="consentRow" hidden/.test(shell), 'the consent row starts hidden (the default role is a student)');
   assert.ok(app.indexOf("$('consentRow').hidden = $('role').value !== 'pupil'") !== -1, 'the row follows the role');
   // The add button passes the flag for a pupil only, so a student record stays four fields.
