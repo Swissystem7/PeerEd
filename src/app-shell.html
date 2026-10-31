@@ -247,9 +247,14 @@
 
   <!-- ============ שיעורים ============ -->
   <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
+    <!-- A row is a lesson set for a matched pair, whatever became of it: "איך הסתיים" offers "לא התקיים"
+         and "נקטע באמצע" beside "התקיים", and the summary counts each. Until this the banner said the log
+         records "שהתקיים שיעור" with "היחידה המאושרת שנלמדה", over a form that logs a lesson that did not
+         take place and a unit nobody learned in it. -->
     <div class="banner">
-      יומן השיעורים רושם שהתקיים שיעור טקסט של זוג משודך: אזור, שעה, מקצוע, היחידה המאושרת שנלמדה ואיך
-      השיעור הסתיים. מספרי הסטודנט והתלמיד לא נכתבים ליומן. רשות מקבלת ספירות בלבד, לא שורות.
+      יומן השיעורים רושם שיעור טקסט שנקבע לזוג משודך, גם אם לא התקיים או נקטע באמצע: אזור, שעה, מקצוע,
+      היחידה המאושרת שנבחרה לשיעור ואיך השיעור הסתיים. מספרי הסטודנט והתלמיד לא נכתבים ליומן. רשות מקבלת
+      ספירות בלבד, לא שורות.
     </div>
     <div class="card">
       <h2>רישום שיעור</h2>
@@ -1632,7 +1637,9 @@
       return;
     }
     renderSessions();
-    say('sessionStatus', 'נרשם שיעור ' + (state.log.nextSeq - 1) +
+    // The outcome is said: "נרשם שיעור 3." alone read as a lesson held, for a row logged as "לא התקיים".
+    var logged = state.log.entries[state.log.entries.length - 1];
+    say('sessionStatus', 'נרשם שיעור ' + logged.seq + '. איך הסתיים: ' + (OUTCOME_HE[logged.outcome] || logged.outcome) +
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
     save('sessionStatus');
   });

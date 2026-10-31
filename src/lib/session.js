@@ -1,8 +1,8 @@
 'use strict';
-// PeerEd - the session log (MVP item 6): the record that a text session took place, with nothing in it
-// that points at a person. A session is logged for a pair from matchPairs, but the log keeps only what
-// the pair shares - region, slot, subject - plus the id of the approved unit that was taught and how
-// the session ended. The pair's roster positions are never written: a position is an identity once a
+// PeerEd - the session log (MVP item 6): the record of a text session set for a pair - held, missed or
+// cut short - with nothing in it that points at a person. A session is logged for a pair from matchPairs,
+// but the log keeps only what the pair shares - region, slot, subject - plus the id of the approved unit
+// chosen for it and how the session ended. The pair's roster positions are never written: a position is an identity once a
 // municipality sees the roster. The log is a frozen, JSON-serializable value and every operation
 // returns a new log: no clock, no randomness, no network, no personal data. Order is a counter.
 

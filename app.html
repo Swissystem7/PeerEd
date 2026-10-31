@@ -247,9 +247,14 @@
 
   <!-- ============ שיעורים ============ -->
   <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
+    <!-- A row is a lesson set for a matched pair, whatever became of it: "איך הסתיים" offers "לא התקיים"
+         and "נקטע באמצע" beside "התקיים", and the summary counts each. Until this the banner said the log
+         records "שהתקיים שיעור" with "היחידה המאושרת שנלמדה", over a form that logs a lesson that did not
+         take place and a unit nobody learned in it. -->
     <div class="banner">
-      יומן השיעורים רושם שהתקיים שיעור טקסט של זוג משודך: אזור, שעה, מקצוע, היחידה המאושרת שנלמדה ואיך
-      השיעור הסתיים. מספרי הסטודנט והתלמיד לא נכתבים ליומן. רשות מקבלת ספירות בלבד, לא שורות.
+      יומן השיעורים רושם שיעור טקסט שנקבע לזוג משודך, גם אם לא התקיים או נקטע באמצע: אזור, שעה, מקצוע,
+      היחידה המאושרת שנבחרה לשיעור ואיך השיעור הסתיים. מספרי הסטודנט והתלמיד לא נכתבים ליומן. רשות מקבלת
+      ספירות בלבד, לא שורות.
     </div>
     <div class="card">
       <h2>רישום שיעור</h2>
@@ -1900,10 +1905,10 @@ module.exports = {
   var module = { exports: {} };
   var exports = module.exports;
 'use strict';
-// PeerEd - the session log (MVP item 6): the record that a text session took place, with nothing in it
-// that points at a person. A session is logged for a pair from matchPairs, but the log keeps only what
-// the pair shares - region, slot, subject - plus the id of the approved unit that was taught and how
-// the session ended. The pair's roster positions are never written: a position is an identity once a
+// PeerEd - the session log (MVP item 6): the record of a text session set for a pair - held, missed or
+// cut short - with nothing in it that points at a person. A session is logged for a pair from matchPairs,
+// but the log keeps only what the pair shares - region, slot, subject - plus the id of the approved unit
+// chosen for it and how the session ended. The pair's roster positions are never written: a position is an identity once a
 // municipality sees the roster. The log is a frozen, JSON-serializable value and every operation
 // returns a new log: no clock, no randomness, no network, no personal data. Order is a counter.
 
@@ -3703,7 +3708,9 @@ module.exports = {
       return;
     }
     renderSessions();
-    say('sessionStatus', 'נרשם שיעור ' + (state.log.nextSeq - 1) +
+    // The outcome is said: "נרשם שיעור 3." alone read as a lesson held, for a row logged as "לא התקיים".
+    var logged = state.log.entries[state.log.entries.length - 1];
+    say('sessionStatus', 'נרשם שיעור ' + logged.seq + '. איך הסתיים: ' + (OUTCOME_HE[logged.outcome] || logged.outcome) +
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
     save('sessionStatus');
   });
