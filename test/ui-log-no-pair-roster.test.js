@@ -30,8 +30,8 @@ test('people with no pair: the line counts them and does not ask to load partici
   assert.equal(line.indexOf('שנוצר זוג'), -1, line);
 });
 
-test('one participant: counted as one', () => {
+test('one participant: counted as one, by the role the list holds', () => {
   const $ = openApp();
   addPerson($, 'student', 'NORTH', ['MATH'], ['SUN_16']);
-  assert.match(logLine($), /יש משתתף אחד ואין ביניהם/);
+  assert.match(logLine($), /יש סטודנט אחד ואין אף תלמיד/);
 });
