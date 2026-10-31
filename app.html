@@ -2851,10 +2851,13 @@ module.exports = {
         : ' תלמידים ' + x.fits.map(function (n) { return '#' + n; }).join(', ') + ' מהאזור חולקים איתו שעה ומקצוע ומחכים רק') +
         ' לאישור הורה. מסמנים אישור במסך "אנשים".'
       : gated ? ' תלמידים בלי אישור הורה לא נספרים כאן.' : '';
+    return reasonLineHe(code, role, other, who, fits, gated) + acrossHe(x);
+  }
+  function reasonLineHe(code, role, other, who, fits, gated) {
     switch (code) {
       case 'NO_PARENT_CONSENT': return role === 'pupil'
         ? 'אין עדיין אישור הורה, אז לא נכנס לשידוך בכלל. מסמנים אישור במסך "אנשים".'
-        : 'לאף תלמיד באזור אין עדיין אישור הורה, אז אין עם מי לשדך.';
+        : 'לאף תלמיד באזור אין עדיין אישור הורה, אז באזור אין עם מי לשדך.';
       case 'NO_ONE_IN_REGION': return 'אין באזור הזה אף ' + other + '.';
       case 'NO_SHARED_HOUR': return 'אף ' + who + ' באזור לא פנוי באותה שעה.' + fits;
       case 'NO_SHARED_SUBJECT': return 'לאף ' + who + ' באזור אין מקצוע משותף.' + fits;
@@ -2863,6 +2866,15 @@ module.exports = {
       case 'PARTNERS_TAKEN': return 'היו התאמות אפשריות, אבל כולן כבר שובצו לאחרים. אין שיבוץ עם יותר זוגות.';
       default: return '';
     }
+  }
+  // The student line for NO_PARENT_CONSENT said "אז אין עם מי לשדך" - while the cross-region card on the
+  // same screen could offer that very student a pupil with consent from another region. The line now says
+  // "באזור", and a left person the cross-region pass did pair (x.across, from computeMatch) is told so by
+  // the other person's list number and region, whatever the local reason.
+  function acrossHe(x) {
+    if (!x || !x.across) return '';
+    return ' בכרטיס "שידוך בין אזורים (חירום)" יש הצעה: ' + x.across.role + ' #' + x.across.number +
+      ' מאזור ' + x.across.region + ', הרכז מחליט.';
   }
 
   // The last computed match, in list numbers. Cleared whenever the list changes, so an export can never
@@ -2933,6 +2945,16 @@ module.exports = {
       return { studentRegion: p.studentRegion, pupilRegion: p.pupilRegion,
                student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
                sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
+    });
+    // for reasonHe: the partner the cross-region pass suggests for a left person, if any
+    left.forEach(function (x) {
+      across.forEach(function (p) {
+        if (x.role === 'student' && p.student === x.e.number) {
+          x.across = { role: ROLE_HE.pupil, number: p.pupil, region: REGION_HE[p.pupilRegion] || p.pupilRegion };
+        } else if (x.role === 'pupil' && p.pupil === x.e.number) {
+          x.across = { role: ROLE_HE.student, number: p.student, region: REGION_HE[p.studentRegion] || p.studentRegion };
+        }
+      });
     });
     // The cross-region pass drops the region rule only: a pupil without parent consent is in no pair
     // there either. So a pupil left out for consent who does share an hour and a subject with a free
