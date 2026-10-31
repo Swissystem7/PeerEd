@@ -72,3 +72,11 @@ test('a11y: external contact link sets target, rel, and announces new tab', () =
   assert.equal($('contactLink').getAttribute('aria-label'), $('contactLink').textContent + ' (נפתח בלשונית חדשה)');
 });
 
+test('a11y: contactBox has role="region" and aria-labelledby pointing to contactTitle', () => {
+  const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+  assert.ok(/<div class="card" id="contactBox"[^>]*role="region"[^>]*aria-labelledby="contactTitle"/.test(shell),
+    'contactBox must have role="region" and aria-labelledby="contactTitle"');
+  assert.ok(/<h2 id="contactTitle">/.test(shell),
+    'contact heading must have id="contactTitle"');
+});
+
