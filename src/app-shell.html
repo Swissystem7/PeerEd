@@ -1039,7 +1039,11 @@
     });
     if (last.across.length) {
       rows.push('');
-      rows.push(csvRow(['הצעות בין אזורים (טקסט בלבד, הרכז מחליט)']));
+      // The file is read in a spreadsheet, away from the card's hint, so its section header says what the
+      // hint does: "הרכז מחליט" alone left a coordinator who says yes to a row here looking for that pair on
+      // the lessons screen, whose pairs are matchPairs (same region only) - a lesson of it is not logged.
+      rows.push(csvRow(['הצעות בין אזורים (טקסט בלבד, הרכז מחליט; יומן השיעורים רושם רק זוג מאותו אזור, ' +
+        'אז שיעור של זוג כזה לא נרשם ביומן ולא נספר בסיכום לרשות)']));
       rows.push(csvRow(['תלמיד (מספר ברשימה)', 'אזור התלמיד', 'סטודנט (מספר ברשימה)', 'אזור הסטודנט', 'מקצועות משותפים', 'שעות משותפות']));
       last.across.forEach(function (p) {
         rows.push(csvRow([p.pupil, REGION_HE[p.pupilRegion] || p.pupilRegion, p.student, REGION_HE[p.studentRegion] || p.studentRegion,
