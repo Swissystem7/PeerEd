@@ -28,7 +28,7 @@ test('a refused log row: the load line says the roster, the queue and the log we
   assert.match(line, /^הנתונים השמורים נדחו ולא נטענו: שיעור שמור לא תקין\./, line);
   assert.match(line, /רשימת המשתתפים, תור היחידות ויומן השיעורים לא נטענו יחד/, line);
   assert.doesNotMatch(line, /הרשימה השמורה נדחתה/, line);
-  assert.match($('peopleList').innerHTML, /אין עדיין משתתפים/, 'the valid roster went with the bad log row');
+  assert.match($('peopleList').innerHTML, /אין משתתפים על המסך/, 'the valid roster went with the bad log row');
 });
 
 test('after a refused load the units and lessons screens do not say nothing was ever approved or logged', () => {
