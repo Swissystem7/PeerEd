@@ -559,6 +559,16 @@
       say('addStatus', 'הדפדפן לא מאפשר אחסון מקומי (מצב פרטי או אחסון חסום?), אז רשימה שנשמרה כאן קודם לא נטענה, ' +
         'ומה שיתווסף עכשיו יישמר בזיכרון בלבד וייעלם כשהדף ייסגר.', true);
     }
+    // A copy kept beside the key on an earlier visit stays there: store.js puts a later refused document
+    // in the next slot, never over it. So the wipe names it even on a visit whose load went through, and a
+    // refusal that finds one says it is still there - the line that kept it had promised it would be.
+    var copies = store.copies();
+    if (copies) refusedKept = true;
+    if (loaded.problem && loaded.kept && copies > 1) {
+      say('addStatus', $('addStatus').textContent + (copies === 2
+        ? ' גם העותק שנשמר בצד בטעינה שנדחתה קודם נשאר כמו שהיה, ולא נכתב עליו.'
+        : ' גם ' + (copies - 1) + ' העותקים שנשמרו בצד בטעינות שנדחו קודם נשארו כמו שהיו, ולא נכתב עליהם.'), true);
+    }
     resetMatchView();
   }
 

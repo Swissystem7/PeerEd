@@ -187,10 +187,13 @@ test('store: a tampered or corrupt document loads as empty with the reason, neve
   const corrupt = store.load();
   assert.equal(corrupt.problem, INVALID_STATE_ERROR + ': not JSON');
   assert.equal(corrupt.kept, true);
-  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), '<<<');
+  // the second refused document takes the next slot: the first copy is not written over
+  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), badText);
+  assert.equal(backend.getItem('k' + REJECTED_SUFFIX + ':2'), '<<<');
   assert.equal(store.clear(), true);
   assert.equal(backend.getItem('k'), null);
   assert.equal(backend.getItem('k' + REJECTED_SUFFIX), null);
+  assert.equal(backend.getItem('k' + REJECTED_SUFFIX + ':2'), null);
 });
 
 test('store: a backend that throws (private mode, quota) makes save report false and load fall back to empty', () => {
