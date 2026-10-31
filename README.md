@@ -9,7 +9,7 @@ deterministic tests only. The repository is on GitHub as `Swissystem7/PeerEd`.
 
 ## What works today
 
-`npm test` runs 30 deterministic tests (`node:test`, no dependencies).
+`npm test` runs 34 deterministic tests (`node:test`, no dependencies).
 
 `app.html` is the interface: one file, no server, no network call, opens from a phone or any static
 host. It is **generated** — `node scripts/build-app.js` inlines the modules below into
@@ -20,7 +20,7 @@ host. It is **generated** — `node scripts/build-app.js` inlines the modules be
 | `src/lib/regions.js` | The six region codes of the first municipality-scale deployment, and their validation. |
 | `src/lib/profile.js` | The only record the system stores: role, region, availability slots, subjects. Any other key, including an empty one, is refused with `personal data is not accepted`. The result is frozen and its arrays are copies. |
 | `src/lib/match.js` | Deterministic matching: same region, at least one shared availability slot, at least one shared subject. Candidates are ranked by shared slots, then shared subjects, then input order, and taken greedily; each participant is used at most once. No clock, no randomness, no network. |
-| `src/lib/roster.js` | One number per person: the participants list numbers people by their place in it, and this module carries that number through the match, whose own indexes are positions among students / among pupils. |
+| `src/lib/roster.js` | One number per person: the participants list numbers people by their place in it, and this module carries that number through the match, whose own indexes are positions among students / among pupils. `roster()` returns `{ number, person }` entries for the screens; `profilesForMatch()` returns the plain profiles `matchPairs` takes, in the same order. Handing `matchPairs` the entries throws rather than matching nobody. |
 | `src/lib/validator.js` | The gate for free text: refuses email addresses, Israeli phone numbers, nine-digit id numbers, links and social handles, with the same error message as the profile gate. Ordinary Hebrew lesson text with numbers passes. |
 
 `PURPOSE.md` carries the research this is grounded in (35 sources) and the owner's decisions.
