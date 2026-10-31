@@ -2989,6 +2989,18 @@ module.exports = {
     // A pupil waiting for a parent's yes is not short of a student: a new student would not be paired
     // with them either. They are counted apart, so the list below only asks for students that would help.
     var noConsent = shortPupils.filter(function (x) { return x.reason === 'NO_PARENT_CONSENT'; }).length;
+    // But "מחכה לאישור הורה, לא לסטודנט" was also said of a pupil with no student in the region who
+    // shares an hour and a subject with them - the demo's pupil in Jerusalem, a region with no student at
+    // all - who after the consent is still left out, then for want of a student. Those are told apart.
+    var students = state.people.filter(function (p) { return p.role === 'student'; });
+    var noConsentNoStudent = shortPupils.filter(function (x) {
+      var me = x.e.person;
+      return x.reason === 'NO_PARENT_CONSENT' && !students.some(function (s) {
+        return s.region === me.region && match.hasOverlap(s.availability, me.availability) &&
+          match.hasOverlap(s.subjects, me.subjects);
+      });
+    }).length;
+    var noConsentFits = noConsent - noConsentNoStudent;
     var counts = {}, keys = [];
     shortPupils.forEach(function (x) {
       if (x.reason === 'NO_PARENT_CONSENT') return;
@@ -3003,7 +3015,15 @@ module.exports = {
       countHe(shortPupils.length - noConsent, 'תלמיד', 'תלמידים') + ' בלי סטודנט, ' +
       countHe(shortStudents, 'סטודנט', 'סטודנטים') + ' בלי תלמיד.' +
       (m.across.length ? ' אפשר עוד ' + countHe(m.across.length, 'זוג', 'זוגות') + ' בין אזורים.' : '') + '</p>' +
-      (noConsent ? '<p class="hint">' + (noConsent === 1 ? 'תלמיד אחד מחכה' : noConsent + ' תלמידים מחכים') + ' לאישור הורה, לא לסטודנט.</p>' : '') +
+      (noConsentFits ? '<p class="hint">' + (noConsentFits === 1
+        ? 'תלמיד אחד מחכה לאישור הורה; באזור שלו יש סטודנט שחולק איתו שעה ומקצוע.'
+        : noConsentFits + ' תלמידים מחכים לאישור הורה; באזור של כל אחד מהם יש סטודנט שחולק איתו שעה ומקצוע.') + '</p>' : '') +
+      (noConsentNoStudent ? '<p class="hint">' + (noConsentNoStudent === 1
+        ? 'תלמיד אחד מחכה לאישור הורה, וגם אין באזור שלו סטודנט שחולק איתו שעה ומקצוע'
+        : noConsentNoStudent + ' תלמידים מחכים לאישור הורה, וגם אין באזור שלהם סטודנט שחולק איתם שעה ומקצוע') +
+        ': אחרי האישור ' + (noConsentNoStudent === 1 ? 'הוא יחכה' : 'הם יחכו') + ' גם לסטודנט. ' +
+        (noConsentNoStudent === 1 ? 'הוא לא נספר' : 'הם לא נספרים') + ' ב"חסרים סטודנטים", כי עד האישור גם סטודנט חדש לא ישודך ' +
+        (noConsentNoStudent === 1 ? 'איתו' : 'איתם') + '.</p>' : '') +
       (keys.length ? '<p class="hint">חסרים סטודנטים (תלמיד עם כמה מקצועות נספר בכל אחד):</p>' +
         keys.map(function (k) { return '<div class="item"><span class="meta">' + esc(k) + ': ' + counts[k] +
           '</span></div>'; }).join('') : '');
