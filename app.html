@@ -3749,6 +3749,20 @@ module.exports = {
   }
   // What went down or out from here in this visit and lies outside the browser: '' when nothing did.
   function leftOutsideHe() { return filesLeftHe() + clipLeftHe(); }
+  // A unit typed in the units form and not sent sits in no store: the counts on the first click do not
+  // hold it, but the second click empties the form too, so a teacher's unsent text went with the rest
+  // unnamed. The form still holds a unit after it is sent; one the queue holds as it is is not unsent.
+  function unsentUnitHe() {
+    var title = $('unitTitle').value, body = $('unitBody').value;
+    if (!title.trim() && !body.trim()) return '';
+    try {
+      var u = unitLib.makeUnit({ title: title, subject: $('unitSubject').value,
+        durationMinutes: Number($('unitDuration').value), body: body });
+      var e = state.queue.entries[u.id];
+      if (e && e.unit.body === u.body) return '';
+    } catch (err) { /* text the gate refuses was never sent either */ }
+    return ' בטופס במסך "יחידות" יש יחידה שלא הוגשה: היא לא נשמרה בשום מקום, והמחיקה תרוקן גם את הטופס.';
+  }
   function setWipeArmed(on) {
     wipeArmed = on;
     var wb = $('wipeBtn');
@@ -3766,29 +3780,32 @@ module.exports = {
       // and when load() refused one, that document (and the copy it kept) is named, not "cleaned anyway".
       var refused = refusedHe();
       var files = leftOutsideHe();
+      var unsent = unsentUnitHe();
       // With the storage blocked (storageBlocked) nothing here reaches the device: what is on the screen
       // sits in memory for this visit, and a list saved on an earlier visit - the one load() said it
       // could not read - is out of this button's reach as well. Both are said, so neither click claims
       // the device.
       if (!state.people.length && !units && !lessons) {
         say('wipeStatus', refused
-          ? 'על המסך אין משתתפים, יחידות או שיעורים, אבל באחסון עדיין יש ' + refused + '.' + files +
+          ? 'על המסך אין משתתפים, יחידות או שיעורים, אבל באחסון עדיין יש ' + refused + '.' + files + unsent +
             ' לחץ שוב כדי למחוק את זה מהאחסון, או ביטול.'
           : storageBlocked
             ? 'על המסך אין משתתפים, יחידות או שיעורים, והדפדפן לא מאפשר אחסון מקומי, אז מכאן אין מה למחוק. ' +
-              BLOCKED_LEFTOVER_HE + files + ' לחץ שוב כדי לנקות בכל זאת את הזיכרון, או ביטול.'
+              BLOCKED_LEFTOVER_HE + files + unsent + ' לחץ שוב כדי לנקות בכל זאת את הזיכרון, או ביטול.'
             : (files ? 'בדפדפן הזה אין משתתפים, יחידות או שיעורים.' + files
-              : 'אין במכשיר הזה משתתפים, יחידות או שיעורים.') + ' לחץ שוב כדי לנקות בכל זאת את האחסון, או ביטול.');
+              : 'אין במכשיר הזה משתתפים, יחידות או שיעורים.') + unsent + ' לחץ שוב כדי לנקות בכל זאת את האחסון, או ביטול.');
         return;
       }
       say('wipeStatus', 'יימחקו ' + countHe(state.people.length, 'משתתף', 'משתתפים') + ', ' +
         countHe(units, 'יחידה', 'יחידות', 'אחת') + (lessons === 1 ? ' ו' : ' ו-') +
         countHe(lessons, 'שיעור', 'שיעורים') + (refused ? ', ואיתם גם ' + refused : '') +
         (storageBlocked ? ' - מהזיכרון בלבד, כי הדפדפן לא מאפשר אחסון מקומי ובאחסון הם לא נשמרו' : '') +
-        '.' + files + ' לחץ שוב כדי לאשר, או ביטול.');
+        '.' + files + unsent + ' לחץ שוב כדי לאשר, או ביטול.');
       return;
     }
     var refusedGone = refusedHe();
+    // text typed in the units form after the first click was not in its line, so the last line names it
+    var unsentGone = unsentUnitHe() ? ' גם יחידה שהייתה בטופס במסך "יחידות" ולא הוגשה נמחקה מהטופס.' : '';
     var removed = store.clear();
     if (removed) { refusedOnKey = false; refusedKept = false; }
     pairsFileDownloaded = false;
@@ -3820,14 +3837,14 @@ module.exports = {
     // was emptied (the screen and the memory) and what this button could not touch, instead of
     // "nothing is left on this device" over a storage load() has just said it could not read.
     if (storageBlocked) {
-      say('wipeStatus', 'נמחק מהמסך ומהזיכרון. הדפדפן לא מאפשר אחסון מקומי, אז ' + BLOCKED_LEFTOVER_HE + leftOutsideHe(), true);
+      say('wipeStatus', 'נמחק מהמסך ומהזיכרון. הדפדפן לא מאפשר אחסון מקומי, אז ' + BLOCKED_LEFTOVER_HE + unsentGone + leftOutsideHe(), true);
       return;
     }
     // A pairs file that went down is the match result of this list, by list number, and it is on the
     // device: "nothing is left on this device" over it would send the phone on with that file in it.
     say('wipeStatus', removed ? 'נמחק. ' + (pairsFilesDown || reportCopied ? 'בדפדפן' : 'במכשיר') + ' הזה לא נשאר דבר מהרשימה, מהיחידות ומהיומן.' +
-        (refusedGone ? ' גם ' + refusedGone + ' כבר לא באחסון.' : '') + leftOutsideHe()
-      : 'נמחק מהמסך, אבל הדפדפן לא אפשר למחוק מהאחסון המקומי. נקה את נתוני האתר בהגדרות הדפדפן.' + leftOutsideHe(), !removed);
+        (refusedGone ? ' גם ' + refusedGone + ' כבר לא באחסון.' : '') + unsentGone + leftOutsideHe()
+      : 'נמחק מהמסך, אבל הדפדפן לא אפשר למחוק מהאחסון המקומי. נקה את נתוני האתר בהגדרות הדפדפן.' + unsentGone + leftOutsideHe(), !removed);
   });
   $('wipeCancel').addEventListener('click', function () {
     setWipeArmed(false);
