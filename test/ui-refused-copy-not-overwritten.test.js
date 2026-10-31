@@ -42,7 +42,7 @@ test('a refusal over an earlier copy says that copy is still there, and the wipe
   items[FIRST] = OLD;
   const $ = openApp({ store: items });
   const line = $('addStatus').textContent;
-  assert.match(line, /עותק שלה נשמר בצד/, line);
+  assert.match(line, /עותק שלהם נשמר בצד/, line);
   assert.ok(line.indexOf('גם העותק שנשמר בצד בטעינה שנדחתה קודם נשאר כמו שהיה, ולא נכתב עליו.') !== -1, line);
   assert.equal($.store[FIRST], OLD, 'the earlier copy is not written over');
   assert.equal($.store[SECOND], NEW);
