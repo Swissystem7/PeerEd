@@ -14,12 +14,18 @@ const LATIN = /[A-Za-z]/;
 
 
 test('a11y: unit form inputs have aria-describedby and required attributes', () => {
+  assert.ok(/<select id="unitSubject"[^>]*aria-required="true"[^>]*aria-describedby="unitStatus"/.test(shell),
+    'unitSubject must have aria-required="true" and aria-describedby="unitStatus"');
   assert.ok(/<input id="unitDuration"[^>]*aria-describedby="unitStatus"/.test(shell),
     'unitDuration must have aria-describedby="unitStatus"');
   assert.ok(/<input id="unitTitle"[^>]*aria-required="true"[^>]*aria-describedby="unitStatus"/.test(shell),
     'unitTitle must have aria-required="true" and aria-describedby="unitStatus"');
   assert.ok(/<textarea id="unitBody"[^>]*aria-required="true"[^>]*aria-describedby="unitStatus"/.test(shell),
     'unitBody must have aria-required="true" and aria-describedby="unitStatus"');
+  assert.ok(/<button type="button" class="act" id="submitUnit"[^>]*aria-describedby="unitStatus"/.test(shell),
+    'submitUnit must have aria-describedby="unitStatus"');
+  assert.ok(/<button type="button" class="ghost" id="clearUnitBtn"[^>]*aria-describedby="unitStatus"/.test(shell),
+    'clearUnitBtn must have aria-describedby="unitStatus"');
 });
 
 test('a11y: submitting a unit with validation errors focuses the invalid input', () => {
@@ -46,5 +52,12 @@ test('a11y: submitting a unit with validation errors focuses the invalid input',
   $('unitDuration').value = '90'; // max is 60
   $('submitUnit').fire('click');
   assert.equal($('unitDuration').focused, true, 'unitDuration must be focused when duration is invalid');
+
+  // 4. Invalid subject focuses unitSubject
+  $('unitDuration').value = '20';
+  $('unitDuration').focused = false;
+  $('unitSubject').value = 'INVALID';
+  $('submitUnit').fire('click');
+  assert.equal($('unitSubject').focused, true, 'unitSubject must be focused when subject is invalid');
 });
 
