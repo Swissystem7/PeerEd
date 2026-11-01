@@ -69,8 +69,7 @@ apart, and the students missing by region and subject), on the screen with no fi
 ## What does not exist
 
 No accounts, no sharing between devices (the state lives in one browser's localStorage), no reports for a
-municipality beyond two on-screen count cards, both titled "סיכום לרשות" (the match screen's, which has no
-file, and the session counts on the sessions screen with their CSV export), no screen-reader pass: the
+municipality beyond two on-screen count cards, both titled "סיכום לרשות" (the match screen's and the sessions screen's, each with its CSV count export), no screen-reader pass: the
 accessibility work is markup and focus checked by the `test/a11y-*` and `test/app-a11y.test.js` files
 against a fake DOM (the tab bar's keyboard navigation and tab panels, every status line a `role="status"`,
 the lists `aria-live` regions, the hour and subject buttons and the consent button `aria-pressed`, hints tied
