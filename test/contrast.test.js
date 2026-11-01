@@ -69,8 +69,22 @@ test('contrast: every text-on-background pair the shell paints meets WCAG AA (4.
   }
   assert.ok(rows.some((r) => r.under !== undefined), 'the translucent tints are measured over their parent');
   assert.ok(rows.some((r) => r.min === C.NON_TEXT), 'the focus ring and the selected-tab line are in');
+  assert.ok(rows.some((r) => r.what === 'card border' && r.min === C.NON_TEXT), 'card border is in');
+  assert.ok(rows.some((r) => r.what === 'form-field border' && r.min === C.NON_TEXT), 'form-field border is in');
   assert.equal(C.TEXT, 4.5);
   assert.equal(C.NON_TEXT, 3);
+});
+
+test('contrast: card and form-field borders reach at least 3:1 (WCAG 1.4.11)', () => {
+  const rows = C.audit(shell);
+  const cardBorder = rows.find((r) => r.what === 'card border');
+  const fieldBorder = rows.find((r) => r.what === 'form-field border');
+  assert.ok(cardBorder, 'card border is in audit');
+  assert.ok(fieldBorder, 'form-field border is in audit');
+  assert.ok(cardBorder.ratio >= 3, `card border ratio ${cardBorder.ratio} < 3`);
+  assert.ok(fieldBorder.ratio >= 3, `form-field border ratio ${fieldBorder.ratio} < 3`);
+  assert.equal(cardBorder.ok, true);
+  assert.equal(fieldBorder.ok, true);
 });
 
 test('contrast: every colour the stylesheet paints text with is in the audit', () => {
