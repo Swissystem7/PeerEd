@@ -75,8 +75,7 @@ against a fake DOM (the tab bar's keyboard navigation and tab panels, every stat
 the lists `aria-live` regions, the hour and subject buttons and the consent button `aria-pressed`, hints tied
 by `aria-describedby`, a refused form moving focus to the field at fault, a delete or a decision moving it to
 the next button, a visible focus ring, the text contrast audit), never heard through NVDA, VoiceOver or
-TalkBack; the card and field borders sit near 1.4:1, under the 3:1 of WCAG 1.4.11, and the audit does not
-cover borders because lightening them is a look still to be chosen; no Arabic or Russian, regions are national rather than one
+TalkBack; the card and field borders reach at least 3:1 under WCAG 1.4.11 (3.4:1 and 3.1:1) and are covered by the automated contrast audit; no Arabic or Russian, regions are national rather than one
 municipality's neighbourhoods. Nothing here has been used by a real coordinator.
 
 No AI: nothing generates or rewrites a unit, and `PURPOSE.md` says PeerEd is not an AI content tool. The

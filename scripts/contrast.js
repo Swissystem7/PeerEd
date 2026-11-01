@@ -129,6 +129,8 @@ function pairs(css) {
   const ink = prop(css, 'body', 'color');
   return [
     { what: 'body text', fg: ink, bg: v.bg, min: TEXT },
+    { what: 'card border', fg: prop(css, '.card', 'border').split(/\s+/).pop(), bg: v.bg, min: NON_TEXT },
+    { what: 'form-field border', fg: prop(css, 'input, select, textarea', 'border').split(/\s+/).pop(), bg: v.card, min: NON_TEXT },
     { what: 'muted text on the page (header)', fg: prop(css, 'header p', 'color'), bg: v.bg, min: TEXT },
     { what: 'muted text in a card (label, hint, empty)', fg: prop(css, 'label', 'color'), bg: v.card, min: TEXT },
     { what: 'card heading', fg: ink, bg: v.card, min: TEXT },
