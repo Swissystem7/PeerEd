@@ -162,6 +162,7 @@
     <div class="card">
       <h2>סיכום לרשות</h2>
       <div id="summary" role="region" aria-live="polite" aria-label="סיכום לרשות"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <div class="actions"><button type="button" class="ghost" id="exportMatchSummary" aria-label="הורד קובץ סיכום לרשות בפורמט CSV" aria-describedby="matchStatus">הורד סיכום לרשות (CSV)</button></div>
     </div>
     <div class="card">
       <h2>הזוגות</h2>
@@ -1142,6 +1143,25 @@
     fileAcross = last.across.map(function (p) { return { pupil: p.pupil, student: p.student }; });
     say('matchStatus', 'הקובץ peered-pairs.csv ירד: ' + countHe(last.pairs.length, 'זוג', 'זוגות') + ' ו' +
       (last.left.length === 0 ? 'כולם שובצו.' : last.left.length === 1 ? 'אחד שלא שובץ.' : '-' + last.left.length + ' שלא שובצו.'));
+  });
+
+  $('exportMatchSummary').addEventListener('click', function () {
+    if (!last) {
+      var rm = $('runMatch');
+      if (rm && rm.focus) rm.focus();
+      say('matchStatus', 'קודם לחץ "חשב שידוך" — הקובץ נבנה מהשידוך האחרון.', true);
+      return;
+    }
+    var csvText = match.matchSummaryCsv(last, state.people);
+    var blob = new Blob(['\ufeff' + csvText], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'peered-match-summary.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
+    say('matchStatus', 'הקובץ peered-match-summary.csv ירד: סיכום ספירות בלבד לרשות.');
   });
 
   // ---------- text gate ----------

@@ -244,15 +244,6 @@ function matchAcrossRegions(students, pupils, pairs) {
   }));
 }
 
-module.exports = { matchPairs, explainUnmatched, matchAcrossRegions, shared, compareCandidates, hasOverlap, hasParentConsent, makeMatchRecord };
-// Why each participant is not in `pairs`. One code per person, the first that is true:
-//   NO_PARENT_CONSENT              a pupil: no parent consent, so not in the pool at all (nobody else is
-//                                  looked at); a student: pupils in the region, but none has consent yet
-//   NO_ONE_IN_REGION               nobody of the other role in the same region
-//   NO_SHARED_HOUR                 somebody in the region, but never free at the same hour
-//   NO_SHARED_SUBJECT              somebody in the region, but no subject in common
-//   NO_HOUR_AND_SUBJECT_TOGETHER   one shares an hour, another a subject, nobody both
-//   PARTNERS_TAKEN                 had possible partners; the largest matching needed all of them elsewhere
 function explainUnmatched(students, pupils, pairs) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
@@ -277,4 +268,81 @@ function explainUnmatched(students, pupils, pairs) {
   P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S, true) }); });
   return out;
 }
+
+function summarizeMatch(m, people) {
+  const S = (Array.isArray(people) ? people : []).filter((p) => p && p.role === 'student');
+  const left = (m && Array.isArray(m.left)) ? m.left : [];
+  const shortPupils = left.filter((x) => x && x.role === 'pupil');
+  const shortStudents = left.length - shortPupils.length;
+
+  const noConsent = shortPupils.filter((x) => x && x.reason === 'NO_PARENT_CONSENT').length;
+  const noConsentNoStudent = shortPupils.filter((x) => {
+    if (!x || x.reason !== 'NO_PARENT_CONSENT') return false;
+    const me = x.e && x.e.person;
+    if (!me) return false;
+    return !S.some((s) =>
+      s && s.region === me.region &&
+      hasOverlap(s.availability, me.availability) &&
+      hasOverlap(s.subjects, me.subjects)
+    );
+  }).length;
+  const noConsentFits = noConsent - noConsentNoStudent;
+
+  const missingCounts = {};
+  shortPupils.forEach((x) => {
+    if (!x || x.reason === 'NO_PARENT_CONSENT') return;
+    const p = x.e && x.e.person;
+    if (!p) return;
+    const reg = p.region || 'UNKNOWN';
+    (Array.isArray(p.subjects) ? p.subjects : []).forEach((sub) => {
+      const code = reg + '_' + sub;
+      missingCounts[code] = (missingCounts[code] || 0) + 1;
+    });
+  });
+
+  return {
+    pairs: (m && Array.isArray(m.pairs)) ? m.pairs.length : 0,
+    pupilsWithoutStudent: shortPupils.length - noConsent,
+    studentsWithoutPupil: shortStudents,
+    crossRegionPairs: (m && Array.isArray(m.across)) ? m.across.length : 0,
+    waitingConsentFits: noConsentFits,
+    waitingConsentNoStudent: noConsentNoStudent,
+    missingByRegionSubject: missingCounts
+  };
+}
+
+const MATCH_REPORT_HEADER = 'measure,code,count';
+
+function matchSummaryCsv(m, people) {
+  const s = summarizeMatch(m, people);
+  const lines = [
+    MATCH_REPORT_HEADER,
+    'pairs,,' + s.pairs,
+    'pupils_without_student,,' + s.pupilsWithoutStudent,
+    'students_without_pupil,,' + s.studentsWithoutPupil,
+    'cross_region_pairs,,' + s.crossRegionPairs,
+    'waiting_parent_consent_fits,,' + s.waitingConsentFits,
+    'waiting_parent_consent_no_student,,' + s.waitingConsentNoStudent
+  ];
+  const missingCodes = Object.keys(s.missingByRegionSubject).sort();
+  for (let i = 0; i < missingCodes.length; i += 1) {
+    lines.push('missing_student,' + missingCodes[i] + ',' + s.missingByRegionSubject[missingCodes[i]]);
+  }
+  return lines.join('\n') + '\n';
+}
+
+module.exports = {
+  matchPairs,
+  explainUnmatched,
+  matchAcrossRegions,
+  shared,
+  compareCandidates,
+  hasOverlap,
+  hasParentConsent,
+  makeMatchRecord,
+  summarizeMatch,
+  matchSummaryCsv,
+  MATCH_REPORT_HEADER
+};
+
 
