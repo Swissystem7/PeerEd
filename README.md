@@ -44,6 +44,7 @@ never who) and a municipality sees counts only. The people screen ends with a wi
 
 | File | What it does |
 |---|---|
+| `src/lib/i18n.js` | UI strings table supporting Hebrew (default, RTL), Arabic (RTL), and Russian (LTR). Arabic and Russian translations marked as needing native-speaker review. |
 | `src/lib/regions.js` | The six region codes and their validation. |
 | `src/lib/retention.js` | How long each kind of record may be kept (profile 730 days, match 365); nothing is kept indefinitely. |
 | `src/lib/audit-report.js` | A Hebrew privacy and retention statement for audits, generated from the active retention policy (what is collected, how long it is kept, how it is deleted). The deletion protocol says what the screen does: nothing is removed on its own when a window ends (a stored person carries no date and no screen runs the sweep), the coordinator deletes a person or wipes the device, pairs are not stored, and a downloaded pairs file is outside the wipe's reach. |
