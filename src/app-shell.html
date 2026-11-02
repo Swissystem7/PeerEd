@@ -79,6 +79,8 @@
   <header>
     <h1>PeerEd</h1>
     <p>מחבר סטודנטים לתלמידי תיכון לפי אזור, זמינות ומקצוע. בלי שם, בלי טלפון, בלי מייל.</p>
+    <label for="langSelect">שפה</label>
+    <select id="langSelect" aria-label="שפה"><option value="he">עברית</option><option value="ar">العربية</option><option value="ru">Русский</option></select>
   </header>
 
   <!-- ============ אנשים ============ -->
@@ -336,7 +338,7 @@
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
       unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
-      tabnav = __registry.tabnav, contact = __registry.contact;
+      tabnav = __registry.tabnav, contact = __registry.contact, i18n = __registry.i18n;
   var $ = function (id) { return document.getElementById(id); };
 
   // One label per role, used by the participants list AND the match screen.
@@ -347,6 +349,10 @@
                      ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב',
                      CIVICS: 'אזרחות' };
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
+  var currentLang = 'he';
+  // Language choice is per-visit only: the shell never writes storage itself (store.js is the single writer).
+  function S(k) { return i18n ? i18n.t(k, currentLang) : k; }
+  var DAY_NAMES = { he: null, ar: { SUN: 'الأحد', MON: 'الاثنين', TUE: 'الثلاثاء', WED: 'الأربعاء', THU: 'الخميس', FRI: 'الجمعة', SAT: 'السبت' }, ru: { SUN: 'Вс', MON: 'Пн', TUE: 'Вт', WED: 'Ср', THU: 'Чт', FRI: 'Пт', SAT: 'Сб' } };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -923,10 +929,10 @@
 
   function resetMatchView() {
     last = null;
-    $('summary').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('pairs').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('unmatched').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('across').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
+    $('summary').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('pairs').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('unmatched').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('across').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
     say('matchStatus', '');
   }
 
@@ -1062,13 +1068,13 @@
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
-    }).join('') : '<p class="empty">לא נוצר אף זוג.</p>';
+    }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
     $('unmatched').innerHTML = m.left.length ? m.left.map(function (x) {
       return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
         esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
         x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>' + reasonHe(x.reason, x.role, x) + '</span></div>';
-    }).join('') : '<p class="empty">כולם שובצו.</p>';
+    }).join('') : '<p class="empty">' + S('allMatched') + '</p>';
     $('across').innerHTML = m.across.length ? m.across.map(function (p) {
       return '<div class="item pair"><b>' + ROLE_HE.pupil + ' #' + p.pupil + ' (' + esc(REGION_HE[p.pupilRegion] || p.pupilRegion) +
         ') עם ' + ROLE_HE.student + ' #' + p.student + ' (' + esc(REGION_HE[p.studentRegion] || p.studentRegion) + ')</b>' +
@@ -1861,7 +1867,7 @@
   function setWipeArmed(on) {
     wipeArmed = on;
     var wb = $('wipeBtn');
-    wb.textContent = on ? 'כן, מחק הכול' : WIPE_LABEL;
+    wb.textContent = on ? S('wipeConfirmBtn') : S('wipeBtn');
     wb.setAttribute('aria-expanded', on ? 'true' : 'false');
     $('wipeCancel').hidden = !on;
   }
@@ -2016,6 +2022,26 @@
   renderSessionForm();
   renderSessions();
   setWipeArmed(false);
+  function applyLanguage(lang) {
+    if (!i18n) return;
+    currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
+    document.documentElement.lang = currentLang;
+    document.documentElement.dir = i18n.dirFor(currentLang);
+    var sel = $('langSelect'); if (sel) sel.value = currentLang;
+    REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
+    SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
+    ROLE_HE = { student: S('roleStudent'), pupil: S('rolePupil') };
+    if (DAY_NAMES[currentLang]) DAY_HE = DAY_NAMES[currentLang];
+    OUTCOME_HE = { held: S('outcomeHeld'), missed: S('outcomeMissed'), cut_short: S('outcomeCutShort') };
+    if (document.querySelectorAll) { var heToKey = {}; Object.keys(i18n.STRINGS.he).forEach(function (k) { if (!(i18n.STRINGS.he[k] in heToKey)) heToKey[i18n.STRINGS.he[k]] = k; }); Array.prototype.forEach.call(document.querySelectorAll('h1, h2, label, button, p, option'), function (n) { if (n.children && n.children.length) return; var key = heToKey[String(n.textContent || '').trim()]; if (key) n.textContent = S(key); }); }
+
+    buildInputs();
+    fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false);
+  }
+  var langSelEl = $('langSelect');
+  if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
+  if (currentLang !== 'he') applyLanguage(currentLang);
 })();
 </script>
 </body>
