@@ -14,9 +14,9 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 
 // The commands of the Quickstart shell block, without their trailing `# ...` explanations.
 function quickstartCommands() {
-  const block = /## Quickstart[\s\S]*?```sh\n([\s\S]*?)```/.exec(readme);
+  const block = /## Quickstart[\s\S]*?```sh\r?\n([\s\S]*?)```/.exec(readme);
   assert.ok(block, 'the Quickstart section should still hold a ```sh block');
-  return block[1].split('\n').map((line) => line.replace(/#.*$/, '').trim()).filter(Boolean);
+  return block[1].split(/\r?\n/).map((line) => line.replace(/#.*$/, '').trim()).filter(Boolean);
 }
 
 test('README: every command the Quickstart documents can actually be run', () => {
