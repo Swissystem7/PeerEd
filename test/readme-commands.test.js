@@ -7,6 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
 const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
@@ -58,11 +59,21 @@ test('README: the Node version the prose promises is the one package.json enforc
   assert.equal(pkg.engines.node, '>=' + floor[1], 'the README and package.json engines disagree');
 });
 
+// Whether git tracks the file. A lockfile that a local `npm install` left behind is not committed, so
+// it must not fail the suite. Without git (an archive or tarball) any file on disk counts.
+function isCommitted(file) {
+  try {
+    return execFileSync('git', ['ls-files', '--', file], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
+  } catch {
+    return fs.existsSync(path.join(ROOT, file));
+  }
+}
+
 test('README: the no-install promise holds - no lockfile and no dependency', () => {
   // The README tells the reader to skip `npm install` and warns that `npm ci` fails by design.
   // Committing a lockfile or a dependency would make that paragraph a lie on the first page.
   for (const lock of ['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'pnpm-lock.yaml']) {
-    assert.equal(fs.existsSync(path.join(ROOT, lock)), false,
+    assert.equal(isCommitted(lock), false,
       'the README says there is no lockfile, but ' + lock + ' is committed');
   }
   assert.equal(pkg.dependencies, undefined, 'the README promises no dependencies');
