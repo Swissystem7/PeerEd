@@ -73,7 +73,7 @@
   .flag { background:rgba(185,28,28,.08); border:1px solid rgba(185,28,28,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
   .hero { background:var(--hero); background-image:linear-gradient(180deg,#0F766E 0,#4338CA 100%); border-radius:24px; padding:20px; color:#FFFFFF; margin:12px 0; }
-  .hero.emergency { background:var(--emg); background-image:linear-gradient(180deg,#C2410C 0,#9A3412 100%); }
+  .hero.emergency { background:var(--emg); background-image:linear-gradient(180deg,#C2410C 0,#9A3412 78%,#F7F5FF 100%); }
   .hero h2 { font-size:1.55rem; margin:0 0 6px; line-height:1.2; }
   .hero p { color:#FFFFFF; font-size:.92rem; line-height:1.6; margin:0; }
   .mode-toggle { display:flex; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.33); border-radius:999px; padding:4px; gap:4px; margin-top:14px; }
@@ -84,8 +84,27 @@
   .action-card { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:24px; padding:16px; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:56px; text-align:start; box-shadow:0 8px 24px rgba(49,46,129,.10); }
   .ring-row { display:flex; align-items:center; gap:14px; }
   .ring-num { color:var(--ink); font-weight:700; }
-  .tl { border-inline-start:2px solid #99F6E4; margin-inline-start:13px; padding-inline-start:18px; }
-  .tl-dot { width:28px; height:28px; border-radius:999px; background:#CCFBF1; border:2px solid #0F766E; display:inline-block; vertical-align:middle; margin-inline-end:8px; }
+  /* Glass cards (Figma v2): the solid white above is the fallback; where backdrop-filter
+     is supported the cards turn translucent over the page background. */
+  @supports not ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+    .card, .action-card { background:#FFFFFF; }
+  }
+  @supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+    .card, .action-card { background:rgba(255,255,255,.9); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); border:1px solid #FFFFFF; }
+    nav { background:rgba(255,255,255,.85); -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px); border:1px solid #FFFFFF; }
+  }
+  /* Lesson vertical timeline (Figma v2): 28px circles on a 2px line, step title + minutes + body. */
+  .lesson-timeline { list-style:none; margin:14px 0 4px; padding:0; }
+  .tl-step { position:relative; display:flex; gap:12px; padding-bottom:18px; }
+  .tl-step:last-child { padding-bottom:2px; }
+  .tl-step::before { content:""; position:absolute; top:30px; bottom:0; inset-inline-start:13px; width:2px; background:#99F6E4; }
+  .tl-step:last-child::before { display:none; }
+  .tl-dot { flex:0 0 28px; width:28px; height:28px; border-radius:999px; background:#CCFBF1; border:2px solid #0F766E; color:#0F766E; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:700; position:relative; z-index:1; }
+  .tl-body { flex:1; min-width:0; padding-top:2px; }
+  .tl-head { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; justify-content:space-between; }
+  .tl-title { color:var(--ink); font-weight:700; font-size:.98rem; }
+  .tl-min { background:#CCFBF1; color:#0F766E; border-radius:999px; padding:2px 9px; font-size:.72rem; font-weight:700; }
+  .tl-text { color:var(--muted); font-size:.88rem; line-height:1.6; margin:3px 0 0; }
   details.advanced summary { color:var(--ink); font-weight:700; cursor:pointer; min-height:44px; padding:10px 0; }
   @media (prefers-reduced-motion: reduce) { * { transition:none; } }
 </style>
@@ -2520,6 +2539,27 @@ function lessonById(id) {
 }
 function flowMinutes(lesson) { return lesson.flowHe.reduce((sum, f) => sum + f.minutes, 0); }
 
+// The 45-minute flow as timeline steps for the lesson screen: a short title, the
+// duration and the body of each step. Steps are written "title: body"; a step
+// without that prefix keeps its whole text as the body under a numbered title.
+function flowTimeline(lesson) {
+  if (!lesson || !Array.isArray(lesson.flowHe) || lesson.flowHe.length === 0) {
+    throw new Error('invalid lesson: flowHe');
+  }
+  return Object.freeze(lesson.flowHe.map((f, i) => {
+    if (!f || !Number.isInteger(f.minutes) || f.minutes <= 0 || typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
+      throw new Error('invalid lesson: flowHe');
+    }
+    const cut = f.stepHe.indexOf(': ');
+    const hasTitle = cut > 0 && cut <= 28;
+    return Object.freeze({
+      minutes: f.minutes,
+      titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
+      bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
+    });
+  }));
+}
+
 function resolveTrack(trackByPair, pairIndex) {
   let track;
   if (typeof trackByPair === 'function') track = trackByPair(pairIndex);
@@ -2605,7 +2645,7 @@ function progressToCsv(progress) {
 
 module.exports = {
   TRACKS, TRACK_GRADES, LESSON_MINUTES, ALL_LESSONS,
-  lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes,
+  lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv
 };
   __registry["curriculum"] = module.exports;
@@ -6403,9 +6443,16 @@ module.exports = {
     var l = pick.lesson;
     var delivered = curriculumLib.isDelivered(deliveryLog, { pairIndex: 0, lessonId: l.lessonId || l.id, cycle: 1 });
     $('todayDelivered').checked = delivered;
-    $('todayLesson').innerHTML = '<div class="tl"><p><span class="tl-dot"></span><b>' + esc(l.titleHe) + '</b> · ' +
+    var steps = curriculumLib.flowTimeline(l);
+    $('todayLesson').innerHTML = '<p><b>' + esc(l.titleHe) + '</b> · ' +
       esc(modeState.mode === 'emergency' ? 'שיעור קצר, ' + l.minutes + ' דקות, לא מחובר' : '45 דקות') + '</p>' +
-      '<p class="hint">' + esc(l.activityHe) + '</p></div>';
+      '<ol class="lesson-timeline">' + steps.map(function (s, i) {
+        return '<li class="tl-step"><span class="tl-dot" aria-hidden="true">' + (i + 1) + '</span>' +
+          '<div class="tl-body"><div class="tl-head"><span class="tl-title">' + esc(s.titleHe) + '</span>' +
+          '<span class="tl-min">' + s.minutes + ' דק׳</span></div>' +
+          '<p class="tl-text">' + esc(s.bodyHe) + '</p></div></li>';
+      }).join('') + '</ol>' +
+      '<p class="hint">' + esc(l.activityHe) + '</p>';
     renderRing();
   }
   $('todayTrack').addEventListener('change', renderToday);

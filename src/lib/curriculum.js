@@ -221,6 +221,27 @@ function lessonById(id) {
 }
 function flowMinutes(lesson) { return lesson.flowHe.reduce((sum, f) => sum + f.minutes, 0); }
 
+// The 45-minute flow as timeline steps for the lesson screen: a short title, the
+// duration and the body of each step. Steps are written "title: body"; a step
+// without that prefix keeps its whole text as the body under a numbered title.
+function flowTimeline(lesson) {
+  if (!lesson || !Array.isArray(lesson.flowHe) || lesson.flowHe.length === 0) {
+    throw new Error('invalid lesson: flowHe');
+  }
+  return Object.freeze(lesson.flowHe.map((f, i) => {
+    if (!f || !Number.isInteger(f.minutes) || f.minutes <= 0 || typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
+      throw new Error('invalid lesson: flowHe');
+    }
+    const cut = f.stepHe.indexOf(': ');
+    const hasTitle = cut > 0 && cut <= 28;
+    return Object.freeze({
+      minutes: f.minutes,
+      titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
+      bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
+    });
+  }));
+}
+
 function resolveTrack(trackByPair, pairIndex) {
   let track;
   if (typeof trackByPair === 'function') track = trackByPair(pairIndex);
@@ -306,6 +327,6 @@ function progressToCsv(progress) {
 
 module.exports = {
   TRACKS, TRACK_GRADES, LESSON_MINUTES, ALL_LESSONS,
-  lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes,
+  lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv
 };
