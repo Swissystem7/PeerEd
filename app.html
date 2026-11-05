@@ -2881,6 +2881,104 @@ module.exports = {
   __registry["session"] = module.exports;
 })();
 
+/* ===== src/lib/import-availability.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - paste import of availability (stage 5). The whole paste passes the free-text privacy gate
+// BEFORE parsing: one email/phone/id anywhere refuses everything, and nothing is partially stored.
+// Columns: role,region,subjects,availability  (subjects ';'-separated, slots ';'-separated DAY_HOUR).
+// parentConsent is never read from a paste: an imported pupil has no consent until granted elsewhere.
+
+const { findPersonalData, PERSONAL_DATA_ERROR } = require('./validator.js');
+const { makeProfile, normalizeSlot, SUBJECTS } = require('./profile.js');
+const { normalizeRegion } = require('./regions.js');
+
+function parseAvailabilityCsv(text) {
+  if (typeof text !== 'string') throw new Error('invalid import: expected text');
+  const hits = findPersonalData(text);
+  if (hits.length > 0) throw new Error(PERSONAL_DATA_ERROR);
+  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim() !== '');
+  if (lines.length === 0) return Object.freeze({ profiles: Object.freeze([]), errors: Object.freeze([]) });
+  const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
+  const want = ['role', 'region', 'subjects', 'availability'];
+  if (header.length !== 4 || !want.every((w, i) => header[i] === w)) throw new Error('invalid import header: expected role,region,subjects,availability');
+  const profiles = []; const errors = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const cells = lines[i].split(',');
+    if (cells.length !== 4) { errors.push(Object.freeze({ line: i + 1, reason: 'WRONG_COLUMNS' })); continue; }
+    const role = cells[0].trim().toLowerCase();
+    const region = normalizeRegion(cells[1]);
+    const subjects = cells[2].split(';').map((s) => s.trim().toUpperCase()).filter(Boolean);
+    const availability = cells[3].split(';').map((s) => normalizeSlot(s.trim().toUpperCase())).filter(Boolean);
+    if (role !== 'student' && role !== 'pupil') { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_ROLE' })); continue; }
+    if (region === null) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_REGION' })); continue; }
+    if (subjects.length === 0 || subjects.some((s) => SUBJECTS.indexOf(s) === -1)) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SUBJECT' })); continue; }
+    if (availability.length === 0 || availability.length !== cells[3].split(';').filter((s) => s.trim() !== '').length) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SLOT' })); continue; }
+    try { profiles.push(makeProfile({ role, region, availability, subjects })); }
+    catch (e) { errors.push(Object.freeze({ line: i + 1, reason: 'PROFILE_REJECTED' })); }
+  }
+  return Object.freeze({ profiles: Object.freeze(profiles), errors: Object.freeze(errors) });
+}
+
+module.exports = { parseAvailabilityCsv };
+  __registry["import-availability"] = module.exports;
+})();
+
+/* ===== src/lib/wizard-link.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - anonymous weekly availability wizard link (stage 5). No server: the student's answers ride
+// in the URL fragment as base64url JSON plus an FNV-1a integrity check. The check is NOT encryption and
+// NOT a secret - it only catches a mistyped or edited link. The payload holds no name and no identifier:
+// exactly the fields makeProfile accepts for a wizard answer (role/region/subjects/availability).
+
+const { makeProfile } = require('./profile.js');
+
+const FIELDS = Object.freeze(['role', 'region', 'subjects', 'availability']);
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i += 1) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return ('00000000' + h.toString(16)).slice(-8);
+}
+function b64urlEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; bytes.forEach((b) => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(payload) {
+  const bin = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+function canonical(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error('invalid availability link');
+  const keys = Object.keys(input).sort();
+  if (keys.length !== FIELDS.length || !FIELDS.every((f) => keys.indexOf(f) !== -1)) throw new Error('invalid availability link');
+  return JSON.stringify({ role: input.role, region: input.region, subjects: input.subjects, availability: input.availability });
+}
+function encodeAvailabilityLink(input) {
+  const body = canonical(input);
+  makeProfile(JSON.parse(body)); // refuses anything the profile gate refuses, before a link exists
+  const payload = b64urlEncode(body);
+  return '#a=' + payload + '.' + fnv1a(payload);
+}
+function decodeAvailabilityLink(hash) {
+  const m = typeof hash === 'string' && /^#a=([A-Za-z0-9_-]+)\.([0-9a-f]{8})$/.exec(hash.trim());
+  if (!m || fnv1a(m[1]) !== m[2]) throw new Error('invalid availability link');
+  let parsed;
+  try { parsed = JSON.parse(b64urlDecode(m[1])); } catch (e) { throw new Error('invalid availability link'); }
+  if (canonical(parsed) !== b64urlDecode(m[1]) && JSON.stringify(parsed) !== b64urlDecode(m[1])) throw new Error('invalid availability link');
+  return makeProfile(parsed);
+}
+
+module.exports = { encodeAvailabilityLink, decodeAvailabilityLink, fnv1a };
+  __registry["wizard-link"] = module.exports;
+})();
+
 /* ===== src/lib/store.js ===== */
 (function () {
   var module = { exports: {} };
