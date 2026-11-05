@@ -51,5 +51,13 @@ module.exports = Object.freeze({
   'cur.middle.ai-creativity': 'الذكاء الاصطناعي والإبداع',
   'cur.middle.ai-society-work': 'الذكاء الاصطناعي والعمل والمجتمع',
   'cur.middle.ethics-responsibility': 'الأخلاق: من المسؤول عندما تخطئ الآلة',
-  'cur.middle.mini-project': 'مشروع ختامي: نحل مشكلة بالذكاء الاصطناعي'
+  'cur.middle.mini-project': 'مشروع ختامي: نحل مشكلة بالذكاء الاصطناعي',
+  'mode.routine': 'روتين', 'mode.emergency': 'طوارئ', 'mode.toggle': 'وضع العمل',
+  'mode.routineHint': 'مجموعات حسب المدرسة والصف', 'mode.emergencyHint': 'مجموعات حسب مكان اللقاء، أعداد فقط دون أسماء',
+  'mode.morning': 'صباح', 'mode.noon': 'ظهر', 'mode.afternoon': 'بعد الظهر',
+  'mode.school': 'مدرسة', 'mode.grade': 'صف', 'mode.location': 'مكان اللقاء', 'mode.ageBand': 'فئة عمرية',
+  'mode.count': 'عدد الأطفال', 'mode.formGroups': 'شكّل مجموعات', 'mode.unmet': 'مجموعات دون طالب قريب',
+  'mode.shortLesson': 'درس قصير دون اتصال', 'mode.addParticipant': 'أضف مشاركًا', 'mode.assignGroups': 'وزّع المجموعات',
+  'mode.todayLesson': 'درس اليوم', 'mode.advanced': 'متقدم', 'mode.perSchool': 'تقرير حسب المدرسة',
+  'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية'
 });

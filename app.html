@@ -6,11 +6,11 @@
 <meta name="description" content="PeerEd — שידוך סטודנטים לתלמידים לפי אזור, זמינות ומקצוע. בלי פרטים אישיים, בלי שרת.">
 <title>PeerEd</title>
 <style>
-  :root { --bg:#0f1117; --card:#171a23; --line:#60687e; --ink:#f2f4f8; --muted:#9aa2b4;
-          --key:#7cc4ff; --warm:#ffb27c; --bad:#ff8f8f; --ok:#8fe0a8; }
+  :root { --bg:#F7F5FF; --card:#FFFFFF; --line:#6D6A8F; --ink:#1E1B4B; --muted:#475569;
+          --key:#0F766E; --warm:#9A3412; --bad:#B91C1C; --ok:#15803D; --hero:#0F766E; --hero2:#4338CA; --emg:#9A3412; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; background:var(--bg); color:var(--ink);
-         font-family:Arial,"Segoe UI",sans-serif; min-height:100vh;
+         font-family:Rubik,Assistant,Arial,"Segoe UI",sans-serif; min-height:100vh;
          padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px)); }
   /* viewport-fit=cover lets the page draw under the notch and the home indicator, so the fixed tab bar
      and the content above it add the safe-area insets; without them the tabs sit under the iPhone home
@@ -21,7 +21,7 @@
           padding-right:max(14px, env(safe-area-inset-right, 0px)); }
   header h1 { font-size:1.5rem; margin:4px 0 2px; letter-spacing:-.01em; }
   header p { color:var(--muted); font-size:.85rem; line-height:1.6; margin:0; }
-  nav { position:fixed; bottom:0; inset-inline:0; display:flex; background:#0b0d13;
+  nav { position:fixed; bottom:calc(10px + env(safe-area-inset-bottom, 0px)); left:16px; right:16px; display:flex; background:#FFFFFF; border:1px solid var(--line); border-radius:999px; box-shadow:0 10px 30px rgba(49,46,129,.15);
         border-top:1px solid var(--line); z-index:20;
         padding-bottom:env(safe-area-inset-bottom, 0px);
         padding-left:env(safe-area-inset-left, 0px); padding-right:env(safe-area-inset-right, 0px); }
@@ -33,45 +33,61 @@
     outline:2px solid var(--key); outline-offset:2px;
   }
   section[role="tabpanel"][hidden] { display:none; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px; margin:12px 0; box-shadow:0 8px 24px rgba(49,46,129,.10); }
   .card h2 { font-size:1rem; margin:0 0 8px; }
   label { display:block; color:var(--muted); font-size:.78rem; margin:9px 0 4px; }
   input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);
-                            background:#0d0f15; color:var(--ink); font:inherit; font-size:1rem; }
+                            background:#FFFFFF; color:var(--ink); font:inherit; font-size:1rem; }
   textarea { min-height:110px; resize:vertical; font-size:.92rem; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px; }
-  button.act { background:var(--key); color:#0b0d13; border:0; border-radius:9px; padding:11px 15px;
+  button.act { background:var(--key); background-image:linear-gradient(90deg,#0F766E,#4338CA); color:#FFFFFF; border-radius:999px; min-height:48px; border:0; border-radius:9px; padding:11px 15px;
                font:inherit; font-weight:700; cursor:pointer; }
-  button.ghost { background:#0d0f15; color:var(--ink); border:1px solid var(--line); border-radius:9px;
+  button.ghost { background:#EEF2FF; color:var(--ink); border:1px solid var(--line); border-radius:9px;
                  padding:9px 13px; font:inherit; cursor:pointer; }
   button.small { padding:5px 9px; font-size:.76rem; }
   .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; }
-  .chip { background:#0d0f15; border:1px solid var(--line); color:var(--muted); border-radius:999px;
+  .chip { background:#F1F5F9; border:1px solid var(--line); color:var(--muted); min-height:44px; border-radius:999px;
           padding:6px 11px; font:inherit; font-size:.8rem; cursor:pointer; }
-  .chip[aria-pressed="true"] { background:rgba(124,196,255,.16); border-color:var(--key); color:var(--ink); }
+  .chip[aria-pressed="true"] { background:rgba(15,118,110,.16); border-color:var(--key); color:var(--ink); }
   .grid-hours { display:grid; grid-template-columns:auto repeat(7,1fr); gap:3px; margin-top:6px;
                 font-size:.7rem; overflow-x:auto; }
   .grid-hours span { color:var(--muted); text-align:center; padding:3px 0; }
-  .grid-hours button { background:#0d0f15; border:1px solid var(--line); border-radius:5px; padding:6px 0;
+  .grid-hours button { background:#FFFFFF; border:1px solid var(--line); border-radius:5px; padding:6px 0;
                        cursor:pointer; color:transparent; font-size:.6rem; }
-  .grid-hours button[aria-pressed="true"] { background:var(--key); border-color:var(--key); color:#0b0d13; }
-  .item { border:1px solid var(--line); border-radius:11px; padding:11px; margin-top:9px; background:#0d0f15; }
+  .grid-hours button[aria-pressed="true"] { background:var(--key); border-color:var(--key); color:#FFFFFF; }
+  .item { border:1px solid var(--line); border-radius:18px; padding:11px; margin-top:9px; background:#F8FAFC; }
   .item b { display:block; font-size:.96rem; margin-bottom:3px; }
   .item .meta { color:var(--muted); font-size:.78rem; line-height:1.55; }
   .pair { border-inline-start:3px solid var(--ok); }
-  .pill { background:#1e2431; border-radius:999px; padding:2px 9px; font-size:.72rem; color:var(--muted); }
+  .pill { background:#EEF2FF; border-radius:999px; padding:2px 9px; font-size:.72rem; color:var(--muted); }
   .status { min-height:1.2em; color:var(--ok); font-size:.84rem; margin-top:8px; line-height:1.5; }
   .status.bad { color:var(--bad); }
   .hint { color:var(--muted); font-size:.78rem; line-height:1.6; margin:6px 0 0; }
   label.check { display:flex; align-items:center; gap:9px; color:var(--ink); font-size:.92rem; margin-top:12px; }
   label.check input { width:auto; margin:0; accent-color:var(--key); }
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
-  .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
+  .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
   a { color:var(--key); }
-  .flag { background:rgba(255,143,143,.1); border:1px solid rgba(255,143,143,.3); color:var(--bad);
+  .flag { background:rgba(185,28,28,.08); border:1px solid rgba(185,28,28,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
+  .hero { background:var(--hero); background-image:linear-gradient(180deg,#0F766E 0,#4338CA 100%); border-radius:24px; padding:20px; color:#FFFFFF; margin:12px 0; }
+  .hero.emergency { background:var(--emg); background-image:linear-gradient(180deg,#C2410C 0,#9A3412 100%); }
+  .hero h2 { font-size:1.55rem; margin:0 0 6px; line-height:1.2; }
+  .hero p { color:#FFFFFF; font-size:.92rem; line-height:1.6; margin:0; }
+  .mode-toggle { display:flex; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.33); border-radius:999px; padding:4px; gap:4px; margin-top:14px; }
+  .mode-toggle button { flex:1; min-height:44px; border:0; border-radius:999px; background:transparent; color:#FFFFFF; font:inherit; font-weight:700; cursor:pointer; transition:transform .25s; }
+  .mode-toggle button[aria-pressed="true"] { background:#FFFFFF; color:var(--ink); box-shadow:0 4px 12px rgba(30,27,75,.2); }
+  .emg-banner { background:#FFEDD5; color:var(--emg); border-radius:14px; padding:10px 12px; font-size:.88rem; line-height:1.6; margin:12px 0; font-weight:700; }
+  .action-grid { display:grid; gap:12px; margin:12px 0; }
+  .action-card { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:24px; padding:16px; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:56px; text-align:start; box-shadow:0 8px 24px rgba(49,46,129,.10); }
+  .ring-row { display:flex; align-items:center; gap:14px; }
+  .ring-num { color:var(--ink); font-weight:700; }
+  .tl { border-inline-start:2px solid #99F6E4; margin-inline-start:13px; padding-inline-start:18px; }
+  .tl-dot { width:28px; height:28px; border-radius:999px; background:#CCFBF1; border:2px solid #0F766E; display:inline-block; vertical-align:middle; margin-inline-end:8px; }
+  details.advanced summary { color:var(--ink); font-weight:700; cursor:pointer; min-height:44px; padding:10px 0; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none; } }
 </style>
 </head>
 <body>
@@ -83,6 +99,41 @@
 
   <!-- ============ אנשים ============ -->
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">
+    <div class="hero" id="homeHero">
+      <h2>שלום, רכז/ת</h2>
+      <p>שלוש פעולות עיקריות: מוסיפים משתתף, משבצים קבוצות, ופותחים את השיעור של היום. כל השאר מחכה תחת "מתקדם".</p>
+      <div class="mode-toggle" role="group" aria-label="מצב עבודה: שגרה או חירום">
+        <button type="button" id="modeRoutine" aria-pressed="true">שגרה</button>
+        <button type="button" id="modeEmergency" aria-pressed="false">חירום</button>
+      </div>
+    </div>
+    <div class="emg-banner" id="emgBanner" hidden>מצב חירום: קבוצות לפי מקום מפגש, ספירות וקבוצות גיל בלבד — בלי שמות ובלי כתובות מדויקות. שיעורים קצרים של 20–30 דקות, גם בלי חיבור.</div>
+    <div class="card">
+      <h2>התקדמות השיעורים</h2>
+      <div class="ring-row">
+        <svg width="88" height="88" viewBox="0 0 88 88" role="img" aria-label="טבעת התקדמות שיעורים">
+          <circle cx="44" cy="44" r="38" fill="none" stroke="#E0E7FF" stroke-width="9"></circle>
+          <circle id="ringProg" cx="44" cy="44" r="38" fill="none" stroke="#0F766E" stroke-width="9" stroke-linecap="round" stroke-dasharray="238.7" stroke-dashoffset="238.7" transform="rotate(-90 44 44)"></circle>
+        </svg>
+        <span class="ring-num" id="ringText">0/12 הועברו</span>
+      </div>
+    </div>
+    <div class="action-grid">
+      <button type="button" class="action-card" id="goAdd">➕ הוסף משתתף</button>
+      <button type="button" class="action-card" id="goAssign">🧩 שבץ קבוצות</button>
+      <button type="button" class="action-card" id="goToday">🤖 השיעור של היום</button>
+    </div>
+    <div class="card" id="todayCard">
+      <h2>השיעור של היום</h2>
+      <div class="row">
+        <div><label for="todayTrack">מסלול</label><select id="todayTrack" aria-describedby="todayStatus">
+          <option value="elementary">יסודי (ג׳–ו׳)</option><option value="middle">חטיבה (ז׳–ט׳)</option></select></div>
+        <div><label for="todayIndex">שיעור מספר</label><input id="todayIndex" type="number" min="1" max="12" value="1" aria-describedby="todayStatus"></div>
+      </div>
+      <div id="todayLesson" role="region" aria-live="polite" aria-label="השיעור של היום"></div>
+      <label class="check"><input type="checkbox" id="todayDelivered" aria-describedby="todayStatus"> הועבר</label>
+      <p class="status" id="todayStatus" role="status"></p>
+    </div>
     <!-- What profile.makeProfile takes is what this says: the four matching fields and the consent flag,
          the three lists no screen here writes or shows (blockedUsers, reportEvent, responseToReport - a
          stored person that carries them keeps them through a load, a consent flip and a save), and the
@@ -109,9 +160,15 @@
       </div>
       <label id="subjectsLabel">מקצועות</label>
       <div class="chips" id="subjects" role="group" aria-labelledby="subjectsLabel"></div>
+      <label id="periodLabel">זמינות לפי חלקי יום</label>
+      <p class="hint" id="periodHint">בוחרים בוקר, צהריים או אחה״צ לכל יום. זה מספיק לשיבוץ; שעות מדויקות נמצאות תחת "מתקדם".</p>
+      <div class="chips" id="periodChips" role="group" aria-labelledby="periodLabel" aria-describedby="periodHint"></div>
+      <details class="advanced">
+      <summary>מתקדם: שעות מדויקות</summary>
       <label id="hoursLabel">שעות פנויות</label>
       <p class="hint" id="hoursHint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint"></div>
+      </details>
       <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
         <button type="button" class="ghost" id="demoBtn" aria-label="טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -143,6 +200,24 @@
 
   <!-- ============ שידוך ============ -->
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
+    <div class="card">
+      <h2>קבוצות לפי מצב</h2>
+      <p class="hint" id="groupModeHint">בשגרה: קבוצה לכל בית ספר וכיתה. בחירום: קבוצות של עד 12 ילדים שנמצאים באותו מקום, לפי ספירה וקבוצת גיל בלבד.</p>
+      <div class="row">
+        <div><label for="groupPlace">בית ספר / מקום מפגש</label><input id="groupPlace" type="text" maxlength="60" aria-describedby="groupStatus"></div>
+        <div><label for="groupGrade">כיתה (שגרה)</label><input id="groupGrade" type="number" min="3" max="9" value="5" aria-describedby="groupStatus"></div>
+        <div><label for="groupAge">קבוצת גיל (חירום)</label><select id="groupAge" aria-describedby="groupStatus">
+          <option value="3-6">3–6</option><option value="7-9">7–9</option><option value="mixed">מעורבת</option></select></div>
+        <div><label for="groupRegion">אזור (חירום)</label><select id="groupRegion" aria-describedby="groupStatus"></select></div>
+        <div><label for="groupCount">מספר ילדים</label><input id="groupCount" type="number" min="1" max="500" value="10" aria-describedby="groupStatus"></div>
+        <div><label for="groupStudents">סטודנטים פנויים באזור (חירום)</label><input id="groupStudents" type="number" min="0" max="500" value="1" aria-describedby="groupStatus"></div>
+      </div>
+      <div class="actions"><button type="button" class="act" id="formGroups" aria-describedby="groupStatus">צור קבוצות</button>
+        <button type="button" class="ghost" id="groupReportBtn" aria-label="הצג דוח קבוצות לפי בית ספר או מקום" aria-describedby="groupStatus">דוח לפי בית ספר / מקום</button></div>
+      <p class="status" id="groupStatus" role="status"></p>
+      <div id="groupList" role="region" aria-live="polite" aria-label="קבוצות שנוצרו"></div>
+      <div id="groupReport" role="region" aria-live="polite" aria-label="דוח קבוצות"></div>
+    </div>
     <div class="card">
       <h2>שידוך</h2>
       <p class="hint">זוג נוצר רק כשלתלמיד יש אישור הורה, שניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים
@@ -3450,6 +3525,244 @@ module.exports = { makeBackupEnvelope, openBackupEnvelope, backupFilename, MIN_I
   __registry["backup"] = module.exports;
 })();
 
+/* ===== src/lib/modes.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - routine / emergency modes (stage 11). Pure data only: no names of children, no exact
+// addresses, no network, no clock, no randomness. Routine groups children by school + grade;
+// emergency groups children who are present at one gathering place, counted only, by age band.
+// Switching mode never deletes anything: the same groups and people are carried over untouched.
+
+const profile = require('./profile.js');
+const regions = require('./regions.js');
+const curriculum = require('./curriculum.js');
+const validator = require('./validator.js');
+
+const MODES = Object.freeze(['routine', 'emergency']);
+const GROUP_MAX = 12;
+const SHORT_MIN = 20;
+const SHORT_MAX = 30;
+const AGE_BANDS = Object.freeze(['3-6', '7-9', 'mixed']);
+const AGE_BAND_TRACK = Object.freeze({ '3-6': 'elementary', '7-9': 'middle', mixed: 'elementary' });
+
+// Simple availability chips instead of the hour grid: three parts of the day, mapped onto the
+// very slots profile.js accepts, so a chip choice is always a valid profile availability.
+const PERIODS = Object.freeze({
+  morning: Object.freeze({ labelHe: 'בוקר', hours: Object.freeze([9, 10, 11]) }),
+  noon: Object.freeze({ labelHe: 'צהריים', hours: Object.freeze([13, 14]) }),
+  afternoon: Object.freeze({ labelHe: 'אחה״צ', hours: Object.freeze([16, 17, 18]) })
+});
+const PERIOD_NAMES = Object.freeze(Object.keys(PERIODS));
+
+function assertMode(mode) {
+  if (MODES.indexOf(mode) === -1) throw new Error('invalid mode: expected routine or emergency');
+  return mode;
+}
+function assertDay(day) {
+  if (profile.DAYS.indexOf(day) === -1) throw new Error('invalid day: expected a profile day code');
+  return day;
+}
+function assertPeriod(period) {
+  if (PERIOD_NAMES.indexOf(period) === -1) throw new Error('invalid period: expected morning, noon or afternoon');
+  return period;
+}
+function slot(day, hour) { return day + '_' + hour; }
+
+function periodSlots(day, period) {
+  assertDay(day); assertPeriod(period);
+  return Object.freeze(PERIODS[period].hours.map((h) => slot(day, h)));
+}
+function chipsToSlots(chips) {
+  const list = Array.isArray(chips) ? chips : [];
+  const seen = new Set(); const out = [];
+  list.forEach((c) => {
+    if (!c || typeof c !== 'object') throw new Error('invalid chip: expected day and period');
+    periodSlots(c.day, c.period).forEach((s) => { if (!seen.has(s)) { seen.add(s); out.push(s); } });
+  });
+  out.sort((a, b) => {
+    const pa = a.split('_'); const pb = b.split('_');
+    const d = profile.DAYS.indexOf(pa[0]) - profile.DAYS.indexOf(pb[0]);
+    return d !== 0 ? d : Number(pa[1]) - Number(pb[1]);
+  });
+  return Object.freeze(out);
+}
+function slotsToChips(slots) {
+  const have = new Set(Array.isArray(slots) ? slots : []);
+  const out = [];
+  profile.DAYS.forEach((day) => {
+    PERIOD_NAMES.forEach((period) => {
+      if (PERIODS[period].hours.every((h) => have.has(slot(day, h)))) out.push(Object.freeze({ day, period }));
+    });
+  });
+  return Object.freeze(out);
+}
+function toggleChip(slots, day, period) {
+  const mine = periodSlots(day, period);
+  const have = new Set(Array.isArray(slots) ? slots : []);
+  const on = mine.every((s) => have.has(s));
+  mine.forEach((s) => { if (on) have.delete(s); else have.add(s); });
+  return chipsToSlots(slotsToChips(Array.from(have)));
+}
+
+const ROUTINE_FIELDS = Object.freeze(['mode', 'school', 'grade', 'count']);
+const EMERGENCY_FIELDS = Object.freeze(['mode', 'location', 'region', 'ageBand', 'count']);
+
+function assertCount(count) {
+  if (!Number.isInteger(count) || count < 1 || count > 500) throw new Error('invalid count: expected an integer 1..500');
+  return count;
+}
+function assertPlaceText(value, what) {
+  if (typeof value !== 'string' || value.trim() === '' || value.trim().length > 60) {
+    throw new Error('invalid ' + what + ': expected short text');
+  }
+  const text = value.trim();
+  if (validator.findPersonalData(text).length > 0 || validator.findProfanity(text).length > 0) {
+    throw new Error('personal data is not accepted');
+  }
+  return text;
+}
+// An aggregate is a count of children, never a child: only the fields of its mode are accepted,
+// so a name, a phone or an exact address cannot enter through this door either.
+function makeGroupAggregate(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('group input must be an object');
+  const mode = assertMode(input.mode);
+  const allowed = mode === 'routine' ? ROUTINE_FIELDS : EMERGENCY_FIELDS;
+  Object.keys(input).forEach((k) => { if (allowed.indexOf(k) === -1) throw new Error('personal data is not accepted'); });
+  const count = assertCount(input.count);
+  if (mode === 'routine') {
+    const school = assertPlaceText(input.school, 'school');
+    if (!Number.isInteger(input.grade) || input.grade < 3 || input.grade > 9) {
+      throw new Error('invalid grade: expected an integer 3..9');
+    }
+    return Object.freeze({ mode, school, grade: input.grade, count, key: school + '|' + input.grade, track: curriculum.trackForGrade(input.grade) });
+  }
+  const location = assertPlaceText(input.location, 'location');
+  if (!regions.isRegion(input.region)) throw new Error('invalid region: expected one of the REGIONS codes');
+  if (AGE_BANDS.indexOf(input.ageBand) === -1) throw new Error('invalid age band: expected 3-6, 7-9 or mixed');
+  return Object.freeze({
+    mode, location, region: input.region, ageBand: input.ageBand, count,
+    key: location + '|' + input.ageBand, track: AGE_BAND_TRACK[input.ageBand]
+  });
+}
+
+function asAggregate(a) { return a && typeof a.track === 'string' && typeof a.key === 'string' ? a : makeGroupAggregate(a); }
+function formGroups(aggregates) {
+  return chunkGroups((Array.isArray(aggregates) ? aggregates : []).map(asAggregate));
+}
+function chunkGroups(list) {
+  const out = [];
+  list.forEach((a) => {
+    if (a.mode === 'routine') {
+      out.push(Object.freeze({ key: a.key, mode: a.mode, size: a.count, track: a.track, part: 1, parts: 1 }));
+      return;
+    }
+    const parts = Math.ceil(a.count / GROUP_MAX);
+    for (let i = 0; i < parts; i += 1) {
+      const size = i === parts - 1 ? a.count - GROUP_MAX * (parts - 1) : GROUP_MAX;
+      out.push(Object.freeze({ key: a.key, mode: a.mode, size, track: a.track, part: i + 1, parts }));
+    }
+  });
+  return Object.freeze(out);
+}
+
+// One nearby mentor per group: a student counts only in their own region ("nearby"), and an
+// emergency group whose place has no free student stays visibly unmet, never silently covered.
+function assignStudents(groups, supply) {
+  const pool = new Map();
+  (Array.isArray(supply) ? supply : []).forEach((s) => {
+    if (!s || !regions.isRegion(s.region) || !Number.isInteger(s.available) || s.available < 0) {
+      throw new Error('invalid supply: expected region and available count');
+    }
+    pool.set(s.region, (pool.get(s.region) || 0) + s.available);
+  });
+  const assignments = []; const unmet = [];
+  (Array.isArray(groups) ? groups : []).forEach((g) => {
+    const regionCode = g.regionCode || null;
+    if (g.mode === 'emergency' && regionCode && (pool.get(regionCode) || 0) >= 1) {
+      pool.set(regionCode, pool.get(regionCode) - 1);
+      assignments.push(Object.freeze({ key: g.key, part: g.part, students: 1, region: regionCode }));
+    } else if (g.mode === 'routine') {
+      assignments.push(Object.freeze({ key: g.key, part: g.part, students: 0, region: null }));
+    } else {
+      unmet.push(Object.freeze({ key: g.key, part: g.part, missing: 1, region: regionCode }));
+    }
+  });
+  return Object.freeze({ assignments: Object.freeze(assignments), unmet: Object.freeze(unmet) });
+}
+
+// Groups formed from aggregates keep their region, so the matcher above can stay nearby-only.
+function formGroupsWithRegion(aggregates) {
+  const list = (Array.isArray(aggregates) ? aggregates : []).map(asAggregate);
+  const groups = chunkGroups(list);
+  const regionByKey = new Map(list.map((a) => [a.key, a.mode === 'emergency' ? a.region : null]));
+  return Object.freeze(groups.map((g) => Object.freeze(Object.assign({}, g, { regionCode: regionByKey.get(g.key) || null }))));
+}
+
+function shortLesson(lesson, minutes) {
+  const mins = minutes === undefined ? 25 : minutes;
+  if (!Number.isInteger(mins) || mins < SHORT_MIN || mins > SHORT_MAX) {
+    throw new Error('invalid short lesson minutes: expected an integer 20..30');
+  }
+  if (!lesson || typeof lesson.id !== 'string') throw new Error('invalid lesson');
+  return Object.freeze({
+    lessonId: lesson.id, titleHe: lesson.titleHe, titleKey: lesson.titleKey, minutes: mins,
+    activityHe: lesson.unpluggedHe, goalsHe: Object.freeze(lesson.goalsHe.slice(0, 2)),
+    flowHe: Object.freeze([
+      Object.freeze({ minutes: 5, stepHe: lesson.flowHe[0].stepHe }),
+      Object.freeze({ minutes: mins - 10, stepHe: lesson.unpluggedHe }),
+      Object.freeze({ minutes: 5, stepHe: lesson.wrapUpHe[0] })
+    ])
+  });
+}
+function lessonForGroup(group, index) {
+  if (!group || curriculum.TRACKS.indexOf(group.track) === -1) throw new Error('invalid group: missing track');
+  const list = curriculum.lessonsForTrack(group.track);
+  if (!Number.isInteger(index) || index < 0) throw new Error('invalid lesson index for group');
+  const lesson = list[index % list.length];
+  return group.mode === 'emergency' ? shortLesson(lesson) : lesson;
+}
+
+// Switching mode is a view change, not a data change: people and groups pass through untouched.
+function switchMode(state, mode) {
+  assertMode(mode);
+  if (!state || typeof state !== 'object') throw new Error('invalid mode state');
+  return Object.freeze(Object.assign({}, state, { mode }));
+}
+function emptyModeState() { return Object.freeze({ mode: 'routine', groups: Object.freeze([]) }); }
+
+function groupReport(groups, assignment) {
+  const assigned = new Map();
+  (assignment && Array.isArray(assignment.assignments) ? assignment.assignments : [])
+    .forEach((a) => assigned.set(a.key + '|' + a.part, a.students));
+  const byKey = new Map();
+  (Array.isArray(groups) ? groups : []).forEach((g) => {
+    if (!byKey.has(g.key)) byKey.set(g.key, { key: g.key, mode: g.mode, children: 0, groups: 0, students: 0 });
+    const row = byKey.get(g.key);
+    row.children += g.size; row.groups += 1; row.students += assigned.get(g.key + '|' + g.part) || 0;
+  });
+  const rows = Array.from(byKey.values()).sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .map((r) => Object.freeze(Object.assign({}, r, { unmetGroups: r.groups - Math.min(r.students, r.groups) })));
+  return Object.freeze(rows);
+}
+function groupReportCsv(report) {
+  const lines = ['mode,key,children,groups,students,unmet_groups'];
+  (Array.isArray(report) ? report : []).forEach((r) => {
+    lines.push([r.mode, '"' + String(r.key).replace(/"/g, '""') + '"', r.children, r.groups, r.students, r.unmetGroups].join(','));
+  });
+  return lines.join('\n') + '\n';
+}
+
+module.exports = {
+  MODES, GROUP_MAX, SHORT_MIN, SHORT_MAX, AGE_BANDS, PERIODS, PERIOD_NAMES,
+  assertMode, periodSlots, chipsToSlots, slotsToChips, toggleChip,
+  makeGroupAggregate, formGroups, formGroupsWithRegion, assignStudents,
+  shortLesson, lessonForGroup, switchMode, emptyModeState, groupReport, groupReportCsv
+};
+  __registry["modes"] = module.exports;
+})();
+
 /* ===== src/lib/lang-he.js ===== */
 (function () {
   var module = { exports: {} };
@@ -3508,7 +3821,15 @@ module.exports = Object.freeze({
   'cur.middle.ai-creativity': 'בינה מלאכותית ויצירה',
   'cur.middle.ai-society-work': 'בינה מלאכותית, עבודה וחברה',
   'cur.middle.ethics-responsibility': 'אתיקה: מי אחראי כשהמכונה טועה',
-  'cur.middle.mini-project': 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית'
+  'cur.middle.mini-project': 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית',
+  'mode.routine': 'שגרה', 'mode.emergency': 'חירום', 'mode.toggle': 'מצב עבודה',
+  'mode.routineHint': 'קבוצות לפי בית ספר וכיתה', 'mode.emergencyHint': 'קבוצות לפי מקום מפגש, ספירות בלבד בלי שמות',
+  'mode.morning': 'בוקר', 'mode.noon': 'צהריים', 'mode.afternoon': 'אחה״צ',
+  'mode.school': 'בית ספר', 'mode.grade': 'כיתה', 'mode.location': 'מקום מפגש', 'mode.ageBand': 'קבוצת גיל',
+  'mode.count': 'מספר ילדים', 'mode.formGroups': 'צור קבוצות', 'mode.unmet': 'קבוצות בלי סטודנט קרוב',
+  'mode.shortLesson': 'שיעור קצר לא מחובר', 'mode.addParticipant': 'הוסף משתתף', 'mode.assignGroups': 'שבץ קבוצות',
+  'mode.todayLesson': 'השיעור של היום', 'mode.advanced': 'מתקדם', 'mode.perSchool': 'דוח לפי בית ספר',
+  'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים'
 });
   __registry["lang-he"] = module.exports;
 })();
@@ -3570,7 +3891,15 @@ module.exports = Object.freeze({
   'cur.middle.ai-creativity': 'الذكاء الاصطناعي والإبداع',
   'cur.middle.ai-society-work': 'الذكاء الاصطناعي والعمل والمجتمع',
   'cur.middle.ethics-responsibility': 'الأخلاق: من المسؤول عندما تخطئ الآلة',
-  'cur.middle.mini-project': 'مشروع ختامي: نحل مشكلة بالذكاء الاصطناعي'
+  'cur.middle.mini-project': 'مشروع ختامي: نحل مشكلة بالذكاء الاصطناعي',
+  'mode.routine': 'روتين', 'mode.emergency': 'طوارئ', 'mode.toggle': 'وضع العمل',
+  'mode.routineHint': 'مجموعات حسب المدرسة والصف', 'mode.emergencyHint': 'مجموعات حسب مكان اللقاء، أعداد فقط دون أسماء',
+  'mode.morning': 'صباح', 'mode.noon': 'ظهر', 'mode.afternoon': 'بعد الظهر',
+  'mode.school': 'مدرسة', 'mode.grade': 'صف', 'mode.location': 'مكان اللقاء', 'mode.ageBand': 'فئة عمرية',
+  'mode.count': 'عدد الأطفال', 'mode.formGroups': 'شكّل مجموعات', 'mode.unmet': 'مجموعات دون طالب قريب',
+  'mode.shortLesson': 'درس قصير دون اتصال', 'mode.addParticipant': 'أضف مشاركًا', 'mode.assignGroups': 'وزّع المجموعات',
+  'mode.todayLesson': 'درس اليوم', 'mode.advanced': 'متقدم', 'mode.perSchool': 'تقرير حسب المدرسة',
+  'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية'
 });
   __registry["lang-ar"] = module.exports;
 })();
@@ -3632,7 +3961,15 @@ module.exports = Object.freeze({
   'cur.middle.ai-creativity': 'ИИ и творчество',
   'cur.middle.ai-society-work': 'ИИ, работа и общество',
   'cur.middle.ethics-responsibility': 'Этика: кто отвечает за ошибку машины',
-  'cur.middle.mini-project': 'Итоговый мини-проект: решаем задачу с ИИ'
+  'cur.middle.mini-project': 'Итоговый мини-проект: решаем задачу с ИИ',
+  'mode.routine': 'Обычный', 'mode.emergency': 'ЧС', 'mode.toggle': 'Режим работы',
+  'mode.routineHint': 'Группы по школе и классу', 'mode.emergencyHint': 'Группы по месту сбора, только числа без имён',
+  'mode.morning': 'Утро', 'mode.noon': 'Полдень', 'mode.afternoon': 'После обеда',
+  'mode.school': 'Школа', 'mode.grade': 'Класс', 'mode.location': 'Место сбора', 'mode.ageBand': 'Возрастная группа',
+  'mode.count': 'Число детей', 'mode.formGroups': 'Сформировать группы', 'mode.unmet': 'Группы без студента рядом',
+  'mode.shortLesson': 'Короткий урок без сети', 'mode.addParticipant': 'Добавить участника', 'mode.assignGroups': 'Распределить группы',
+  'mode.todayLesson': 'Урок на сегодня', 'mode.advanced': 'Дополнительно', 'mode.perSchool': 'Отчёт по школам',
+  'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных'
 });
   __registry["lang-ru"] = module.exports;
 })();
@@ -4082,7 +4419,8 @@ module.exports = {
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
       unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
-      tabnav = __registry.tabnav, contact = __registry.contact;
+      tabnav = __registry.tabnav, contact = __registry.contact,
+      modesLib = __registry.modes, curriculumLib = __registry.curriculum;
   var $ = function (id) { return document.getElementById(id); };
 
   // One label per role, used by the participants list AND the match screen.
@@ -4399,6 +4737,7 @@ module.exports = {
     var at = draft.availability.indexOf(slot);
     if (at === -1) draft.availability.push(slot); else draft.availability.splice(at, 1);
     ev.target.setAttribute('aria-pressed', at === -1 ? 'true' : 'false');
+    renderPeriodChips();
   });
 
   $('role').addEventListener('change', function () {
@@ -4408,6 +4747,7 @@ module.exports = {
 
   function clearDraft() {
     draft = { subjects: [], availability: [] };
+    renderPeriodChips();
     $('consent').checked = false;
     Array.prototype.forEach.call($('subjects').children, function (b) { b.setAttribute('aria-pressed', 'false'); });
     Array.prototype.forEach.call($('hours').children, function (b) {
@@ -5694,6 +6034,131 @@ module.exports = {
     say('wipeStatus', 'בוטל. לא נמחק דבר.');
   });
 
+  // ---------- home, modes, chips, today lesson (stage 11) ----------
+  var modeState = modesLib.emptyModeState();
+  var groupAggregates = [];
+  var deliveryLog = curriculumLib.makeDeliveryLog();
+  function renderMode() {
+    var emg = modeState.mode === 'emergency';
+    $('modeRoutine').setAttribute('aria-pressed', emg ? 'false' : 'true');
+    $('modeEmergency').setAttribute('aria-pressed', emg ? 'true' : 'false');
+    $('emgBanner').hidden = !emg;
+    $('homeHero').className = emg ? 'hero emergency' : 'hero';
+    renderToday();
+  }
+  function setMode(mode) {
+    modeState = modesLib.switchMode(modeState, mode);
+    renderMode();
+  }
+  $('modeRoutine').addEventListener('click', function () { setMode('routine'); });
+  $('modeEmergency').addEventListener('click', function () { setMode('emergency'); });
+
+  function renderPeriodChips() {
+    var on = modesLib.slotsToChips(draft.availability);
+    var pressed = {};
+    on.forEach(function (c) { pressed[c.day + '_' + c.period] = true; });
+    $('periodChips').innerHTML = profile.DAYS.map(function (d) {
+      return modesLib.PERIOD_NAMES.map(function (p) {
+        var id = 'chip-' + d + '-' + p;
+        return '<button type="button" class="chip" id="' + id + '" data-day="' + d + '" data-period="' + p + '" aria-pressed="' +
+          (pressed[d + '_' + p] ? 'true' : 'false') + '">' + esc((DAY_HE[d] || d) + ' ' + modesLib.PERIODS[p].labelHe) + '</button>';
+      }).join('');
+    }).join('');
+  }
+  $('periodChips').addEventListener('click', function (ev) {
+    var day = ev.target.getAttribute('data-day');
+    var period = ev.target.getAttribute('data-period');
+    if (!day || !period) return;
+    draft.availability = modesLib.toggleChip(draft.availability, day, period).slice();
+    syncHourGrid(); renderPeriodChips();
+  });
+  function syncHourGrid() {
+    Array.prototype.forEach.call($('hours').children, function (b) {
+      if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', draft.availability.indexOf(b.getAttribute('data-slot')) !== -1 ? 'true' : 'false');
+    });
+  }
+
+  function todayPick() {
+    var track = $('todayTrack').value === 'middle' ? 'middle' : 'elementary';
+    var idx = Math.max(1, Math.min(12, parseInt($('todayIndex').value, 10) || 1)) - 1;
+    if (modeState.mode === 'emergency') {
+      return { track: track, lesson: modesLib.shortLesson(curriculumLib.getLesson(track, idx)) };
+    }
+    return { track: track, lesson: curriculumLib.getLesson(track, idx) };
+  }
+  function renderRing() {
+    var total = 12;
+    var done = deliveryLog.delivered.length % (total + 1);
+    var shown = Math.min(done, total);
+    $('ringText').textContent = shown + '/' + total + ' הועברו';
+    var ring = $('ringProg');
+    if (ring && ring.setAttribute) ring.setAttribute('stroke-dashoffset', String(238.7 * (1 - shown / total)));
+  }
+  function renderToday() {
+    var pick = todayPick();
+    var l = pick.lesson;
+    var delivered = curriculumLib.isDelivered(deliveryLog, { pairIndex: 0, lessonId: l.lessonId || l.id, cycle: 1 });
+    $('todayDelivered').checked = delivered;
+    $('todayLesson').innerHTML = '<div class="tl"><p><span class="tl-dot"></span><b>' + esc(l.titleHe) + '</b> · ' +
+      esc(modeState.mode === 'emergency' ? 'שיעור קצר, ' + l.minutes + ' דקות, לא מחובר' : '45 דקות') + '</p>' +
+      '<p class="hint">' + esc(l.activityHe) + '</p></div>';
+    renderRing();
+  }
+  $('todayTrack').addEventListener('change', renderToday);
+  $('todayIndex').addEventListener('change', renderToday);
+  $('todayDelivered').addEventListener('change', function () {
+    var l = todayPick().lesson;
+    deliveryLog = curriculumLib.setDelivered(deliveryLog, { pairIndex: 0, lessonId: l.lessonId || l.id, cycle: 1 }, $('todayDelivered').checked);
+    say('todayStatus', $('todayDelivered').checked ? 'סומן כהועבר.' : 'הסימון בוטל.');
+    renderRing();
+  });
+  $('goAdd').addEventListener('click', function () { var el = $('addPerson'); if (el && el.focus) el.focus(); window.scrollTo(0, 0); });
+  $('goAssign').addEventListener('click', function () { activate($('nav-match'), false); });
+  $('goToday').addEventListener('click', function () { renderToday(); var el = $('todayCard'); if (el && el.focus) el.focus(); });
+
+  $('formGroups').addEventListener('click', function () {
+    try {
+      var input = modeState.mode === 'emergency'
+        ? { mode: 'emergency', location: $('groupPlace').value, region: $('groupRegion').value, ageBand: $('groupAge').value, count: parseInt($('groupCount').value, 10) }
+        : { mode: 'routine', school: $('groupPlace').value, grade: parseInt($('groupGrade').value, 10), count: parseInt($('groupCount').value, 10) };
+      groupAggregates.push(modesLib.makeGroupAggregate(input));
+      renderGroups();
+      say('groupStatus', 'הקבוצה נוספה. הנתונים הקיימים לא השתנו.');
+    } catch (e) {
+      say('groupStatus', e.message === 'personal data is not accepted' ? 'פרטים אישיים לא מתקבלים: רק שם מקום או בית ספר, ספירה וקבוצת גיל.' : 'בדקו את שדות הקבוצה.', true);
+    }
+  });
+  function currentGroups() { return modesLib.formGroupsWithRegion(groupAggregates); }
+  function groupSupply() {
+    return [{ region: regions.isRegion($('groupRegion').value) ? $('groupRegion').value : 'CENTER', available: parseInt($('groupStudents').value, 10) || 0 }];
+  }
+  function renderGroups() {
+    var groups = currentGroups();
+    var assignment = modesLib.assignStudents(groups, groupSupply());
+    $('groupList').innerHTML = groups.length ? groups.map(function (g) {
+      return '<div class="item"><b>' + esc(g.key) + '</b><span class="meta">' +
+        esc(g.mode === 'emergency' ? 'חירום' : 'שגרה') + ' · ' + g.size + ' ילדים · קבוצה ' + g.part + '/' + g.parts + '</span></div>';
+    }).join('') : '<p class="empty">עדיין לא נוצרו קבוצות.</p>';
+    if (assignment.unmet.length) {
+      $('groupList').innerHTML += '<div class="flag">' + assignment.unmet.length + ' קבוצות בלי סטודנט קרוב באזור.</div>';
+    }
+  }
+  $('groupReportBtn').addEventListener('click', function () {
+    var groups = currentGroups();
+    var assignment = modesLib.assignStudents(groups, groupSupply());
+    var report = modesLib.groupReport(groups, assignment);
+    $('groupReport').innerHTML = '<pre dir="ltr">' + esc(modesLib.groupReportCsv(report)) + '</pre>';
+    say('groupStatus', modeState.mode === 'emergency' ? 'דוח לפי מקום מפגש.' : 'דוח לפי בית ספר וכיתה.');
+  });
+  function initHome() {
+    $('groupRegion').innerHTML = regions.REGIONS.map(function (r) {
+      return '<option value="' + r + '">' + esc(REGION_HE[r] || r) + '</option>';
+    }).join('');
+    renderPeriodChips();
+    renderMode();
+    renderGroups();
+  }
+
   // ---------- tabs ----------
 
   // One tab stop for the whole bar (the WAI-ARIA tabs pattern): the selected tab is in the Tab order,
@@ -5762,6 +6227,7 @@ module.exports = {
   renderSessionForm();
   renderSessions();
   setWipeArmed(false);
+  initHome();
 })();
 </script>
 </body>

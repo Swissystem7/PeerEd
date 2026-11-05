@@ -52,5 +52,13 @@ module.exports = Object.freeze({
   'cur.middle.ai-creativity': 'בינה מלאכותית ויצירה',
   'cur.middle.ai-society-work': 'בינה מלאכותית, עבודה וחברה',
   'cur.middle.ethics-responsibility': 'אתיקה: מי אחראי כשהמכונה טועה',
-  'cur.middle.mini-project': 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית'
+  'cur.middle.mini-project': 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית',
+  'mode.routine': 'שגרה', 'mode.emergency': 'חירום', 'mode.toggle': 'מצב עבודה',
+  'mode.routineHint': 'קבוצות לפי בית ספר וכיתה', 'mode.emergencyHint': 'קבוצות לפי מקום מפגש, ספירות בלבד בלי שמות',
+  'mode.morning': 'בוקר', 'mode.noon': 'צהריים', 'mode.afternoon': 'אחה״צ',
+  'mode.school': 'בית ספר', 'mode.grade': 'כיתה', 'mode.location': 'מקום מפגש', 'mode.ageBand': 'קבוצת גיל',
+  'mode.count': 'מספר ילדים', 'mode.formGroups': 'צור קבוצות', 'mode.unmet': 'קבוצות בלי סטודנט קרוב',
+  'mode.shortLesson': 'שיעור קצר לא מחובר', 'mode.addParticipant': 'הוסף משתתף', 'mode.assignGroups': 'שבץ קבוצות',
+  'mode.todayLesson': 'השיעור של היום', 'mode.advanced': 'מתקדם', 'mode.perSchool': 'דוח לפי בית ספר',
+  'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים'
 });

@@ -51,5 +51,13 @@ module.exports = Object.freeze({
   'cur.middle.ai-creativity': 'ИИ и творчество',
   'cur.middle.ai-society-work': 'ИИ, работа и общество',
   'cur.middle.ethics-responsibility': 'Этика: кто отвечает за ошибку машины',
-  'cur.middle.mini-project': 'Итоговый мини-проект: решаем задачу с ИИ'
+  'cur.middle.mini-project': 'Итоговый мини-проект: решаем задачу с ИИ',
+  'mode.routine': 'Обычный', 'mode.emergency': 'ЧС', 'mode.toggle': 'Режим работы',
+  'mode.routineHint': 'Группы по школе и классу', 'mode.emergencyHint': 'Группы по месту сбора, только числа без имён',
+  'mode.morning': 'Утро', 'mode.noon': 'Полдень', 'mode.afternoon': 'После обеда',
+  'mode.school': 'Школа', 'mode.grade': 'Класс', 'mode.location': 'Место сбора', 'mode.ageBand': 'Возрастная группа',
+  'mode.count': 'Число детей', 'mode.formGroups': 'Сформировать группы', 'mode.unmet': 'Группы без студента рядом',
+  'mode.shortLesson': 'Короткий урок без сети', 'mode.addParticipant': 'Добавить участника', 'mode.assignGroups': 'Распределить группы',
+  'mode.todayLesson': 'Урок на сегодня', 'mode.advanced': 'Дополнительно', 'mode.perSchool': 'Отчёт по школам',
+  'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных'
 });
