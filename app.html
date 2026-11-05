@@ -3070,6 +3070,109 @@ module.exports = { makeBackupEnvelope, openBackupEnvelope, backupFilename, MIN_I
   __registry["backup"] = module.exports;
 })();
 
+/* ===== src/lib/lang-he.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Hebrew strings for the NEW coordinator screens (stage 7). Separate dictionaries because
+// the i18n mechanism of PR #358 is not merged; key parity with lang-ar/lang-ru is test-enforced.
+module.exports = Object.freeze({
+  'sched.title': 'לוח מפגשים שבועי', 'sched.sessionsPerWeek': 'מפגשים בשבוע', 'sched.duration': 'משך מפגש (דקות)',
+  'sched.conflicts': 'התנגשויות', 'sched.waitlist': 'רשימת המתנה', 'sched.alternatives': 'חלופות אפשריות',
+  'cap.title': 'קיבולת וביקוש', 'cap.demand': 'ביקוש', 'cap.supply': 'היצע', 'cap.gapAlert': 'הביקוש גדול מההיצע',
+  'sem.title': 'ניהול סמסטר', 'sem.holidays': 'חופשות וחגים', 'sem.cancelled': 'בוטל', 'sem.makeup': 'השלמה',
+  'sem.attendance': 'נוכחות', 'sem.held': 'התקיים', 'sem.missed': 'לא התקיים', 'sem.postponed': 'נדחה',
+  'sem.stalePair': 'הזוג לא נפגש כבר שבועיים',
+  'rep.title': 'דוחות רכז', 'rep.weekly': 'שבועי', 'rep.monthly': 'חודשי', 'rep.semester': 'סמסטריאלי',
+  'rep.exportCsv': 'ייצוא CSV', 'rep.exportIcs': 'ייצוא ICS', 'rep.print': 'הדפסה / PDF',
+  'imp.title': 'ייבוא זמינויות', 'imp.pasteHint': 'הדביקו CSV: role,region,subjects,availability', 'imp.errors': 'שורות שלא יובאו',
+  'wiz.title': 'מילוי זמינות', 'wiz.submit': 'שליחת הזמינות',
+  'bak.title': 'גיבוי ושחזור', 'bak.create': 'יצירת גיבוי מוצפן', 'bak.restore': 'שחזור מגיבוי', 'bak.passphrase': 'סיסמת גיבוי',
+  'guide.title': 'מדריך רכז', 'guide.open': 'פתיחת המדריך'
+});
+  __registry["lang-he"] = module.exports;
+})();
+
+/* ===== src/lib/lang-ar.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Arabic strings for the NEW coordinator screens (stage 7). Needs native-speaker review.
+module.exports = Object.freeze({
+  'sched.title': 'جدول اللقاءات الأسبوعي', 'sched.sessionsPerWeek': 'لقاءات في الأسبوع', 'sched.duration': 'مدة اللقاء (دقائق)',
+  'sched.conflicts': 'تعارضات', 'sched.waitlist': 'قائمة الانتظار', 'sched.alternatives': 'بدائل ممكنة',
+  'cap.title': 'السعة والطلب', 'cap.demand': 'الطلب', 'cap.supply': 'العرض', 'cap.gapAlert': 'الطلب أكبر من العرض',
+  'sem.title': 'إدارة الفصل', 'sem.holidays': 'عطل وأعياد', 'sem.cancelled': 'أُلغي', 'sem.makeup': 'تعويض',
+  'sem.attendance': 'الحضور', 'sem.held': 'تم', 'sem.missed': 'لم يتم', 'sem.postponed': 'تأجل',
+  'sem.stalePair': 'لم يلتقِ الزوج منذ أسبوعين',
+  'rep.title': 'تقارير المنسق', 'rep.weekly': 'أسبوعي', 'rep.monthly': 'شهري', 'rep.semester': 'فصلي',
+  'rep.exportCsv': 'تصدير CSV', 'rep.exportIcs': 'تصدير ICS', 'rep.print': 'طباعة / PDF',
+  'imp.title': 'استيراد التوفر', 'imp.pasteHint': 'الصق CSV: role,region,subjects,availability', 'imp.errors': 'أسطر لم تُستورد',
+  'wiz.title': 'تعبئة التوفر', 'wiz.submit': 'إرسال التوفر',
+  'bak.title': 'النسخ الاحتياطي والاستعادة', 'bak.create': 'إنشاء نسخة مشفرة', 'bak.restore': 'استعادة من نسخة', 'bak.passphrase': 'كلمة سر النسخة',
+  'guide.title': 'دليل المنسق', 'guide.open': 'فتح الدليل'
+});
+  __registry["lang-ar"] = module.exports;
+})();
+
+/* ===== src/lib/lang-ru.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Russian strings for the NEW coordinator screens (stage 7). Needs native-speaker review.
+module.exports = Object.freeze({
+  'sched.title': 'Недельное расписание встреч', 'sched.sessionsPerWeek': 'Встреч в неделю', 'sched.duration': 'Длительность встречи (мин)',
+  'sched.conflicts': 'Конфликты', 'sched.waitlist': 'Лист ожидания', 'sched.alternatives': 'Возможные альтернативы',
+  'cap.title': 'Возможности и спрос', 'cap.demand': 'Спрос', 'cap.supply': 'Предложение', 'cap.gapAlert': 'Спрос превышает предложение',
+  'sem.title': 'Управление семестром', 'sem.holidays': 'Каникулы и праздники', 'sem.cancelled': 'Отменено', 'sem.makeup': 'Компенсация',
+  'sem.attendance': 'Посещаемость', 'sem.held': 'Состоялось', 'sem.missed': 'Не состоялось', 'sem.postponed': 'Перенесено',
+  'sem.stalePair': 'Пара не встречалась уже две недели',
+  'rep.title': 'Отчёты координатора', 'rep.weekly': 'Недельный', 'rep.monthly': 'Месячный', 'rep.semester': 'Семестровый',
+  'rep.exportCsv': 'Экспорт CSV', 'rep.exportIcs': 'Экспорт ICS', 'rep.print': 'Печать / PDF',
+  'imp.title': 'Импорт доступности', 'imp.pasteHint': 'Вставьте CSV: role,region,subjects,availability', 'imp.errors': 'Строки не импортированы',
+  'wiz.title': 'Заполнение доступности', 'wiz.submit': 'Отправить доступность',
+  'bak.title': 'Резервная копия и восстановление', 'bak.create': 'Создать зашифрованную копию', 'bak.restore': 'Восстановить из копии', 'bak.passphrase': 'Пароль копии',
+  'guide.title': 'Руководство координатора', 'guide.open': 'Открыть руководство'
+});
+  __registry["lang-ru"] = module.exports;
+})();
+
+/* ===== src/lib/lang-extra.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - lookup + parity for the new-screen dictionaries (stage 7). Separate from i18n.js (PR #358
+// is not merged, so nothing here touches it). Fallback: Hebrew, then the key itself.
+
+const DICTS = Object.freeze({ he: require('./lang-he.js'), ar: require('./lang-ar.js'), ru: require('./lang-ru.js') });
+const LANGS = Object.freeze(['he', 'ar', 'ru']);
+
+function getExtraKeys() { return Object.keys(DICTS.he).sort(); }
+function tExtra(key, lang) {
+  const d = DICTS[lang] || DICTS.he;
+  if (typeof d[key] === 'string' && d[key] !== '') return d[key];
+  return typeof DICTS.he[key] === 'string' ? DICTS.he[key] : key;
+}
+function verifyExtraParity() {
+  const base = getExtraKeys(); const missing = {}; const extra = {}; let ok = true;
+  LANGS.forEach((lang) => {
+    if (lang === 'he') return;
+    const keys = Object.keys(DICTS[lang]);
+    missing[lang] = base.filter((k) => typeof DICTS[lang][k] !== 'string' || DICTS[lang][k].trim() === '');
+    extra[lang] = keys.filter((k) => base.indexOf(k) === -1).sort();
+    if (missing[lang].length || extra[lang].length) ok = false;
+  });
+  return { ok, missingKeys: missing, extraKeys: extra };
+}
+
+module.exports = { DICTS, LANGS, getExtraKeys, tExtra, verifyExtraParity };
+  __registry["lang-extra"] = module.exports;
+})();
+
 /* ===== src/lib/store.js ===== */
 (function () {
   var module = { exports: {} };
