@@ -105,11 +105,11 @@ test('contrast: every colour the stylesheet paints text with is in the audit', (
 
 test('contrast: the audit follows the palette - dimming the muted grey fails it', () => {
   // Not a tautology: the same audit on a shell with one variable changed must say no.
-  const dim = shell.replace('--muted:#9aa2b4', '--muted:#5a6070');
+  const dim = shell.replace('--muted:#475569', '--muted:#9aa2b4');
   assert.notEqual(dim, shell, 'the muted variable is where this test expects it');
   const failed = C.audit(dim).filter((r) => !r.ok);
   assert.ok(failed.length >= 5, 'every muted pair should fail');
-  assert.ok(failed.every((r) => r.fg === '#5a6070'));
+  assert.ok(failed.every((r) => r.fg === '#9aa2b4'));
   assert.ok(failed.some((r) => r.what === 'tab bar, unselected tab'));
 });
 

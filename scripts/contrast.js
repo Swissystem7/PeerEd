@@ -155,7 +155,10 @@ function pairs(css) {
     { what: 'status line, error', fg: prop(css, '.status.bad', 'color'), bg: v.card, min: TEXT },
     { what: 'banner', fg: prop(css, '.banner', 'color'), bg: prop(css, '.banner', 'background'), under: v.bg, min: TEXT },
     { what: 'flag in a card (text gate findings)', fg: prop(css, '.flag', 'color'), bg: prop(css, '.flag', 'background'), under: v.card, min: TEXT },
-    { what: 'flag in a list item (rejection reason)', fg: prop(css, '.flag', 'color'), bg: prop(css, '.flag', 'background'), under: item, min: TEXT }
+    { what: 'flag in a list item (rejection reason)', fg: prop(css, '.flag', 'color'), bg: prop(css, '.flag', 'background'), under: item, min: TEXT },
+    { what: 'hero text on the gradient base', fg: prop(css, '.hero', 'color'), bg: prop(css, '.hero', 'background'), min: TEXT },
+    { what: 'emergency banner', fg: prop(css, '.emg-banner', 'color'), bg: prop(css, '.emg-banner', 'background'), min: TEXT },
+    { what: 'mode toggle, selected', fg: prop(css, '.mode-toggle button[aria-pressed="true"]', 'color'), bg: prop(css, '.mode-toggle button[aria-pressed="true"]', 'background'), min: TEXT }
   ];
 }
 
