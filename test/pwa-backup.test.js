@@ -25,7 +25,7 @@ const SALT = '00112233445566778899aabbccddeeff'; const IV = '0102030405060708090
 
 test('pwa: manifest is standalone with no external icons; worker source is cache-only', () => {
   const m = JSON.parse(manifestJson());
-  assert.equal(m.display, 'standalone'); assert.deepEqual(m.icons, []);
+  assert.equal(m.display, 'standalone'); assert.equal(m.icons.length, 1); assert.ok(m.icons[0].src.startsWith('data:image/svg+xml'));
   const sw = swSource({ cacheName: 'peered-v9' });
   assert.match(sw, /peered-v9/); assert.match(sw, /caches\.match/);
   assert.ok(!/fetch\s*\(/.test(sw) && !/https?:/.test(sw), 'worker reaches no network');
@@ -38,6 +38,7 @@ test('backup: AES-256-GCM round trip via injected primitives; wrong pass and tam
   assert.throws(() => openBackupEnvelope(env, primitives('wrong')), /^Error: cannot open backup$/);
   const tampered = Object.assign({}, env, { ciphertext: env.ciphertext.slice(0, -2) + 'ff' });
   assert.throws(() => openBackupEnvelope(tampered, primitives('correct horse')), /cannot open backup/);
-  assert.throws(() => makeBackupEnvelope('x', { saltHex: SALT, ivHex: IV, iter: 10, encrypt: () => 'aa'.repeat(20) }), /iteration count too low/);
+  assert.throws(() => makeBackupEnvelope('x', { saltHex: SALT, ivHex: IV, iter: 10, encrypt: () => 'aa'.repeat(20) }), /iteration count out of range/);
+  assert.throws(() => makeBackupEnvelope('x', { saltHex: 'aabbccdd', ivHex: IV, encrypt: () => 'aa'.repeat(20) }), /salt must be at least 16 bytes/);
   assert.equal(backupFilename('2026-09-01'), 'peered-backup-2026-09-01.json');
 });

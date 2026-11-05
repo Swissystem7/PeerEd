@@ -9,14 +9,18 @@ const FIELDS = Object.freeze(['v', 'kdf', 'iter', 'salt', 'iv', 'ciphertext']);
 const MIN_ITER = 100000;
 const OPEN_ERROR = 'cannot open backup';
 
+const MAX_ITER = 5000000;
+const MAX_CIPHERTEXT_HEX = 2000000;
 function isHex(s, minLen) { return typeof s === 'string' && /^[0-9a-f]+$/.test(s) && s.length >= minLen && s.length % 2 === 0; }
+function saltOk(s) { return isHex(s, 32); } // at least 16 bytes
+function ivOk(s) { return typeof s === 'string' && /^[0-9a-f]{24}$/.test(s); } // AES-GCM: exactly 12 bytes
 
 function makeBackupEnvelope(plaintext, opts) {
   const o = opts || {};
   if (typeof plaintext !== 'string' || plaintext === '') throw new Error('invalid backup: expected non-empty text');
-  if (!isHex(o.saltHex, 16) || !isHex(o.ivHex, 16)) throw new Error('invalid backup: salt and iv must be hex');
+  if (!saltOk(o.saltHex) || !ivOk(o.ivHex)) throw new Error('invalid backup: salt must be at least 16 bytes and iv exactly 12 bytes of hex');
   const iter = o.iter === undefined ? 210000 : o.iter;
-  if (!Number.isInteger(iter) || iter < MIN_ITER) throw new Error('invalid backup: iteration count too low');
+  if (!Number.isInteger(iter) || iter < MIN_ITER || iter > MAX_ITER) throw new Error('invalid backup: iteration count out of range');
   if (typeof o.encrypt !== 'function') throw new Error('invalid backup: encrypt primitive is required');
   const ciphertext = o.encrypt(plaintext, { saltHex: o.saltHex, ivHex: o.ivHex, iter: iter });
   if (!isHex(ciphertext, 32)) throw new Error('invalid backup: encrypt primitive returned malformed ciphertext');
@@ -29,8 +33,8 @@ function openBackupEnvelope(envelope, opts) {
     const keys = Object.keys(envelope).sort();
     if (keys.length !== FIELDS.length || !FIELDS.every((f) => keys.indexOf(f) !== -1)) throw new Error(OPEN_ERROR);
     if (envelope.v !== 1 || envelope.kdf !== 'PBKDF2-SHA256') throw new Error(OPEN_ERROR);
-    if (!Number.isInteger(envelope.iter) || envelope.iter < MIN_ITER) throw new Error(OPEN_ERROR);
-    if (!isHex(envelope.salt, 16) || !isHex(envelope.iv, 16) || !isHex(envelope.ciphertext, 32)) throw new Error(OPEN_ERROR);
+    if (!Number.isInteger(envelope.iter) || envelope.iter < MIN_ITER || envelope.iter > MAX_ITER) throw new Error(OPEN_ERROR);
+    if (!saltOk(envelope.salt) || !ivOk(envelope.iv) || !isHex(envelope.ciphertext, 32) || envelope.ciphertext.length > MAX_CIPHERTEXT_HEX) throw new Error(OPEN_ERROR);
     if (!opts || typeof opts.decrypt !== 'function') throw new Error(OPEN_ERROR);
     const plain = opts.decrypt(envelope.ciphertext, { saltHex: envelope.salt, ivHex: envelope.iv, iter: envelope.iter });
     if (typeof plain !== 'string' || plain === '') throw new Error(OPEN_ERROR);

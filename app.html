@@ -1378,6 +1378,9 @@ module.exports = {
 // privacy gate is untouched and a pupil still needs parentConsent === true to be paired at all.
 
 const { shared, hasParentConsent } = require('./match.js');
+const { isRegion } = require('./regions.js');
+const { SUBJECTS, normalizeSlot } = require('./profile.js');
+const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
 
 const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10 });
 const PAIR_BONUS = 1000; // > max score of one pair (100), so one more pair always beats a better score
@@ -1387,35 +1390,47 @@ function weightsOf(opts) {
   for (const k of Object.keys(DEFAULT_WEIGHTS)) if (!(Number(w[k]) >= 0)) w[k] = DEFAULT_WEIGHTS[k];
   return w;
 }
-function normLevel(x) { const n = Number(x && x.level); return Number.isFinite(n) ? Math.min(5, Math.max(1, n)) : null; }
-function langs(x) { return Array.isArray(x && x.languages) ? x.languages.filter((v) => typeof v === 'string') : []; }
-function prefs(x) { return Array.isArray(x && x.preferredSubjects) ? x.preferredSubjects : []; }
+function normLevel(x) { const n = x && x.level; return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null; }
+function langs(x) { return Array.isArray(x && x.languages) ? x.languages.filter((v) => LANG_CODES.indexOf(v) !== -1) : []; }
+function prefs(x) { return Array.isArray(x && x.preferredSubjects) ? x.preferredSubjects.filter((v) => SUBJECTS.indexOf(v) !== -1) : []; }
 function capacityOf(s, opts) {
-  const c = s && s.maxPupils !== undefined ? Number(s.maxPupils) : (opts && opts.studentCapacity);
-  return Number.isInteger(c) && c > 0 ? c : 1;
+  // absent means 1; an explicit 0 means this student takes nobody (it never silently becomes 1)
+  if (s && s.maxPupils !== undefined) { const c = Number(s.maxPupils); if (!Number.isInteger(c) || c < 0) throw new Error('invalid maxPupils'); return c; }
+  if (opts && opts.studentCapacity !== undefined) { const c = Number(opts.studentCapacity); if (!Number.isInteger(c) || c < 0) throw new Error('invalid studentCapacity'); return c; }
+  return 1;
 }
 
 function scorePair(student, pupil, weights) {
-  const w = weights || DEFAULT_WEIGHTS;
-  const sharedSlots = shared(student.availability, pupil.availability);
-  const sharedSubjects = shared(student.subjects, pupil.subjects);
-  const sharedLanguages = shared(langs(student), langs(pupil));
-  const regionSame = typeof student.region === 'string' && student.region === pupil.region;
-  const sl = normLevel(student); const pl = normLevel(pupil);
-  const levelFit = sl === null || pl === null ? 0.5 : 1 - Math.abs(sl - pl) / 4;
-  const langFit = langs(student).length === 0 || langs(pupil).length === 0 ? 0.5
-    : (sharedLanguages.length > 0 ? 1 : 0);
-  const prefHits = shared(prefs(student), pupil.subjects).length + shared(prefs(pupil), student.subjects).length;
+  const w = weightsOf({ weights: weights });
+  const s = student || {}; const p = pupil || {};
+  // only canonical codes are ever scored or printed: slots, subjects, languages, region
+  const sharedSlots = shared(s.availability, p.availability).filter((x) => normalizeSlot(x) === x);
+  const sharedSubjects = shared(s.subjects, p.subjects).filter((x) => SUBJECTS.indexOf(x) !== -1);
+  const sharedLanguages = shared(langs(s), langs(p));
+  const regionSame = isRegion(s.region) && s.region === p.region;
+  const sl = normLevel(s); const pl = normLevel(p);
+  const levelIn = sl !== null && pl !== null;
+  const langIn = langs(s).length > 0 && langs(p).length > 0;
+  const levelFit = levelIn ? 1 - Math.abs(sl - pl) / 4 : 0;
+  const langFit = langIn && sharedLanguages.length > 0 ? 1 : 0;
+  const prefHits = shared(prefs(s), (p.subjects || []).filter((x) => SUBJECTS.indexOf(x) !== -1)).length +
+    shared(prefs(p), (s.subjects || []).filter((x) => SUBJECTS.indexOf(x) !== -1)).length;
   const prefFit = Math.min(1, prefHits / 2);
   const b = {
     region: Math.round(w.region * (regionSame ? 1 : 0)),
     hours: Math.round(w.hours * Math.min(1, sharedSlots.length / 3)),
     subject: Math.round(w.subject * Math.min(1, sharedSubjects.length / 2)),
-    level: Math.round(w.level * levelFit),
-    language: Math.round(w.language * langFit),
+    level: levelIn ? Math.round(w.level * levelFit) : 0,
+    language: langIn ? Math.round(w.language * langFit) : 0,
     preference: Math.round(w.preference * prefFit)
   };
-  b.total = b.region + b.hours + b.subject + b.level + b.language + b.preference;
+  // criteria with no data on either side are excluded, not credited: the total is renormalised to 100
+  let included = w.region + w.hours + w.subject + w.preference;
+  if (levelIn) included += w.level;
+  if (langIn) included += w.language;
+  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference;
+  b.total = included > 0 ? Math.round((earned / included) * 100) : 0;
+  b.levelCounted = levelIn; b.languageCounted = langIn;
   return { score: b.total, breakdown: b, sharedSlots, sharedSubjects, sharedLanguages, regionSame, levelFit };
 }
 
@@ -1496,7 +1511,14 @@ function match2(students, pupils, opts) {
 // Partial re-match: pairs of participants not released are kept (if still valid); the rest are re-optimised.
 function rematchPartial(students, pupils, existingPairs, opts) {
   const o = opts || {}; const relS = new Set(o.releaseStudentIndexes || []); const relP = new Set(o.releasePupilIndexes || []);
-  const keep = (Array.isArray(existingPairs) ? existingPairs : []).filter((x) => x && !relS.has(x.studentIndex) && !relP.has(x.pupilIndex) && students[x.studentIndex] && pupils[x.pupilIndex] && isCandidate(students[x.studentIndex], pupils[x.pupilIndex], o, x.studentIndex, x.pupilIndex));
+  // stale kept pairs (duplicate pupil, capacity since lowered) are dropped, never thrown on
+  const seenP = new Set(); const countS = new Map();
+  const keep = (Array.isArray(existingPairs) ? existingPairs : []).filter((x) => {
+    if (!x || relS.has(x.studentIndex) || relP.has(x.pupilIndex) || !students[x.studentIndex] || !pupils[x.pupilIndex]) return false;
+    if (seenP.has(x.pupilIndex) || !isCandidate(students[x.studentIndex], pupils[x.pupilIndex], o, x.studentIndex, x.pupilIndex)) return false;
+    if ((countS.get(x.studentIndex) || 0) >= capacityOf(students[x.studentIndex], o)) return false;
+    seenP.add(x.pupilIndex); countS.set(x.studentIndex, (countS.get(x.studentIndex) || 0) + 1); return true;
+  });
   const locked = keep.map((x) => ({ studentIndex: x.studentIndex, pupilIndex: x.pupilIndex })).concat(Array.isArray(o.locked) ? o.locked : []);
   return match2(students, pupils, Object.assign({}, o, { locked }));
 }
@@ -1517,7 +1539,11 @@ const { SUBJECTS } = require('./profile.js');
 const { REGIONS } = require('./regions.js');
 const { hasParentConsent } = require('./match.js');
 
-function capOf(s, o) { const c = s && s.maxPupils !== undefined ? Number(s.maxPupils) : Number(o && o.studentCapacity); return Number.isInteger(c) && c > 0 ? c : 1; }
+function capOf(s, o) {
+  if (s && s.maxPupils !== undefined) { const c = Number(s.maxPupils); if (!Number.isInteger(c) || c < 0) throw new Error('invalid maxPupils'); return c; }
+  if (o && o.studentCapacity !== undefined) { const c = Number(o.studentCapacity); if (!Number.isInteger(c) || c < 0) throw new Error('invalid studentCapacity'); return c; }
+  return 1;
+}
 
 function analyzeCapacity(students, pupils, opts) {
   const o = opts || {};
@@ -1532,11 +1558,14 @@ function finish(S, eligible, o) {
   eligible.forEach((p) => { (p.subjects || []).forEach((k) => { if (bySubject[k]) bySubject[k].demand += 1; }); if (byRegion[p.region]) byRegion[p.region].demand += 1; });
   const studentLoad = S.map((s, studentIndex) => ({ studentIndex, capacity: capOf(s, o), region: s.region || null, subjects: (s.subjects || []).slice() }));
   S.forEach((s) => { (s.subjects || []).forEach((k) => { if (bySubject[k]) bySubject[k].supply += capOf(s, o); }); if (byRegion[s.region]) byRegion[s.region].supply += capOf(s, o); });
+  // supply is counted per dimension: a multi-subject student's places appear in each of their subjects,
+  // so per-subject supply is an upper bound; the totals row is the honest single count.
+  const perNew = o.newStudentCapacity !== undefined ? Math.max(1, Number(o.newStudentCapacity) || 1) : 1;
   const alerts = [];
   [bySubject, byRegion].forEach((table, ti) => {
     Object.keys(table).forEach((k) => {
-      const b = table[k]; b.gap = Math.max(0, b.demand - b.supply); b.neededStudents = b.gap;
-      if (b.gap > 0) alerts.push({ code: 'DEMAND_GT_SUPPLY', kind: ti === 0 ? 'subject' : 'region', codeKey: k, demand: b.demand, supply: b.supply, gap: b.gap, neededStudents: b.gap, neededStudentsNoteHe: ti === 0 ? 'צריך עוד ' + b.gap + ' מקומות חונכות במקצוע ' + k : 'צריך עוד ' + b.gap + ' מקומות חונכות באזור ' + k });
+      const b = table[k]; b.gap = Math.max(0, b.demand - b.supply); b.neededPlaces = b.gap; b.neededStudents = Math.ceil(b.gap / perNew);
+      if (b.gap > 0) alerts.push({ code: 'DEMAND_GT_SUPPLY', kind: ti === 0 ? 'subject' : 'region', codeKey: k, demand: b.demand, supply: b.supply, gap: b.gap, neededPlaces: b.gap, neededStudents: b.neededStudents, neededStudentsNoteHe: ti === 0 ? 'צריך עוד ' + b.gap + ' מקומות חונכות במקצוע ' + k : 'צריך עוד ' + b.gap + ' מקומות חונכות באזור ' + k });
     });
   });
   alerts.sort((a, b) => (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : (a.codeKey < b.codeKey ? -1 : 1)));
@@ -1656,7 +1685,22 @@ module.exports = { buildSchedule, findConflicts, suggestAlternatives, sortSlots 
 
 const { DAYS } = require('./profile.js');
 
-const HOLIDAYS_IL = Object.freeze([
+// A *_BREAK code written twice is a range: both written dates and every day between them are holidays,
+// so a "break" is never just its two endpoints. (Break ranges are school-break approximations; a
+// coordinator overrides the whole list per semester when the official calendar differs.)
+function expandBreaks(rows) {
+  const out = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i]; const next = rows[i + 1];
+    if (/_BREAK$/.test(r.code) && next && next.code === r.code && next.date > r.date) {
+      const end = new Date(next.date + 'T00:00:00Z');
+      for (let d = new Date(r.date + 'T00:00:00Z'); d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push({ date: d.toISOString().slice(0, 10), code: r.code });
+      i += 1;
+    } else out.push(r);
+  }
+  return out;
+}
+const HOLIDAYS_IL = Object.freeze(expandBreaks([
   { date: '2025-09-23', code: 'ROSH_HASHANA' }, { date: '2025-09-24', code: 'ROSH_HASHANA' },
   { date: '2025-10-02', code: 'YOM_KIPPUR' }, { date: '2025-10-07', code: 'SUKKOT' }, { date: '2025-10-14', code: 'SUKKOT' },
   { date: '2025-12-16', code: 'HANUKKAH_BREAK' }, { date: '2025-12-23', code: 'HANUKKAH_BREAK' },
@@ -1664,7 +1708,7 @@ const HOLIDAYS_IL = Object.freeze([
   { date: '2026-04-22', code: 'YOM_HAATZMAUT' }, { date: '2026-05-21', code: 'SHAVUOT' },
   { date: '2026-10-02', code: 'ROSH_HASHANA' }, { date: '2026-10-03', code: 'ROSH_HASHANA' },
   { date: '2026-10-11', code: 'YOM_KIPPUR' }, { date: '2026-10-16', code: 'SUKKOT' }, { date: '2026-10-23', code: 'SUKKOT' }
-].map(Object.freeze));
+]).map(Object.freeze));
 
 function parseDate(iso) {
   const m = typeof iso === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
@@ -1806,7 +1850,7 @@ function inRange(date, from, to) { return date >= from && date <= to; }
 function buildReport(data, from, to, kind) {
   const d = data || {}; parseDate(from); parseDate(to);
   const sessions = (Array.isArray(d.sessions) ? d.sessions : []).filter((s) => s && s.date && inRange(s.date, from, to));
-  const entries = (d.attendance && Array.isArray(d.attendance.entries) ? d.attendance.entries : []).filter((e) => inRange(e.date, from, to));
+  const entries = (d.attendance && Array.isArray(d.attendance.entries) ? d.attendance.entries : []).filter((e) => e && inRange(e.date, from, to));
   const byStatus = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
   entries.forEach((e) => { if (byStatus[e.status] !== undefined) byStatus[e.status] += 1; });
   const bySubject = {}; const byRegion = {};
@@ -1851,12 +1895,18 @@ function reportToIcs(sessions, opts) {
   const stamp = String((opts && opts.dtstamp) || '20260101T000000Z').replace(/[^0-9TZ]/gi, '');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PeerEd//Coordinator//EN'];
   (Array.isArray(sessions) ? sessions : []).forEach((s) => {
-    if (!s || !s.date) return;
-    const m = /^([A-Z]{3})_(\d{1,2})$/.exec(s.slot || 'SUN_8'); const hour = m ? Number(m[2]) : 8;
-    const ymd = s.date.replace(/-/g, ''); const hh = String(hour).padStart(2, '0');
-    lines.push('BEGIN:VEVENT', 'UID:peered-' + s.pairIndex + '-' + ymd + '-' + (s.slot || 'x') + '@peered', 'DTSTAMP:' + stamp,
-      'DTSTART:' + ymd + 'T' + hh + '0000', 'DTEND:' + ymd + 'T' + String(hour + Math.max(1, Math.round((s.durationMinutes || 60) / 60))).padStart(2, '0') + '0000',
-      'SUMMARY:' + icsEscape('PeerEd pair ' + s.pairIndex + ' ' + (s.subject || '')), 'END:VEVENT');
+    // identifiers are validated, never interpolated raw: a forged pairIndex or slot must not inject lines
+    if (!s || !s.date || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) return;
+    let ymd; try { parseDate(s.date); ymd = s.date.replace(/-/g, ''); } catch (e) { return; }
+    const slot = typeof s.slot === 'string' && /^([A-Z]{3})_(\d{1,2})$/.test(s.slot) ? s.slot : null;
+    if (slot === null) return;
+    const hour = Number(slot.split('_')[1]);
+    const dur = Number.isInteger(s.durationMinutes) && s.durationMinutes > 0 ? s.durationMinutes : 60;
+    const endTotal = hour * 60 + dur; const endDay = addDays(s.date, Math.floor(endTotal / 1440)); const endMin = endTotal % 1440;
+    const hh = String(hour).padStart(2, '0'); const eh = String(Math.floor(endMin / 60)).padStart(2, '0'); const em = String(endMin % 60).padStart(2, '0');
+    lines.push('BEGIN:VEVENT', 'UID:peered-' + s.pairIndex + '-' + ymd + '-' + slot + '@peered', 'DTSTAMP:' + stamp,
+      'DTSTART:' + ymd + 'T' + hh + '0000', 'DTEND:' + endDay.replace(/-/g, '') + 'T' + eh + em + '00',
+      'SUMMARY:' + icsEscape('PeerEd pair ' + s.pairIndex + ' ' + (typeof s.subject === 'string' && /^[A-Z0-9_]+$/.test(s.subject) ? s.subject : '')), 'END:VEVENT');
   });
   lines.push('END:VCALENDAR');
   return lines.join('\r\n') + '\r\n';
@@ -2899,13 +2949,16 @@ function parseAvailabilityCsv(text) {
   if (typeof text !== 'string') throw new Error('invalid import: expected text');
   const hits = findPersonalData(text);
   if (hits.length > 0) throw new Error(PERSONAL_DATA_ERROR);
-  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim() !== '');
-  if (lines.length === 0) return Object.freeze({ profiles: Object.freeze([]), errors: Object.freeze([]) });
-  const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
+  // physical line numbers are kept (blank lines included), so an error names the row the coordinator sees
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const firstData = lines.findIndex((l) => l.trim() !== '');
+  if (firstData === -1) return Object.freeze({ profiles: Object.freeze([]), errors: Object.freeze([]) });
+  const header = lines[firstData].split(',').map((h) => h.trim().toLowerCase());
   const want = ['role', 'region', 'subjects', 'availability'];
   if (header.length !== 4 || !want.every((w, i) => header[i] === w)) throw new Error('invalid import header: expected role,region,subjects,availability');
-  const profiles = []; const errors = [];
-  for (let i = 1; i < lines.length; i += 1) {
+  const profiles = []; const errors = []; const seenRows = new Set();
+  for (let i = firstData + 1; i < lines.length; i += 1) {
+    if (lines[i].trim() === '') continue;
     const cells = lines[i].split(',');
     if (cells.length !== 4) { errors.push(Object.freeze({ line: i + 1, reason: 'WRONG_COLUMNS' })); continue; }
     const role = cells[0].trim().toLowerCase();
@@ -2916,6 +2969,9 @@ function parseAvailabilityCsv(text) {
     if (region === null) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_REGION' })); continue; }
     if (subjects.length === 0 || subjects.some((s) => SUBJECTS.indexOf(s) === -1)) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SUBJECT' })); continue; }
     if (availability.length === 0 || availability.length !== cells[3].split(';').filter((s) => s.trim() !== '').length) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SLOT' })); continue; }
+    const rowKey = role + '|' + region + '|' + subjects.slice().sort().join(';') + '|' + availability.slice().sort().join(';');
+    if (seenRows.has(rowKey)) { errors.push(Object.freeze({ line: i + 1, reason: 'DUPLICATE_ROW' })); continue; }
+    seenRows.add(rowKey);
     try { profiles.push(makeProfile({ role, region, availability, subjects })); }
     catch (e) { errors.push(Object.freeze({ line: i + 1, reason: 'PROFILE_REJECTED' })); }
   }
@@ -2992,9 +3048,11 @@ module.exports = { encodeAvailabilityLink, decodeAvailabilityLink, fnv1a };
 function manifestJson(opts) {
   const o = opts || {};
   const name = typeof o.name === 'string' && o.name.trim() !== '' ? o.name : 'PeerEd';
+  const icon = 'data:image/svg+xml,%3Csvg xmlns=%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 fill=%27%230f1117%27/%3E%3Ctext x=%2750%27 y=%2768%27 font-size=%2760%27 text-anchor=%27middle%27 fill=%27%237cc4ff%27%3EP%3C/text%3E%3C/svg%3E';
   return JSON.stringify({
     name: name, short_name: 'PeerEd', start_url: '.', scope: '.', display: 'standalone',
-    background_color: '#0f1117', theme_color: '#0f1117', icons: []
+    background_color: '#0f1117', theme_color: '#0f1117',
+    icons: [{ src: icon, sizes: 'any', type: 'image/svg+xml', purpose: 'any' }]
   }, null, 2) + '\n';
 }
 
@@ -3007,8 +3065,8 @@ function swSource(opts) {
     "var CACHE = '" + cache + "';",
     "var FILES = ['./', './app.html'];",
     "self.addEventListener('install', function (e) { e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); })); });",
-    "self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return k === CACHE ? null : caches.delete(k); })); }).then(function () { return self.clients.claim(); })); });",
-    "self.addEventListener('fetch', function (e) { e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) { return hit || new Response('offline', { status: 503, headers: { 'Content-Type': 'text/plain' } }); })); });",
+    "self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return (k === CACHE || k.indexOf('peered-') !== 0) ? null : caches.delete(k); })); }).then(function () { return self.clients.claim(); })); });",
+    "self.addEventListener('fetch', function (e) { e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) { return hit || caches.match('./app.html', { ignoreSearch: true }); }).then(function (hit) { return hit || new Response('offline', { status: 503, headers: { 'Content-Type': 'text/plain' } }); })); });",
     ''
   ].join('\n');
 }
@@ -3032,14 +3090,18 @@ const FIELDS = Object.freeze(['v', 'kdf', 'iter', 'salt', 'iv', 'ciphertext']);
 const MIN_ITER = 100000;
 const OPEN_ERROR = 'cannot open backup';
 
+const MAX_ITER = 5000000;
+const MAX_CIPHERTEXT_HEX = 2000000;
 function isHex(s, minLen) { return typeof s === 'string' && /^[0-9a-f]+$/.test(s) && s.length >= minLen && s.length % 2 === 0; }
+function saltOk(s) { return isHex(s, 32); } // at least 16 bytes
+function ivOk(s) { return typeof s === 'string' && /^[0-9a-f]{24}$/.test(s); } // AES-GCM: exactly 12 bytes
 
 function makeBackupEnvelope(plaintext, opts) {
   const o = opts || {};
   if (typeof plaintext !== 'string' || plaintext === '') throw new Error('invalid backup: expected non-empty text');
-  if (!isHex(o.saltHex, 16) || !isHex(o.ivHex, 16)) throw new Error('invalid backup: salt and iv must be hex');
+  if (!saltOk(o.saltHex) || !ivOk(o.ivHex)) throw new Error('invalid backup: salt must be at least 16 bytes and iv exactly 12 bytes of hex');
   const iter = o.iter === undefined ? 210000 : o.iter;
-  if (!Number.isInteger(iter) || iter < MIN_ITER) throw new Error('invalid backup: iteration count too low');
+  if (!Number.isInteger(iter) || iter < MIN_ITER || iter > MAX_ITER) throw new Error('invalid backup: iteration count out of range');
   if (typeof o.encrypt !== 'function') throw new Error('invalid backup: encrypt primitive is required');
   const ciphertext = o.encrypt(plaintext, { saltHex: o.saltHex, ivHex: o.ivHex, iter: iter });
   if (!isHex(ciphertext, 32)) throw new Error('invalid backup: encrypt primitive returned malformed ciphertext');
@@ -3052,8 +3114,8 @@ function openBackupEnvelope(envelope, opts) {
     const keys = Object.keys(envelope).sort();
     if (keys.length !== FIELDS.length || !FIELDS.every((f) => keys.indexOf(f) !== -1)) throw new Error(OPEN_ERROR);
     if (envelope.v !== 1 || envelope.kdf !== 'PBKDF2-SHA256') throw new Error(OPEN_ERROR);
-    if (!Number.isInteger(envelope.iter) || envelope.iter < MIN_ITER) throw new Error(OPEN_ERROR);
-    if (!isHex(envelope.salt, 16) || !isHex(envelope.iv, 16) || !isHex(envelope.ciphertext, 32)) throw new Error(OPEN_ERROR);
+    if (!Number.isInteger(envelope.iter) || envelope.iter < MIN_ITER || envelope.iter > MAX_ITER) throw new Error(OPEN_ERROR);
+    if (!saltOk(envelope.salt) || !ivOk(envelope.iv) || !isHex(envelope.ciphertext, 32) || envelope.ciphertext.length > MAX_CIPHERTEXT_HEX) throw new Error(OPEN_ERROR);
     if (!opts || typeof opts.decrypt !== 'function') throw new Error(OPEN_ERROR);
     const plain = opts.decrypt(envelope.ciphertext, { saltHex: envelope.salt, ivHex: envelope.iv, iter: envelope.iter });
     if (typeof plain !== 'string' || plain === '') throw new Error(OPEN_ERROR);
@@ -3219,8 +3281,11 @@ function runCoordinatorFlow(input) {
     }));
     const pairs = matching.pairs.map((p, i) => ({ pairIndex: i }));
     const report = semesterReport({ sessions, attendance, pairs }, semester);
+    // ok means complete: any refused import row, waitlisted pair or skipped session is surfaced, not hidden
+    const counts = Object.freeze({ importErrors: imported.errors.length, waitlisted: schedule.waitlist.length, unscheduled: schedule.unscheduled.length, skipped: dated.skipped.length });
+    const complete = counts.importErrors === 0 && counts.waitlisted === 0 && counts.skipped === 0;
     return Object.freeze({
-      ok: true, imported, matching, schedule, semester, dated, attendance, report,
+      ok: complete, partial: !complete, counts, imported, matching, schedule, semester, dated, attendance, report,
       reportCsv: reportToCsv(report), reportIcs: reportToIcs(sessions, { dtstamp: o.dtstamp })
     });
   } catch (e) {
