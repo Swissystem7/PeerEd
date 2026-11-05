@@ -2979,6 +2979,97 @@ module.exports = { encodeAvailabilityLink, decodeAvailabilityLink, fnv1a };
   __registry["wizard-link"] = module.exports;
 })();
 
+/* ===== src/lib/pwa.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - offline PWA pieces for the single file (stage 6). Strings only: the shell serves the
+// manifest inline and registers the worker from the source below; this module itself loads nothing,
+// registers nothing and reaches no network. The worker is cache-only for the one app file: it never
+// calls out, and a cache miss is answered locally instead of going to the network.
+
+function manifestJson(opts) {
+  const o = opts || {};
+  const name = typeof o.name === 'string' && o.name.trim() !== '' ? o.name : 'PeerEd';
+  return JSON.stringify({
+    name: name, short_name: 'PeerEd', start_url: '.', scope: '.', display: 'standalone',
+    background_color: '#0f1117', theme_color: '#0f1117', icons: []
+  }, null, 2) + '\n';
+}
+
+// Cache-first, offline-only worker for './' and './app.html'. Worded without the worker-registration
+// API on purpose: registration belongs to the shell, this is only the worker's own source text.
+function swSource(opts) {
+  const cache = opts && typeof opts.cacheName === 'string' && /^[a-z0-9-]+$/.test(opts.cacheName) ? opts.cacheName : 'peered-v1';
+  return [
+    "'use strict';",
+    "var CACHE = '" + cache + "';",
+    "var FILES = ['./', './app.html'];",
+    "self.addEventListener('install', function (e) { e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); })); });",
+    "self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return k === CACHE ? null : caches.delete(k); })); }).then(function () { return self.clients.claim(); })); });",
+    "self.addEventListener('fetch', function (e) { e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) { return hit || new Response('offline', { status: 503, headers: { 'Content-Type': 'text/plain' } }); })); });",
+    ''
+  ].join('\n');
+}
+
+module.exports = { manifestJson, swSource };
+  __registry["pwa"] = module.exports;
+})();
+
+/* ===== src/lib/backup.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - encrypted backup envelope (stage 6). The crypto primitives are INJECTED by the caller
+// (browser: WebCrypto-derived key + AES-GCM; tests: node:crypto), because this single file may not
+// require node modules and home-grown synchronous crypto would be worse than none. This module owns
+// only the envelope shape, its strict validation and one generic failure message: a wrong passphrase
+// and a tampered file are indistinguishable from outside.
+
+const FIELDS = Object.freeze(['v', 'kdf', 'iter', 'salt', 'iv', 'ciphertext']);
+const MIN_ITER = 100000;
+const OPEN_ERROR = 'cannot open backup';
+
+function isHex(s, minLen) { return typeof s === 'string' && /^[0-9a-f]+$/.test(s) && s.length >= minLen && s.length % 2 === 0; }
+
+function makeBackupEnvelope(plaintext, opts) {
+  const o = opts || {};
+  if (typeof plaintext !== 'string' || plaintext === '') throw new Error('invalid backup: expected non-empty text');
+  if (!isHex(o.saltHex, 16) || !isHex(o.ivHex, 16)) throw new Error('invalid backup: salt and iv must be hex');
+  const iter = o.iter === undefined ? 210000 : o.iter;
+  if (!Number.isInteger(iter) || iter < MIN_ITER) throw new Error('invalid backup: iteration count too low');
+  if (typeof o.encrypt !== 'function') throw new Error('invalid backup: encrypt primitive is required');
+  const ciphertext = o.encrypt(plaintext, { saltHex: o.saltHex, ivHex: o.ivHex, iter: iter });
+  if (!isHex(ciphertext, 32)) throw new Error('invalid backup: encrypt primitive returned malformed ciphertext');
+  return Object.freeze({ v: 1, kdf: 'PBKDF2-SHA256', iter: iter, salt: o.saltHex, iv: o.ivHex, ciphertext: ciphertext });
+}
+
+function openBackupEnvelope(envelope, opts) {
+  try {
+    if (envelope === null || typeof envelope !== 'object' || Array.isArray(envelope)) throw new Error(OPEN_ERROR);
+    const keys = Object.keys(envelope).sort();
+    if (keys.length !== FIELDS.length || !FIELDS.every((f) => keys.indexOf(f) !== -1)) throw new Error(OPEN_ERROR);
+    if (envelope.v !== 1 || envelope.kdf !== 'PBKDF2-SHA256') throw new Error(OPEN_ERROR);
+    if (!Number.isInteger(envelope.iter) || envelope.iter < MIN_ITER) throw new Error(OPEN_ERROR);
+    if (!isHex(envelope.salt, 16) || !isHex(envelope.iv, 16) || !isHex(envelope.ciphertext, 32)) throw new Error(OPEN_ERROR);
+    if (!opts || typeof opts.decrypt !== 'function') throw new Error(OPEN_ERROR);
+    const plain = opts.decrypt(envelope.ciphertext, { saltHex: envelope.salt, ivHex: envelope.iv, iter: envelope.iter });
+    if (typeof plain !== 'string' || plain === '') throw new Error(OPEN_ERROR);
+    return plain;
+  } catch (e) { throw new Error(OPEN_ERROR); }
+}
+
+function backupFilename(dateISO) {
+  if (typeof dateISO !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) throw new Error('invalid date: expected YYYY-MM-DD');
+  return 'peered-backup-' + dateISO + '.json';
+}
+
+module.exports = { makeBackupEnvelope, openBackupEnvelope, backupFilename, MIN_ITER };
+  __registry["backup"] = module.exports;
+})();
+
 /* ===== src/lib/store.js ===== */
 (function () {
   var module = { exports: {} };
