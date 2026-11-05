@@ -40,8 +40,11 @@ function runCoordinatorFlow(input) {
     }));
     const pairs = matching.pairs.map((p, i) => ({ pairIndex: i }));
     const report = semesterReport({ sessions, attendance, pairs }, semester);
+    // ok means complete: any refused import row, waitlisted pair or skipped session is surfaced, not hidden
+    const counts = Object.freeze({ importErrors: imported.errors.length, waitlisted: schedule.waitlist.length, unscheduled: schedule.unscheduled.length, skipped: dated.skipped.length });
+    const complete = counts.importErrors === 0 && counts.waitlisted === 0 && counts.skipped === 0;
     return Object.freeze({
-      ok: true, imported, matching, schedule, semester, dated, attendance, report,
+      ok: complete, partial: !complete, counts, imported, matching, schedule, semester, dated, attendance, report,
       reportCsv: reportToCsv(report), reportIcs: reportToIcs(sessions, { dtstamp: o.dtstamp })
     });
   } catch (e) {
