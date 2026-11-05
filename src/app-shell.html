@@ -26,7 +26,7 @@
         padding-bottom:env(safe-area-inset-bottom, 0px);
         padding-left:env(safe-area-inset-left, 0px); padding-right:env(safe-area-inset-right, 0px); }
   nav button { flex:1; background:none; border:0; color:var(--muted); font:inherit; font-size:.8rem;
-               padding:12px 4px; cursor:pointer; border-top:2px solid transparent; }
+               padding:12px 4px; min-height:44px; cursor:pointer; border-top:2px solid transparent; }
   nav button[aria-selected="true"] { color:var(--key); border-top-color:var(--key); font-weight:700; }
   nav button:focus-visible { outline:2px solid var(--key); outline-offset:-2px; }
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible, a:focus-visible {
@@ -36,14 +36,14 @@
   .card { background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px; margin:12px 0; box-shadow:0 8px 24px rgba(49,46,129,.10); }
   .card h2 { font-size:1rem; margin:0 0 8px; }
   label { display:block; color:var(--muted); font-size:.78rem; margin:9px 0 4px; }
-  input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);
+  input, select, textarea { width:100%; padding:10px; min-height:44px; border-radius:8px; border:1px solid var(--line);
                             background:#FFFFFF; color:var(--ink); font:inherit; font-size:1rem; }
   textarea { min-height:110px; resize:vertical; font-size:.92rem; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px; }
   button.act { background:var(--key); background-image:linear-gradient(90deg,#0F766E,#4338CA); color:#FFFFFF; border-radius:999px; min-height:48px; border:0; border-radius:9px; padding:11px 15px;
                font:inherit; font-weight:700; cursor:pointer; }
   button.ghost { background:#EEF2FF; color:var(--ink); border:1px solid var(--line); border-radius:9px;
-                 padding:9px 13px; font:inherit; cursor:pointer; }
+                 padding:9px 13px; min-height:44px; font:inherit; cursor:pointer; }
   button.small { padding:5px 9px; font-size:.76rem; }
   .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; }
@@ -53,7 +53,7 @@
   .grid-hours { display:grid; grid-template-columns:auto repeat(7,1fr); gap:3px; margin-top:6px;
                 font-size:.7rem; overflow-x:auto; }
   .grid-hours span { color:var(--muted); text-align:center; padding:3px 0; }
-  .grid-hours button { background:#FFFFFF; border:1px solid var(--line); border-radius:5px; padding:6px 0;
+  .grid-hours button { background:#FFFFFF; border:1px solid var(--line); border-radius:5px; padding:6px 0; min-height:44px;
                        cursor:pointer; color:transparent; font-size:.6rem; }
   .grid-hours button[aria-pressed="true"] { background:var(--key); border-color:var(--key); color:#FFFFFF; }
   .item { border:1px solid var(--line); border-radius:18px; padding:11px; margin-top:9px; background:#F8FAFC; }
@@ -95,6 +95,8 @@
   <header>
     <h1>PeerEd</h1>
     <p>מחבר סטודנטים לתלמידי תיכון לפי אזור, זמינות ומקצוע. בלי שם, בלי טלפון, בלי מייל.</p>
+    <label for="langSelect">שפה</label>
+    <select id="langSelect" aria-label="שפה"><option value="he">עברית</option><option value="ar">العربية</option><option value="ru">Русский</option></select>
   </header>
 
   <!-- ============ אנשים ============ -->
@@ -464,7 +466,8 @@
       modesLib = __registry.modes, curriculumLib = __registry.curriculum,
       guideLib = __registry['guide-he'], pwaLib = __registry.pwa, match2Lib = __registry.match2,
       scheduleLib = __registry.schedule, capacityLib = __registry.capacity,
-      reportsLib = __registry.reports, semesterLib = __registry.semester;
+      reportsLib = __registry.reports, semesterLib = __registry.semester,
+      i18n = __registry.i18n;
   var $ = function (id) { return document.getElementById(id); };
   // Offline PWA registration (stage 12): same-origin http(s) only. On file:// or without the API this
   // is a silent no-op, so the single file keeps working opened from disk. A refused Blob-URL worker is
@@ -488,6 +491,10 @@
                      ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב',
                      CIVICS: 'אזרחות' };
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
+  var currentLang = 'he';
+  // Language choice is per-visit only: the shell never writes storage itself (store.js is the single writer).
+  function S(k) { return i18n ? i18n.t(k, currentLang) : k; }
+  var DAY_NAMES = { he: null, ar: { SUN: 'الأحد', MON: 'الاثنين', TUE: 'الثلاثاء', WED: 'الأربعاء', THU: 'الخميس', FRI: 'الجمعة', SAT: 'السبت' }, ru: { SUN: 'Вс', MON: 'Пн', TUE: 'Вт', WED: 'Ср', THU: 'Чт', FRI: 'Пт', SAT: 'Сб' } };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -1066,10 +1073,10 @@
 
   function resetMatchView() {
     last = null;
-    $('summary').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('pairs').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('unmatched').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('across').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
+    $('summary').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('pairs').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('unmatched').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('across').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
     say('matchStatus', '');
   }
 
@@ -1205,13 +1212,13 @@
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
-    }).join('') : '<p class="empty">לא נוצר אף זוג.</p>';
+    }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
     $('unmatched').innerHTML = m.left.length ? m.left.map(function (x) {
       return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
         esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
         x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>' + reasonHe(x.reason, x.role, x) + '</span></div>';
-    }).join('') : '<p class="empty">כולם שובצו.</p>';
+    }).join('') : '<p class="empty">' + S('allMatched') + '</p>';
     $('across').innerHTML = m.across.length ? m.across.map(function (p) {
       return '<div class="item pair"><b>' + ROLE_HE.pupil + ' #' + p.pupil + ' (' + esc(REGION_HE[p.pupilRegion] || p.pupilRegion) +
         ') עם ' + ROLE_HE.student + ' #' + p.student + ' (' + esc(REGION_HE[p.studentRegion] || p.studentRegion) + ')</b>' +
@@ -2004,7 +2011,7 @@
   function setWipeArmed(on) {
     wipeArmed = on;
     var wb = $('wipeBtn');
-    wb.textContent = on ? 'כן, מחק הכול' : WIPE_LABEL;
+    wb.textContent = on ? S('wipeConfirmBtn') : S('wipeBtn');
     wb.setAttribute('aria-expanded', on ? 'true' : 'false');
     $('wipeCancel').hidden = !on;
   }
@@ -2401,6 +2408,26 @@
   setWipeArmed(false);
   initHome();
   renderGuide();
+  function applyLanguage(lang) {
+    if (!i18n) return;
+    currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
+    document.documentElement.lang = currentLang;
+    document.documentElement.dir = i18n.dirFor(currentLang);
+    var sel = $('langSelect'); if (sel) sel.value = currentLang;
+    REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
+    SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
+    ROLE_HE = { student: S('roleStudent'), pupil: S('rolePupil') };
+    if (DAY_NAMES[currentLang]) DAY_HE = DAY_NAMES[currentLang];
+    OUTCOME_HE = { held: S('outcomeHeld'), missed: S('outcomeMissed'), cut_short: S('outcomeCutShort') };
+    if (document.querySelectorAll) { var heToKey = {}; Object.keys(i18n.STRINGS.he).forEach(function (k) { if (!(i18n.STRINGS.he[k] in heToKey)) heToKey[i18n.STRINGS.he[k]] = k; }); Array.prototype.forEach.call(document.querySelectorAll('h1, h2, label, button, p, option'), function (n) { if (n.children && n.children.length) return; var key = heToKey[String(n.textContent || '').trim()]; if (key) n.textContent = S(key); }); }
+
+    buildInputs();
+    fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide();
+  }
+  var langSelEl = $('langSelect');
+  if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
+  if (currentLang !== 'he') applyLanguage(currentLang);
 })();
 </script>
 </body>

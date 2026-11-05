@@ -26,7 +26,7 @@
         padding-bottom:env(safe-area-inset-bottom, 0px);
         padding-left:env(safe-area-inset-left, 0px); padding-right:env(safe-area-inset-right, 0px); }
   nav button { flex:1; background:none; border:0; color:var(--muted); font:inherit; font-size:.8rem;
-               padding:12px 4px; cursor:pointer; border-top:2px solid transparent; }
+               padding:12px 4px; min-height:44px; cursor:pointer; border-top:2px solid transparent; }
   nav button[aria-selected="true"] { color:var(--key); border-top-color:var(--key); font-weight:700; }
   nav button:focus-visible { outline:2px solid var(--key); outline-offset:-2px; }
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible, a:focus-visible {
@@ -36,14 +36,14 @@
   .card { background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px; margin:12px 0; box-shadow:0 8px 24px rgba(49,46,129,.10); }
   .card h2 { font-size:1rem; margin:0 0 8px; }
   label { display:block; color:var(--muted); font-size:.78rem; margin:9px 0 4px; }
-  input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--line);
+  input, select, textarea { width:100%; padding:10px; min-height:44px; border-radius:8px; border:1px solid var(--line);
                             background:#FFFFFF; color:var(--ink); font:inherit; font-size:1rem; }
   textarea { min-height:110px; resize:vertical; font-size:.92rem; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px; }
   button.act { background:var(--key); background-image:linear-gradient(90deg,#0F766E,#4338CA); color:#FFFFFF; border-radius:999px; min-height:48px; border:0; border-radius:9px; padding:11px 15px;
                font:inherit; font-weight:700; cursor:pointer; }
   button.ghost { background:#EEF2FF; color:var(--ink); border:1px solid var(--line); border-radius:9px;
-                 padding:9px 13px; font:inherit; cursor:pointer; }
+                 padding:9px 13px; min-height:44px; font:inherit; cursor:pointer; }
   button.small { padding:5px 9px; font-size:.76rem; }
   .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; }
@@ -53,7 +53,7 @@
   .grid-hours { display:grid; grid-template-columns:auto repeat(7,1fr); gap:3px; margin-top:6px;
                 font-size:.7rem; overflow-x:auto; }
   .grid-hours span { color:var(--muted); text-align:center; padding:3px 0; }
-  .grid-hours button { background:#FFFFFF; border:1px solid var(--line); border-radius:5px; padding:6px 0;
+  .grid-hours button { background:#FFFFFF; border:1px solid var(--line); border-radius:5px; padding:6px 0; min-height:44px;
                        cursor:pointer; color:transparent; font-size:.6rem; }
   .grid-hours button[aria-pressed="true"] { background:var(--key); border-color:var(--key); color:#FFFFFF; }
   .item { border:1px solid var(--line); border-radius:18px; padding:11px; margin-top:9px; background:#F8FAFC; }
@@ -95,6 +95,8 @@
   <header>
     <h1>PeerEd</h1>
     <p>מחבר סטודנטים לתלמידי תיכון לפי אזור, זמינות ומקצוע. בלי שם, בלי טלפון, בלי מייל.</p>
+    <label for="langSelect">שפה</label>
+    <select id="langSelect" aria-label="שפה"><option value="he">עברית</option><option value="ar">العربية</option><option value="ru">Русский</option></select>
   </header>
 
   <!-- ============ אנשים ============ -->
@@ -456,10 +458,15 @@
 (function () {
   var module = { exports: {} };
   var exports = module.exports;
-// PeerEd — i18n Internationalization Strings Module (Refs #325)
+// PeerEd — i18n Internationalization Strings Module (Refs #325, PE-410)
 // Supports Hebrew (default, RTL), Arabic (RTL), and Russian (LTR).
 // Translations in Arabic and Russian are marked as needing native-speaker review.
 // Zero dependencies, deterministic, 100% key parity required.
+//
+// PE-410: full ar/ru string sets for every UI string in this table, language
+// selector support (he/ar/ru), RTL for Arabic, LTR for Russian, Hebrew default.
+// TODO(native-review): ar/ru phrasing for consent, matching and privacy terms
+// is natural but awaits a native-speaker pass — see PR body for the list.
 
 (function (root, factory) {
   var api = factory();
@@ -481,76 +488,302 @@
     he: {
       appName: 'PeerEd',
       tagline: 'שידוך סטודנטים לתלמידים לפי אזור, זמינות ומקצוע. בלי פרטים אישיים, בלי שרת.',
+      headerTagline: 'מחבר סטודנטים לתלמידי תיכון לפי אזור, זמינות ומקצוע. בלי שם, בלי טלפון, בלי מייל.',
+      langLabel: 'שפה',
       tabPeople: 'אנשים',
       tabMatch: 'שידוך',
       tabPrivacy: 'פרטיות',
       tabUnits: 'יחידות',
       tabSessions: 'שיעורים',
       addPerson: 'הוספת משתתף',
+      addBtn: 'הוסף',
+      demoBtn: 'טען דוגמה',
+      participantsHeading: 'המשתתפים',
+      wipeHeading: 'מחיקה מהמכשיר הזה',
+      wipeBtn: 'מחק הכול מהמכשיר הזה',
+      wipeConfirmBtn: 'כן, מחק הכול',
+      cancelBtn: 'ביטול',
       role: 'תפקיד',
-      roleStudent: 'סטודנט חונך',
+      roleStudent: 'סטודנט מלמד',
       rolePupil: 'תלמיד',
       region: 'אזור',
       subjects: 'מקצועות',
       hours: 'שעות פנויות',
+      hoursHint: 'לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.',
+      consentLabel: 'התקבל אישור הורה לשידוך',
       runMatch: 'הפעל שידוך',
+      runMatchBtn: 'חשב שידוך',
       clearForm: 'נקה',
       save: 'שמור',
       cancel: 'ביטול',
       delete: 'מחק',
       exportCsv: 'ייצוא CSV',
-      wipeData: 'מחק את כל הנתונים'
+      exportPairsBtn: 'הורד זוגות (CSV)',
+      exportSummaryBtn: 'הורד סיכום לרשות (CSV)',
+      wipeData: 'מחק את כל הנתונים',
+      matchHeading: 'שידוך',
+      summaryHeading: 'סיכום לרשות',
+      pairsHeading: 'הזוגות',
+      unmatchedHeading: 'מי נשאר בלי זוג',
+      acrossHeading: 'שידוך בין אזורים (חירום)',
+      textDemoHeading: 'הדגמה: שער הטקסט',
+      checkTextLabel: 'טקסט לבדיקה',
+      checkBtn: 'בדוק',
+      loadPersonalDemo: 'טען דוגמה עם פרטים אישיים',
+      loadRudeDemo: 'טען דוגמה עם שפה פוגענית',
+      clearTextBtn: 'נקה טקסט',
+      gateDemoHeading: 'הדגמה: שדה אסור נדחה',
+      gateBtn: 'נסה לשמור עם טלפון',
+      submitUnitHeading: 'הגשת יחידה (מורה)',
+      unitTitleLabel: 'כותרת (שורה אחת)',
+      unitBodyLabel: 'תוכן היחידה',
+      unitDurationLabel: 'משך בדקות (5–60)',
+      submitUnitBtn: 'הגש לאישור',
+      clearUnitBtn: 'נקה טופס',
+      pendingHeading: 'ממתינות לאישור',
+      approvedHeading: 'מאושרות — מה שתלמיד רואה',
+      rejectedHeading: 'נדחו',
+      logSessionHeading: 'רישום שיעור',
+      pairLabel: 'זוג',
+      slotLabel: 'שעה',
+      approvedUnitLabel: 'יחידה מאושרת',
+      outcomeLabel: 'איך הסתיים',
+      logSessionBtn: 'רשום שיעור',
+      sessionSummaryHeading: 'סיכום לרשות — ספירות בלבד',
+      exportReportBtn: 'ייצא דוח CSV',
+      logHeading: 'היומן',
+      contactHeading: 'רוצים לנסות בסבב השיבוץ שלכם?',
+      approveBtn: 'אשר',
+      rejectBtn: 'דחה',
+      reviseBtn: 'טען לטופס לעריכה',
+      emptyAfterMatch: 'מופיע אחרי חישוב שידוך.',
+      minutesUnit: 'דקות',
+      versionLabel: 'גרסה',
+      noPairs: 'לא נוצר אף זוג.',
+      allMatched: 'כולם שובצו.',
+      sharedSubjects: 'מקצועות משותפים',
+      sharedHours: 'שעות משותפות',
+      outcomeHeld: 'התקיים',
+      outcomeMissed: 'לא התקיים',
+      outcomeCutShort: 'נקטע באמצע',
+      regionNORTH: 'צפון',
+      regionHAIFA: 'חיפה',
+      regionCENTER: 'מרכז',
+      regionTEL_AVIV: 'תל אביב',
+      regionJERUSALEM: 'ירושלים',
+      regionSOUTH: 'דרום',
+      subjectMATH: 'מתמטיקה',
+      subjectPHYSICS: 'פיזיקה',
+      subjectCHEMISTRY: 'כימיה',
+      subjectBIOLOGY: 'ביולוגיה',
+      subjectENGLISH: 'אנגלית',
+      subjectHEBREW: 'עברית',
+      subjectHISTORY: 'היסטוריה',
+      subjectCS: 'מדעי המחשב',
+      subjectCIVICS: 'אזרחות'
     },
     ar: {
       appName: 'PeerEd',
       tagline: 'مطابقة الطلاب مع التلاميذ حسب المنطقة والتوفر والموضوع. بدون بيانات شخصية، بدون خادم.',
+      headerTagline: 'نصل الطلاب بتلاميذ المدارس الثانوية حسب المنطقة والتوفر والموضوع. بلا اسم، بلا هاتف، بلا بريد إلكتروني.',
+      langLabel: 'اللغة',
       tabPeople: 'الأشخاص',
       tabMatch: 'المطابقة',
       tabPrivacy: 'الخصوصية',
       tabUnits: 'الوحدات',
       tabSessions: 'الجلسات',
       addPerson: 'إضافة مشارك',
+      addBtn: 'إضافة',
+      demoBtn: 'تحميل مثال',
+      participantsHeading: 'المشاركون',
+      wipeHeading: 'الحذف من هذا الجهاز',
+      wipeBtn: 'حذف كل شيء من هذا الجهاز',
+      wipeConfirmBtn: 'نعم، احذف كل شيء',
+      cancelBtn: 'إلغاء',
       role: 'الدور',
       roleStudent: 'طالب مرشد',
       rolePupil: 'تلميذ',
       region: 'المنطقة',
       subjects: 'المواضيع',
       hours: 'الأوقات المتاحة',
+      hoursHint: 'اضغط على خانة اليوم والساعة. يمكنك اختيار ما تشاء.',
+      consentLabel: 'تم الحصول على موافقة ولي الأمر للمطابقة',
       runMatch: 'بدء المطابقة',
+      runMatchBtn: 'حساب المطابقة',
       clearForm: 'مسح',
       save: 'حفظ',
       cancel: 'إلغاء',
       delete: 'حذف',
       exportCsv: 'تصدير CSV',
-      wipeData: 'مسح كافة البيانات'
+      exportPairsBtn: 'تنزيل الأزواج (CSV)',
+      exportSummaryBtn: 'تنزيل ملخص للسلطة (CSV)',
+      wipeData: 'مسح كافة البيانات',
+      matchHeading: 'المطابقة',
+      summaryHeading: 'ملخص للسلطة',
+      pairsHeading: 'الأزواج',
+      unmatchedHeading: 'من بقي دون زوج',
+      acrossHeading: 'مطابقة بين المناطق (طارئة)',
+      textDemoHeading: 'عرض توضيحي: بوابة النص',
+      checkTextLabel: 'نص للفحص',
+      checkBtn: 'فحص',
+      loadPersonalDemo: 'تحميل مثال ببيانات شخصية',
+      loadRudeDemo: 'تحميل مثال بلغة مسيئة',
+      clearTextBtn: 'مسح النص',
+      gateDemoHeading: 'عرض توضيحي: رفض حقل ممنوع',
+      gateBtn: 'حاول الحفظ برقم هاتف',
+      submitUnitHeading: 'تقديم وحدة (معلم)',
+      unitTitleLabel: 'العنوان (سطر واحد)',
+      unitBodyLabel: 'محتوى الوحدة',
+      unitDurationLabel: 'المدة بالدقائق (5–60)',
+      submitUnitBtn: 'إرسال للموافقة',
+      clearUnitBtn: 'مسح النموذج',
+      pendingHeading: 'بانتظار الموافقة',
+      approvedHeading: 'الموافق عليها — ما يراه التلميذ',
+      rejectedHeading: 'المرفوضة',
+      logSessionHeading: 'تسجيل جلسة',
+      pairLabel: 'زوج',
+      slotLabel: 'الساعة',
+      approvedUnitLabel: 'وحدة معتمدة',
+      outcomeLabel: 'كيف انتهت',
+      logSessionBtn: 'تسجيل الجلسة',
+      sessionSummaryHeading: 'ملخص للسلطة — أعداد فقط',
+      exportReportBtn: 'تصدير تقرير CSV',
+      logHeading: 'السجل',
+      contactHeading: 'هل تريد التجربة في جولة التوزيع لديك؟',
+      approveBtn: 'موافقة',
+      rejectBtn: 'رفض',
+      reviseBtn: 'تحميل للتحرير',
+      emptyAfterMatch: 'يظهر بعد حساب المطابقة.',
+      minutesUnit: 'دقائق',
+      versionLabel: 'إصدار',
+      noPairs: 'لم يتكون أي زوج.',
+      allMatched: 'تم إقران الجميع.',
+      sharedSubjects: 'مواضيع مشتركة',
+      sharedHours: 'ساعات مشتركة',
+      outcomeHeld: 'عُقدت',
+      outcomeMissed: 'لم تُعقد',
+      outcomeCutShort: 'توقفت في المنتصف',
+      regionNORTH: 'الشمال',
+      regionHAIFA: 'حيفا',
+      regionCENTER: 'المركز',
+      regionTEL_AVIV: 'تل أبيب',
+      regionJERUSALEM: 'القدس',
+      regionSOUTH: 'الجنوب',
+      subjectMATH: 'رياضيات',
+      subjectPHYSICS: 'فيزياء',
+      subjectCHEMISTRY: 'كيمياء',
+      subjectBIOLOGY: 'أحياء',
+      subjectENGLISH: 'إنجليزية',
+      subjectHEBREW: 'عبرية',
+      subjectHISTORY: 'تاريخ',
+      subjectCS: 'علوم الحاسوب',
+      subjectCIVICS: 'مدنيات'
     },
     ru: {
       appName: 'PeerEd',
       tagline: 'Подбор студентов для школьников по региону, доступности и предмету. Без личных данных, без сервера.',
+      headerTagline: 'Соединяем студентов со школьниками по региону, доступности и предмету. Без имени, без телефона, без почты.',
+      langLabel: 'Язык',
       tabPeople: 'Люди',
       tabMatch: 'Подбор',
       tabPrivacy: 'Приватность',
       tabUnits: 'Уроки',
       tabSessions: 'Сессии',
       addPerson: 'Добавить участника',
+      addBtn: 'Добавить',
+      demoBtn: 'Загрузить пример',
+      participantsHeading: 'Участники',
+      wipeHeading: 'Удаление с этого устройства',
+      wipeBtn: 'Удалить всё с этого устройства',
+      wipeConfirmBtn: 'Да, удалить всё',
+      cancelBtn: 'Отмена',
       role: 'Роль',
       roleStudent: 'Студент-наставник',
       rolePupil: 'Ученик',
       region: 'Регион',
       subjects: 'Предметы',
       hours: 'Доступные часы',
+      hoursHint: 'Нажимайте на ячейку дня и часа. Можно выбрать сколько угодно.',
+      consentLabel: 'Получено согласие родителя на подбор',
       runMatch: 'Запустить подбор',
+      runMatchBtn: 'Рассчитать подбор',
       clearForm: 'Очистить',
       save: 'Сохранить',
       cancel: 'Отмена',
       delete: 'Удалить',
       exportCsv: 'Экспорт CSV',
-      wipeData: 'Удалить все данные'
+      exportPairsBtn: 'Скачать пары (CSV)',
+      exportSummaryBtn: 'Скачать сводку для ведомства (CSV)',
+      wipeData: 'Удалить все данные',
+      matchHeading: 'Подбор',
+      summaryHeading: 'Сводка для ведомства',
+      pairsHeading: 'Пары',
+      unmatchedHeading: 'Кто остался без пары',
+      acrossHeading: 'Подбор между регионами (экстренно)',
+      textDemoHeading: 'Демо: текстовый фильтр',
+      checkTextLabel: 'Текст для проверки',
+      checkBtn: 'Проверить',
+      loadPersonalDemo: 'Пример с личными данными',
+      loadRudeDemo: 'Пример с грубой лексикой',
+      clearTextBtn: 'Очистить текст',
+      gateDemoHeading: 'Демо: запрещённое поле отклоняется',
+      gateBtn: 'Попробовать сохранить с телефоном',
+      submitUnitHeading: 'Отправка урока (учитель)',
+      unitTitleLabel: 'Заголовок (одна строка)',
+      unitBodyLabel: 'Содержание урока',
+      unitDurationLabel: 'Длительность в минутах (5–60)',
+      submitUnitBtn: 'Отправить на утверждение',
+      clearUnitBtn: 'Очистить форму',
+      pendingHeading: 'Ожидают утверждения',
+      approvedHeading: 'Утверждено — что видит ученик',
+      rejectedHeading: 'Отклонено',
+      logSessionHeading: 'Запись занятия',
+      pairLabel: 'Пара',
+      slotLabel: 'Время',
+      approvedUnitLabel: 'Утверждённый урок',
+      outcomeLabel: 'Как закончилось',
+      logSessionBtn: 'Записать занятие',
+      sessionSummaryHeading: 'Сводка для ведомства — только числа',
+      exportReportBtn: 'Экспорт отчёта CSV',
+      logHeading: 'Журнал',
+      contactHeading: 'Хотите попробовать в своём раунде распределения?',
+      approveBtn: 'Утвердить',
+      rejectBtn: 'Отклонить',
+      reviseBtn: 'Загрузить для правки',
+      emptyAfterMatch: 'Появится после расчёта подбора.',
+      minutesUnit: 'минут',
+      versionLabel: 'Версия',
+      noPairs: 'Ни одной пары не создано.',
+      allMatched: 'Все распределены по парам.',
+      sharedSubjects: 'Общие предметы',
+      sharedHours: 'Общие часы',
+      outcomeHeld: 'Состоялось',
+      outcomeMissed: 'Не состоялось',
+      outcomeCutShort: 'Прервано',
+      regionNORTH: 'Север',
+      regionHAIFA: 'Хайфа',
+      regionCENTER: 'Центр',
+      regionTEL_AVIV: 'Тель-Авив',
+      regionJERUSALEM: 'Иерусалим',
+      regionSOUTH: 'Юг',
+      subjectMATH: 'Математика',
+      subjectPHYSICS: 'Физика',
+      subjectCHEMISTRY: 'Химия',
+      subjectBIOLOGY: 'Биология',
+      subjectENGLISH: 'Английский',
+      subjectHEBREW: 'Иврит',
+      subjectHISTORY: 'История',
+      subjectCS: 'Информатика',
+      subjectCIVICS: 'Гражданское образование'
     }
   };
 
   function getLanguageMeta(code) {
     return LANG_META[code] || LANG_META[DEFAULT_LANGUAGE];
+  }
+
+  function dirFor(code) {
+    return getLanguageMeta(code).dir;
   }
 
   function t(key, lang) {
@@ -596,6 +829,7 @@
     LANG_META: LANG_META,
     STRINGS: STRINGS,
     getLanguageMeta: getLanguageMeta,
+    dirFor: dirFor,
     t: t,
     getAllKeys: getAllKeys,
     verifyLanguageParity: verifyLanguageParity
@@ -4472,7 +4706,8 @@ module.exports = {
       modesLib = __registry.modes, curriculumLib = __registry.curriculum,
       guideLib = __registry['guide-he'], pwaLib = __registry.pwa, match2Lib = __registry.match2,
       scheduleLib = __registry.schedule, capacityLib = __registry.capacity,
-      reportsLib = __registry.reports, semesterLib = __registry.semester;
+      reportsLib = __registry.reports, semesterLib = __registry.semester,
+      i18n = __registry.i18n;
   var $ = function (id) { return document.getElementById(id); };
   // Offline PWA registration (stage 12): same-origin http(s) only. On file:// or without the API this
   // is a silent no-op, so the single file keeps working opened from disk. A refused Blob-URL worker is
@@ -4496,6 +4731,10 @@ module.exports = {
                      ENGLISH: 'אנגלית', HEBREW: 'עברית', HISTORY: 'היסטוריה', CS: 'מדעי המחשב',
                      CIVICS: 'אזרחות' };
   var DAY_HE = { SUN: 'א', MON: 'ב', TUE: 'ג', WED: 'ד', THU: 'ה', FRI: 'ו', SAT: 'ש' };
+  var currentLang = 'he';
+  // Language choice is per-visit only: the shell never writes storage itself (store.js is the single writer).
+  function S(k) { return i18n ? i18n.t(k, currentLang) : k; }
+  var DAY_NAMES = { he: null, ar: { SUN: 'الأحد', MON: 'الاثنين', TUE: 'الثلاثاء', WED: 'الأربعاء', THU: 'الخميس', FRI: 'الجمعة', SAT: 'السبت' }, ru: { SUN: 'Вс', MON: 'Пн', TUE: 'Вт', WED: 'Ср', THU: 'Чт', FRI: 'Пт', SAT: 'Сб' } };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -5074,10 +5313,10 @@ module.exports = {
 
   function resetMatchView() {
     last = null;
-    $('summary').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('pairs').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('unmatched').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
-    $('across').innerHTML = '<p class="empty">מופיע אחרי חישוב שידוך.</p>';
+    $('summary').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('pairs').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('unmatched').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
+    $('across').innerHTML = '<p class="empty">' + S('emptyAfterMatch') + '</p>';
     say('matchStatus', '');
   }
 
@@ -5213,13 +5452,13 @@ module.exports = {
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
         '</span></div>';
-    }).join('') : '<p class="empty">לא נוצר אף זוג.</p>';
+    }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
     $('unmatched').innerHTML = m.left.length ? m.left.map(function (x) {
       return '<div class="item"><b>' + ROLE_HE[x.role] + ' #' + x.e.number + '</b><span class="meta">' +
         esc(REGION_HE[x.e.person.region] || x.e.person.region) + ' · ' +
         x.e.person.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>' + reasonHe(x.reason, x.role, x) + '</span></div>';
-    }).join('') : '<p class="empty">כולם שובצו.</p>';
+    }).join('') : '<p class="empty">' + S('allMatched') + '</p>';
     $('across').innerHTML = m.across.length ? m.across.map(function (p) {
       return '<div class="item pair"><b>' + ROLE_HE.pupil + ' #' + p.pupil + ' (' + esc(REGION_HE[p.pupilRegion] || p.pupilRegion) +
         ') עם ' + ROLE_HE.student + ' #' + p.student + ' (' + esc(REGION_HE[p.studentRegion] || p.studentRegion) + ')</b>' +
@@ -6012,7 +6251,7 @@ module.exports = {
   function setWipeArmed(on) {
     wipeArmed = on;
     var wb = $('wipeBtn');
-    wb.textContent = on ? 'כן, מחק הכול' : WIPE_LABEL;
+    wb.textContent = on ? S('wipeConfirmBtn') : S('wipeBtn');
     wb.setAttribute('aria-expanded', on ? 'true' : 'false');
     $('wipeCancel').hidden = !on;
   }
@@ -6409,6 +6648,26 @@ module.exports = {
   setWipeArmed(false);
   initHome();
   renderGuide();
+  function applyLanguage(lang) {
+    if (!i18n) return;
+    currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
+    document.documentElement.lang = currentLang;
+    document.documentElement.dir = i18n.dirFor(currentLang);
+    var sel = $('langSelect'); if (sel) sel.value = currentLang;
+    REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
+    SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
+    ROLE_HE = { student: S('roleStudent'), pupil: S('rolePupil') };
+    if (DAY_NAMES[currentLang]) DAY_HE = DAY_NAMES[currentLang];
+    OUTCOME_HE = { held: S('outcomeHeld'), missed: S('outcomeMissed'), cut_short: S('outcomeCutShort') };
+    if (document.querySelectorAll) { var heToKey = {}; Object.keys(i18n.STRINGS.he).forEach(function (k) { if (!(i18n.STRINGS.he[k] in heToKey)) heToKey[i18n.STRINGS.he[k]] = k; }); Array.prototype.forEach.call(document.querySelectorAll('h1, h2, label, button, p, option'), function (n) { if (n.children && n.children.length) return; var key = heToKey[String(n.textContent || '').trim()]; if (key) n.textContent = S(key); }); }
+
+    buildInputs();
+    fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide();
+  }
+  var langSelEl = $('langSelect');
+  if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
+  if (currentLang !== 'he') applyLanguage(currentLang);
 })();
 </script>
 </body>
