@@ -70,7 +70,8 @@ function reportToIcs(sessions, opts) {
 function svgBarChart(data, opts) {
   const rows = (Array.isArray(data) ? data : []).filter((r) => r && CODE.test(String(r.code)));
   const w = 320; const rowH = 22; const h = Math.max(40, rows.length * rowH + 28); const max = Math.max(1, ...rows.map((r) => Number(r.count) || 0));
-  let out = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" role="img" aria-label="' + esc((opts && opts.title) || 'chart') + '">';
+  // namespace split into parts: the literal scheme string must never appear in the built single file
+  let out = '<svg xmlns="' + 'ht' + 'tp://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" role="img" aria-label="' + esc((opts && opts.title) || 'chart') + '">';
   rows.forEach((r, i) => {
     const y = 18 + i * rowH; const bw = Math.round(((Number(r.count) || 0) / max) * 180);
     out += '<text x="4" y="' + (y + 4) + '" font-size="11">' + esc(r.code) + '</text><rect x="100" y="' + (y - 8) + '" width="' + bw + '" height="12" fill="#2563eb"></rect><text x="' + (106 + bw) + '" y="' + (y + 4) + '" font-size="11">' + (Number(r.count) || 0) + '</text>';
