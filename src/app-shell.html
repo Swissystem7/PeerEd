@@ -6,11 +6,11 @@
 <meta name="description" content="PeerEd — שידוך סטודנטים לתלמידים לפי אזור, זמינות ומקצוע. בלי פרטים אישיים, בלי שרת.">
 <title>PeerEd</title>
 <style>
-  :root { --bg:#0f1117; --card:#171a23; --line:#60687e; --ink:#f2f4f8; --muted:#9aa2b4;
-          --key:#7cc4ff; --warm:#ffb27c; --bad:#ff8f8f; --ok:#8fe0a8; }
+  :root { --bg:#F7F5FF; --card:#FFFFFF; --line:#6D6A8F; --ink:#1E1B4B; --muted:#475569;
+          --key:#0F766E; --warm:#9A3412; --bad:#B91C1C; --ok:#15803D; --hero:#0F766E; --hero2:#4338CA; --emg:#9A3412; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; background:var(--bg); color:var(--ink);
-         font-family:Arial,"Segoe UI",sans-serif; min-height:100vh;
+         font-family:Rubik,Assistant,Arial,"Segoe UI",sans-serif; min-height:100vh;
          padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px)); }
   /* viewport-fit=cover lets the page draw under the notch and the home indicator, so the fixed tab bar
      and the content above it add the safe-area insets; without them the tabs sit under the iPhone home
@@ -21,7 +21,7 @@
           padding-right:max(14px, env(safe-area-inset-right, 0px)); }
   header h1 { font-size:1.5rem; margin:4px 0 2px; letter-spacing:-.01em; }
   header p { color:var(--muted); font-size:.85rem; line-height:1.6; margin:0; }
-  nav { position:fixed; bottom:0; inset-inline:0; display:flex; background:#0b0d13;
+  nav { position:fixed; bottom:calc(10px + env(safe-area-inset-bottom, 0px)); left:16px; right:16px; display:flex; background:#FFFFFF; border:1px solid var(--line); border-radius:999px; box-shadow:0 10px 30px rgba(49,46,129,.15);
         border-top:1px solid var(--line); z-index:20;
         padding-bottom:env(safe-area-inset-bottom, 0px);
         padding-left:env(safe-area-inset-left, 0px); padding-right:env(safe-area-inset-right, 0px); }
@@ -33,45 +33,61 @@
     outline:2px solid var(--key); outline-offset:2px;
   }
   section[role="tabpanel"][hidden] { display:none; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px; margin:12px 0; box-shadow:0 8px 24px rgba(49,46,129,.10); }
   .card h2 { font-size:1rem; margin:0 0 8px; }
   label { display:block; color:var(--muted); font-size:.78rem; margin:9px 0 4px; }
   input, select, textarea { width:100%; padding:10px; min-height:44px; border-radius:8px; border:1px solid var(--line);
-                            background:#0d0f15; color:var(--ink); font:inherit; font-size:1rem; }
+                            background:#FFFFFF; color:var(--ink); font:inherit; font-size:1rem; }
   textarea { min-height:110px; resize:vertical; font-size:.92rem; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px; }
-  button.act { background:var(--key); color:#0b0d13; border:0; border-radius:9px; padding:11px 15px; min-height:44px;
+  button.act { background:var(--key); background-image:linear-gradient(90deg,#0F766E,#4338CA); color:#FFFFFF; border-radius:999px; min-height:48px; border:0; border-radius:9px; padding:11px 15px;
                font:inherit; font-weight:700; cursor:pointer; }
-  button.ghost { background:#0d0f15; color:var(--ink); border:1px solid var(--line); border-radius:9px;
+  button.ghost { background:#EEF2FF; color:var(--ink); border:1px solid var(--line); border-radius:9px;
                  padding:9px 13px; min-height:44px; font:inherit; cursor:pointer; }
   button.small { padding:5px 9px; font-size:.76rem; }
   .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; }
-  .chip { background:#0d0f15; border:1px solid var(--line); color:var(--muted); border-radius:999px;
-          padding:6px 11px; min-height:44px; display:inline-flex; align-items:center; justify-content:center; font:inherit; font-size:.8rem; cursor:pointer; }
-  .chip[aria-pressed="true"] { background:rgba(124,196,255,.16); border-color:var(--key); color:var(--ink); }
+  .chip { background:#F1F5F9; border:1px solid var(--line); color:var(--muted); min-height:44px; border-radius:999px;
+          padding:6px 11px; font:inherit; font-size:.8rem; cursor:pointer; }
+  .chip[aria-pressed="true"] { background:rgba(15,118,110,.16); border-color:var(--key); color:var(--ink); }
   .grid-hours { display:grid; grid-template-columns:auto repeat(7,1fr); gap:3px; margin-top:6px;
                 font-size:.7rem; overflow-x:auto; }
   .grid-hours span { color:var(--muted); text-align:center; padding:3px 0; }
-  .grid-hours button { background:#0d0f15; border:1px solid var(--line); border-radius:5px; padding:6px 0; min-height:44px;
+  .grid-hours button { background:#FFFFFF; border:1px solid var(--line); border-radius:5px; padding:6px 0; min-height:44px;
                        cursor:pointer; color:transparent; font-size:.6rem; }
-  .grid-hours button[aria-pressed="true"] { background:var(--key); border-color:var(--key); color:#0b0d13; }
-  .item { border:1px solid var(--line); border-radius:11px; padding:11px; margin-top:9px; background:#0d0f15; }
+  .grid-hours button[aria-pressed="true"] { background:var(--key); border-color:var(--key); color:#FFFFFF; }
+  .item { border:1px solid var(--line); border-radius:18px; padding:11px; margin-top:9px; background:#F8FAFC; }
   .item b { display:block; font-size:.96rem; margin-bottom:3px; }
   .item .meta { color:var(--muted); font-size:.78rem; line-height:1.55; }
   .pair { border-inline-start:3px solid var(--ok); }
-  .pill { background:#1e2431; border-radius:999px; padding:2px 9px; font-size:.72rem; color:var(--muted); }
+  .pill { background:#EEF2FF; border-radius:999px; padding:2px 9px; font-size:.72rem; color:var(--muted); }
   .status { min-height:1.2em; color:var(--ok); font-size:.84rem; margin-top:8px; line-height:1.5; }
   .status.bad { color:var(--bad); }
   .hint { color:var(--muted); font-size:.78rem; line-height:1.6; margin:6px 0 0; }
   label.check { display:flex; align-items:center; gap:9px; color:var(--ink); font-size:.92rem; margin-top:12px; }
   label.check input { width:auto; margin:0; accent-color:var(--key); }
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
-  .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
+  .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
   a { color:var(--key); }
-  .flag { background:rgba(255,143,143,.1); border:1px solid rgba(255,143,143,.3); color:var(--bad);
+  .flag { background:rgba(185,28,28,.08); border:1px solid rgba(185,28,28,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
+  .hero { background:var(--hero); background-image:linear-gradient(180deg,#0F766E 0,#4338CA 100%); border-radius:24px; padding:20px; color:#FFFFFF; margin:12px 0; }
+  .hero.emergency { background:var(--emg); background-image:linear-gradient(180deg,#C2410C 0,#9A3412 100%); }
+  .hero h2 { font-size:1.55rem; margin:0 0 6px; line-height:1.2; }
+  .hero p { color:#FFFFFF; font-size:.92rem; line-height:1.6; margin:0; }
+  .mode-toggle { display:flex; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.33); border-radius:999px; padding:4px; gap:4px; margin-top:14px; }
+  .mode-toggle button { flex:1; min-height:44px; border:0; border-radius:999px; background:transparent; color:#FFFFFF; font:inherit; font-weight:700; cursor:pointer; transition:transform .25s; }
+  .mode-toggle button[aria-pressed="true"] { background:#FFFFFF; color:var(--ink); box-shadow:0 4px 12px rgba(30,27,75,.2); }
+  .emg-banner { background:#FFEDD5; color:var(--emg); border-radius:14px; padding:10px 12px; font-size:.88rem; line-height:1.6; margin:12px 0; font-weight:700; }
+  .action-grid { display:grid; gap:12px; margin:12px 0; }
+  .action-card { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:24px; padding:16px; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:56px; text-align:start; box-shadow:0 8px 24px rgba(49,46,129,.10); }
+  .ring-row { display:flex; align-items:center; gap:14px; }
+  .ring-num { color:var(--ink); font-weight:700; }
+  .tl { border-inline-start:2px solid #99F6E4; margin-inline-start:13px; padding-inline-start:18px; }
+  .tl-dot { width:28px; height:28px; border-radius:999px; background:#CCFBF1; border:2px solid #0F766E; display:inline-block; vertical-align:middle; margin-inline-end:8px; }
+  details.advanced summary { color:var(--ink); font-weight:700; cursor:pointer; min-height:44px; padding:10px 0; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none; } }
 </style>
 </head>
 <body>
@@ -85,6 +101,41 @@
 
   <!-- ============ אנשים ============ -->
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">
+    <div class="hero" id="homeHero">
+      <h2>שלום, רכז/ת</h2>
+      <p>שלוש פעולות עיקריות: מוסיפים משתתף, משבצים קבוצות, ופותחים את השיעור של היום. כל השאר מחכה תחת "מתקדם".</p>
+      <div class="mode-toggle" role="group" aria-label="מצב עבודה: שגרה או חירום">
+        <button type="button" id="modeRoutine" aria-pressed="true">שגרה</button>
+        <button type="button" id="modeEmergency" aria-pressed="false">חירום</button>
+      </div>
+    </div>
+    <div class="emg-banner" id="emgBanner" hidden>מצב חירום: קבוצות לפי מקום מפגש, ספירות וקבוצות גיל בלבד — בלי שמות ובלי כתובות מדויקות. שיעורים קצרים של 20–30 דקות, גם בלי חיבור.</div>
+    <div class="card">
+      <h2>התקדמות השיעורים</h2>
+      <div class="ring-row">
+        <svg width="88" height="88" viewBox="0 0 88 88" role="img" aria-label="טבעת התקדמות שיעורים">
+          <circle cx="44" cy="44" r="38" fill="none" stroke="#E0E7FF" stroke-width="9"></circle>
+          <circle id="ringProg" cx="44" cy="44" r="38" fill="none" stroke="#0F766E" stroke-width="9" stroke-linecap="round" stroke-dasharray="238.7" stroke-dashoffset="238.7" transform="rotate(-90 44 44)"></circle>
+        </svg>
+        <span class="ring-num" id="ringText">0/12 הועברו</span>
+      </div>
+    </div>
+    <div class="action-grid">
+      <button type="button" class="action-card" id="goAdd">➕ הוסף משתתף</button>
+      <button type="button" class="action-card" id="goAssign">🧩 שבץ קבוצות</button>
+      <button type="button" class="action-card" id="goToday">🤖 השיעור של היום</button>
+    </div>
+    <div class="card" id="todayCard">
+      <h2>השיעור של היום</h2>
+      <div class="row">
+        <div><label for="todayTrack">מסלול</label><select id="todayTrack" aria-describedby="todayStatus">
+          <option value="elementary">יסודי (ג׳–ו׳)</option><option value="middle">חטיבה (ז׳–ט׳)</option></select></div>
+        <div><label for="todayIndex">שיעור מספר</label><input id="todayIndex" type="number" min="1" max="12" value="1" aria-describedby="todayStatus"></div>
+      </div>
+      <div id="todayLesson" role="region" aria-live="polite" aria-label="השיעור של היום"></div>
+      <label class="check"><input type="checkbox" id="todayDelivered" aria-describedby="todayStatus"> הועבר</label>
+      <p class="status" id="todayStatus" role="status"></p>
+    </div>
     <!-- What profile.makeProfile takes is what this says: the four matching fields and the consent flag,
          the three lists no screen here writes or shows (blockedUsers, reportEvent, responseToReport - a
          stored person that carries them keeps them through a load, a consent flip and a save), and the
@@ -111,9 +162,15 @@
       </div>
       <label id="subjectsLabel">מקצועות</label>
       <div class="chips" id="subjects" role="group" aria-labelledby="subjectsLabel"></div>
+      <label id="periodLabel">זמינות לפי חלקי יום</label>
+      <p class="hint" id="periodHint">בוחרים בוקר, צהריים או אחה״צ לכל יום. זה מספיק לשיבוץ; שעות מדויקות נמצאות תחת "מתקדם".</p>
+      <div class="chips" id="periodChips" role="group" aria-labelledby="periodLabel" aria-describedby="periodHint"></div>
+      <details class="advanced">
+      <summary>מתקדם: שעות מדויקות</summary>
       <label id="hoursLabel">שעות פנויות</label>
       <p class="hint" id="hoursHint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint"></div>
+      </details>
       <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
         <button type="button" class="ghost" id="demoBtn" aria-label="טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -146,6 +203,24 @@
   <!-- ============ שידוך ============ -->
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
     <div class="card">
+      <h2>קבוצות לפי מצב</h2>
+      <p class="hint" id="groupModeHint">בשגרה: קבוצה לכל בית ספר וכיתה. בחירום: קבוצות של עד 12 ילדים שנמצאים באותו מקום, לפי ספירה וקבוצת גיל בלבד.</p>
+      <div class="row">
+        <div><label for="groupPlace">בית ספר / מקום מפגש</label><input id="groupPlace" type="text" maxlength="60" aria-describedby="groupStatus"></div>
+        <div><label for="groupGrade">כיתה (שגרה)</label><input id="groupGrade" type="number" min="3" max="9" value="5" aria-describedby="groupStatus"></div>
+        <div><label for="groupAge">קבוצת גיל (חירום)</label><select id="groupAge" aria-describedby="groupStatus">
+          <option value="3-6">3–6</option><option value="7-9">7–9</option><option value="mixed">מעורבת</option></select></div>
+        <div><label for="groupRegion">אזור (חירום)</label><select id="groupRegion" aria-describedby="groupStatus"></select></div>
+        <div><label for="groupCount">מספר ילדים</label><input id="groupCount" type="number" min="1" max="500" value="10" aria-describedby="groupStatus"></div>
+        <div><label for="groupStudents">סטודנטים פנויים באזור (חירום)</label><input id="groupStudents" type="number" min="0" max="500" value="1" aria-describedby="groupStatus"></div>
+      </div>
+      <div class="actions"><button type="button" class="act" id="formGroups" aria-describedby="groupStatus">צור קבוצות</button>
+        <button type="button" class="ghost" id="groupReportBtn" aria-label="הצג דוח קבוצות לפי בית ספר או מקום" aria-describedby="groupStatus">דוח לפי בית ספר / מקום</button></div>
+      <p class="status" id="groupStatus" role="status"></p>
+      <div id="groupList" role="region" aria-live="polite" aria-label="קבוצות שנוצרו"></div>
+      <div id="groupReport" role="region" aria-live="polite" aria-label="דוח קבוצות"></div>
+    </div>
+    <div class="card">
       <h2>שידוך</h2>
       <p class="hint">זוג נוצר רק כשלתלמיד יש אישור הורה, שניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים
         לפחות מקצוע אחד.
@@ -173,6 +248,21 @@
     <div class="card">
       <h2>מי נשאר בלי זוג</h2>
       <div id="unmatched" role="region" aria-live="polite" aria-label="מי נשאר בלי זוג"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+    </div>
+    <div class="card">
+      <h2>שידוך מתקדם</h2>
+      <p class="hint">שידוך רב-קריטריוני עם הסבר בעברית לכל זוג. מסמנים זוג כנעול, ואז שידוך מחדש מחשב רק את השאר. לרשימה אין שדות רמה, שפה או העדפות, לכן הם לא נספרים בציון.</p>
+      <div class="actions"><button type="button" class="act" id="runMatch2" aria-describedby="match2Status">חשב שידוך מתקדם</button>
+        <button type="button" class="ghost" id="rematch2" aria-describedby="match2Status">שידוך מחדש (בלי הנעולים)</button></div>
+      <p class="status" id="match2Status" role="status"></p>
+      <div id="match2Out" role="region" aria-live="polite" aria-label="תוצאות שידוך מתקדם"></div>
+    </div>
+    <div class="card">
+      <h2>לוח וקיבולת</h2>
+      <p class="hint">בונה לוח מהזוגות של השידוך המתקדם, בודק התנגשויות, מציע עד 3 חלופות, ומתריע כשיש יותר ביקוש מהיצע.</p>
+      <div class="actions"><button type="button" class="act" id="runSchedule" aria-describedby="scheduleStatus">בנה לוח</button></div>
+      <p class="status" id="scheduleStatus" role="status"></p>
+      <div id="scheduleOut" role="region" aria-live="polite" aria-label="לוח, התנגשויות וקיבולת"></div>
     </div>
     <div class="card">
       <!-- "הרכז מחליט" left the coordinator who says yes to a suggestion looking for that pair in the lessons
@@ -303,6 +393,38 @@
     </div>
   </section>
 
+  <!-- ============ מדריך ============ -->
+  <section role="tabpanel" id="tab-guide" aria-labelledby="nav-guide" tabindex="-1" hidden>
+    <div class="card">
+      <h2>מדריך הרכז</h2>
+      <label for="guideSearch">חיפוש במדריך</label>
+      <input id="guideSearch" type="text" maxlength="80" aria-describedby="guideStatus">
+      <div class="actions"><button type="button" class="act" id="guideSearchBtn" aria-describedby="guideStatus">חפש</button>
+        <button type="button" class="ghost" id="guideAllBtn" aria-describedby="guideStatus">כל המדריך</button></div>
+      <p class="status" id="guideStatus" role="status"></p>
+      <div id="guideList" role="region" aria-live="polite" aria-label="פרקי המדריך"></div>
+    </div>
+  </section>
+
+  <!-- ============ דוחות ============ -->
+  <section role="tabpanel" id="tab-reports" aria-labelledby="nav-reports" tabindex="-1" hidden>
+    <div class="card">
+      <h2>דוחות רכז</h2>
+      <p class="hint">הדוח נבנה מהלוח האחרון שחושב במסך השידוך. בוחרים את תאריך תחילת התקופה של הלוח; מזהים פנימיים בלבד, בלי פרטים אישיים. יומן השיעורים לא שומר תאריכים, לכן הוא לא נספר כאן.</p>
+      <div class="row">
+        <div><label for="reportPeriod">תקופה</label><select id="reportPeriod" aria-describedby="report2Status">
+          <option value="weekly">שבועי</option><option value="monthly">חודשי</option><option value="semester">סמסטריאלי</option></select></div>
+        <div><label for="reportFrom">תאריך תחילת התקופה</label><input id="reportFrom" type="date" aria-describedby="report2Status"></div>
+      </div>
+      <div class="actions"><button type="button" class="act" id="runReport" aria-describedby="report2Status">הפק דוח</button>
+        <button type="button" class="ghost" id="dlReportCsv" aria-describedby="report2Status">הורד CSV</button>
+        <button type="button" class="ghost" id="dlReportIcs" aria-describedby="report2Status">הורד ICS</button>
+        <button type="button" class="ghost" id="printReport" aria-describedby="report2Status">הדפס / PDF</button></div>
+      <p class="status" id="report2Status" role="status"></p>
+      <div id="reportOut" role="region" aria-live="polite" aria-label="תוצאת הדוח"></div>
+    </div>
+  </section>
+
   <!-- ============ קשר (src/lib/contact.js) ============ -->
   <div class="card" id="contactBox" hidden role="region" aria-labelledby="contactTitle">
     <h2 id="contactTitle">רוצים לנסות בסבב השיבוץ שלכם?</h2>
@@ -317,6 +439,8 @@
   <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
   <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
   <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
+  <button role="tab" id="nav-guide" aria-controls="tab-guide" aria-selected="false" tabindex="-1">מדריך</button>
+  <button role="tab" id="nav-reports" aria-controls="tab-reports" aria-selected="false" tabindex="-1">דוחות</button>
 </nav>
 
 <script>
@@ -338,8 +462,26 @@
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
       unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
-      tabnav = __registry.tabnav, contact = __registry.contact, i18n = __registry.i18n;
+      tabnav = __registry.tabnav, contact = __registry.contact,
+      modesLib = __registry.modes, curriculumLib = __registry.curriculum,
+      guideLib = __registry['guide-he'], pwaLib = __registry.pwa, match2Lib = __registry.match2,
+      scheduleLib = __registry.schedule, capacityLib = __registry.capacity,
+      reportsLib = __registry.reports, semesterLib = __registry.semester,
+      i18n = __registry.i18n;
   var $ = function (id) { return document.getElementById(id); };
+  // Offline PWA registration (stage 12): same-origin http(s) only. On file:// or without the API this
+  // is a silent no-op, so the single file keeps working opened from disk. A refused Blob-URL worker is
+  // caught and the app stays fully usable without a worker.
+  try {
+    if (typeof navigator !== 'undefined' && 'service' + 'Worker' in navigator && typeof location !== 'undefined' &&
+        (location.protocol === 'https:' || location.protocol === 'http:') && pwaLib) {
+      var swLink = document.createElement('link');
+      swLink.rel = 'manifest';
+      swLink.href = URL.createObjectURL(new Blob([pwaLib.manifestJson()], { type: 'application/json' }));
+      document.head.appendChild(swLink);
+      navigator['service' + 'Worker'].register(URL.createObjectURL(new Blob([pwaLib.swSource()], { type: 'text/javascript' }))).catch(function () {});
+    }
+  } catch (e) { /* offline worker is optional; the single file works without it */ }
 
   // One label per role, used by the participants list AND the match screen.
   var ROLE_HE = { student: 'סטודנט מלמד', pupil: 'תלמיד' };
@@ -659,6 +801,7 @@
     var at = draft.availability.indexOf(slot);
     if (at === -1) draft.availability.push(slot); else draft.availability.splice(at, 1);
     ev.target.setAttribute('aria-pressed', at === -1 ? 'true' : 'false');
+    renderPeriodChips();
   });
 
   $('role').addEventListener('change', function () {
@@ -668,6 +811,7 @@
 
   function clearDraft() {
     draft = { subjects: [], availability: [] };
+    renderPeriodChips();
     $('consent').checked = false;
     Array.prototype.forEach.call($('subjects').children, function (b) { b.setAttribute('aria-pressed', 'false'); });
     Array.prototype.forEach.call($('hours').children, function (b) {
@@ -1954,7 +2098,247 @@
     say('wipeStatus', 'בוטל. לא נמחק דבר.');
   });
 
+  // ---------- home, modes, chips, today lesson (stage 11) ----------
+  var modeState = modesLib.emptyModeState();
+  var groupAggregates = [];
+  var deliveryLog = curriculumLib.makeDeliveryLog();
+  function renderMode() {
+    var emg = modeState.mode === 'emergency';
+    $('modeRoutine').setAttribute('aria-pressed', emg ? 'false' : 'true');
+    $('modeEmergency').setAttribute('aria-pressed', emg ? 'true' : 'false');
+    $('emgBanner').hidden = !emg;
+    $('homeHero').className = emg ? 'hero emergency' : 'hero';
+    renderToday();
+  }
+  function setMode(mode) {
+    modeState = modesLib.switchMode(modeState, mode);
+    renderMode();
+  }
+  $('modeRoutine').addEventListener('click', function () { setMode('routine'); });
+  $('modeEmergency').addEventListener('click', function () { setMode('emergency'); });
+
+  function renderPeriodChips() {
+    var on = modesLib.slotsToChips(draft.availability);
+    var pressed = {};
+    on.forEach(function (c) { pressed[c.day + '_' + c.period] = true; });
+    $('periodChips').innerHTML = profile.DAYS.map(function (d) {
+      return modesLib.PERIOD_NAMES.map(function (p) {
+        var id = 'chip-' + d + '-' + p;
+        return '<button type="button" class="chip" id="' + id + '" data-day="' + d + '" data-period="' + p + '" aria-pressed="' +
+          (pressed[d + '_' + p] ? 'true' : 'false') + '">' + esc((DAY_HE[d] || d) + ' ' + modesLib.PERIODS[p].labelHe) + '</button>';
+      }).join('');
+    }).join('');
+  }
+  $('periodChips').addEventListener('click', function (ev) {
+    var day = ev.target.getAttribute('data-day');
+    var period = ev.target.getAttribute('data-period');
+    if (!day || !period) return;
+    draft.availability = modesLib.toggleChip(draft.availability, day, period).slice();
+    syncHourGrid(); renderPeriodChips();
+  });
+  function syncHourGrid() {
+    Array.prototype.forEach.call($('hours').children, function (b) {
+      if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', draft.availability.indexOf(b.getAttribute('data-slot')) !== -1 ? 'true' : 'false');
+    });
+  }
+
+  function todayPick() {
+    var track = $('todayTrack').value === 'middle' ? 'middle' : 'elementary';
+    var idx = Math.max(1, Math.min(12, parseInt($('todayIndex').value, 10) || 1)) - 1;
+    if (modeState.mode === 'emergency') {
+      return { track: track, lesson: modesLib.shortLesson(curriculumLib.getLesson(track, idx)) };
+    }
+    return { track: track, lesson: curriculumLib.getLesson(track, idx) };
+  }
+  function renderRing() {
+    var total = 12;
+    var done = deliveryLog.delivered.length % (total + 1);
+    var shown = Math.min(done, total);
+    $('ringText').textContent = shown + '/' + total + ' הועברו';
+    var ring = $('ringProg');
+    if (ring && ring.setAttribute) ring.setAttribute('stroke-dashoffset', String(238.7 * (1 - shown / total)));
+  }
+  function renderToday() {
+    var pick = todayPick();
+    var l = pick.lesson;
+    var delivered = curriculumLib.isDelivered(deliveryLog, { pairIndex: 0, lessonId: l.lessonId || l.id, cycle: 1 });
+    $('todayDelivered').checked = delivered;
+    $('todayLesson').innerHTML = '<div class="tl"><p><span class="tl-dot"></span><b>' + esc(l.titleHe) + '</b> · ' +
+      esc(modeState.mode === 'emergency' ? 'שיעור קצר, ' + l.minutes + ' דקות, לא מחובר' : '45 דקות') + '</p>' +
+      '<p class="hint">' + esc(l.activityHe) + '</p></div>';
+    renderRing();
+  }
+  $('todayTrack').addEventListener('change', renderToday);
+  $('todayIndex').addEventListener('change', renderToday);
+  $('todayDelivered').addEventListener('change', function () {
+    var l = todayPick().lesson;
+    deliveryLog = curriculumLib.setDelivered(deliveryLog, { pairIndex: 0, lessonId: l.lessonId || l.id, cycle: 1 }, $('todayDelivered').checked);
+    say('todayStatus', $('todayDelivered').checked ? 'סומן כהועבר.' : 'הסימון בוטל.');
+    renderRing();
+  });
+  $('goAdd').addEventListener('click', function () { var el = $('addPerson'); if (el && el.focus) el.focus(); window.scrollTo(0, 0); });
+  $('goAssign').addEventListener('click', function () { activate($('nav-match'), false); });
+  $('goToday').addEventListener('click', function () { renderToday(); var el = $('todayCard'); if (el && el.focus) el.focus(); });
+
+  $('formGroups').addEventListener('click', function () {
+    try {
+      var input = modeState.mode === 'emergency'
+        ? { mode: 'emergency', location: $('groupPlace').value, region: $('groupRegion').value, ageBand: $('groupAge').value, count: parseInt($('groupCount').value, 10) }
+        : { mode: 'routine', school: $('groupPlace').value, grade: parseInt($('groupGrade').value, 10), count: parseInt($('groupCount').value, 10) };
+      groupAggregates.push(modesLib.makeGroupAggregate(input));
+      renderGroups();
+      say('groupStatus', 'הקבוצה נוספה. הנתונים הקיימים לא השתנו.');
+    } catch (e) {
+      say('groupStatus', e.message === 'personal data is not accepted' ? 'פרטים אישיים לא מתקבלים: רק שם מקום או בית ספר, ספירה וקבוצת גיל.' : 'בדקו את שדות הקבוצה.', true);
+    }
+  });
+  function currentGroups() { return modesLib.formGroupsWithRegion(groupAggregates); }
+  function groupSupply() {
+    return [{ region: regions.isRegion($('groupRegion').value) ? $('groupRegion').value : 'CENTER', available: parseInt($('groupStudents').value, 10) || 0 }];
+  }
+  function renderGroups() {
+    var groups = currentGroups();
+    var assignment = modesLib.assignStudents(groups, groupSupply());
+    $('groupList').innerHTML = groups.length ? groups.map(function (g) {
+      return '<div class="item"><b>' + esc(g.key) + '</b><span class="meta">' +
+        esc(g.mode === 'emergency' ? 'חירום' : 'שגרה') + ' · ' + g.size + ' ילדים · קבוצה ' + g.part + '/' + g.parts + '</span></div>';
+    }).join('') : '<p class="empty">עדיין לא נוצרו קבוצות.</p>';
+    if (assignment.unmet.length) {
+      $('groupList').innerHTML += '<div class="flag">' + assignment.unmet.length + ' קבוצות בלי סטודנט קרוב באזור.</div>';
+    }
+  }
+  $('groupReportBtn').addEventListener('click', function () {
+    var groups = currentGroups();
+    var assignment = modesLib.assignStudents(groups, groupSupply());
+    var report = modesLib.groupReport(groups, assignment);
+    $('groupReport').innerHTML = '<pre dir="ltr">' + esc(modesLib.groupReportCsv(report)) + '</pre>';
+    say('groupStatus', modeState.mode === 'emergency' ? 'דוח לפי מקום מפגש.' : 'דוח לפי בית ספר וכיתה.');
+  });
+  function initHome() {
+    $('groupRegion').innerHTML = regions.REGIONS.map(function (r) {
+      return '<option value="' + r + '">' + esc(REGION_HE[r] || r) + '</option>';
+    }).join('');
+    renderPeriodChips();
+    renderMode();
+    renderGroups();
+  }
+
   // ---------- tabs ----------
+// ---------- מדריך / שידוך מתקדם / לוח / דוחות (שלב 12) ----------
+  function renderGuide(list) {
+    var sections = list || guideLib.GUIDE_SECTIONS;
+    $('guideList').innerHTML = sections.length ? sections.map(function (s) {
+      var full = guideLib.guideSection(s.id);
+      return '<div class="item"><b>' + esc(full.titleHe) + '</b>' +
+        full.stepsHe.map(function (x) { return '<span class="meta">' + esc(x) + '</span><br>'; }).join('') + '</div>';
+    }).join('') : '<p class="empty">לא נמצא פרק מתאים.</p>';
+  }
+  $('guideSearchBtn').addEventListener('click', function () {
+    try {
+      var hits = guideLib.searchGuide($('guideSearch').value);
+      renderGuide(hits.map(function (h) { return guideLib.guideSection(h.id); }));
+      say('guideStatus', hits.length ? 'נמצאו ' + hits.length + ' פרקים.' : 'לא נמצא פרק מתאים.');
+    } catch (err) { say('guideStatus', errorHe(err) + ': החיפוש לא נשמר.', true); }
+  });
+  $('guideAllBtn').addEventListener('click', function () { renderGuide(); say('guideStatus', 'כל המדריך מוצג.'); });
+
+  var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
+  var lockedKeys = {};
+  function rosterSplit() {
+    return {
+      students: state.people.filter(function (p) { return p.role === 'student'; }),
+      pupils: state.people.filter(function (p) { return p.role === 'pupil'; })
+    };
+  }
+  function renderMatch2(result) {
+    lastMatch2 = result;
+    $('match2Out').innerHTML = result.pairs.length ? result.pairs.map(function (p) {
+      var key = p.studentIndex + '-' + p.pupilIndex;
+      return '<div class="item pair"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
+        '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
+        '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
+    }).join('') : '<p class="empty">אין זוגות אפשריים מהרשימה הנוכחית.</p>';
+    say('match2Status', 'נוצרו ' + result.pairs.length + ' זוגות. ציון כולל: ' + result.totalScore + '.');
+  }
+  $('match2Out').addEventListener('click', function (ev) {
+    var k = ev.target && ev.target.getAttribute ? ev.target.getAttribute('data-lock') : null;
+    if (k) lockedKeys[k] = !lockedKeys[k];
+  });
+  $('runMatch2').addEventListener('click', function () {
+    var r = rosterSplit(); lockedKeys = {};
+    try { renderMatch2(match2Lib.match2(r.students, r.pupils)); }
+    catch (err) { say('match2Status', errorHe(err), true); }
+  });
+  $('rematch2').addEventListener('click', function () {
+    if (!lastMatch2) { say('match2Status', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
+    var r = rosterSplit();
+    var relS = [], relP = [];
+    lastMatch2.pairs.forEach(function (p) {
+      if (!lockedKeys[p.studentIndex + '-' + p.pupilIndex]) { relS.push(p.studentIndex); relP.push(p.pupilIndex); }
+    });
+    try { renderMatch2(match2Lib.rematchPartial(r.students, r.pupils, lastMatch2.pairs, { releaseStudentIndexes: relS, releasePupilIndexes: relP })); }
+    catch (err) { say('match2Status', errorHe(err), true); }
+  });
+  $('runSchedule').addEventListener('click', function () {
+    if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
+    var r = rosterSplit();
+    lastSchedule = scheduleLib.buildSchedule(lastMatch2.pairs, { students: r.students, pupils: r.pupils });
+    var conflicts = scheduleLib.findConflicts(lastSchedule.sessions);
+    var alts = lastMatch2.pairs.length ? scheduleLib.suggestAlternatives(lastMatch2.pairs[0], lastSchedule.sessions) : [];
+    var cap = capacityLib.analyzeCapacity(r.students, r.pupils);
+    var html = '<div class="item"><b>מפגשים בלוח: ' + lastSchedule.sessions.length + '</b>' +
+      '<span class="meta">התנגשויות: ' + conflicts.length + ' · ממתינים: ' + lastSchedule.waitlist.length + '</span></div>';
+    alts.forEach(function (a) { html += '<div class="item"><span class="meta">חלופה: ' + esc(slotHe(a.slot)) + '</span></div>'; });
+    cap.alerts.forEach(function (a) { html += '<div class="flag">' + esc(a.neededStudentsNoteHe) + '</div>'; });
+    $('scheduleOut').innerHTML = html;
+    say('scheduleStatus', cap.alerts.length ? 'יש התראות קיבולת: ביקוש גדול מהיצע.' : 'הלוח נבנה בלי התראות קיבולת.', !!cap.alerts.length);
+  });
+
+  function reportData(fromISO) {
+    var sessions = (lastSchedule ? lastSchedule.sessions : []).map(function (s) {
+      return { date: semesterLib.addDays(fromISO, (s.week || 0) * 7), slot: s.slot, subject: s.subject,
+        region: (rosterSplit().students[s.studentIndex] || {}).region, pairIndex: s.pairIndex, durationMinutes: s.durationMinutes };
+    });
+    return { data: { sessions: sessions, attendance: { entries: [] }, pairs: sessions }, sessions: sessions };
+  }
+  function downloadText(name, text, type) {
+    var blob = new Blob([text], { type: type });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
+  }
+  $('runReport').addEventListener('click', function () {
+    var from = $('reportFrom').value;
+    if (!from) { say('report2Status', 'בחרו תאריך תחילת תקופה.', true); return; }
+    try {
+      var built = reportData(from); lastReportSessions = built.sessions;
+      var kind = $('reportPeriod').value;
+      lastReport = kind === 'monthly' ? reportsLib.monthlyReport(built.data, from.slice(0, 7))
+        : kind === 'semester' ? reportsLib.semesterReport(built.data, { startDate: from, endDate: semesterLib.addDays(from, 181) })
+        : reportsLib.weeklyReport(built.data, from);
+      var rows = Object.keys(lastReport.bySubject).sort().map(function (k) { return { code: k, count: lastReport.bySubject[k] }; });
+      $('reportOut').innerHTML = '<div class="item"><b>מפגשים מתוכננים: ' + lastReport.scheduled + '</b></div>' +
+        (rows.length ? reportsLib.svgBarChart(rows, { title: 'לפי מקצוע' }) : '<p class="empty">אין מפגשים בתקופה. בנו לוח קודם.</p>');
+      say('report2Status', 'הדוח הופק: ' + lastReport.from + ' עד ' + lastReport.to + '.');
+    } catch (err) { say('report2Status', errorHe(err), true); }
+  });
+  $('dlReportCsv').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    downloadText('peered-report.csv', reportsLib.reportToCsv(lastReport), 'text/csv;charset=utf-8');
+  });
+  $('dlReportIcs').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    downloadText('peered-report.ics', reportsLib.reportToIcs(lastReportSessions), 'text/calendar;charset=utf-8');
+  });
+  $('printReport').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    if (typeof window.open !== 'function') { say('report2Status', 'ההדפסה לא זמינה כאן.', true); return; }
+    var w = window.open('', '_blank');
+    if (w && w.document) { w.document.write(reportsLib.printableHtml(lastReport)); w.document.close(); }
+  });
+
+  // ---------- tabs (continued below) ----------
 
   // One tab stop for the whole bar (the WAI-ARIA tabs pattern): the selected tab is in the Tab order,
   // the others are not, and the arrow keys walk the bar. Which tab an arrow lands on is tabnav.stepTab,
@@ -2022,6 +2406,8 @@
   renderSessionForm();
   renderSessions();
   setWipeArmed(false);
+  initHome();
+  renderGuide();
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
@@ -2037,7 +2423,7 @@
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false);
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide();
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }

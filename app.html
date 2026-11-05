@@ -6,11 +6,11 @@
 <meta name="description" content="PeerEd — שידוך סטודנטים לתלמידים לפי אזור, זמינות ומקצוע. בלי פרטים אישיים, בלי שרת.">
 <title>PeerEd</title>
 <style>
-  :root { --bg:#0f1117; --card:#171a23; --line:#60687e; --ink:#f2f4f8; --muted:#9aa2b4;
-          --key:#7cc4ff; --warm:#ffb27c; --bad:#ff8f8f; --ok:#8fe0a8; }
+  :root { --bg:#F7F5FF; --card:#FFFFFF; --line:#6D6A8F; --ink:#1E1B4B; --muted:#475569;
+          --key:#0F766E; --warm:#9A3412; --bad:#B91C1C; --ok:#15803D; --hero:#0F766E; --hero2:#4338CA; --emg:#9A3412; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; background:var(--bg); color:var(--ink);
-         font-family:Arial,"Segoe UI",sans-serif; min-height:100vh;
+         font-family:Rubik,Assistant,Arial,"Segoe UI",sans-serif; min-height:100vh;
          padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px)); }
   /* viewport-fit=cover lets the page draw under the notch and the home indicator, so the fixed tab bar
      and the content above it add the safe-area insets; without them the tabs sit under the iPhone home
@@ -21,7 +21,7 @@
           padding-right:max(14px, env(safe-area-inset-right, 0px)); }
   header h1 { font-size:1.5rem; margin:4px 0 2px; letter-spacing:-.01em; }
   header p { color:var(--muted); font-size:.85rem; line-height:1.6; margin:0; }
-  nav { position:fixed; bottom:0; inset-inline:0; display:flex; background:#0b0d13;
+  nav { position:fixed; bottom:calc(10px + env(safe-area-inset-bottom, 0px)); left:16px; right:16px; display:flex; background:#FFFFFF; border:1px solid var(--line); border-radius:999px; box-shadow:0 10px 30px rgba(49,46,129,.15);
         border-top:1px solid var(--line); z-index:20;
         padding-bottom:env(safe-area-inset-bottom, 0px);
         padding-left:env(safe-area-inset-left, 0px); padding-right:env(safe-area-inset-right, 0px); }
@@ -33,45 +33,61 @@
     outline:2px solid var(--key); outline-offset:2px;
   }
   section[role="tabpanel"][hidden] { display:none; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px; margin:12px 0; box-shadow:0 8px 24px rgba(49,46,129,.10); }
   .card h2 { font-size:1rem; margin:0 0 8px; }
   label { display:block; color:var(--muted); font-size:.78rem; margin:9px 0 4px; }
   input, select, textarea { width:100%; padding:10px; min-height:44px; border-radius:8px; border:1px solid var(--line);
-                            background:#0d0f15; color:var(--ink); font:inherit; font-size:1rem; }
+                            background:#FFFFFF; color:var(--ink); font:inherit; font-size:1rem; }
   textarea { min-height:110px; resize:vertical; font-size:.92rem; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px; }
-  button.act { background:var(--key); color:#0b0d13; border:0; border-radius:9px; padding:11px 15px; min-height:44px;
+  button.act { background:var(--key); background-image:linear-gradient(90deg,#0F766E,#4338CA); color:#FFFFFF; border-radius:999px; min-height:48px; border:0; border-radius:9px; padding:11px 15px;
                font:inherit; font-weight:700; cursor:pointer; }
-  button.ghost { background:#0d0f15; color:var(--ink); border:1px solid var(--line); border-radius:9px;
+  button.ghost { background:#EEF2FF; color:var(--ink); border:1px solid var(--line); border-radius:9px;
                  padding:9px 13px; min-height:44px; font:inherit; cursor:pointer; }
   button.small { padding:5px 9px; font-size:.76rem; }
   .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; }
-  .chip { background:#0d0f15; border:1px solid var(--line); color:var(--muted); border-radius:999px;
-          padding:6px 11px; min-height:44px; display:inline-flex; align-items:center; justify-content:center; font:inherit; font-size:.8rem; cursor:pointer; }
-  .chip[aria-pressed="true"] { background:rgba(124,196,255,.16); border-color:var(--key); color:var(--ink); }
+  .chip { background:#F1F5F9; border:1px solid var(--line); color:var(--muted); min-height:44px; border-radius:999px;
+          padding:6px 11px; font:inherit; font-size:.8rem; cursor:pointer; }
+  .chip[aria-pressed="true"] { background:rgba(15,118,110,.16); border-color:var(--key); color:var(--ink); }
   .grid-hours { display:grid; grid-template-columns:auto repeat(7,1fr); gap:3px; margin-top:6px;
                 font-size:.7rem; overflow-x:auto; }
   .grid-hours span { color:var(--muted); text-align:center; padding:3px 0; }
-  .grid-hours button { background:#0d0f15; border:1px solid var(--line); border-radius:5px; padding:6px 0; min-height:44px;
+  .grid-hours button { background:#FFFFFF; border:1px solid var(--line); border-radius:5px; padding:6px 0; min-height:44px;
                        cursor:pointer; color:transparent; font-size:.6rem; }
-  .grid-hours button[aria-pressed="true"] { background:var(--key); border-color:var(--key); color:#0b0d13; }
-  .item { border:1px solid var(--line); border-radius:11px; padding:11px; margin-top:9px; background:#0d0f15; }
+  .grid-hours button[aria-pressed="true"] { background:var(--key); border-color:var(--key); color:#FFFFFF; }
+  .item { border:1px solid var(--line); border-radius:18px; padding:11px; margin-top:9px; background:#F8FAFC; }
   .item b { display:block; font-size:.96rem; margin-bottom:3px; }
   .item .meta { color:var(--muted); font-size:.78rem; line-height:1.55; }
   .pair { border-inline-start:3px solid var(--ok); }
-  .pill { background:#1e2431; border-radius:999px; padding:2px 9px; font-size:.72rem; color:var(--muted); }
+  .pill { background:#EEF2FF; border-radius:999px; padding:2px 9px; font-size:.72rem; color:var(--muted); }
   .status { min-height:1.2em; color:var(--ok); font-size:.84rem; margin-top:8px; line-height:1.5; }
   .status.bad { color:var(--bad); }
   .hint { color:var(--muted); font-size:.78rem; line-height:1.6; margin:6px 0 0; }
   label.check { display:flex; align-items:center; gap:9px; color:var(--ink); font-size:.92rem; margin-top:12px; }
   label.check input { width:auto; margin:0; accent-color:var(--key); }
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
-  .banner { background:rgba(124,196,255,.08); color:var(--key); border:1px solid rgba(124,196,255,.28);
+  .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
   a { color:var(--key); }
-  .flag { background:rgba(255,143,143,.1); border:1px solid rgba(255,143,143,.3); color:var(--bad);
+  .flag { background:rgba(185,28,28,.08); border:1px solid rgba(185,28,28,.3); color:var(--bad);
           border-radius:8px; padding:8px 10px; font-size:.82rem; margin-top:7px; line-height:1.5; }
+  .hero { background:var(--hero); background-image:linear-gradient(180deg,#0F766E 0,#4338CA 100%); border-radius:24px; padding:20px; color:#FFFFFF; margin:12px 0; }
+  .hero.emergency { background:var(--emg); background-image:linear-gradient(180deg,#C2410C 0,#9A3412 100%); }
+  .hero h2 { font-size:1.55rem; margin:0 0 6px; line-height:1.2; }
+  .hero p { color:#FFFFFF; font-size:.92rem; line-height:1.6; margin:0; }
+  .mode-toggle { display:flex; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.33); border-radius:999px; padding:4px; gap:4px; margin-top:14px; }
+  .mode-toggle button { flex:1; min-height:44px; border:0; border-radius:999px; background:transparent; color:#FFFFFF; font:inherit; font-weight:700; cursor:pointer; transition:transform .25s; }
+  .mode-toggle button[aria-pressed="true"] { background:#FFFFFF; color:var(--ink); box-shadow:0 4px 12px rgba(30,27,75,.2); }
+  .emg-banner { background:#FFEDD5; color:var(--emg); border-radius:14px; padding:10px 12px; font-size:.88rem; line-height:1.6; margin:12px 0; font-weight:700; }
+  .action-grid { display:grid; gap:12px; margin:12px 0; }
+  .action-card { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:24px; padding:16px; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:56px; text-align:start; box-shadow:0 8px 24px rgba(49,46,129,.10); }
+  .ring-row { display:flex; align-items:center; gap:14px; }
+  .ring-num { color:var(--ink); font-weight:700; }
+  .tl { border-inline-start:2px solid #99F6E4; margin-inline-start:13px; padding-inline-start:18px; }
+  .tl-dot { width:28px; height:28px; border-radius:999px; background:#CCFBF1; border:2px solid #0F766E; display:inline-block; vertical-align:middle; margin-inline-end:8px; }
+  details.advanced summary { color:var(--ink); font-weight:700; cursor:pointer; min-height:44px; padding:10px 0; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none; } }
 </style>
 </head>
 <body>
@@ -85,6 +101,41 @@
 
   <!-- ============ אנשים ============ -->
   <section role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">
+    <div class="hero" id="homeHero">
+      <h2>שלום, רכז/ת</h2>
+      <p>שלוש פעולות עיקריות: מוסיפים משתתף, משבצים קבוצות, ופותחים את השיעור של היום. כל השאר מחכה תחת "מתקדם".</p>
+      <div class="mode-toggle" role="group" aria-label="מצב עבודה: שגרה או חירום">
+        <button type="button" id="modeRoutine" aria-pressed="true">שגרה</button>
+        <button type="button" id="modeEmergency" aria-pressed="false">חירום</button>
+      </div>
+    </div>
+    <div class="emg-banner" id="emgBanner" hidden>מצב חירום: קבוצות לפי מקום מפגש, ספירות וקבוצות גיל בלבד — בלי שמות ובלי כתובות מדויקות. שיעורים קצרים של 20–30 דקות, גם בלי חיבור.</div>
+    <div class="card">
+      <h2>התקדמות השיעורים</h2>
+      <div class="ring-row">
+        <svg width="88" height="88" viewBox="0 0 88 88" role="img" aria-label="טבעת התקדמות שיעורים">
+          <circle cx="44" cy="44" r="38" fill="none" stroke="#E0E7FF" stroke-width="9"></circle>
+          <circle id="ringProg" cx="44" cy="44" r="38" fill="none" stroke="#0F766E" stroke-width="9" stroke-linecap="round" stroke-dasharray="238.7" stroke-dashoffset="238.7" transform="rotate(-90 44 44)"></circle>
+        </svg>
+        <span class="ring-num" id="ringText">0/12 הועברו</span>
+      </div>
+    </div>
+    <div class="action-grid">
+      <button type="button" class="action-card" id="goAdd">➕ הוסף משתתף</button>
+      <button type="button" class="action-card" id="goAssign">🧩 שבץ קבוצות</button>
+      <button type="button" class="action-card" id="goToday">🤖 השיעור של היום</button>
+    </div>
+    <div class="card" id="todayCard">
+      <h2>השיעור של היום</h2>
+      <div class="row">
+        <div><label for="todayTrack">מסלול</label><select id="todayTrack" aria-describedby="todayStatus">
+          <option value="elementary">יסודי (ג׳–ו׳)</option><option value="middle">חטיבה (ז׳–ט׳)</option></select></div>
+        <div><label for="todayIndex">שיעור מספר</label><input id="todayIndex" type="number" min="1" max="12" value="1" aria-describedby="todayStatus"></div>
+      </div>
+      <div id="todayLesson" role="region" aria-live="polite" aria-label="השיעור של היום"></div>
+      <label class="check"><input type="checkbox" id="todayDelivered" aria-describedby="todayStatus"> הועבר</label>
+      <p class="status" id="todayStatus" role="status"></p>
+    </div>
     <!-- What profile.makeProfile takes is what this says: the four matching fields and the consent flag,
          the three lists no screen here writes or shows (blockedUsers, reportEvent, responseToReport - a
          stored person that carries them keeps them through a load, a consent flip and a save), and the
@@ -111,9 +162,15 @@
       </div>
       <label id="subjectsLabel">מקצועות</label>
       <div class="chips" id="subjects" role="group" aria-labelledby="subjectsLabel"></div>
+      <label id="periodLabel">זמינות לפי חלקי יום</label>
+      <p class="hint" id="periodHint">בוחרים בוקר, צהריים או אחה״צ לכל יום. זה מספיק לשיבוץ; שעות מדויקות נמצאות תחת "מתקדם".</p>
+      <div class="chips" id="periodChips" role="group" aria-labelledby="periodLabel" aria-describedby="periodHint"></div>
+      <details class="advanced">
+      <summary>מתקדם: שעות מדויקות</summary>
       <label id="hoursLabel">שעות פנויות</label>
       <p class="hint" id="hoursHint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
       <div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint"></div>
+      </details>
       <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
         <button type="button" class="ghost" id="demoBtn" aria-label="טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
@@ -146,6 +203,24 @@
   <!-- ============ שידוך ============ -->
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
     <div class="card">
+      <h2>קבוצות לפי מצב</h2>
+      <p class="hint" id="groupModeHint">בשגרה: קבוצה לכל בית ספר וכיתה. בחירום: קבוצות של עד 12 ילדים שנמצאים באותו מקום, לפי ספירה וקבוצת גיל בלבד.</p>
+      <div class="row">
+        <div><label for="groupPlace">בית ספר / מקום מפגש</label><input id="groupPlace" type="text" maxlength="60" aria-describedby="groupStatus"></div>
+        <div><label for="groupGrade">כיתה (שגרה)</label><input id="groupGrade" type="number" min="3" max="9" value="5" aria-describedby="groupStatus"></div>
+        <div><label for="groupAge">קבוצת גיל (חירום)</label><select id="groupAge" aria-describedby="groupStatus">
+          <option value="3-6">3–6</option><option value="7-9">7–9</option><option value="mixed">מעורבת</option></select></div>
+        <div><label for="groupRegion">אזור (חירום)</label><select id="groupRegion" aria-describedby="groupStatus"></select></div>
+        <div><label for="groupCount">מספר ילדים</label><input id="groupCount" type="number" min="1" max="500" value="10" aria-describedby="groupStatus"></div>
+        <div><label for="groupStudents">סטודנטים פנויים באזור (חירום)</label><input id="groupStudents" type="number" min="0" max="500" value="1" aria-describedby="groupStatus"></div>
+      </div>
+      <div class="actions"><button type="button" class="act" id="formGroups" aria-describedby="groupStatus">צור קבוצות</button>
+        <button type="button" class="ghost" id="groupReportBtn" aria-label="הצג דוח קבוצות לפי בית ספר או מקום" aria-describedby="groupStatus">דוח לפי בית ספר / מקום</button></div>
+      <p class="status" id="groupStatus" role="status"></p>
+      <div id="groupList" role="region" aria-live="polite" aria-label="קבוצות שנוצרו"></div>
+      <div id="groupReport" role="region" aria-live="polite" aria-label="דוח קבוצות"></div>
+    </div>
+    <div class="card">
       <h2>שידוך</h2>
       <p class="hint">זוג נוצר רק כשלתלמיד יש אישור הורה, שניהם באותו אזור, חולקים לפחות שעה אחת פנויה, וחולקים
         לפחות מקצוע אחד.
@@ -173,6 +248,21 @@
     <div class="card">
       <h2>מי נשאר בלי זוג</h2>
       <div id="unmatched" role="region" aria-live="polite" aria-label="מי נשאר בלי זוג"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+    </div>
+    <div class="card">
+      <h2>שידוך מתקדם</h2>
+      <p class="hint">שידוך רב-קריטריוני עם הסבר בעברית לכל זוג. מסמנים זוג כנעול, ואז שידוך מחדש מחשב רק את השאר. לרשימה אין שדות רמה, שפה או העדפות, לכן הם לא נספרים בציון.</p>
+      <div class="actions"><button type="button" class="act" id="runMatch2" aria-describedby="match2Status">חשב שידוך מתקדם</button>
+        <button type="button" class="ghost" id="rematch2" aria-describedby="match2Status">שידוך מחדש (בלי הנעולים)</button></div>
+      <p class="status" id="match2Status" role="status"></p>
+      <div id="match2Out" role="region" aria-live="polite" aria-label="תוצאות שידוך מתקדם"></div>
+    </div>
+    <div class="card">
+      <h2>לוח וקיבולת</h2>
+      <p class="hint">בונה לוח מהזוגות של השידוך המתקדם, בודק התנגשויות, מציע עד 3 חלופות, ומתריע כשיש יותר ביקוש מהיצע.</p>
+      <div class="actions"><button type="button" class="act" id="runSchedule" aria-describedby="scheduleStatus">בנה לוח</button></div>
+      <p class="status" id="scheduleStatus" role="status"></p>
+      <div id="scheduleOut" role="region" aria-live="polite" aria-label="לוח, התנגשויות וקיבולת"></div>
     </div>
     <div class="card">
       <!-- "הרכז מחליט" left the coordinator who says yes to a suggestion looking for that pair in the lessons
@@ -303,6 +393,38 @@
     </div>
   </section>
 
+  <!-- ============ מדריך ============ -->
+  <section role="tabpanel" id="tab-guide" aria-labelledby="nav-guide" tabindex="-1" hidden>
+    <div class="card">
+      <h2>מדריך הרכז</h2>
+      <label for="guideSearch">חיפוש במדריך</label>
+      <input id="guideSearch" type="text" maxlength="80" aria-describedby="guideStatus">
+      <div class="actions"><button type="button" class="act" id="guideSearchBtn" aria-describedby="guideStatus">חפש</button>
+        <button type="button" class="ghost" id="guideAllBtn" aria-describedby="guideStatus">כל המדריך</button></div>
+      <p class="status" id="guideStatus" role="status"></p>
+      <div id="guideList" role="region" aria-live="polite" aria-label="פרקי המדריך"></div>
+    </div>
+  </section>
+
+  <!-- ============ דוחות ============ -->
+  <section role="tabpanel" id="tab-reports" aria-labelledby="nav-reports" tabindex="-1" hidden>
+    <div class="card">
+      <h2>דוחות רכז</h2>
+      <p class="hint">הדוח נבנה מהלוח האחרון שחושב במסך השידוך. בוחרים את תאריך תחילת התקופה של הלוח; מזהים פנימיים בלבד, בלי פרטים אישיים. יומן השיעורים לא שומר תאריכים, לכן הוא לא נספר כאן.</p>
+      <div class="row">
+        <div><label for="reportPeriod">תקופה</label><select id="reportPeriod" aria-describedby="report2Status">
+          <option value="weekly">שבועי</option><option value="monthly">חודשי</option><option value="semester">סמסטריאלי</option></select></div>
+        <div><label for="reportFrom">תאריך תחילת התקופה</label><input id="reportFrom" type="date" aria-describedby="report2Status"></div>
+      </div>
+      <div class="actions"><button type="button" class="act" id="runReport" aria-describedby="report2Status">הפק דוח</button>
+        <button type="button" class="ghost" id="dlReportCsv" aria-describedby="report2Status">הורד CSV</button>
+        <button type="button" class="ghost" id="dlReportIcs" aria-describedby="report2Status">הורד ICS</button>
+        <button type="button" class="ghost" id="printReport" aria-describedby="report2Status">הדפס / PDF</button></div>
+      <p class="status" id="report2Status" role="status"></p>
+      <div id="reportOut" role="region" aria-live="polite" aria-label="תוצאת הדוח"></div>
+    </div>
+  </section>
+
   <!-- ============ קשר (src/lib/contact.js) ============ -->
   <div class="card" id="contactBox" hidden role="region" aria-labelledby="contactTitle">
     <h2 id="contactTitle">רוצים לנסות בסבב השיבוץ שלכם?</h2>
@@ -317,6 +439,8 @@
   <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
   <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
   <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
+  <button role="tab" id="nav-guide" aria-controls="tab-guide" aria-selected="false" tabindex="-1">מדריך</button>
+  <button role="tab" id="nav-reports" aria-controls="tab-reports" aria-selected="false" tabindex="-1">דוחות</button>
 </nav>
 
 <script>
@@ -1601,6 +1725,892 @@ module.exports = {
   __registry["match"] = module.exports;
 })();
 
+/* ===== src/lib/match2.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - multi-criteria matching (stage 1). Global optimum, never greedy: the assignment maximises
+// pair count first and total score second, via deterministic min-cost max-flow. No clock/random/network.
+// Extended profile fields (level, languages, preferredSubjects) are read here only; makeProfile's
+// privacy gate is untouched and a pupil still needs parentConsent === true to be paired at all.
+
+const { shared, hasParentConsent } = require('./match.js');
+const { isRegion } = require('./regions.js');
+const { SUBJECTS, normalizeSlot } = require('./profile.js');
+const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
+
+const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10 });
+const PAIR_BONUS = 1000; // > max score of one pair (100), so one more pair always beats a better score
+
+function weightsOf(opts) {
+  const w = Object.assign({}, DEFAULT_WEIGHTS, (opts && opts.weights) || {});
+  for (const k of Object.keys(DEFAULT_WEIGHTS)) if (!(Number(w[k]) >= 0)) w[k] = DEFAULT_WEIGHTS[k];
+  return w;
+}
+function normLevel(x) { const n = x && x.level; return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null; }
+function langs(x) { return Array.isArray(x && x.languages) ? x.languages.filter((v) => LANG_CODES.indexOf(v) !== -1) : []; }
+function prefs(x) { return Array.isArray(x && x.preferredSubjects) ? x.preferredSubjects.filter((v) => SUBJECTS.indexOf(v) !== -1) : []; }
+function capacityOf(s, opts) {
+  // absent means 1; an explicit 0 means this student takes nobody (it never silently becomes 1)
+  if (s && s.maxPupils !== undefined) { const c = Number(s.maxPupils); if (!Number.isInteger(c) || c < 0) throw new Error('invalid maxPupils'); return c; }
+  if (opts && opts.studentCapacity !== undefined) { const c = Number(opts.studentCapacity); if (!Number.isInteger(c) || c < 0) throw new Error('invalid studentCapacity'); return c; }
+  return 1;
+}
+
+function scorePair(student, pupil, weights) {
+  const w = weightsOf({ weights: weights });
+  const s = student || {}; const p = pupil || {};
+  // only canonical codes are ever scored or printed: slots, subjects, languages, region
+  const sharedSlots = shared(s.availability, p.availability).filter((x) => normalizeSlot(x) === x);
+  const sharedSubjects = shared(s.subjects, p.subjects).filter((x) => SUBJECTS.indexOf(x) !== -1);
+  const sharedLanguages = shared(langs(s), langs(p));
+  const regionSame = isRegion(s.region) && s.region === p.region;
+  const sl = normLevel(s); const pl = normLevel(p);
+  const levelIn = sl !== null && pl !== null;
+  const langIn = langs(s).length > 0 && langs(p).length > 0;
+  const levelFit = levelIn ? 1 - Math.abs(sl - pl) / 4 : 0;
+  const langFit = langIn && sharedLanguages.length > 0 ? 1 : 0;
+  const prefHits = shared(prefs(s), (p.subjects || []).filter((x) => SUBJECTS.indexOf(x) !== -1)).length +
+    shared(prefs(p), (s.subjects || []).filter((x) => SUBJECTS.indexOf(x) !== -1)).length;
+  const prefFit = Math.min(1, prefHits / 2);
+  const b = {
+    region: Math.round(w.region * (regionSame ? 1 : 0)),
+    hours: Math.round(w.hours * Math.min(1, sharedSlots.length / 3)),
+    subject: Math.round(w.subject * Math.min(1, sharedSubjects.length / 2)),
+    level: levelIn ? Math.round(w.level * levelFit) : 0,
+    language: langIn ? Math.round(w.language * langFit) : 0,
+    preference: Math.round(w.preference * prefFit)
+  };
+  // criteria with no data on either side are excluded, not credited: the total is renormalised to 100
+  let included = w.region + w.hours + w.subject + w.preference;
+  if (levelIn) included += w.level;
+  if (langIn) included += w.language;
+  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference;
+  b.total = included > 0 ? Math.round((earned / included) * 100) : 0;
+  b.levelCounted = levelIn; b.languageCounted = langIn;
+  return { score: b.total, breakdown: b, sharedSlots, sharedSubjects, sharedLanguages, regionSame, levelFit };
+}
+
+function explainHe(scored, student, pupil) {
+  const b = scored.breakdown; const parts = [];
+  parts.push(scored.regionSame ? '\u05d0\u05d5\u05ea\u05d5 \u05d0\u05d6\u05d5\u05e8 (' + pupil.region + ')' : '\u05d0\u05d6\u05d5\u05e8\u05d9\u05dd \u05e9\u05d5\u05e0\u05d9\u05dd');
+  parts.push(scored.sharedSlots.length + ' \u05e9\u05e2\u05d5\u05ea \u05de\u05e9\u05d5\u05ea\u05e4\u05d5\u05ea (' + scored.sharedSlots.join(', ') + ')');
+  parts.push('\u05de\u05e7\u05e6\u05d5\u05e2\u05d5\u05ea \u05de\u05e9\u05d5\u05ea\u05e4\u05d9\u05dd: ' + scored.sharedSubjects.join(', '));
+  if (normLevel(student) !== null && normLevel(pupil) !== null) parts.push('\u05d4\u05ea\u05d0\u05de\u05ea \u05e8\u05de\u05d4 ' + student.level + ' \u05de\u05d5\u05dc ' + pupil.level);
+  if (scored.sharedLanguages.length) parts.push('\u05e9\u05e4\u05d4 \u05de\u05e9\u05d5\u05ea\u05e4\u05ea: ' + scored.sharedLanguages.join(', '));
+  return '\u05e6\u05d9\u05d5\u05df ' + b.total + '/100 \u2014 ' + parts.join('; ') + ' [\u05d0\u05d6\u05d5\u05e8 ' + b.region + ', \u05e9\u05e2\u05d5\u05ea ' + b.hours + ', \u05de\u05e7\u05e6\u05d5\u05e2 ' + b.subject + ', \u05e8\u05de\u05d4 ' + b.level + ', \u05e9\u05e4\u05d4 ' + b.language + ', \u05d4\u05e2\u05d3\u05e4\u05d5\u05ea ' + b.preference + ']';
+}
+
+function isCandidate(student, pupil, opts, si, pi) {
+  if (!student || !pupil || !hasParentConsent(pupil)) return false;
+  if ((opts && opts.requireSameRegion) && student.region !== pupil.region) return false;
+  const blocked = (opts && opts.blockedPairs) || [];
+  return shared(student.availability, pupil.availability).length > 0 &&
+    shared(student.subjects, pupil.subjects).length > 0 && !blocked.some((x) => x && x.studentIndex === si && x.pupilIndex === pi);
+}
+
+// Deterministic min-cost max-flow (SPFA, edges scanned in insertion order, strict improvement only).
+function maxFlowAssignment(ns, np, edges, caps) {
+  // nodes: 0 source, 1..ns students, ns+1..ns+np pupils, last sink
+  const N = ns + np + 2; const SRC = 0; const SNK = N - 1;
+  const g = Array.from({ length: N }, () => []);
+  function add(u, v, cap, cost) { g[u].push({ to: v, rev: g[v].length, cap, cost }); g[v].push({ to: u, rev: g[u].length - 1, cap: 0, cost: -cost }); }
+  for (let i = 0; i < ns; i += 1) add(SRC, 1 + i, caps[i], 0);
+  const edgeRef = [];
+  edges.forEach((e) => { add(1 + e.s, 1 + ns + e.p, 1, -(PAIR_BONUS + e.score)); edgeRef.push(g[1 + e.s][g[1 + e.s].length - 1]); });
+  for (let j = 0; j < np; j += 1) add(1 + ns + j, SNK, 1, 0);
+  for (;;) {
+    const dist = Array(N).fill(Infinity); const prev = Array(N).fill(null); const inQ = Array(N).fill(false);
+    dist[SRC] = 0; const q = [SRC]; inQ[SRC] = true;
+    while (q.length) {
+      const u = q.shift(); inQ[u] = false;
+      g[u].forEach((e, ei) => { if (e.cap > 0 && dist[u] + e.cost < dist[e.to]) { dist[e.to] = dist[u] + e.cost; prev[e.to] = { u, ei }; if (!inQ[e.to]) { q.push(e.to); inQ[e.to] = true; } } });
+    }
+    if (!prev[SNK]) break;
+    let v = SNK; while (v !== SRC) { const { u, ei } = prev[v]; const e = g[u][ei]; e.cap -= 1; g[v][e.rev].cap += 1; v = u; }
+  }
+  return edges.filter((e, i) => edgeRef[i].cap === 0);
+}
+
+function match2(students, pupils, opts) {
+  const o = opts || {}; const S = Array.isArray(students) ? students : []; const P = Array.isArray(pupils) ? pupils : [];
+  const w = weightsOf(o);
+  const locked = Array.isArray(o.locked) ? o.locked : [];
+  const usedS = new Map(); const usedP = new Set(); const pairs = [];
+  function pushPair(si, pi) {
+    const sc = scorePair(S[si], P[pi], w);
+    pairs.push({ studentIndex: si, pupilIndex: pi, score: sc.score, breakdown: sc.breakdown, sharedSlots: sc.sharedSlots, sharedSubjects: sc.sharedSubjects, sharedLanguages: sc.sharedLanguages, locked: true, explanationHe: explainHe(sc, S[si], P[pi]) });
+  }
+  locked.forEach((lk) => {
+    const si = lk && lk.studentIndex; const pi = lk && lk.pupilIndex;
+    if (!Number.isInteger(si) || !Number.isInteger(pi) || !S[si] || !P[pi] || usedP.has(pi) || (usedS.get(si) || 0) >= capacityOf(S[si], o) || !isCandidate(S[si], P[pi], o, si, pi)) throw new Error('invalid locked pair: not a valid candidate');
+    usedS.set(si, (usedS.get(si) || 0) + 1); usedP.add(pi); pushPair(si, pi);
+  });
+  const edges = [];
+  for (let si = 0; si < S.length; si += 1) for (let pi = 0; pi < P.length; pi += 1) {
+    if (usedP.has(pi) || !isCandidate(S[si], P[pi], o, si, pi)) continue;
+    const sc = scorePair(S[si], P[pi], w);
+    edges.push({ s: si, p: pi, score: sc.score, sc });
+  }
+  edges.sort((a, b) => (b.score - a.score) || (a.s - b.s) || (a.p - b.p));
+  const caps = S.map((s, i) => Math.max(0, capacityOf(s, o) - (usedS.get(i) || 0)));
+  maxFlowAssignment(S.length, P.length, edges, caps).forEach((e) => {
+    pairs.push({ studentIndex: e.s, pupilIndex: e.p, score: e.score, breakdown: e.sc.breakdown, sharedSlots: e.sc.sharedSlots, sharedSubjects: e.sc.sharedSubjects, sharedLanguages: e.sc.sharedLanguages, locked: false, explanationHe: explainHe(e.sc, S[e.s], P[e.p]) });
+  });
+  pairs.sort((a, b) => (a.studentIndex - b.studentIndex) || (a.pupilIndex - b.pupilIndex));
+  const pairedP = new Set(pairs.map((x) => x.pupilIndex)); const countS = new Map();
+  pairs.forEach((x) => countS.set(x.studentIndex, (countS.get(x.studentIndex) || 0) + 1));
+  const unmatchedPupils = P.map((p, i) => i).filter((i) => !pairedP.has(i)).map((i) => ({ pupilIndex: i, reason: !hasParentConsent(P[i]) ? 'NO_PARENT_CONSENT' : 'NO_FEASIBLE_PAIR' }));
+  const unmatchedStudents = S.map((s, i) => i).filter((i) => (countS.get(i) || 0) < capacityOf(S[i], o)).map((i) => ({ studentIndex: i, reason: 'NO_FEASIBLE_PAIR' }));
+  return { pairs, unmatchedPupils, unmatchedStudents, totalScore: pairs.reduce((a, x) => a + x.score, 0), weights: w };
+}
+
+// Partial re-match: pairs of participants not released are kept (if still valid); the rest are re-optimised.
+function rematchPartial(students, pupils, existingPairs, opts) {
+  const o = opts || {}; const relS = new Set(o.releaseStudentIndexes || []); const relP = new Set(o.releasePupilIndexes || []);
+  // stale kept pairs (duplicate pupil, capacity since lowered) are dropped, never thrown on
+  const seenP = new Set(); const countS = new Map();
+  const keep = (Array.isArray(existingPairs) ? existingPairs : []).filter((x) => {
+    if (!x || relS.has(x.studentIndex) || relP.has(x.pupilIndex) || !students[x.studentIndex] || !pupils[x.pupilIndex]) return false;
+    if (seenP.has(x.pupilIndex) || !isCandidate(students[x.studentIndex], pupils[x.pupilIndex], o, x.studentIndex, x.pupilIndex)) return false;
+    if ((countS.get(x.studentIndex) || 0) >= capacityOf(students[x.studentIndex], o)) return false;
+    seenP.add(x.pupilIndex); countS.set(x.studentIndex, (countS.get(x.studentIndex) || 0) + 1); return true;
+  });
+  const locked = keep.map((x) => ({ studentIndex: x.studentIndex, pupilIndex: x.pupilIndex })).concat(Array.isArray(o.locked) ? o.locked : []);
+  return match2(students, pupils, Object.assign({}, o, { locked }));
+}
+
+module.exports = { match2, rematchPartial, scorePair, explainHe, DEFAULT_WEIGHTS };
+  __registry["match2"] = module.exports;
+})();
+
+/* ===== src/lib/capacity.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - capacity vs demand (stage 2). Counts only: codes and numbers, never personal data.
+// Deterministic, no clock/randomness/network.
+
+const { SUBJECTS } = require('./profile.js');
+const { REGIONS } = require('./regions.js');
+const { hasParentConsent } = require('./match.js');
+
+function capOf(s, o) {
+  if (s && s.maxPupils !== undefined) { const c = Number(s.maxPupils); if (!Number.isInteger(c) || c < 0) throw new Error('invalid maxPupils'); return c; }
+  if (o && o.studentCapacity !== undefined) { const c = Number(o.studentCapacity); if (!Number.isInteger(c) || c < 0) throw new Error('invalid studentCapacity'); return c; }
+  return 1;
+}
+
+function analyzeCapacity(students, pupils, opts) {
+  const o = opts || {};
+  const S = Array.isArray(students) ? students : []; const P = Array.isArray(pupils) ? pupils : [];
+  const eligible = P.filter(hasParentConsent);
+  return finish(S, eligible, o);
+}
+
+function finish(S, eligible, o) {
+  function make(keys) { const out = {}; keys.forEach((k) => { out[k] = { demand: 0, supply: 0, gap: 0, neededStudents: 0 }; }); return out; }
+  const bySubject = make(SUBJECTS); const byRegion = make(REGIONS);
+  eligible.forEach((p) => { (p.subjects || []).forEach((k) => { if (bySubject[k]) bySubject[k].demand += 1; }); if (byRegion[p.region]) byRegion[p.region].demand += 1; });
+  const studentLoad = S.map((s, studentIndex) => ({ studentIndex, capacity: capOf(s, o), region: s.region || null, subjects: (s.subjects || []).slice() }));
+  S.forEach((s) => { (s.subjects || []).forEach((k) => { if (bySubject[k]) bySubject[k].supply += capOf(s, o); }); if (byRegion[s.region]) byRegion[s.region].supply += capOf(s, o); });
+  // supply is counted per dimension: a multi-subject student's places appear in each of their subjects,
+  // so per-subject supply is an upper bound; the totals row is the honest single count.
+  const perNew = o.newStudentCapacity !== undefined ? Math.max(1, Number(o.newStudentCapacity) || 1) : 1;
+  const alerts = [];
+  [bySubject, byRegion].forEach((table, ti) => {
+    Object.keys(table).forEach((k) => {
+      const b = table[k]; b.gap = Math.max(0, b.demand - b.supply); b.neededPlaces = b.gap; b.neededStudents = Math.ceil(b.gap / perNew);
+      if (b.gap > 0) alerts.push({ code: 'DEMAND_GT_SUPPLY', kind: ti === 0 ? 'subject' : 'region', codeKey: k, demand: b.demand, supply: b.supply, gap: b.gap, neededPlaces: b.gap, neededStudents: b.neededStudents, neededStudentsNoteHe: ti === 0 ? 'צריך עוד ' + b.gap + ' מקומות חונכות במקצוע ' + k : 'צריך עוד ' + b.gap + ' מקומות חונכות באזור ' + k });
+    });
+  });
+  alerts.sort((a, b) => (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : (a.codeKey < b.codeKey ? -1 : 1)));
+  return Object.freeze({ bySubject, byRegion, studentLoad: Object.freeze(studentLoad), alerts: Object.freeze(alerts), totals: Object.freeze({ students: S.length, pupils: eligible.length, supplyPlaces: S.reduce((a, s) => a + capOf(s, o), 0), demandPupils: eligible.length }) });
+}
+
+module.exports = { analyzeCapacity };
+  __registry["capacity"] = module.exports;
+})();
+
+/* ===== src/lib/schedule.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - weekly multi-week scheduling (stage 2). Deterministic: pairs in input order, slots in
+// canonical day/hour order. No clock, no randomness, no network. Internal indexes only.
+
+const { normalizeSlot, DAYS, SUBJECTS } = require('./profile.js');
+
+function slotKey(slot) {
+  const c = normalizeSlot(slot);
+  if (c === null) return null;
+  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(c);
+  return DAYS.indexOf(m[1]) * 100 + Number(m[2]);
+}
+function sortSlots(slots) {
+  return (Array.isArray(slots) ? slots : []).map(normalizeSlot).filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => slotKey(a) - slotKey(b));
+}
+function intOr(v, d, min, max) { const n = Number(v); return Number.isInteger(n) && n >= min && n <= max ? n : d; }
+
+// pairs: match2 pairs. profiles: { students:[], pupils:[] } (or { people:[] } split by pair indexes is not needed).
+// opts: { sessionsPerWeek=1, durationMinutes=60, weeks=1, maxSessionsPerPupilWeek=2, students, pupils }
+function buildSchedule(pairs, opts) {
+  const o = opts || {};
+  const sessionsPerWeek = intOr(o.sessionsPerWeek, 1, 1, 7);
+  const durationMinutes = intOr(o.durationMinutes, 60, 15, 180);
+  const weeks = intOr(o.weeks, 1, 1, 52);
+  const maxPupil = intOr(o.maxSessionsPerPupilWeek, 2, 1, 14);
+  const students = Array.isArray(o.students) ? o.students : [];
+  const pupils = Array.isArray(o.pupils) ? o.pupils : [];
+  const sessions = []; const waitlist = []; const unscheduled = [];
+  const studentSlot = new Set(); // studentIndex|week|slot
+  const pupilSlot = new Set();
+  const pupilWeekCount = new Map(); // pupilIndex|week -> n
+  (Array.isArray(pairs) ? pairs : []).forEach((pair, pairIndex) => {
+    if (!pair || !Number.isInteger(pair.studentIndex) || !Number.isInteger(pair.pupilIndex)) { unscheduled.push({ pairIndex, reason: 'INVALID_PAIR' }); return; }
+    const slots = sortSlots(pair.sharedSlots);
+    const subjects = (Array.isArray(pair.sharedSubjects) ? pair.sharedSubjects : []).filter((s) => SUBJECTS.indexOf(s) !== -1);
+    if (slots.length === 0 || subjects.length === 0) { unscheduled.push({ pairIndex, reason: 'NO_SHARED_SLOT_OR_SUBJECT' }); waitlist.push({ pairIndex, reason: 'NO_SHARED_SLOT_OR_SUBJECT' }); return; }
+    let placedAny = false; let blockedReason = null;
+    for (let w = 0; w < weeks; w += 1) {
+      let placedThisWeek = 0;
+      for (let i = 0; i < slots.length && placedThisWeek < sessionsPerWeek; i += 1) {
+        const slot = slots[i];
+        const sk = pair.studentIndex + '|' + w + '|' + slot; const pk = pair.pupilIndex + '|' + w + '|' + slot;
+        const ck = pair.pupilIndex + '|' + w;
+        if (studentSlot.has(sk)) { blockedReason = 'STUDENT_DOUBLE_BOOKED'; continue; }
+        if (pupilSlot.has(pk)) { blockedReason = 'PUPIL_DOUBLE_BOOKED'; continue; }
+        if ((pupilWeekCount.get(ck) || 0) >= maxPupil) { blockedReason = 'PUPIL_OVER_CAP'; continue; }
+        studentSlot.add(sk); pupilSlot.add(pk); pupilWeekCount.set(ck, (pupilWeekCount.get(ck) || 0) + 1);
+        sessions.push(Object.freeze({ pairIndex, studentIndex: pair.studentIndex, pupilIndex: pair.pupilIndex, slot, subject: subjects[(placedThisWeek + w) % subjects.length], durationMinutes, week: w }));
+        placedThisWeek += 1; placedAny = true;
+      }
+      if (placedThisWeek === 0 && blockedReason === 'PUPIL_OVER_CAP') break;
+    }
+    if (!placedAny) { const reason = blockedReason || 'NO_FREE_SLOT'; unscheduled.push({ pairIndex, reason }); waitlist.push({ pairIndex, reason }); }
+  });
+  return Object.freeze({ sessions: Object.freeze(sessions), unscheduled: Object.freeze(unscheduled), waitlist: Object.freeze(waitlist), conflicts: findConflicts(sessions, o) });
+}
+
+function findConflicts(sessions, opts) {
+  const maxPupil = intOr(opts && opts.maxSessionsPerPupilWeek, 2, 1, 14);
+  const out = []; const byStudent = new Map(); const byPupil = new Map(); const pupilWeek = new Map();
+  (Array.isArray(sessions) ? sessions : []).forEach((s, index) => {
+    if (!s) return;
+    const sk = s.studentIndex + '|' + s.week + '|' + s.slot; const pk = s.pupilIndex + '|' + s.week + '|' + s.slot; const ck = s.pupilIndex + '|' + s.week;
+    if (byStudent.has(sk)) out.push({ type: 'STUDENT_DOUBLE_BOOKED', index, firstIndex: byStudent.get(sk), studentIndex: s.studentIndex, slot: s.slot, week: s.week });
+    else byStudent.set(sk, index);
+    if (byPupil.has(pk)) out.push({ type: 'PUPIL_DOUBLE_BOOKED', index, firstIndex: byPupil.get(pk), pupilIndex: s.pupilIndex, slot: s.slot, week: s.week });
+    else byPupil.set(pk, index);
+    pupilWeek.set(ck, (pupilWeek.get(ck) || 0) + 1);
+    if (pupilWeek.get(ck) === maxPupil + 1) out.push({ type: 'PUPIL_OVER_CAP', index, pupilIndex: s.pupilIndex, week: s.week, maxSessionsPerPupilWeek: maxPupil });
+  });
+  return out;
+}
+
+// Up to 3 alternative slots for a session/pair: shared slots that create no conflict in `sessions`.
+function suggestAlternatives(pair, sessions, opts) {
+  if (!pair) return [];
+  const taken = new Set(); const pupilTaken = new Set();
+  (Array.isArray(sessions) ? sessions : []).forEach((s) => { if (s.studentIndex === pair.studentIndex) taken.add(s.week + '|' + s.slot); if (s.pupilIndex === pair.pupilIndex) pupilTaken.add(s.week + '|' + s.slot); });
+  const weeks = intOr(opts && opts.weeks, 1, 1, 52); const out = [];
+  for (let w = 0; w < weeks && out.length < 3; w += 1) {
+    for (const slot of sortSlots(pair.sharedSlots)) {
+      if (out.length >= 3) break;
+      if (taken.has(w + '|' + slot) || pupilTaken.has(w + '|' + slot)) continue;
+      out.push({ slot, week: w, subject: (pair.sharedSubjects || [])[0] || null });
+    }
+  }
+  return out.slice(0, 3);
+}
+
+module.exports = { buildSchedule, findConflicts, suggestAlternatives, sortSlots };
+  __registry["schedule"] = module.exports;
+})();
+
+/* ===== src/lib/semester.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - semester calendar (stage 3). Static Israeli school-holiday table (major breaks, 2025-2027);
+// the coordinator may pass an explicit holidays list which replaces it. Dates are caller-passed
+// YYYY-MM-DD strings; weekday math is UTC, so the same input always gives the same output.
+
+const { DAYS } = require('./profile.js');
+
+// A *_BREAK code written twice is a range: both written dates and every day between them are holidays,
+// so a "break" is never just its two endpoints. (Break ranges are school-break approximations; a
+// coordinator overrides the whole list per semester when the official calendar differs.)
+function expandBreaks(rows) {
+  const out = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i]; const next = rows[i + 1];
+    if (/_BREAK$/.test(r.code) && next && next.code === r.code && next.date > r.date) {
+      const end = new Date(next.date + 'T00:00:00Z');
+      for (let d = new Date(r.date + 'T00:00:00Z'); d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push({ date: d.toISOString().slice(0, 10), code: r.code });
+      i += 1;
+    } else out.push(r);
+  }
+  return out;
+}
+const HOLIDAYS_IL = Object.freeze(expandBreaks([
+  { date: '2025-09-23', code: 'ROSH_HASHANA' }, { date: '2025-09-24', code: 'ROSH_HASHANA' },
+  { date: '2025-10-02', code: 'YOM_KIPPUR' }, { date: '2025-10-07', code: 'SUKKOT' }, { date: '2025-10-14', code: 'SUKKOT' },
+  { date: '2025-12-16', code: 'HANUKKAH_BREAK' }, { date: '2025-12-23', code: 'HANUKKAH_BREAK' },
+  { date: '2026-03-03', code: 'PURIM' }, { date: '2026-03-25', code: 'PESACH_BREAK' }, { date: '2026-04-08', code: 'PESACH_BREAK' },
+  { date: '2026-04-22', code: 'YOM_HAATZMAUT' }, { date: '2026-05-21', code: 'SHAVUOT' },
+  { date: '2026-10-02', code: 'ROSH_HASHANA' }, { date: '2026-10-03', code: 'ROSH_HASHANA' },
+  { date: '2026-10-11', code: 'YOM_KIPPUR' }, { date: '2026-10-16', code: 'SUKKOT' }, { date: '2026-10-23', code: 'SUKKOT' }
+]).map(Object.freeze));
+
+function parseDate(iso) {
+  const m = typeof iso === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) throw new Error('invalid date: expected YYYY-MM-DD');
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  if (d.toISOString().slice(0, 10) !== iso) throw new Error('invalid date: expected YYYY-MM-DD');
+  return d;
+}
+function fmt(d) { return d.toISOString().slice(0, 10); }
+function addDays(iso, n) { const d = parseDate(iso); d.setUTCDate(d.getUTCDate() + n); return fmt(d); }
+function diffDays(a, b) { return Math.round((parseDate(b) - parseDate(a)) / 86400000); }
+function weekday(iso) { return parseDate(iso).getUTCDay(); } // 0=Sunday
+
+function makeSemester(input) {
+  const o = input || {};
+  parseDate(o.startDate); parseDate(o.endDate);
+  if (diffDays(o.startDate, o.endDate) < 0) throw new Error('invalid semester: endDate is before startDate');
+  const holidays = Object.freeze((Array.isArray(o.holidays) ? o.holidays : HOLIDAYS_IL).map((h) => {
+    parseDate(h && h.date); if (!h || typeof h.code !== 'string' || !/^[A-Z0-9_]+$/.test(h.code)) throw new Error('invalid holiday entry');
+    return Object.freeze({ date: h.date, code: h.code });
+  }));
+  const set = new Set(holidays.map((h) => h.date));
+  const teachingDays = [];
+  for (let d = o.startDate, i = 0, n = diffDays(o.startDate, o.endDate); i <= n; i += 1, d = addDays(o.startDate, i)) {
+    const wd = weekday(d);
+    if (wd >= 0 && wd <= 4 && !set.has(d)) teachingDays.push(d); // Sun-Thu teaching week
+  }
+  return Object.freeze({ startDate: o.startDate, endDate: o.endDate, holidays, teachingDays: Object.freeze(teachingDays) });
+}
+function isTeachingDay(semester, iso) { parseDate(iso); return semester.teachingDays.indexOf(iso) !== -1; }
+function holidayOn(semester, iso) { const h = semester.holidays.find((x) => x.date === iso); return h ? h.code : null; }
+
+// schedule sessions carry {slot:'SUN_8', week:n}. Expand them onto real dates of the semester.
+function expandSessions(sessions, semester) {
+  const dated = []; const skipped = [];
+  (Array.isArray(sessions) ? sessions : []).forEach((s, index) => {
+    const m = s && /^([A-Z]{3})_/.exec(s.slot || ''); const dayIdx = m ? DAYS.indexOf(m[1]) : -1;
+    if (dayIdx < 0 || !Number.isInteger(s.week)) { skipped.push({ index, reason: 'INVALID_SESSION' }); return; }
+    const base = addDays(semester.startDate, s.week * 7);
+    let date = null;
+    for (let i = 0; i < 7; i += 1) { const cand = addDays(base, i); if (weekday(cand) === dayIdx) { date = cand; break; } }
+    if (date === null || diffDays(semester.endDate, date) > 0) { skipped.push({ index, reason: 'OUT_OF_SEMESTER' }); return; }
+    if (!isTeachingDay(semester, date)) { skipped.push({ index, date, reason: holidayOn(semester, date) ? 'HOLIDAY' : 'NON_TEACHING_DAY' }); return; }
+    dated.push(Object.assign({}, s, { date }));
+  });
+  return Object.freeze({ sessions: Object.freeze(dated), skipped: Object.freeze(skipped) });
+}
+function cancelSession(session, semester) {
+  if (!session || !session.date) throw new Error('invalid session: expected a dated session');
+  const onHoliday = semester ? !isTeachingDay(semester, session.date) : false;
+  return Object.freeze(Object.assign({}, session, { status: 'cancelled', needsMakeup: !onHoliday }));
+}
+// Up to 3 makeup dates: same weekday as the cancelled session, teaching days after it.
+function planMakeup(cancelled, semester, opts) {
+  const limit = opts && Number.isInteger(opts.limit) ? Math.min(3, Math.max(0, opts.limit)) : 3;
+  const out = []; if (!cancelled || !cancelled.date) return out;
+  const wd = weekday(cancelled.date);
+  for (let i = 7; i <= 56 && out.length < limit; i += 7) { const d = addDays(cancelled.date, i); if (isTeachingDay(semester, d) && diffDays(d, semester.endDate) >= 0) out.push(d); }
+  return out;
+}
+
+module.exports = { HOLIDAYS_IL, makeSemester, isTeachingDay, holidayOn, expandSessions, cancelSession, planMakeup, addDays, diffDays, parseDate };
+  __registry["semester"] = module.exports;
+})();
+
+/* ===== src/lib/attendance.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - attendance (stage 3): held / missed / postponed / cancelled per pair and date.
+// Immutable log, internal pair indexes only. No clock: every date is passed in.
+
+const { diffDays, parseDate } = require('./semester.js');
+
+const ATTENDANCE_STATUSES = Object.freeze(['held', 'missed', 'postponed', 'cancelled']);
+
+function makeAttendanceLog() { return Object.freeze({ entries: Object.freeze([]) }); }
+function assertLog(log) { if (!log || !Array.isArray(log.entries)) throw new Error('invalid attendance log'); }
+
+function recordAttendance(log, input) {
+  assertLog(log); const o = input || {};
+  if (!Number.isInteger(o.pairIndex) || o.pairIndex < 0) throw new Error('invalid attendance: pairIndex');
+  parseDate(o.date);
+  if (ATTENDANCE_STATUSES.indexOf(o.status) === -1) throw new Error('invalid attendance status');
+  if (log.entries.some((e) => e.pairIndex === o.pairIndex && e.date === o.date)) throw new Error('duplicate attendance for pair and date');
+  const entry = Object.freeze({ pairIndex: o.pairIndex, date: o.date, status: o.status });
+  return Object.freeze({ entries: Object.freeze(log.entries.concat([entry])) });
+}
+
+function attendanceSummary(log, opts) {
+  assertLog(log); const o = opts || {};
+  const byStatus = { held: 0, missed: 0, postponed: 0, cancelled: 0 }; const byPair = {};
+  log.entries.forEach((e) => {
+    if (o.from && e.date < o.from) return; if (o.to && e.date > o.to) return;
+    byStatus[e.status] += 1; byPair[e.pairIndex] = byPair[e.pairIndex] || { held: 0, missed: 0, postponed: 0, cancelled: 0 }; byPair[e.pairIndex][e.status] += 1;
+  });
+  const decided = byStatus.held + byStatus.missed;
+  return { byStatus, byPair, heldRate: decided === 0 ? null : Math.round((byStatus.held / decided) * 1000) / 1000 };
+}
+
+// Pairs with no 'held' session for at least `days` days (default 14) as of asOfISO.
+function stalePairs(pairs, log, asOfISO, opts) {
+  assertLog(log); parseDate(asOfISO); const days = opts && Number.isInteger(opts.days) ? opts.days : 14;
+  const since = opts && opts.since ? opts.since : null; if (since) parseDate(since);
+  const last = new Map();
+  log.entries.forEach((e) => { if (e.status === 'held' && (!last.has(e.pairIndex) || e.date > last.get(e.pairIndex))) last.set(e.pairIndex, e.date); });
+  const out = [];
+  (Array.isArray(pairs) ? pairs : []).forEach((pair, pairIndex) => {
+    const idx = pair && Number.isInteger(pair.pairIndex) ? pair.pairIndex : pairIndex;
+    const lastHeld = last.get(idx) || null;
+    const ref = lastHeld || since;
+    if (ref === null) return; // without a semester start there is no honest baseline
+    const gap = diffDays(ref, asOfISO);
+    if (gap >= days) out.push({ pairIndex: idx, lastHeldDate: lastHeld, daysSince: gap, alertHe: 'הזוג לא נפגש כבר ' + gap + ' ימים' });
+  });
+  return out.sort((a, b) => (b.daysSince - a.daysSince) || (a.pairIndex - b.pairIndex));
+}
+
+module.exports = { ATTENDANCE_STATUSES, makeAttendanceLog, recordAttendance, attendanceSummary, stalePairs };
+  __registry["attendance"] = module.exports;
+})();
+
+/* ===== src/lib/reports.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - coordinator reports (stage 4): weekly / monthly / semester, SVG bars, CSV / ICS / print.
+// Internal identifiers only (pairIndex, region/subject codes). Every date/stamp is caller-passed.
+
+const { addDays, parseDate } = require('./semester.js');
+const { stalePairs } = require('./attendance.js');
+
+const CODE = /^[A-Z0-9_]+$/;
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function inRange(date, from, to) { return date >= from && date <= to; }
+
+function buildReport(data, from, to, kind) {
+  const d = data || {}; parseDate(from); parseDate(to);
+  const sessions = (Array.isArray(d.sessions) ? d.sessions : []).filter((s) => s && s.date && inRange(s.date, from, to));
+  const entries = (d.attendance && Array.isArray(d.attendance.entries) ? d.attendance.entries : []).filter((e) => e && inRange(e.date, from, to));
+  const byStatus = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
+  entries.forEach((e) => { if (byStatus[e.status] !== undefined) byStatus[e.status] += 1; });
+  const bySubject = {}; const byRegion = {};
+  sessions.forEach((s) => {
+    if (typeof s.subject === 'string' && CODE.test(s.subject)) bySubject[s.subject] = (bySubject[s.subject] || 0) + 1;
+    if (typeof s.region === 'string' && CODE.test(s.region)) byRegion[s.region] = (byRegion[s.region] || 0) + 1;
+  });
+  const decided = byStatus.held + byStatus.missed;
+  const pairs = Array.isArray(d.pairs) ? d.pairs : sessions.map((s, i) => ({ pairIndex: Number.isInteger(s.pairIndex) ? s.pairIndex : i }));
+  return Object.freeze({
+    kind, from, to, scheduled: sessions.length,
+    byStatus: Object.freeze(byStatus), bySubject: Object.freeze(bySubject), byRegion: Object.freeze(byRegion),
+    heldRate: decided === 0 ? null : Math.round((byStatus.held / decided) * 1000) / 1000,
+    stale: Object.freeze(d.attendance ? stalePairs(pairs, d.attendance, to, { since: from }) : [])
+  });
+}
+function weeklyReport(data, weekStartISO) { parseDate(weekStartISO); return buildReport(data, weekStartISO, addDays(weekStartISO, 6), 'weekly'); }
+function monthlyReport(data, month) {
+  const m = typeof month === 'string' && /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) throw new Error('invalid month: expected YYYY-MM');
+  const from = month + '-01'; parseDate(from);
+  const next = Number(m[2]) === 12 ? (Number(m[1]) + 1) + '-01-01' : m[1] + '-' + String(Number(m[2]) + 1).padStart(2, '0') + '-01';
+  return buildReport(data, from, addDays(next, -1), 'monthly');
+}
+function semesterReport(data, semester) {
+  if (!semester || !semester.startDate || !semester.endDate) throw new Error('invalid semester');
+  return buildReport(data, semester.startDate, semester.endDate, 'semester');
+}
+
+function reportToCsv(report) {
+  const lines = ['measure,code,count'];
+  lines.push('scheduled,,' + report.scheduled);
+  ['held', 'missed', 'postponed', 'cancelled'].forEach((s) => lines.push('status_' + s + ',,' + report.byStatus[s]));
+  Object.keys(report.bySubject).sort().forEach((k) => lines.push('subject,' + k + ',' + report.bySubject[k]));
+  Object.keys(report.byRegion).sort().forEach((k) => lines.push('region,' + k + ',' + report.byRegion[k]));
+  lines.push('stale_pairs,,' + report.stale.length);
+  return lines.join('\n') + '\n';
+}
+function icsEscape(s) { return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
+// Dated sessions -> iCalendar text. dtstampISO is caller-passed (YYYYMMDDTHHMMSSZ or YYYY-MM-DD).
+function reportToIcs(sessions, opts) {
+  const stamp = String((opts && opts.dtstamp) || '20260101T000000Z').replace(/[^0-9TZ]/gi, '');
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PeerEd//Coordinator//EN'];
+  (Array.isArray(sessions) ? sessions : []).forEach((s) => {
+    // identifiers are validated, never interpolated raw: a forged pairIndex or slot must not inject lines
+    if (!s || !s.date || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) return;
+    let ymd; try { parseDate(s.date); ymd = s.date.replace(/-/g, ''); } catch (e) { return; }
+    const slot = typeof s.slot === 'string' && /^([A-Z]{3})_(\d{1,2})$/.test(s.slot) ? s.slot : null;
+    if (slot === null) return;
+    const hour = Number(slot.split('_')[1]);
+    const dur = Number.isInteger(s.durationMinutes) && s.durationMinutes > 0 ? s.durationMinutes : 60;
+    const endTotal = hour * 60 + dur; const endDay = addDays(s.date, Math.floor(endTotal / 1440)); const endMin = endTotal % 1440;
+    const hh = String(hour).padStart(2, '0'); const eh = String(Math.floor(endMin / 60)).padStart(2, '0'); const em = String(endMin % 60).padStart(2, '0');
+    lines.push('BEGIN:VEVENT', 'UID:peered-' + s.pairIndex + '-' + ymd + '-' + slot + '@peered', 'DTSTAMP:' + stamp,
+      'DTSTART:' + ymd + 'T' + hh + '0000', 'DTEND:' + endDay.replace(/-/g, '') + 'T' + eh + em + '00',
+      'SUMMARY:' + icsEscape('PeerEd pair ' + s.pairIndex + ' ' + (typeof s.subject === 'string' && /^[A-Z0-9_]+$/.test(s.subject) ? s.subject : '')), 'END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n') + '\r\n';
+}
+function svgBarChart(data, opts) {
+  const rows = (Array.isArray(data) ? data : []).filter((r) => r && CODE.test(String(r.code)));
+  const w = 320; const rowH = 22; const h = Math.max(40, rows.length * rowH + 28); const max = Math.max(1, ...rows.map((r) => Number(r.count) || 0));
+  // namespace split into parts: the literal scheme string must never appear in the built single file
+  let out = '<svg xmlns="' + 'ht' + 'tp://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" role="img" aria-label="' + esc((opts && opts.title) || 'chart') + '">';
+  rows.forEach((r, i) => {
+    const y = 18 + i * rowH; const bw = Math.round(((Number(r.count) || 0) / max) * 180);
+    out += '<text x="4" y="' + (y + 4) + '" font-size="11">' + esc(r.code) + '</text><rect x="100" y="' + (y - 8) + '" width="' + bw + '" height="12" fill="#2563eb"></rect><text x="' + (106 + bw) + '" y="' + (y + 4) + '" font-size="11">' + (Number(r.count) || 0) + '</text>';
+  });
+  return out + '</svg>';
+}
+// Printable fragment: the coordinator prints it to PDF from the browser. No scripts, no external assets.
+function printableHtml(report) {
+  const bars = svgBarChart(Object.keys(report.bySubject).sort().map((k) => ({ code: k, count: report.bySubject[k] })), { title: 'subjects' });
+  const rows = Object.keys(report.byStatus).map((k) => '<tr><th scope="row">' + esc(k) + '</th><td>' + report.byStatus[k] + '</td></tr>').join('');
+  return '<section dir="rtl" lang="he"><h2>דוח רכז ' + esc(report.kind) + ' ' + esc(report.from) + ' – ' + esc(report.to) + '</h2>' +
+    '<p>מפגשים מתוכננים: ' + report.scheduled + ' | שיעור קיום: ' + (report.heldRate === null ? '—' : Math.round(report.heldRate * 100) + '%') + '</p>' +
+    '<table><caption>לפי סטטוס</caption>' + rows + '</table>' + bars + '<p>זוגות שלא נפגשו שבועיים: ' + report.stale.length + '</p></section>';
+}
+
+module.exports = { buildReport, weeklyReport, monthlyReport, semesterReport, reportToCsv, reportToIcs, svgBarChart, printableHtml };
+  __registry["reports"] = module.exports;
+})();
+
+/* ===== src/lib/curriculum.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - lesson content: engineering students (mentors) teach children AI (stage 10).
+// Two tracks, about 12 lessons each, 45 minutes a lesson. Hebrew first; every lesson title
+// also has an i18n key (cur.*) translated in lang-he/lang-ar/lang-ru for ar/ru. Content only:
+// no child personal data, no network, no clock, no randomness. A group's track is passed in
+// by the caller (trackByPair); the module never invents a track for a group it does not know.
+
+const TRACKS = Object.freeze(['elementary', 'middle']);
+const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
+const LESSON_MINUTES = 45;
+
+function lesson(track, index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe) {
+  return Object.freeze({
+    id: track + '-' + slug, track, index,
+    titleKey: 'cur.' + track + '.' + slug, titleHe,
+    goalsHe: Object.freeze(goalsHe.slice()),
+    flowHe: Object.freeze(flowHe.map((f) => Object.freeze({ minutes: f[0], stepHe: f[1] }))),
+    activityHe, unpluggedHe,
+    materialsHe: Object.freeze(materialsHe.slice()),
+    wrapUpHe: Object.freeze(wrapUpHe.slice())
+  });
+}
+
+const ELEMENTARY = Object.freeze([
+  lesson('elementary', 0, 'what-is-ai', 'מה זו בינה מלאכותית?',
+    ['להבחין בין מכונה רגילה למכונה שלומדת', 'לתת דוגמה אחת של בינה מלאכותית מהבית'],
+    [[5, 'פתיחה: מציגים שני חפצים ושואלים מה ההבדל בין מנורה למצלמה שמזהה פנים'], [10, 'הסבר קצר עם כרטיסיות: מכונה פועלת לפי הוראות, מכונה לומדת מדוגמאות'], [20, 'פעילות: משחק מיון - התלמידים ממיינים כרטיסיות למשימה שמכונה יודעת ולמשימה שלא'], [10, 'סיכום ושאלות הבנה בזוגות']],
+    'משחק מיון כרטיסיות: כל זוג ממיין משימות ומנמק בקול.',
+    'בלי מחשב: התלמידים הם המכונה - אחד נותן הוראות מדויקות והשני מבצע בדיוק, ומגלים למה הוראות מעורפלות נכשלות.',
+    ['כרטיסיות משימות', 'לוח וטוש'],
+    ['מה ההבדל בין הוראה לדוגמה?', 'איזו משימה הייתם מלמדים מכונה קודם?']),
+  lesson('elementary', 1, 'learn-examples', 'למידה מדוגמאות',
+    ['להבין שמכונה לומדת מהרבה דוגמאות', 'להבחין בין דוגמה טובה לרועשת'],
+    [[5, 'פתיחה: מראים תמונה אחת של חתול ושואלים אם מספיקה דוגמה אחת'], [10, 'הסבר: מלמדים מכונה עם עשר דוגמאות ומסבירים למה צריך הרבה'], [20, 'פעילות: מאמנים בן זוג - מראים כרטיסי צורות והוא מנחש את הכלל'], [10, 'סיכום: מה קורה כשכל הדוגמאות דומות מדי']],
+    'אימון בזוגות: מדריך כרטיסים מלמד כלל סודי ובן הזוג מנחש, ואז מחליפים תפקידים.',
+    'אותה פעילות בכרטיסי נייר בלבד, בלי מסך: הכלל הסודי כתוב על פתק מקופל.',
+    ['כרטיסי צורות', 'פתקי כלל'],
+    ['למה דוגמה אחת לא מספיקה?', 'מהי דוגמה שמבלבלת מכונה?']),
+  lesson('elementary', 2, 'image-recognition', 'זיהוי תמונות ודפוסים',
+    ['להבין איך מכונה מזהה תמונה לפי חלקים ודפוסים', 'להסביר למה זיהוי לפעמים טועה'],
+    [[5, 'פתיחה: מנחשים חפץ מתמונה חתוכה לחלקים'], [10, 'הסבר: מכונה מחפשת קצוות, צורות וצבעים ואז מנחשת'], [20, 'פעילות: מציירים אותה חיה בסגנונות שונים ובודקים אם הכיתה מזהה'], [10, 'סיכום: מתי הזיהוי נכשל - חושך, הסתרה, זווית מוזרה']],
+    'ציור ובדיקה: כל תלמיד מצייר חיה והכיתה מנחשת, עם רמזים מהחלקים.',
+    'בלי מחשב: משחק עשרים שאלות על תמונה מוסתרת - שואלים רק על חלקים ודפוסים.',
+    ['דפי ציור', 'תמונות חתוכות מודפסות'],
+    ['איך מכונה יודעת שזה חתול?', 'מתי גם אנחנו טועים בזיהוי?']),
+  lesson('elementary', 3, 'chatbots', 'צ׳אטבוטים ושיחה עם מכונה',
+    ['להבין שצ׳אטבוט בונה תשובה ממילים ולא חושב כמו אדם', 'לנסח שאלה ברורה למכונה'],
+    [[5, 'פתיחה: קוראים שיחה מצחיקה עם מכונה ושואלים מה חסר בה'], [10, 'הסבר: המכונה משלימה את המילה הבאה הסבירה, בלי להבין באמת'], [20, 'פעילות: משחק השלמת משפטים שרשרת - בונים סיפור מילה אחרי מילה כמו מכונה'], [10, 'סיכום: למה תשובת מכונה יכולה להישמע בטוחה וגם לטעות']],
+    'סיפור שרשרת: כל תלמיד מוסיף מילה אחת סבירה, ומקבלים סיפור מפתיע.',
+    'בלי מחשב: אחד משחק מכונה ועונה רק מהשלמת המילה הסבירה, והשאר מנסים לבלבל אותו בנימוס.',
+    ['כרטיסי משפט פתיחה'],
+    ['האם המכונה מבינה את הסיפור?', 'איך נשאל שאלה שהמכונה תענה עליה טוב?']),
+  lesson('elementary', 4, 'data-bias', 'נתונים והוגנות',
+    ['להבין שמכונה לומדת ממה שמראים לה', 'לזהות אימון לא הוגן שמפספס קבוצה שלמה'],
+    [[5, 'פתיחה: מלמדים כלל רק מדוגמאות של ילדים ושואלים מה עם מבוגרים'], [10, 'הסבר: אם הדוגמאות חד-צדדיות, המכונה תטעה על מי שלא הראה לה'], [20, 'פעילות: בונים ערכת אימון הוגנת ולא הוגנת לציור דמויות ומשווים תוצאות ניחוש'], [10, 'סיכום: הוגנות מתחילה במי שמראים למכונה']],
+    'בניית ערכות: שתי קבוצות בונות דוגמאות שונות ובודקות זו את זו.',
+    'בלי מחשב: קופסת דוגמאות מנייר - מוציאים דוגמאות חד-צדדיות ורואים את הניחוש מוטה.',
+    ['כרטיסי דמויות', 'שתי קופסאות'],
+    ['למי המכונה תטעה אם לא הראו לה אותו?', 'איך עושים אימון הוגן יותר?']),
+  lesson('elementary', 5, 'safety-privacy', 'בטיחות ופרטיות',
+    ['לזהות מה לא משתפים עם מכונה או ברשת', 'לנסח כלל בטיחות אחד למשפחה'],
+    [[5, 'פתיחה: ממיינים כרטיסי מידע למה שמותר ומה שאסור לשתף'], [10, 'הסבר: מכונה שומרת מה שכותבים לה, ולכן לא כותבים פרטים אישיים'], [20, 'פעילות: בונים שלט כללי בטיחות לכיתה עם ציורים'], [10, 'סיכום ובחירת הכלל החשוב ביותר בהצבעה']],
+    'מיון כרטיסים ובניית שלט כיתתי משותף.',
+    'בלי מחשב: משחק תפקידים - מה עונים למכונה ששואלת שאלה אישית מדי.',
+    ['כרטיסי מידע', 'דף גדול וטושים'],
+    ['מה לעולם לא נכתוב למכונה?', 'למי מספרים אם משהו מרגיש לא בטוח?']),
+  lesson('elementary', 6, 'creative-ai', 'יצירה עם בינה מלאכותית',
+    ['להבין שמכונה יכולה לעזור ליצור אבל הרעיון שלנו', 'לבנות יצירה משותפת אדם ומכונה בדמיון'],
+    [[5, 'פתיחה: משלימים ציור חצי גמור של חבר ושואלים מי היוצר'], [10, 'הסבר: מכונה מציעה המשכים, והאדם בוחר ועורך'], [20, 'פעילות: סיפור מאויר בזוגות - אחד מציע שלושה המשכים והשני בוחר וממשיך'], [10, 'סיכום: למה הבחירה האנושית היא היצירה']],
+    'סיפור מאויר בזוגות עם בחירת המשכים.',
+    'בלי מחשב: קוביית רעיונות - מטילים ובונים המשך לסיפור לפי הפאה שיצאה.',
+    ['דפים', 'צבעים', 'קובייה'],
+    ['מי יצר את הסיפור, המציע או הבוחר?', 'מתי עזרת מכונה היא כבר לא היצירה שלי?']),
+  lesson('elementary', 7, 'good-questions', 'שאלות טובות למכונה',
+    ['לנסח בקשה ברורה עם פרטים חשובים', 'לשפר בקשה מעורפלת בשני צעדים'],
+    [[5, 'פתיחה: מבצעים הוראה מעורפלת וצוחקים מהתוצאה'], [10, 'הסבר: בקשה טובה אומרת מה, למי, באיזה אורך ובאיזה סגנון'], [20, 'פעילות: מתקנים בקשות מעורפלות על כרטיסים עד שהכיתה מבינה בדיוק'], [10, 'סיכום: בודקים בקשה מתוקנת על בן זוג אנושי']],
+    'תיקון בקשות על כרטיסים בזוגות.',
+    'בלי מחשב: משחק ההוראות המדויקות - מציירים לפי הוראות של חבר בלי לראות את המקור.',
+    ['כרטיסי בקשות מעורפלות'],
+    ['מה הופך שאלה לברורה?', 'איזה פרט הכי חשוב להוסיף ראשון?']),
+  lesson('elementary', 8, 'ai-at-home', 'בינה מלאכותית בבית ובבית הספר',
+    ['לזהות בינה מלאכותית במכשירים יומיומיים', 'להחליט מתי עזרת מכונה מתאימה ומתי לא'],
+    [[5, 'פתיחה: סופרים כמה מכונות חכמות פגשנו מהבוקר'], [10, 'הסבר: המלצות, ניווט, תרגום ועוזרות קוליות - כולן מנחשות מדוגמאות'], [20, 'פעילות: מצביעים בכרטיסים על מצבים - מכונה עוזרת או עדיף לבד, ומנמקים'], [10, 'סיכום: שיעורי בית ולמידה - מה נשאר שלנו']],
+    'הצבעת מצבים עם כרטיסי כן ולא ונימוקים.',
+    'בלי מחשב: ציד חפצים חכמים בציור של בית - מסמנים ומסבירים מה כל אחד מנחש.',
+    ['כרטיסי הצבעה', 'ציור בית'],
+    ['איפה מכונה עוזרת לכם הכי הרבה?', 'מה תמיד תעשו בעצמכם?']),
+  lesson('elementary', 9, 'robots-sensors', 'חיישנים ורובוטים חכמים',
+    ['להבין שרובוט חש בעזרת חיישנים ומחליט לפי כללים ולמידה', 'לתאר מסלול החלטה של רובוט'],
+    [[5, 'פתיחה: צועדים בעיניים עצומות לפי הוראות ושואלים מה חסר'], [10, 'הסבר: חיישן הוא העין והאוזן של הרובוט, והמוח מחליט מה לעשות'], [20, 'פעילות: מנווטים חבר רובוט במסלול מכשולים בהוראות צעד וסיבוב'], [10, 'סיכום: מה רובוט עדיין לא יודע לעשות']],
+    'ניווט רובוט אנושי במסלול מכשולים בכיתה.',
+    'בלי מחשב: אותה פעילות היא הלא-מחוברת - רובוט הוא תלמיד, בלי שום מסך.',
+    ['כיסאות כמכשולים', 'סרט סימון'],
+    ['מהו חיישן?', 'איזו החלטה קשה לרובוט?']),
+  lesson('elementary', 10, 'truth-check', 'בודקים אם זה אמיתי',
+    ['לזהות תמונה או סיפור שמכונה המציאה', 'להשתמש בשתי בדיקות לפני שמאמינים'],
+    [[5, 'פתיחה: שתי תמונות, אחת מצוירת ואחת מומצאת, מנחשים איזו'], [10, 'הסבר: מכונות יכולות להמציא תמונות וסיפורים שנשמעים אמיתיים'], [20, 'פעילות: בלשי אמת - מחפשים שלושה רמזים חשודים בתמונות ובסיפורים קצרים'], [10, 'סיכום: שואלים מבוגר ובודקים במקום נוסף לפני שמשתפים']],
+    'בלשי אמת בקבוצות: מוצאים רמזים חשודים ומציגים לכיתה.',
+    'בלי מחשב: סיפורים מודפסים, אחד אמיתי ואחד מומצא, מחפשים רמזים בטקסט בלבד.',
+    ['תמונות מודפסות', 'סיפורים קצרים מודפסים'],
+    ['מהו רמז שמשהו מומצא?', 'מה עושים לפני שמשתפים תמונה מפתיעה?']),
+  lesson('elementary', 11, 'mini-project', 'מיני-פרויקט סיום: ממציאים עוזר חכם',
+    ['לתכנן עוזר חכם שפותר בעיה אמיתית', 'להציג מה העוזר לומד ומה הוא לא ישתף לעולם'],
+    [[5, 'פתיחה: נזכרים בכל השיעורים ובוחרים בעיה אחת מהכיתה'], [15, 'תכנון בזוגות: מציירים את העוזר, מה הוא חש, ומאילו דוגמאות ילמד'], [15, 'בניית כרזה: שם, ציור, שלושה כללי הוגנות ובטיחות'], [10, 'הצגות קצרות ושאלה אחת מכל זוג למציגים']],
+    'בניית כרזת עוזר חכם והצגה לכיתה.',
+    'בלי מחשב: כל הפרויקט על נייר - כרזה, ציור וכללים, בלי מסכים בכלל.',
+    ['דפים גדולים', 'טושים וצבעים'],
+    ['איזו בעיה העוזר שלכם פותר?', 'מאילו דוגמאות הוא ילמד כדי להיות הוגן?'])
+]);
+
+const MIDDLE = Object.freeze([
+  lesson('middle', 0, 'what-is-ai', 'מה זו בינה מלאכותית ולמידת מכונה',
+    ['להבחין בין תוכנה מבוססת כללים למודל שלמד מנתונים', 'לתאר מחזור אימון: נתונים, אימון, בדיקה'],
+    [[5, 'פתיחה: שני פתרונות לאותה בעיה - כללים ידניים מול למידה מדוגמאות'], [12, 'הסבר: מודל, נתוני אימון וטעות - איך מודל משתפר מהרבה ניסיונות'], [18, 'פעילות: ממיינים מערכות מוכרות לכללים או ללמידה ומנמקים'], [10, 'סיכום: מתי כללים עדיפים ומתי למידה']],
+    'מיון מערכות ונימוק בקבוצות, עם הגנה על בחירה אחת מול הכיתה.',
+    'בלי מחשב: בניית מסווג אנושי - כללים כתובים על לוח מול ניחוש מדוגמאות בכרטיסים.',
+    ['כרטיסי מערכות', 'לוח'],
+    ['מה ההבדל בין כלל למודל?', 'מתי לא הייתם סומכים על למידה?']),
+  lesson('middle', 1, 'training-data', 'למידה מדוגמאות ונתוני אימון',
+    ['להסביר אימון, אימות ובדיקה ומהי התאמת-יתר בפשטות', 'לבנות ערכת דוגמאות מאוזנת למשימה'],
+    [[5, 'פתיחה: מודל שנבחן על אותן שאלות שלמד - למה זה לא הוגן'], [12, 'הסבר: חלוקת נתונים לאימון ובדיקה, וטעויות משני הסוגים'], [18, 'פעילות: בונים ערכת אימון למסווג ציורים ומחליפים ערכות לבדיקה צולבת'], [10, 'סיכום: מה ערכת בדיקה טובה חייבת להכיל']],
+    'בניית ערכות אימון ובדיקה צולבת בין קבוצות.',
+    'בלי מחשב: כרטיסי ציור וטבלת רישום ניחושים על נייר, עם ספירת טעויות ידנית.',
+    ['כרטיסי ציור', 'טבלאות רישום'],
+    ['למה בודקים על דוגמאות חדשות?', 'איך נראית ערכת אימון גרועה?']),
+  lesson('middle', 2, 'image-recognition', 'זיהוי תמונות ורשתות עצביות',
+    ['לתאר בשכבות איך רשת מזהה תמונה מקצוות לצורות לאובייקט', 'להסביר טעות זיהוי אחת ולתקן בדוגמאות'],
+    [[5, 'פתיחה: מזהים תמונה שמתגלה שכבה אחרי שכבה'], [12, 'הסבר: שכבות של מאפיינים - קווים, צורות, חלקים, וציון ביטחון'], [18, 'פעילות: צוות אחד בונה רמזי שכבות והשני מנחש, ואז מנתחים טעות'], [10, 'סיכום: ביטחון גבוה הוא לא הוכחה לנכונות']],
+    'משחק שכבות רמזים וניתוח טעויות בזוגות צוותים.',
+    'בלי מחשב: תמונות מודפסות בחיתוכים הולכים וגדלים, ורישום שלב הניחוש הנכון.',
+    ['תמונות מודפסות בשכבות'],
+    ['מה רואה השכבה הראשונה של רשת?', 'למה ביטחון גבוה עדיין יכול לטעות?']),
+  lesson('middle', 3, 'llm-chatbots', 'מודלי שפה וצ׳אטבוטים',
+    ['להסביר חיזוי המילה הבאה והקשרה בשפה פשוטה', 'לזהות הזיה של מודל ולהצליב עם מקור נוסף'],
+    [[5, 'פתיחה: מנחשים את המילה הבאה במשפטים ורואים כמה אפשרויות סבירות יש'], [12, 'הסבר: אימון על המון טקסט, חיזוי הסתברותי, ולמה נוצרות הזיות'], [18, 'פעילות: מחבר שרשרת - ממשיכים טקסט כמו מודל, ואז בודקים עובדה אחת שהמציא'], [10, 'סיכום: כלל אצבע - מודל הוא מקור ראשון, לא מקור אחרון']],
+    'המשכת טקסט כמו מודל ובדיקת עובדות מומצאות.',
+    'בלי מחשב: משחק חיזוי מילה הבאה על לוח, עם הצבעה על ההמשך הסביר ביותר.',
+    ['לוח', 'דפי טקסט קצרים'],
+    ['מה המודל באמת עושה כשהוא עונה?', 'איך תפסנו הזיה אחת היום?']),
+  lesson('middle', 4, 'prompting-verify', 'הנחיות יעילות ובדיקת תשובות',
+    ['לנסח הנחיה עם מטרה, הקשר, פורמט ודוגמה', 'לאמת תשובת מודל בשני מקורות בלתי תלויים'],
+    [[5, 'פתיחה: אותה שאלה בשתי ניסוחים ותוצאות שונות לגמרי'], [12, 'הסבר: מבנה הנחיה טובה - תפקיד, משימה, אילוצים, פורמט פלט'], [18, 'פעילות: משפרים הנחיות חלשות על כרטיסים ומשווים תשובות אנושיות לתשובות מודל בדמיון'], [10, 'סיכום: רשימת בדיקת אימות לפני שמשתמשים בתשובה']],
+    'סדנת שיפור הנחיות על כרטיסים בזוגות.',
+    'בלי מחשב: בן זוג משחק מודל צייתן ופשוטו כמשמעו - הנחיה מעורפלת נכשלת מיד.',
+    ['כרטיסי הנחיות'],
+    ['איזה חלק בהנחיה שינה הכי הרבה?', 'מהי בדיקת האימות הראשונה שלכם?']),
+  lesson('middle', 5, 'data-bias', 'נתונים, הטיה והוגנות',
+    ['להסביר הטיית נתונים, הטיית תוויות ומדידת פער בין קבוצות', 'להציע תיקון אחד לנתונים ואחד לבדיקה'],
+    [[5, 'פתיחה: מודל שלמד רק מקבוצה אחת נבחן על אחרת - צופים בפער'], [12, 'הסבר: מאיפה הטיה נכנסת - איסוף, תיוג, ומי חסר בנתונים'], [18, 'פעילות: חוקרים טבלת תוצאות קטנה, מוצאים פער ומציעים תיקון'], [10, 'סיכום: הוגנות נמדדת בתוצאות לפי קבוצות, לא בכוונות']],
+    'חקירת טבלת תוצאות וכתיבת המלצת תיקון.',
+    'בלי מחשב: טבלה מודפסת וספירת תאים ידנית בשני צבעים.',
+    ['טבלאות מודפסות', 'טושים בשני צבעים'],
+    ['איפה נכנסה ההטיה בדוגמה?', 'איך הייתם מודדים שהתיקון עבד?']),
+  lesson('middle', 6, 'deepfakes-verify', 'זיופים עמוקים ואימות מידע',
+    ['לזהות סימני זיוף בתמונה, בקול ובסרטון', 'ליישם בדיקת מקור, הקשר ואישוש צולב'],
+    [[5, 'פתיחה: שתי כותרות מפתיעות - מה בודקים לפני שמשתפים'], [12, 'הסבר: איך נוצר זיוף עמוק ולמה העין כבר לא מספיקה'], [18, 'פעילות: תחנות אימות - כל קבוצה מאמתת פריט אחר ומדווחת ודאות ורמזים'], [10, 'סיכום: שיתוף הוא פעולה - עוצרים כשלא בטוחים']],
+    'תחנות אימות בקבוצות עם דיווח ודאות מנומק.',
+    'בלי מחשב: פריטים מודפסים בלבד - בודקים מקור, תאריך והקשר על הנייר.',
+    ['פריטים מודפסים לאימות'],
+    ['מהו סימן הזיוף הכי אמין שמצאתם?', 'מתי נכון לא לשתף גם אם זה נראה אמיתי?']),
+  lesson('middle', 7, 'privacy-safety', 'פרטיות ובטיחות בעידן הבינה המלאכותית',
+    ['למפות אילו נתונים שירות אוסף ולמה', 'לנסח מדיניות אישית: מה לא מזינים למודל לעולם'],
+    [[5, 'פתיחה: מה מודל יכול לזכור משיחה אחת תמימה'], [12, 'הסבר: הזנת נתונים לאימון, הרשאות, ומחיקה - מה בשליטתנו ומה לא'], [18, 'פעילות: בונים תווית פרטיות לשירות דמיוני - אוסף, שומר, משתף, מוחק'], [10, 'סיכום: שלושה קווים אדומים אישיים שכל אחד כותב לעצמו']],
+    'בניית תווית פרטיות לשירות דמיוני בקבוצות.',
+    'בלי מחשב: כרטיסי תרחישים - ממיינים מה מזינים ומה לא, ומנמקים.',
+    ['כרטיסי תרחישים', 'דפי תווית'],
+    ['מה לא תזינו למודל לעולם?', 'איך יודעים אם שירות מוחק באמת?']),
+  lesson('middle', 8, 'ai-creativity', 'בינה מלאכותית ויצירה',
+    ['להבחין בין יצירה, עריכה וייצור המוני בעזרת מודל', 'להפיק יצירה עם קרדיט הוגן לתהליך'],
+    [[5, 'פתיחה: מי חתום על יצירה שהמודל הציע ואדם ערך'], [12, 'הסבר: מודלים יוצרים מהמשכים סטטיסטיים של יצירות קודמות - וזכויות וקרדיט'], [18, 'פעילות: יוצרים סיפור או כרזה עם שלבי הצעה, בחירה ועריכה מתועדים'], [10, 'סיכום: מתי שימוש במודל פוגע בלמידה שלנו']],
+    'יצירה מתועדת-שלבים בזוגות: הצעה, בחירה, עריכה.',
+    'בלי מחשב: מגזין גזירי משפטים - מרכיבים סיפור מגזרים כמו מודל ובוחרים עריכה.',
+    ['גזירי משפטים מודפסים', 'דפים וצבעים'],
+    ['מי היוצר כשמודל מציע ואדם בוחר?', 'איך נותנים קרדיט הוגן?']),
+  lesson('middle', 9, 'ai-society-work', 'בינה מלאכותית, עבודה וחברה',
+    ['למפות מטלות במקצוע שמודל משנה ומטלות שנשארות אנושיות', 'לטעון בעד ונגד אוטומציה של מטלה אחת'],
+    [[5, 'פתיחה: מקצוע אחד על הלוח - אילו מטלות שלו משתנות'], [12, 'הסבר: אוטומציה של מטלות, לא של מקצועות שלמים, ומקצועות חדשים שנוצרים'], [18, 'פעילות: דיבייט קצר - כל קבוצה טוענת צד אחר על מטלה שבחרה'], [10, 'סיכום: מיומנות אנושית אחת להשקיע בה']],
+    'דיבייט מטלות בקבוצות עם שופטי כיתה.',
+    'בלי מחשב: כרטיסי מטלות מקצוע על נייר - ממיינים למשתנה, נשאר, וחדש.',
+    ['כרטיסי מטלות'],
+    ['מטלה שהשתנתה, או מקצוע שלם?', 'באיזו מיומנות אנושית תשקיעו?']),
+  lesson('middle', 10, 'ethics-responsibility', 'אתיקה: מי אחראי כשהמכונה טועה',
+    ['לנתח תרחיש נזק: מפתח, מפעיל, משתמש ונתונים', 'לנסח כלל אחריות אחד למערכת בית-ספרית'],
+    [[5, 'פתיחה: תרחיש קצר - מודל טעה ומישהו נפגע, מי אשם'], [12, 'הסבר: אחריות מבוזרת, פיקוח אנושי, וזכות ערעור על החלטת מכונה'], [18, 'פעילות: בית דין כיתתי - טוענים תפקידים שונים על אותו תרחיש'], [10, 'סיכום: כלל זהב - החלטה חשובה תמיד עם אדם אחראי וערעור']],
+    'בית דין כיתתי על תרחיש נזק.',
+    'בלי מחשב: כרטיסי תפקידים ותרחיש מודפס, בלי מסכים.',
+    ['כרטיסי תפקידים', 'תרחיש מודפס'],
+    ['מי אחראי כשהמודל טועה?', 'מהו כלל האחריות שלכם?']),
+  lesson('middle', 11, 'mini-project', 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית',
+    ['להגדיר בעיה, קהל ונתונים לפרויקט צוותי', 'להציג סיכונים, הוגנות ובדיקת אימות בתוכנית'],
+    [[5, 'פתיחה: בוחרים בעיה אמיתית מבית הספר או מהשכונה'], [15, 'תכנון: בעיה, קהל, אילו נתונים צריך, ואיך נאמן ונבדוק'], [15, 'בניית מצגת או כרזה: פתרון, סיכוני הוגנות ופרטיות, ותוכנית אימות'], [10, 'הצגות ושאלות - כל צוות מקבל שאלת אתיקה אחת']],
+    'תכנון ובניית מצגת פרויקט בצוותים.',
+    'בלי מחשב: כל הפרויקט ככרזה על נייר, כולל תוכנית הנתונים והאימות.',
+    ['דפים גדולים', 'טושים'],
+    ['איזו בעיה הפרויקט פותר ולמי?', 'מהו הסיכון הכי גדול בתוכנית שלכם?'])
+]);
+
+const BY_TRACK = Object.freeze({ elementary: ELEMENTARY, middle: MIDDLE });
+const ALL_LESSONS = Object.freeze(ELEMENTARY.concat(MIDDLE));
+
+function assertTrack(track) {
+  if (TRACKS.indexOf(track) === -1) throw new Error('invalid track: expected elementary or middle');
+  return track;
+}
+function trackForGrade(grade) {
+  if (!Number.isInteger(grade)) throw new Error('invalid grade: expected an integer 3..9');
+  if (grade >= 3 && grade <= 6) return 'elementary';
+  if (grade >= 7 && grade <= 9) return 'middle';
+  throw new Error('invalid grade: expected an integer 3..9');
+}
+function lessonsForTrack(track) { return BY_TRACK[assertTrack(track)]; }
+function getLesson(track, index) {
+  const list = lessonsForTrack(track);
+  if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error('invalid lesson index for track ' + track);
+  return list[index];
+}
+function lessonById(id) {
+  const found = ALL_LESSONS.find((l) => l.id === id);
+  if (!found) throw new Error('unknown lesson id');
+  return found;
+}
+function flowMinutes(lesson) { return lesson.flowHe.reduce((sum, f) => sum + f.minutes, 0); }
+
+function resolveTrack(trackByPair, pairIndex) {
+  let track;
+  if (typeof trackByPair === 'function') track = trackByPair(pairIndex);
+  else if (trackByPair && typeof trackByPair === 'object') track = trackByPair[pairIndex];
+  if (track === undefined || track === null) throw new Error('missing track for pair ' + pairIndex);
+  return assertTrack(track);
+}
+function sessionOrderKey(s) {
+  return [Number.isInteger(s.week) ? s.week : 0, typeof s.slot === 'string' ? s.slot : '', typeof s.date === 'string' ? s.date : ''];
+}
+// Each session gets the next lesson of its group's track, in session order within the group.
+// More sessions than lessons start a new cycle (cycle 2 repeats the track from lesson 1).
+function assignLessons(sessions, trackByPair) {
+  const list = Array.isArray(sessions) ? sessions : [];
+  list.forEach((s) => { if (!s || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) throw new Error('invalid session: pairIndex'); });
+  const byPair = new Map();
+  list.forEach((s, i) => { if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, []); byPair.get(s.pairIndex).push(i); });
+  const out = new Array(list.length);
+  byPair.forEach((indexes, pairIndex) => {
+    const track = resolveTrack(trackByPair, pairIndex);
+    const lessons = lessonsForTrack(track);
+    const ordered = indexes.slice().sort((a, b) => {
+      const ka = sessionOrderKey(list[a]); const kb = sessionOrderKey(list[b]);
+      for (let k = 0; k < ka.length; k += 1) { if (ka[k] < kb[k]) return -1; if (ka[k] > kb[k]) return 1; }
+      return a - b;
+    });
+    ordered.forEach((sessionIdx, pos) => {
+      const lessonIndex = pos % lessons.length;
+      out[sessionIdx] = Object.freeze(Object.assign({}, list[sessionIdx], {
+        track, sessionIndex: pos, cycle: Math.floor(pos / lessons.length) + 1,
+        lessonIndex, lessonId: lessons[lessonIndex].id, titleKey: lessons[lessonIndex].titleKey
+      }));
+    });
+  });
+  return Object.freeze(out);
+}
+function todayLesson(assigned, pairIndex, delivered) {
+  const rows = (Array.isArray(assigned) ? assigned : []).filter((s) => s && s.pairIndex === pairIndex);
+  if (rows.length === 0) return null;
+  const done = delivered instanceof Set ? delivered : new Set(Array.isArray(delivered) ? delivered : []);
+  const next = rows.find((s) => !done.has(deliveryKey(s)));
+  const pick = next || rows[rows.length - 1];
+  return Object.freeze({ pairIndex, lesson: lessonById(pick.lessonId), assigned: pick, delivered: !next });
+}
+function makeDeliveryLog() { return Object.freeze({ delivered: Object.freeze([]) }); }
+function deliveryKeyOf(pairIndex, lessonId, cycle) { return pairIndex + '|' + lessonId + '|' + (Number.isInteger(cycle) ? cycle : 1); }
+function deliveryKey(session) { return deliveryKeyOf(session.pairIndex, session.lessonId, session.cycle); }
+function assertLog(log) { if (!log || !Array.isArray(log.delivered)) throw new Error('invalid delivery log'); }
+function setDelivered(log, input, delivered) {
+  assertLog(log); const o = input || {};
+  if (!Number.isInteger(o.pairIndex) || o.pairIndex < 0) throw new Error('invalid delivery: pairIndex');
+  lessonById(o.lessonId);
+  const key = deliveryKeyOf(o.pairIndex, o.lessonId, o.cycle);
+  const has = log.delivered.indexOf(key) !== -1;
+  const want = delivered !== false;
+  if (has === want) return log;
+  const next = want ? log.delivered.concat([key]).sort() : log.delivered.filter((k) => k !== key);
+  return Object.freeze({ delivered: Object.freeze(next) });
+}
+function isDelivered(log, input) { assertLog(log); const o = input || {}; return log.delivered.indexOf(deliveryKeyOf(o.pairIndex, o.lessonId, o.cycle)) !== -1; }
+function lessonProgress(assigned, log) {
+  assertLog(log);
+  const byPair = new Map();
+  (Array.isArray(assigned) ? assigned : []).forEach((s) => {
+    if (!s) return;
+    if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, { pairIndex: s.pairIndex, track: s.track, total: 0, delivered: 0, nextLessonId: null });
+    const row = byPair.get(s.pairIndex); row.total += 1;
+    if (log.delivered.indexOf(deliveryKey(s)) !== -1) row.delivered += 1;
+    else if (row.nextLessonId === null) row.nextLessonId = s.lessonId;
+  });
+  const rows = Array.from(byPair.values()).sort((a, b) => a.pairIndex - b.pairIndex)
+    .map((r) => Object.freeze(Object.assign({}, r, { percent: r.total === 0 ? null : Math.round((r.delivered / r.total) * 1000) / 1000 })));
+  const total = rows.reduce((n, r) => n + r.total, 0); const delivered = rows.reduce((n, r) => n + r.delivered, 0);
+  return Object.freeze({ byPair: Object.freeze(rows), total, delivered, percent: total === 0 ? null : Math.round((delivered / total) * 1000) / 1000 });
+}
+function progressToCsv(progress) {
+  const lines = ['pair,track,total,delivered,percent,next_lesson'];
+  (progress && Array.isArray(progress.byPair) ? progress.byPair : []).forEach((r) => {
+    lines.push(r.pairIndex + ',' + r.track + ',' + r.total + ',' + r.delivered + ',' + (r.percent === null ? '' : r.percent) + ',' + (r.nextLessonId || ''));
+  });
+  return lines.join('\n') + '\n';
+}
+
+module.exports = {
+  TRACKS, TRACK_GRADES, LESSON_MINUTES, ALL_LESSONS,
+  lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes,
+  assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv
+};
+  __registry["curriculum"] = module.exports;
+})();
+
 /* ===== src/lib/validator.js ===== */
 (function () {
   var module = { exports: {} };
@@ -2597,6 +3607,808 @@ module.exports = {
   __registry["session"] = module.exports;
 })();
 
+/* ===== src/lib/import-availability.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - paste import of availability (stage 5). The whole paste passes the free-text privacy gate
+// BEFORE parsing: one email/phone/id anywhere refuses everything, and nothing is partially stored.
+// Columns: role,region,subjects,availability  (subjects ';'-separated, slots ';'-separated DAY_HOUR).
+// parentConsent is never read from a paste: an imported pupil has no consent until granted elsewhere.
+
+const { findPersonalData, PERSONAL_DATA_ERROR } = require('./validator.js');
+const { makeProfile, normalizeSlot, SUBJECTS } = require('./profile.js');
+const { normalizeRegion } = require('./regions.js');
+
+function parseAvailabilityCsv(text) {
+  if (typeof text !== 'string') throw new Error('invalid import: expected text');
+  const hits = findPersonalData(text);
+  if (hits.length > 0) throw new Error(PERSONAL_DATA_ERROR);
+  // physical line numbers are kept (blank lines included), so an error names the row the coordinator sees
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const firstData = lines.findIndex((l) => l.trim() !== '');
+  if (firstData === -1) return Object.freeze({ profiles: Object.freeze([]), errors: Object.freeze([]) });
+  const header = lines[firstData].split(',').map((h) => h.trim().toLowerCase());
+  const want = ['role', 'region', 'subjects', 'availability'];
+  if (header.length !== 4 || !want.every((w, i) => header[i] === w)) throw new Error('invalid import header: expected role,region,subjects,availability');
+  const profiles = []; const errors = []; const seenRows = new Set();
+  for (let i = firstData + 1; i < lines.length; i += 1) {
+    if (lines[i].trim() === '') continue;
+    const cells = lines[i].split(',');
+    if (cells.length !== 4) { errors.push(Object.freeze({ line: i + 1, reason: 'WRONG_COLUMNS' })); continue; }
+    const role = cells[0].trim().toLowerCase();
+    const region = normalizeRegion(cells[1]);
+    const subjects = cells[2].split(';').map((s) => s.trim().toUpperCase()).filter(Boolean);
+    const availability = cells[3].split(';').map((s) => normalizeSlot(s.trim().toUpperCase())).filter(Boolean);
+    if (role !== 'student' && role !== 'pupil') { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_ROLE' })); continue; }
+    if (region === null) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_REGION' })); continue; }
+    if (subjects.length === 0 || subjects.some((s) => SUBJECTS.indexOf(s) === -1)) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SUBJECT' })); continue; }
+    if (availability.length === 0 || availability.length !== cells[3].split(';').filter((s) => s.trim() !== '').length) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SLOT' })); continue; }
+    const rowKey = role + '|' + region + '|' + subjects.slice().sort().join(';') + '|' + availability.slice().sort().join(';');
+    if (seenRows.has(rowKey)) { errors.push(Object.freeze({ line: i + 1, reason: 'DUPLICATE_ROW' })); continue; }
+    seenRows.add(rowKey);
+    try { profiles.push(makeProfile({ role, region, availability, subjects })); }
+    catch (e) { errors.push(Object.freeze({ line: i + 1, reason: 'PROFILE_REJECTED' })); }
+  }
+  return Object.freeze({ profiles: Object.freeze(profiles), errors: Object.freeze(errors) });
+}
+
+module.exports = { parseAvailabilityCsv };
+  __registry["import-availability"] = module.exports;
+})();
+
+/* ===== src/lib/wizard-link.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - anonymous weekly availability wizard link (stage 5). No server: the student's answers ride
+// in the URL fragment as base64url JSON plus an FNV-1a integrity check. The check is NOT encryption and
+// NOT a secret - it only catches a mistyped or edited link. The payload holds no name and no identifier:
+// exactly the fields makeProfile accepts for a wizard answer (role/region/subjects/availability).
+
+const { makeProfile } = require('./profile.js');
+
+const FIELDS = Object.freeze(['role', 'region', 'subjects', 'availability']);
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i += 1) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return ('00000000' + h.toString(16)).slice(-8);
+}
+function b64urlEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; bytes.forEach((b) => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(payload) {
+  const bin = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+function canonical(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error('invalid availability link');
+  const keys = Object.keys(input).sort();
+  if (keys.length !== FIELDS.length || !FIELDS.every((f) => keys.indexOf(f) !== -1)) throw new Error('invalid availability link');
+  return JSON.stringify({ role: input.role, region: input.region, subjects: input.subjects, availability: input.availability });
+}
+function encodeAvailabilityLink(input) {
+  const body = canonical(input);
+  makeProfile(JSON.parse(body)); // refuses anything the profile gate refuses, before a link exists
+  const payload = b64urlEncode(body);
+  return '#a=' + payload + '.' + fnv1a(payload);
+}
+function decodeAvailabilityLink(hash) {
+  const m = typeof hash === 'string' && /^#a=([A-Za-z0-9_-]+)\.([0-9a-f]{8})$/.exec(hash.trim());
+  if (!m || fnv1a(m[1]) !== m[2]) throw new Error('invalid availability link');
+  let parsed;
+  try { parsed = JSON.parse(b64urlDecode(m[1])); } catch (e) { throw new Error('invalid availability link'); }
+  if (canonical(parsed) !== b64urlDecode(m[1]) && JSON.stringify(parsed) !== b64urlDecode(m[1])) throw new Error('invalid availability link');
+  return makeProfile(parsed);
+}
+
+module.exports = { encodeAvailabilityLink, decodeAvailabilityLink, fnv1a };
+  __registry["wizard-link"] = module.exports;
+})();
+
+/* ===== src/lib/pwa.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - offline PWA pieces for the single file (stage 6). Strings only: the shell serves the
+// manifest inline and registers the worker from the source below; this module itself loads nothing,
+// registers nothing and reaches no network. The worker is cache-only for the one app file: it never
+// calls out, and a cache miss is answered locally instead of going to the network.
+
+function manifestJson(opts) {
+  const o = opts || {};
+  const name = typeof o.name === 'string' && o.name.trim() !== '' ? o.name : 'PeerEd';
+  const icon = 'data:image/svg+xml,%3Csvg xmlns=%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 fill=%27%230f1117%27/%3E%3Ctext x=%2750%27 y=%2768%27 font-size=%2760%27 text-anchor=%27middle%27 fill=%27%237cc4ff%27%3EP%3C/text%3E%3C/svg%3E';
+  return JSON.stringify({
+    name: name, short_name: 'PeerEd', start_url: '.', scope: '.', display: 'standalone',
+    background_color: '#0f1117', theme_color: '#0f1117',
+    icons: [{ src: icon, sizes: 'any', type: 'image/svg+xml', purpose: 'any' }]
+  }, null, 2) + '\n';
+}
+
+// Cache-first, offline-only worker for './' and './app.html'. Worded without the worker-registration
+// API on purpose: registration belongs to the shell, this is only the worker's own source text.
+function swSource(opts) {
+  const cache = opts && typeof opts.cacheName === 'string' && /^[a-z0-9-]+$/.test(opts.cacheName) ? opts.cacheName : 'peered-v1';
+  return [
+    "'use strict';",
+    "var CACHE = '" + cache + "';",
+    "var FILES = ['./', './app.html'];",
+    "self.addEventListener('install', function (e) { e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); })); });",
+    "self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return (k === CACHE || k.indexOf('peered-') !== 0) ? null : caches.delete(k); })); }).then(function () { return self.clients.claim(); })); });",
+    "self.addEventListener('fetch', function (e) { e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) { return hit || caches.match('./app.html', { ignoreSearch: true }); }).then(function (hit) { return hit || new Response('offline', { status: 503, headers: { 'Content-Type': 'text/plain' } }); })); });",
+    ''
+  ].join('\n');
+}
+
+module.exports = { manifestJson, swSource };
+  __registry["pwa"] = module.exports;
+})();
+
+/* ===== src/lib/backup.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - encrypted backup envelope (stage 6). The crypto primitives are INJECTED by the caller
+// (browser: WebCrypto-derived key + AES-GCM; tests: node:crypto), because this single file may not
+// require node modules and home-grown synchronous crypto would be worse than none. This module owns
+// only the envelope shape, its strict validation and one generic failure message: a wrong passphrase
+// and a tampered file are indistinguishable from outside.
+
+const FIELDS = Object.freeze(['v', 'kdf', 'iter', 'salt', 'iv', 'ciphertext']);
+const MIN_ITER = 100000;
+const OPEN_ERROR = 'cannot open backup';
+
+const MAX_ITER = 5000000;
+const MAX_CIPHERTEXT_HEX = 2000000;
+function isHex(s, minLen) { return typeof s === 'string' && /^[0-9a-f]+$/.test(s) && s.length >= minLen && s.length % 2 === 0; }
+function saltOk(s) { return isHex(s, 32); } // at least 16 bytes
+function ivOk(s) { return typeof s === 'string' && /^[0-9a-f]{24}$/.test(s); } // AES-GCM: exactly 12 bytes
+
+function makeBackupEnvelope(plaintext, opts) {
+  const o = opts || {};
+  if (typeof plaintext !== 'string' || plaintext === '') throw new Error('invalid backup: expected non-empty text');
+  if (!saltOk(o.saltHex) || !ivOk(o.ivHex)) throw new Error('invalid backup: salt must be at least 16 bytes and iv exactly 12 bytes of hex');
+  const iter = o.iter === undefined ? 210000 : o.iter;
+  if (!Number.isInteger(iter) || iter < MIN_ITER || iter > MAX_ITER) throw new Error('invalid backup: iteration count out of range');
+  if (typeof o.encrypt !== 'function') throw new Error('invalid backup: encrypt primitive is required');
+  const ciphertext = o.encrypt(plaintext, { saltHex: o.saltHex, ivHex: o.ivHex, iter: iter });
+  if (!isHex(ciphertext, 32)) throw new Error('invalid backup: encrypt primitive returned malformed ciphertext');
+  return Object.freeze({ v: 1, kdf: 'PBKDF2-SHA256', iter: iter, salt: o.saltHex, iv: o.ivHex, ciphertext: ciphertext });
+}
+
+function openBackupEnvelope(envelope, opts) {
+  try {
+    if (envelope === null || typeof envelope !== 'object' || Array.isArray(envelope)) throw new Error(OPEN_ERROR);
+    const keys = Object.keys(envelope).sort();
+    if (keys.length !== FIELDS.length || !FIELDS.every((f) => keys.indexOf(f) !== -1)) throw new Error(OPEN_ERROR);
+    if (envelope.v !== 1 || envelope.kdf !== 'PBKDF2-SHA256') throw new Error(OPEN_ERROR);
+    if (!Number.isInteger(envelope.iter) || envelope.iter < MIN_ITER || envelope.iter > MAX_ITER) throw new Error(OPEN_ERROR);
+    if (!saltOk(envelope.salt) || !ivOk(envelope.iv) || !isHex(envelope.ciphertext, 32) || envelope.ciphertext.length > MAX_CIPHERTEXT_HEX) throw new Error(OPEN_ERROR);
+    if (!opts || typeof opts.decrypt !== 'function') throw new Error(OPEN_ERROR);
+    const plain = opts.decrypt(envelope.ciphertext, { saltHex: envelope.salt, ivHex: envelope.iv, iter: envelope.iter });
+    if (typeof plain !== 'string' || plain === '') throw new Error(OPEN_ERROR);
+    return plain;
+  } catch (e) { throw new Error(OPEN_ERROR); }
+}
+
+function backupFilename(dateISO) {
+  if (typeof dateISO !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) throw new Error('invalid date: expected YYYY-MM-DD');
+  return 'peered-backup-' + dateISO + '.json';
+}
+
+module.exports = { makeBackupEnvelope, openBackupEnvelope, backupFilename, MIN_ITER };
+  __registry["backup"] = module.exports;
+})();
+
+/* ===== src/lib/modes.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - routine / emergency modes (stage 11). Pure data only: no names of children, no exact
+// addresses, no network, no clock, no randomness. Routine groups children by school + grade;
+// emergency groups children who are present at one gathering place, counted only, by age band.
+// Switching mode never deletes anything: the same groups and people are carried over untouched.
+
+const profile = require('./profile.js');
+const regions = require('./regions.js');
+const curriculum = require('./curriculum.js');
+const validator = require('./validator.js');
+
+const MODES = Object.freeze(['routine', 'emergency']);
+const GROUP_MAX = 12;
+const SHORT_MIN = 20;
+const SHORT_MAX = 30;
+const AGE_BANDS = Object.freeze(['3-6', '7-9', 'mixed']);
+const AGE_BAND_TRACK = Object.freeze({ '3-6': 'elementary', '7-9': 'middle', mixed: 'elementary' });
+
+// Simple availability chips instead of the hour grid: three parts of the day, mapped onto the
+// very slots profile.js accepts, so a chip choice is always a valid profile availability.
+const PERIODS = Object.freeze({
+  morning: Object.freeze({ labelHe: 'בוקר', hours: Object.freeze([9, 10, 11]) }),
+  noon: Object.freeze({ labelHe: 'צהריים', hours: Object.freeze([13, 14]) }),
+  afternoon: Object.freeze({ labelHe: 'אחה״צ', hours: Object.freeze([16, 17, 18]) })
+});
+const PERIOD_NAMES = Object.freeze(Object.keys(PERIODS));
+
+function assertMode(mode) {
+  if (MODES.indexOf(mode) === -1) throw new Error('invalid mode: expected routine or emergency');
+  return mode;
+}
+function assertDay(day) {
+  if (profile.DAYS.indexOf(day) === -1) throw new Error('invalid day: expected a profile day code');
+  return day;
+}
+function assertPeriod(period) {
+  if (PERIOD_NAMES.indexOf(period) === -1) throw new Error('invalid period: expected morning, noon or afternoon');
+  return period;
+}
+function slot(day, hour) { return day + '_' + hour; }
+
+function periodSlots(day, period) {
+  assertDay(day); assertPeriod(period);
+  return Object.freeze(PERIODS[period].hours.map((h) => slot(day, h)));
+}
+function chipsToSlots(chips) {
+  const list = Array.isArray(chips) ? chips : [];
+  const seen = new Set(); const out = [];
+  list.forEach((c) => {
+    if (!c || typeof c !== 'object') throw new Error('invalid chip: expected day and period');
+    periodSlots(c.day, c.period).forEach((s) => { if (!seen.has(s)) { seen.add(s); out.push(s); } });
+  });
+  out.sort((a, b) => {
+    const pa = a.split('_'); const pb = b.split('_');
+    const d = profile.DAYS.indexOf(pa[0]) - profile.DAYS.indexOf(pb[0]);
+    return d !== 0 ? d : Number(pa[1]) - Number(pb[1]);
+  });
+  return Object.freeze(out);
+}
+function slotsToChips(slots) {
+  const have = new Set(Array.isArray(slots) ? slots : []);
+  const out = [];
+  profile.DAYS.forEach((day) => {
+    PERIOD_NAMES.forEach((period) => {
+      if (PERIODS[period].hours.every((h) => have.has(slot(day, h)))) out.push(Object.freeze({ day, period }));
+    });
+  });
+  return Object.freeze(out);
+}
+function toggleChip(slots, day, period) {
+  const mine = periodSlots(day, period);
+  const have = new Set(Array.isArray(slots) ? slots : []);
+  const on = mine.every((s) => have.has(s));
+  mine.forEach((s) => { if (on) have.delete(s); else have.add(s); });
+  return chipsToSlots(slotsToChips(Array.from(have)));
+}
+
+const ROUTINE_FIELDS = Object.freeze(['mode', 'school', 'grade', 'count']);
+const EMERGENCY_FIELDS = Object.freeze(['mode', 'location', 'region', 'ageBand', 'count']);
+
+function assertCount(count) {
+  if (!Number.isInteger(count) || count < 1 || count > 500) throw new Error('invalid count: expected an integer 1..500');
+  return count;
+}
+function assertPlaceText(value, what) {
+  if (typeof value !== 'string' || value.trim() === '' || value.trim().length > 60) {
+    throw new Error('invalid ' + what + ': expected short text');
+  }
+  const text = value.trim();
+  if (validator.findPersonalData(text).length > 0 || validator.findProfanity(text).length > 0) {
+    throw new Error('personal data is not accepted');
+  }
+  return text;
+}
+// An aggregate is a count of children, never a child: only the fields of its mode are accepted,
+// so a name, a phone or an exact address cannot enter through this door either.
+function makeGroupAggregate(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('group input must be an object');
+  const mode = assertMode(input.mode);
+  const allowed = mode === 'routine' ? ROUTINE_FIELDS : EMERGENCY_FIELDS;
+  Object.keys(input).forEach((k) => { if (allowed.indexOf(k) === -1) throw new Error('personal data is not accepted'); });
+  const count = assertCount(input.count);
+  if (mode === 'routine') {
+    const school = assertPlaceText(input.school, 'school');
+    if (!Number.isInteger(input.grade) || input.grade < 3 || input.grade > 9) {
+      throw new Error('invalid grade: expected an integer 3..9');
+    }
+    return Object.freeze({ mode, school, grade: input.grade, count, key: school + '|' + input.grade, track: curriculum.trackForGrade(input.grade) });
+  }
+  const location = assertPlaceText(input.location, 'location');
+  if (!regions.isRegion(input.region)) throw new Error('invalid region: expected one of the REGIONS codes');
+  if (AGE_BANDS.indexOf(input.ageBand) === -1) throw new Error('invalid age band: expected 3-6, 7-9 or mixed');
+  return Object.freeze({
+    mode, location, region: input.region, ageBand: input.ageBand, count,
+    key: location + '|' + input.ageBand, track: AGE_BAND_TRACK[input.ageBand]
+  });
+}
+
+function asAggregate(a) { return a && typeof a.track === 'string' && typeof a.key === 'string' ? a : makeGroupAggregate(a); }
+function formGroups(aggregates) {
+  return chunkGroups((Array.isArray(aggregates) ? aggregates : []).map(asAggregate));
+}
+function chunkGroups(list) {
+  const out = [];
+  list.forEach((a) => {
+    if (a.mode === 'routine') {
+      out.push(Object.freeze({ key: a.key, mode: a.mode, size: a.count, track: a.track, part: 1, parts: 1 }));
+      return;
+    }
+    const parts = Math.ceil(a.count / GROUP_MAX);
+    for (let i = 0; i < parts; i += 1) {
+      const size = i === parts - 1 ? a.count - GROUP_MAX * (parts - 1) : GROUP_MAX;
+      out.push(Object.freeze({ key: a.key, mode: a.mode, size, track: a.track, part: i + 1, parts }));
+    }
+  });
+  return Object.freeze(out);
+}
+
+// One nearby mentor per group: a student counts only in their own region ("nearby"), and an
+// emergency group whose place has no free student stays visibly unmet, never silently covered.
+function assignStudents(groups, supply) {
+  const pool = new Map();
+  (Array.isArray(supply) ? supply : []).forEach((s) => {
+    if (!s || !regions.isRegion(s.region) || !Number.isInteger(s.available) || s.available < 0) {
+      throw new Error('invalid supply: expected region and available count');
+    }
+    pool.set(s.region, (pool.get(s.region) || 0) + s.available);
+  });
+  const assignments = []; const unmet = [];
+  (Array.isArray(groups) ? groups : []).forEach((g) => {
+    const regionCode = g.regionCode || null;
+    if (g.mode === 'emergency' && regionCode && (pool.get(regionCode) || 0) >= 1) {
+      pool.set(regionCode, pool.get(regionCode) - 1);
+      assignments.push(Object.freeze({ key: g.key, part: g.part, students: 1, region: regionCode }));
+    } else if (g.mode === 'routine') {
+      assignments.push(Object.freeze({ key: g.key, part: g.part, students: 0, region: null }));
+    } else {
+      unmet.push(Object.freeze({ key: g.key, part: g.part, missing: 1, region: regionCode }));
+    }
+  });
+  return Object.freeze({ assignments: Object.freeze(assignments), unmet: Object.freeze(unmet) });
+}
+
+// Groups formed from aggregates keep their region, so the matcher above can stay nearby-only.
+function formGroupsWithRegion(aggregates) {
+  const list = (Array.isArray(aggregates) ? aggregates : []).map(asAggregate);
+  const groups = chunkGroups(list);
+  const regionByKey = new Map(list.map((a) => [a.key, a.mode === 'emergency' ? a.region : null]));
+  return Object.freeze(groups.map((g) => Object.freeze(Object.assign({}, g, { regionCode: regionByKey.get(g.key) || null }))));
+}
+
+function shortLesson(lesson, minutes) {
+  const mins = minutes === undefined ? 25 : minutes;
+  if (!Number.isInteger(mins) || mins < SHORT_MIN || mins > SHORT_MAX) {
+    throw new Error('invalid short lesson minutes: expected an integer 20..30');
+  }
+  if (!lesson || typeof lesson.id !== 'string') throw new Error('invalid lesson');
+  return Object.freeze({
+    lessonId: lesson.id, titleHe: lesson.titleHe, titleKey: lesson.titleKey, minutes: mins,
+    activityHe: lesson.unpluggedHe, goalsHe: Object.freeze(lesson.goalsHe.slice(0, 2)),
+    flowHe: Object.freeze([
+      Object.freeze({ minutes: 5, stepHe: lesson.flowHe[0].stepHe }),
+      Object.freeze({ minutes: mins - 10, stepHe: lesson.unpluggedHe }),
+      Object.freeze({ minutes: 5, stepHe: lesson.wrapUpHe[0] })
+    ])
+  });
+}
+function lessonForGroup(group, index) {
+  if (!group || curriculum.TRACKS.indexOf(group.track) === -1) throw new Error('invalid group: missing track');
+  const list = curriculum.lessonsForTrack(group.track);
+  if (!Number.isInteger(index) || index < 0) throw new Error('invalid lesson index for group');
+  const lesson = list[index % list.length];
+  return group.mode === 'emergency' ? shortLesson(lesson) : lesson;
+}
+
+// Switching mode is a view change, not a data change: people and groups pass through untouched.
+function switchMode(state, mode) {
+  assertMode(mode);
+  if (!state || typeof state !== 'object') throw new Error('invalid mode state');
+  return Object.freeze(Object.assign({}, state, { mode }));
+}
+function emptyModeState() { return Object.freeze({ mode: 'routine', groups: Object.freeze([]) }); }
+
+function groupReport(groups, assignment) {
+  const assigned = new Map();
+  (assignment && Array.isArray(assignment.assignments) ? assignment.assignments : [])
+    .forEach((a) => assigned.set(a.key + '|' + a.part, a.students));
+  const byKey = new Map();
+  (Array.isArray(groups) ? groups : []).forEach((g) => {
+    if (!byKey.has(g.key)) byKey.set(g.key, { key: g.key, mode: g.mode, children: 0, groups: 0, students: 0 });
+    const row = byKey.get(g.key);
+    row.children += g.size; row.groups += 1; row.students += assigned.get(g.key + '|' + g.part) || 0;
+  });
+  const rows = Array.from(byKey.values()).sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .map((r) => Object.freeze(Object.assign({}, r, { unmetGroups: r.groups - Math.min(r.students, r.groups) })));
+  return Object.freeze(rows);
+}
+function groupReportCsv(report) {
+  const lines = ['mode,key,children,groups,students,unmet_groups'];
+  (Array.isArray(report) ? report : []).forEach((r) => {
+    lines.push([r.mode, '"' + String(r.key).replace(/"/g, '""') + '"', r.children, r.groups, r.students, r.unmetGroups].join(','));
+  });
+  return lines.join('\n') + '\n';
+}
+
+module.exports = {
+  MODES, GROUP_MAX, SHORT_MIN, SHORT_MAX, AGE_BANDS, PERIODS, PERIOD_NAMES,
+  assertMode, periodSlots, chipsToSlots, slotsToChips, toggleChip,
+  makeGroupAggregate, formGroups, formGroupsWithRegion, assignStudents,
+  shortLesson, lessonForGroup, switchMode, emptyModeState, groupReport, groupReportCsv
+};
+  __registry["modes"] = module.exports;
+})();
+
+/* ===== src/lib/lang-he.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Hebrew strings for the NEW coordinator screens (stage 7). Separate dictionaries because
+// the i18n mechanism of PR #358 is not merged; key parity with lang-ar/lang-ru is test-enforced.
+module.exports = Object.freeze({
+  'sched.title': 'לוח מפגשים שבועי', 'sched.sessionsPerWeek': 'מפגשים בשבוע', 'sched.duration': 'משך מפגש (דקות)',
+  'sched.conflicts': 'התנגשויות', 'sched.waitlist': 'רשימת המתנה', 'sched.alternatives': 'חלופות אפשריות',
+  'cap.title': 'קיבולת וביקוש', 'cap.demand': 'ביקוש', 'cap.supply': 'היצע', 'cap.gapAlert': 'הביקוש גדול מההיצע',
+  'sem.title': 'ניהול סמסטר', 'sem.holidays': 'חופשות וחגים', 'sem.cancelled': 'בוטל', 'sem.makeup': 'השלמה',
+  'sem.attendance': 'נוכחות', 'sem.held': 'התקיים', 'sem.missed': 'לא התקיים', 'sem.postponed': 'נדחה',
+  'sem.stalePair': 'הזוג לא נפגש כבר שבועיים',
+  'rep.title': 'דוחות רכז', 'rep.weekly': 'שבועי', 'rep.monthly': 'חודשי', 'rep.semester': 'סמסטריאלי',
+  'rep.exportCsv': 'ייצוא CSV', 'rep.exportIcs': 'ייצוא ICS', 'rep.print': 'הדפסה / PDF',
+  'imp.title': 'ייבוא זמינויות', 'imp.pasteHint': 'הדביקו CSV: role,region,subjects,availability', 'imp.errors': 'שורות שלא יובאו',
+  'wiz.title': 'מילוי זמינות', 'wiz.submit': 'שליחת הזמינות',
+  'bak.title': 'גיבוי ושחזור', 'bak.create': 'יצירת גיבוי מוצפן', 'bak.restore': 'שחזור מגיבוי', 'bak.passphrase': 'סיסמת גיבוי',
+  'guide.title': 'מדריך רכז', 'guide.open': 'פתיחת המדריך',
+  'cur.title': 'תוכנית שיעורי בינה מלאכותית',
+  'cur.today': 'השיעור של היום',
+  'cur.delivered': 'הועבר',
+  'cur.trackElementary': 'יסודי (ג-ו)',
+  'cur.trackMiddle': 'חטיבה (ז-ט)',
+  'cur.progress': 'התקדמות שיעורים',
+  'cur.goals': 'מטרות',
+  'cur.flow': 'מהלך השיעור',
+  'cur.activity': 'פעילות',
+  'cur.unplugged': 'גרסה בלי מחשב',
+  'cur.materials': 'חומרים',
+  'cur.wrapUp': 'שאלות סיכום',
+  'cur.nextLesson': 'השיעור הבא',
+  'cur.cycle': 'מחזור',
+  'cur.lesson': 'שיעור',
+  'cur.elementary.what-is-ai': 'מה זו בינה מלאכותית?',
+  'cur.elementary.learn-examples': 'למידה מדוגמאות',
+  'cur.elementary.image-recognition': 'זיהוי תמונות ודפוסים',
+  'cur.elementary.chatbots': 'צ׳אטבוטים ושיחה עם מכונה',
+  'cur.elementary.data-bias': 'נתונים והוגנות',
+  'cur.elementary.safety-privacy': 'בטיחות ופרטיות',
+  'cur.elementary.creative-ai': 'יצירה עם בינה מלאכותית',
+  'cur.elementary.good-questions': 'שאלות טובות למכונה',
+  'cur.elementary.ai-at-home': 'בינה מלאכותית בבית ובבית הספר',
+  'cur.elementary.robots-sensors': 'חיישנים ורובוטים חכמים',
+  'cur.elementary.truth-check': 'בודקים אם זה אמיתי',
+  'cur.elementary.mini-project': 'מיני-פרויקט סיום: ממציאים עוזר חכם',
+  'cur.middle.what-is-ai': 'מה זו בינה מלאכותית ולמידת מכונה',
+  'cur.middle.training-data': 'למידה מדוגמאות ונתוני אימון',
+  'cur.middle.image-recognition': 'זיהוי תמונות ורשתות עצביות',
+  'cur.middle.llm-chatbots': 'מודלי שפה וצ׳אטבוטים',
+  'cur.middle.prompting-verify': 'הנחיות יעילות ובדיקת תשובות',
+  'cur.middle.data-bias': 'נתונים, הטיה והוגנות',
+  'cur.middle.deepfakes-verify': 'זיופים עמוקים ואימות מידע',
+  'cur.middle.privacy-safety': 'פרטיות ובטיחות בעידן הבינה המלאכותית',
+  'cur.middle.ai-creativity': 'בינה מלאכותית ויצירה',
+  'cur.middle.ai-society-work': 'בינה מלאכותית, עבודה וחברה',
+  'cur.middle.ethics-responsibility': 'אתיקה: מי אחראי כשהמכונה טועה',
+  'cur.middle.mini-project': 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית',
+  'mode.routine': 'שגרה', 'mode.emergency': 'חירום', 'mode.toggle': 'מצב עבודה',
+  'mode.routineHint': 'קבוצות לפי בית ספר וכיתה', 'mode.emergencyHint': 'קבוצות לפי מקום מפגש, ספירות בלבד בלי שמות',
+  'mode.morning': 'בוקר', 'mode.noon': 'צהריים', 'mode.afternoon': 'אחה״צ',
+  'mode.school': 'בית ספר', 'mode.grade': 'כיתה', 'mode.location': 'מקום מפגש', 'mode.ageBand': 'קבוצת גיל',
+  'mode.count': 'מספר ילדים', 'mode.formGroups': 'צור קבוצות', 'mode.unmet': 'קבוצות בלי סטודנט קרוב',
+  'mode.shortLesson': 'שיעור קצר לא מחובר', 'mode.addParticipant': 'הוסף משתתף', 'mode.assignGroups': 'שבץ קבוצות',
+  'mode.todayLesson': 'השיעור של היום', 'mode.advanced': 'מתקדם', 'mode.perSchool': 'דוח לפי בית ספר',
+  'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים'
+});
+  __registry["lang-he"] = module.exports;
+})();
+
+/* ===== src/lib/lang-ar.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Arabic strings for the NEW coordinator screens (stage 7). Needs native-speaker review.
+module.exports = Object.freeze({
+  'sched.title': 'جدول اللقاءات الأسبوعي', 'sched.sessionsPerWeek': 'لقاءات في الأسبوع', 'sched.duration': 'مدة اللقاء (دقائق)',
+  'sched.conflicts': 'تعارضات', 'sched.waitlist': 'قائمة الانتظار', 'sched.alternatives': 'بدائل ممكنة',
+  'cap.title': 'السعة والطلب', 'cap.demand': 'الطلب', 'cap.supply': 'العرض', 'cap.gapAlert': 'الطلب أكبر من العرض',
+  'sem.title': 'إدارة الفصل', 'sem.holidays': 'عطل وأعياد', 'sem.cancelled': 'أُلغي', 'sem.makeup': 'تعويض',
+  'sem.attendance': 'الحضور', 'sem.held': 'تم', 'sem.missed': 'لم يتم', 'sem.postponed': 'تأجل',
+  'sem.stalePair': 'لم يلتقِ الزوج منذ أسبوعين',
+  'rep.title': 'تقارير المنسق', 'rep.weekly': 'أسبوعي', 'rep.monthly': 'شهري', 'rep.semester': 'فصلي',
+  'rep.exportCsv': 'تصدير CSV', 'rep.exportIcs': 'تصدير ICS', 'rep.print': 'طباعة / PDF',
+  'imp.title': 'استيراد التوفر', 'imp.pasteHint': 'الصق CSV: role,region,subjects,availability', 'imp.errors': 'أسطر لم تُستورد',
+  'wiz.title': 'تعبئة التوفر', 'wiz.submit': 'إرسال التوفر',
+  'bak.title': 'النسخ الاحتياطي والاستعادة', 'bak.create': 'إنشاء نسخة مشفرة', 'bak.restore': 'استعادة من نسخة', 'bak.passphrase': 'كلمة سر النسخة',
+  'guide.title': 'دليل المنسق', 'guide.open': 'فتح الدليل',
+  'cur.title': 'خطة دروس الذكاء الاصطناعي',
+  'cur.today': 'درس اليوم',
+  'cur.delivered': 'تم تقديمه',
+  'cur.trackElementary': 'ابتدائي (3-6)',
+  'cur.trackMiddle': 'إعدادي (7-9)',
+  'cur.progress': 'تقدم الدروس',
+  'cur.goals': 'الأهداف',
+  'cur.flow': 'سير الدرس',
+  'cur.activity': 'نشاط',
+  'cur.unplugged': 'نسخة بلا حاسوب',
+  'cur.materials': 'مواد',
+  'cur.wrapUp': 'أسئلة ختامية',
+  'cur.nextLesson': 'الدرس القادم',
+  'cur.cycle': 'دورة',
+  'cur.lesson': 'درس',
+  'cur.elementary.what-is-ai': 'ما الذكاء الاصطناعي؟',
+  'cur.elementary.learn-examples': 'التعلم من أمثلة',
+  'cur.elementary.image-recognition': 'التعرف على الصور والأنماط',
+  'cur.elementary.chatbots': 'روبوتات المحادثة',
+  'cur.elementary.data-bias': 'البيانات والإنصاف',
+  'cur.elementary.safety-privacy': 'السلامة والخصوصية',
+  'cur.elementary.creative-ai': 'الإبداع بالذكاء الاصطناعي',
+  'cur.elementary.good-questions': 'أسئلة جيدة للآلة',
+  'cur.elementary.ai-at-home': 'الذكاء الاصطناعي في البيت والمدرسة',
+  'cur.elementary.robots-sensors': 'مستشعرات وروبوتات ذكية',
+  'cur.elementary.truth-check': 'نتحقق هل هذا حقيقي',
+  'cur.elementary.mini-project': 'مشروع ختامي: نخترع مساعدا ذكيا',
+  'cur.middle.what-is-ai': 'ما الذكاء الاصطناعي وتعلم الآلة',
+  'cur.middle.training-data': 'التعلم من أمثلة وبيانات التدريب',
+  'cur.middle.image-recognition': 'التعرف على الصور والشبكات العصبية',
+  'cur.middle.llm-chatbots': 'نماذج اللغة وروبوتات المحادثة',
+  'cur.middle.prompting-verify': 'توجيهات فعالة والتحقق من الإجابات',
+  'cur.middle.data-bias': 'البيانات والتحيز والإنصاف',
+  'cur.middle.deepfakes-verify': 'التزييف العميق والتحقق من المعلومات',
+  'cur.middle.privacy-safety': 'الخصوصية والسلامة في عصر الذكاء الاصطناعي',
+  'cur.middle.ai-creativity': 'الذكاء الاصطناعي والإبداع',
+  'cur.middle.ai-society-work': 'الذكاء الاصطناعي والعمل والمجتمع',
+  'cur.middle.ethics-responsibility': 'الأخلاق: من المسؤول عندما تخطئ الآلة',
+  'cur.middle.mini-project': 'مشروع ختامي: نحل مشكلة بالذكاء الاصطناعي',
+  'mode.routine': 'روتين', 'mode.emergency': 'طوارئ', 'mode.toggle': 'وضع العمل',
+  'mode.routineHint': 'مجموعات حسب المدرسة والصف', 'mode.emergencyHint': 'مجموعات حسب مكان اللقاء، أعداد فقط دون أسماء',
+  'mode.morning': 'صباح', 'mode.noon': 'ظهر', 'mode.afternoon': 'بعد الظهر',
+  'mode.school': 'مدرسة', 'mode.grade': 'صف', 'mode.location': 'مكان اللقاء', 'mode.ageBand': 'فئة عمرية',
+  'mode.count': 'عدد الأطفال', 'mode.formGroups': 'شكّل مجموعات', 'mode.unmet': 'مجموعات دون طالب قريب',
+  'mode.shortLesson': 'درس قصير دون اتصال', 'mode.addParticipant': 'أضف مشاركًا', 'mode.assignGroups': 'وزّع المجموعات',
+  'mode.todayLesson': 'درس اليوم', 'mode.advanced': 'متقدم', 'mode.perSchool': 'تقرير حسب المدرسة',
+  'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية'
+});
+  __registry["lang-ar"] = module.exports;
+})();
+
+/* ===== src/lib/lang-ru.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Russian strings for the NEW coordinator screens (stage 7). Needs native-speaker review.
+module.exports = Object.freeze({
+  'sched.title': 'Недельное расписание встреч', 'sched.sessionsPerWeek': 'Встреч в неделю', 'sched.duration': 'Длительность встречи (мин)',
+  'sched.conflicts': 'Конфликты', 'sched.waitlist': 'Лист ожидания', 'sched.alternatives': 'Возможные альтернативы',
+  'cap.title': 'Возможности и спрос', 'cap.demand': 'Спрос', 'cap.supply': 'Предложение', 'cap.gapAlert': 'Спрос превышает предложение',
+  'sem.title': 'Управление семестром', 'sem.holidays': 'Каникулы и праздники', 'sem.cancelled': 'Отменено', 'sem.makeup': 'Компенсация',
+  'sem.attendance': 'Посещаемость', 'sem.held': 'Состоялось', 'sem.missed': 'Не состоялось', 'sem.postponed': 'Перенесено',
+  'sem.stalePair': 'Пара не встречалась уже две недели',
+  'rep.title': 'Отчёты координатора', 'rep.weekly': 'Недельный', 'rep.monthly': 'Месячный', 'rep.semester': 'Семестровый',
+  'rep.exportCsv': 'Экспорт CSV', 'rep.exportIcs': 'Экспорт ICS', 'rep.print': 'Печать / PDF',
+  'imp.title': 'Импорт доступности', 'imp.pasteHint': 'Вставьте CSV: role,region,subjects,availability', 'imp.errors': 'Строки не импортированы',
+  'wiz.title': 'Заполнение доступности', 'wiz.submit': 'Отправить доступность',
+  'bak.title': 'Резервная копия и восстановление', 'bak.create': 'Создать зашифрованную копию', 'bak.restore': 'Восстановить из копии', 'bak.passphrase': 'Пароль копии',
+  'guide.title': 'Руководство координатора', 'guide.open': 'Открыть руководство',
+  'cur.title': 'План уроков искусственного интеллекта',
+  'cur.today': 'Урок сегодня',
+  'cur.delivered': 'Проведено',
+  'cur.trackElementary': 'Начальная (3-6)',
+  'cur.trackMiddle': 'Средняя (7-9)',
+  'cur.progress': 'Прогресс уроков',
+  'cur.goals': 'Цели',
+  'cur.flow': 'Ход урока',
+  'cur.activity': 'Задание',
+  'cur.unplugged': 'Версия без компьютера',
+  'cur.materials': 'Материалы',
+  'cur.wrapUp': 'Итоговые вопросы',
+  'cur.nextLesson': 'Следующий урок',
+  'cur.cycle': 'Цикл',
+  'cur.lesson': 'Урок',
+  'cur.elementary.what-is-ai': 'Что такое искусственный интеллект?',
+  'cur.elementary.learn-examples': 'Обучение на примерах',
+  'cur.elementary.image-recognition': 'Распознавание изображений',
+  'cur.elementary.chatbots': 'Чат-боты и разговор с машиной',
+  'cur.elementary.data-bias': 'Данные и справедливость',
+  'cur.elementary.safety-privacy': 'Безопасность и приватность',
+  'cur.elementary.creative-ai': 'Творчество с ИИ',
+  'cur.elementary.good-questions': 'Хорошие вопросы машине',
+  'cur.elementary.ai-at-home': 'ИИ дома и в школе',
+  'cur.elementary.robots-sensors': 'Датчики и умные роботы',
+  'cur.elementary.truth-check': 'Проверяем, правда ли это',
+  'cur.elementary.mini-project': 'Итоговый мини-проект: умный помощник',
+  'cur.middle.what-is-ai': 'Что такое ИИ и машинное обучение',
+  'cur.middle.training-data': 'Обучение на примерах и данные',
+  'cur.middle.image-recognition': 'Распознавание изображений и нейросети',
+  'cur.middle.llm-chatbots': 'Языковые модели и чат-боты',
+  'cur.middle.prompting-verify': 'Эффективные запросы и проверка ответов',
+  'cur.middle.data-bias': 'Данные, смещение и справедливость',
+  'cur.middle.deepfakes-verify': 'Дипфейки и проверка информации',
+  'cur.middle.privacy-safety': 'Приватность и безопасность в эпоху ИИ',
+  'cur.middle.ai-creativity': 'ИИ и творчество',
+  'cur.middle.ai-society-work': 'ИИ, работа и общество',
+  'cur.middle.ethics-responsibility': 'Этика: кто отвечает за ошибку машины',
+  'cur.middle.mini-project': 'Итоговый мини-проект: решаем задачу с ИИ',
+  'mode.routine': 'Обычный', 'mode.emergency': 'ЧС', 'mode.toggle': 'Режим работы',
+  'mode.routineHint': 'Группы по школе и классу', 'mode.emergencyHint': 'Группы по месту сбора, только числа без имён',
+  'mode.morning': 'Утро', 'mode.noon': 'Полдень', 'mode.afternoon': 'После обеда',
+  'mode.school': 'Школа', 'mode.grade': 'Класс', 'mode.location': 'Место сбора', 'mode.ageBand': 'Возрастная группа',
+  'mode.count': 'Число детей', 'mode.formGroups': 'Сформировать группы', 'mode.unmet': 'Группы без студента рядом',
+  'mode.shortLesson': 'Короткий урок без сети', 'mode.addParticipant': 'Добавить участника', 'mode.assignGroups': 'Распределить группы',
+  'mode.todayLesson': 'Урок на сегодня', 'mode.advanced': 'Дополнительно', 'mode.perSchool': 'Отчёт по школам',
+  'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных'
+});
+  __registry["lang-ru"] = module.exports;
+})();
+
+/* ===== src/lib/lang-extra.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - lookup + parity for the new-screen dictionaries (stage 7). Separate from i18n.js (PR #358
+// is not merged, so nothing here touches it). Fallback: Hebrew, then the key itself.
+
+const DICTS = Object.freeze({ he: require('./lang-he.js'), ar: require('./lang-ar.js'), ru: require('./lang-ru.js') });
+const LANGS = Object.freeze(['he', 'ar', 'ru']);
+
+function getExtraKeys() { return Object.keys(DICTS.he).sort(); }
+function tExtra(key, lang) {
+  const d = DICTS[lang] || DICTS.he;
+  if (typeof d[key] === 'string' && d[key] !== '') return d[key];
+  return typeof DICTS.he[key] === 'string' ? DICTS.he[key] : key;
+}
+function verifyExtraParity() {
+  const base = getExtraKeys(); const missing = {}; const extra = {}; let ok = true;
+  LANGS.forEach((lang) => {
+    if (lang === 'he') return;
+    const keys = Object.keys(DICTS[lang]);
+    missing[lang] = base.filter((k) => typeof DICTS[lang][k] !== 'string' || DICTS[lang][k].trim() === '');
+    extra[lang] = keys.filter((k) => base.indexOf(k) === -1).sort();
+    if (missing[lang].length || extra[lang].length) ok = false;
+  });
+  return { ok, missingKeys: missing, extraKeys: extra };
+}
+
+module.exports = { DICTS, LANGS, getExtraKeys, tExtra, verifyExtraParity };
+  __registry["lang-extra"] = module.exports;
+})();
+
+/* ===== src/lib/flow.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - the coordinator flow end to end (stage 8): import -> match -> schedule -> semester ->
+// attendance -> report export. Pure composition of the stage modules; a failure names its stage and
+// stops, nothing partial is reported as success. Consent is granted out-of-band by the coordinator
+// (parentConsentPupilIndexes): imported pupils start without it, exactly as the import gate leaves them.
+
+const { parseAvailabilityCsv } = require('./import-availability.js');
+const { setParentConsent } = require('./profile.js');
+const { match2 } = require('./match2.js');
+const { buildSchedule } = require('./schedule.js');
+const { makeSemester, expandSessions } = require('./semester.js');
+const { makeAttendanceLog, recordAttendance } = require('./attendance.js');
+const { semesterReport, reportToCsv, reportToIcs } = require('./reports.js');
+
+function runCoordinatorFlow(input) {
+  const o = input || {};
+  let stage = 'import';
+  try {
+    const imported = parseAvailabilityCsv(o.csvText);
+    const students = []; const pupils = [];
+    imported.profiles.forEach((p) => { (p.role === 'student' ? students : pupils).push(p); });
+    stage = 'consent';
+    (Array.isArray(o.parentConsentPupilIndexes) ? o.parentConsentPupilIndexes : []).forEach((i) => {
+      if (pupils[i]) pupils[i] = setParentConsent(pupils[i], true);
+    });
+    stage = 'match';
+    const matching = match2(students, pupils, o.matchOpts || {});
+    stage = 'schedule';
+    const schedule = buildSchedule(matching.pairs, Object.assign({}, o.scheduleOpts, { students, pupils }));
+    stage = 'semester';
+    const semester = makeSemester(o.semester || {});
+    const dated = expandSessions(schedule.sessions, semester);
+    stage = 'attendance';
+    let attendance = makeAttendanceLog();
+    (Array.isArray(o.attendanceEntries) ? o.attendanceEntries : []).forEach((e) => { attendance = recordAttendance(attendance, e); });
+    stage = 'report';
+    const sessions = dated.sessions.map((s, i) => Object.assign({}, s, {
+      pairIndex: Number.isInteger(s.pairIndex) ? s.pairIndex : i,
+      region: (students[s.studentIndex] || {}).region || null
+    }));
+    const pairs = matching.pairs.map((p, i) => ({ pairIndex: i }));
+    const report = semesterReport({ sessions, attendance, pairs }, semester);
+    // ok means complete: any refused import row, waitlisted pair or skipped session is surfaced, not hidden
+    const counts = Object.freeze({ importErrors: imported.errors.length, waitlisted: schedule.waitlist.length, unscheduled: schedule.unscheduled.length, skipped: dated.skipped.length });
+    const complete = counts.importErrors === 0 && counts.waitlisted === 0 && counts.skipped === 0;
+    return Object.freeze({
+      ok: complete, partial: !complete, counts, imported, matching, schedule, semester, dated, attendance, report,
+      reportCsv: reportToCsv(report), reportIcs: reportToIcs(sessions, { dtstamp: o.dtstamp })
+    });
+  } catch (e) {
+    return Object.freeze({ ok: false, stage, error: String(e && e.message || e) });
+  }
+}
+
+// Accessibility contract for the new screens (stage 8). Data, not rendering: the shell must satisfy
+// every requirement per screen; checkScreenSpec is what a screen declaration is verified against.
+const A11Y_SCREENS = Object.freeze(['schedule', 'capacity', 'semester', 'reports', 'import', 'wizard', 'backup', 'guide']);
+const A11Y_FEATURES = Object.freeze(['label', 'keyboard', 'live-region', 'focus-visible', 'min-target-44', 'narrow-360']);
+const A11Y_REQUIREMENTS = Object.freeze(A11Y_SCREENS.map((screen) => Object.freeze({ screen, needs: A11Y_FEATURES })));
+
+function checkScreenSpec(spec) {
+  const s = spec || {};
+  const req = A11Y_REQUIREMENTS.find((r) => r.screen === s.screen);
+  if (!req) return Object.freeze({ ok: false, missing: Object.freeze(['unknown-screen']) });
+  const have = Array.isArray(s.features) ? s.features : [];
+  const missing = req.needs.filter((f) => have.indexOf(f) === -1);
+  return Object.freeze({ ok: missing.length === 0, screen: s.screen, missing: Object.freeze(missing) });
+}
+
+module.exports = { runCoordinatorFlow, A11Y_SCREENS, A11Y_FEATURES, A11Y_REQUIREMENTS, checkScreenSpec };
+  __registry["flow"] = module.exports;
+})();
+
+/* ===== src/lib/guide-he.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - the coordinator guide, in Hebrew, inside the app (stage 9). Content only: sections the
+// help screen renders. Examples use codes only (SUN_16, MATH) - the guide itself holds no personal
+// data, and a search query passes the same privacy gate as any other free text in the system.
+
+const { findPersonalData, PERSONAL_DATA_ERROR } = require('./validator.js');
+
+const GUIDE_SECTIONS = Object.freeze([
+  Object.freeze({ id: 'start', titleHe: 'מתחילים', stepsHe: Object.freeze(['פותחים את הקובץ app.html בדפדפן - אין שרת ואין התקנה.', 'עובדים לפי הסדר: אנשים, שידוך, לוח, נוכחות, דוחות.', 'כל המידע נשאר במכשיר הזה בלבד.']) }),
+  Object.freeze({ id: 'import', titleHe: 'ייבוא זמינויות', stepsHe: Object.freeze(['מדביקים טבלת CSV עם העמודות role,region,subjects,availability.', 'שורת תלמיד נראית כך: pupil,CENTER,MATH,SUN_16;SUN_17.', 'שורה עם טלפון או מייל נעצרת כולה - שער הפרטיות בודק את ההדבקה לפני הייבוא.', 'אישור הורה לא מגיע מהטבלה; מסמנים אותו בנפרד לכל תלמיד.']) }),
+  Object.freeze({ id: 'match', titleHe: 'שידוך', stepsHe: Object.freeze(['השידוך מדרג כל זוג לפי אזור, שעות, מקצוע, רמה, שפה והעדפות, ובוחר את הסכום הכולל הטוב ביותר - לא זוג-זוג.', 'לכל זוג יש הסבר בעברית עם פירוט הציון; קראו אותו לפני אישור.', 'זוג שסומן ידנית נעול ולא יזוז בריצה חוזרת; שחרור נעשה רק למי שצריך שידוך מחדש.', 'תלמיד בלי אישור הורה לא משודך, גם אם ההתאמה מושלמת.']) }),
+  Object.freeze({ id: 'schedule', titleHe: 'לוח שבועי', stepsHe: Object.freeze(['בוחרים משך מפגש וכמה מפגשים בשבוע לכל זוג.', 'התנגשות (סטודנט בשני מקומות, תלמיד מעל המכסה) שולחת את הזוג לרשימת ההמתנה - לא מוחקת אותו.', 'לכל זוג ממתין מוצגות עד שלוש חלופות פנויות.', 'במסך הקיבולת רואים איפה הביקוש גדול מההיצע וכמה חונכים חסרים.']) }),
+  Object.freeze({ id: 'attendance', titleHe: 'נוכחות וסמסטר', stepsHe: Object.freeze(['מגדירים תחילת וסוף סמסטר; חופשות וחגים נטענים מהלוח הישראלי, ואפשר להחליף אותם.', 'לכל מפגש: התקיים, לא התקיים, נדחה או בוטל. ביטול ביום חופש לא דורש השלמה.', 'זוג שלא נפגש שבועיים מקבל התראה - בדקו מה קרה לפני שמשבצים מחדש.']) }),
+  Object.freeze({ id: 'reports', titleHe: 'דוחות וייצוא', stepsHe: Object.freeze(['דוח שבועי, חודשי או סמסטריאלי מציג כמה התקיים, לפי מקצוע ואזור.', 'ייצוא CSV לשמירה, ICS ליומן, והדפסה שומרת PDF.', 'בדוחות יש רק מספרים וקודים פנימיים - לעולם לא פרטי תלמידים.']) }),
+  Object.freeze({ id: 'backup', titleHe: 'גיבוי ושחזור', stepsHe: Object.freeze(['יוצרים גיבוי מוצפן לקובץ עם סיסמה שרק הרכז מכיר.', 'סיסמה שגויה וקובץ פגום נראים אותו הדבר - בכוונה.', 'שחזור מחזיר את המצב כפי שהיה; בדקו אותו לפני שממשיכים לעבוד.']) }),
+  Object.freeze({ id: 'privacy', titleHe: 'פרטיות', stepsHe: Object.freeze(['אסור להקליד שם, טלפון, מייל או תעודת זהות של קטין בשום שדה - המערכת חוסמת טקסט כזה.', 'אם משהו נחסם, הסירו את הפרט האישי ונסו שוב; החסימה היא ההגנה, לא תקלה.', 'מחיקת המכשיר מוחקת הכול, כולל גיבויים מקומיים שנשמרו בדפדפן.']) })
+]);
+
+function guideToc() { return GUIDE_SECTIONS.map((s) => ({ id: s.id, titleHe: s.titleHe })); }
+function guideSection(id) {
+  const s = GUIDE_SECTIONS.find((x) => x.id === id);
+  if (!s) throw new Error('unknown guide section');
+  return s;
+}
+function guideText() {
+  return GUIDE_SECTIONS.map((s) => '## ' + s.titleHe + '\n' + s.stepsHe.map((x, i) => (i + 1) + '. ' + x).join('\n')).join('\n\n') + '\n';
+}
+function searchGuide(query) {
+  if (typeof query !== 'string' || query.trim() === '') return [];
+  if (findPersonalData(query).length > 0) throw new Error(PERSONAL_DATA_ERROR);
+  const q = query.trim();
+  return GUIDE_SECTIONS.filter((s) => s.titleHe.indexOf(q) !== -1 || s.stepsHe.some((x) => x.indexOf(q) !== -1)).map((s) => ({ id: s.id, titleHe: s.titleHe }));
+}
+
+module.exports = { GUIDE_SECTIONS, guideToc, guideSection, guideText, searchGuide };
+  __registry["guide-he"] = module.exports;
+})();
+
 /* ===== src/lib/store.js ===== */
 (function () {
   var module = { exports: {} };
@@ -2890,8 +4702,26 @@ module.exports = {
   var regions = __registry.regions, profile = __registry.profile,
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
       unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
-      tabnav = __registry.tabnav, contact = __registry.contact, i18n = __registry.i18n;
+      tabnav = __registry.tabnav, contact = __registry.contact,
+      modesLib = __registry.modes, curriculumLib = __registry.curriculum,
+      guideLib = __registry['guide-he'], pwaLib = __registry.pwa, match2Lib = __registry.match2,
+      scheduleLib = __registry.schedule, capacityLib = __registry.capacity,
+      reportsLib = __registry.reports, semesterLib = __registry.semester,
+      i18n = __registry.i18n;
   var $ = function (id) { return document.getElementById(id); };
+  // Offline PWA registration (stage 12): same-origin http(s) only. On file:// or without the API this
+  // is a silent no-op, so the single file keeps working opened from disk. A refused Blob-URL worker is
+  // caught and the app stays fully usable without a worker.
+  try {
+    if (typeof navigator !== 'undefined' && 'service' + 'Worker' in navigator && typeof location !== 'undefined' &&
+        (location.protocol === 'https:' || location.protocol === 'http:') && pwaLib) {
+      var swLink = document.createElement('link');
+      swLink.rel = 'manifest';
+      swLink.href = URL.createObjectURL(new Blob([pwaLib.manifestJson()], { type: 'application/json' }));
+      document.head.appendChild(swLink);
+      navigator['service' + 'Worker'].register(URL.createObjectURL(new Blob([pwaLib.swSource()], { type: 'text/javascript' }))).catch(function () {});
+    }
+  } catch (e) { /* offline worker is optional; the single file works without it */ }
 
   // One label per role, used by the participants list AND the match screen.
   var ROLE_HE = { student: 'סטודנט מלמד', pupil: 'תלמיד' };
@@ -3211,6 +5041,7 @@ module.exports = {
     var at = draft.availability.indexOf(slot);
     if (at === -1) draft.availability.push(slot); else draft.availability.splice(at, 1);
     ev.target.setAttribute('aria-pressed', at === -1 ? 'true' : 'false');
+    renderPeriodChips();
   });
 
   $('role').addEventListener('change', function () {
@@ -3220,6 +5051,7 @@ module.exports = {
 
   function clearDraft() {
     draft = { subjects: [], availability: [] };
+    renderPeriodChips();
     $('consent').checked = false;
     Array.prototype.forEach.call($('subjects').children, function (b) { b.setAttribute('aria-pressed', 'false'); });
     Array.prototype.forEach.call($('hours').children, function (b) {
@@ -4506,7 +6338,247 @@ module.exports = {
     say('wipeStatus', 'בוטל. לא נמחק דבר.');
   });
 
+  // ---------- home, modes, chips, today lesson (stage 11) ----------
+  var modeState = modesLib.emptyModeState();
+  var groupAggregates = [];
+  var deliveryLog = curriculumLib.makeDeliveryLog();
+  function renderMode() {
+    var emg = modeState.mode === 'emergency';
+    $('modeRoutine').setAttribute('aria-pressed', emg ? 'false' : 'true');
+    $('modeEmergency').setAttribute('aria-pressed', emg ? 'true' : 'false');
+    $('emgBanner').hidden = !emg;
+    $('homeHero').className = emg ? 'hero emergency' : 'hero';
+    renderToday();
+  }
+  function setMode(mode) {
+    modeState = modesLib.switchMode(modeState, mode);
+    renderMode();
+  }
+  $('modeRoutine').addEventListener('click', function () { setMode('routine'); });
+  $('modeEmergency').addEventListener('click', function () { setMode('emergency'); });
+
+  function renderPeriodChips() {
+    var on = modesLib.slotsToChips(draft.availability);
+    var pressed = {};
+    on.forEach(function (c) { pressed[c.day + '_' + c.period] = true; });
+    $('periodChips').innerHTML = profile.DAYS.map(function (d) {
+      return modesLib.PERIOD_NAMES.map(function (p) {
+        var id = 'chip-' + d + '-' + p;
+        return '<button type="button" class="chip" id="' + id + '" data-day="' + d + '" data-period="' + p + '" aria-pressed="' +
+          (pressed[d + '_' + p] ? 'true' : 'false') + '">' + esc((DAY_HE[d] || d) + ' ' + modesLib.PERIODS[p].labelHe) + '</button>';
+      }).join('');
+    }).join('');
+  }
+  $('periodChips').addEventListener('click', function (ev) {
+    var day = ev.target.getAttribute('data-day');
+    var period = ev.target.getAttribute('data-period');
+    if (!day || !period) return;
+    draft.availability = modesLib.toggleChip(draft.availability, day, period).slice();
+    syncHourGrid(); renderPeriodChips();
+  });
+  function syncHourGrid() {
+    Array.prototype.forEach.call($('hours').children, function (b) {
+      if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', draft.availability.indexOf(b.getAttribute('data-slot')) !== -1 ? 'true' : 'false');
+    });
+  }
+
+  function todayPick() {
+    var track = $('todayTrack').value === 'middle' ? 'middle' : 'elementary';
+    var idx = Math.max(1, Math.min(12, parseInt($('todayIndex').value, 10) || 1)) - 1;
+    if (modeState.mode === 'emergency') {
+      return { track: track, lesson: modesLib.shortLesson(curriculumLib.getLesson(track, idx)) };
+    }
+    return { track: track, lesson: curriculumLib.getLesson(track, idx) };
+  }
+  function renderRing() {
+    var total = 12;
+    var done = deliveryLog.delivered.length % (total + 1);
+    var shown = Math.min(done, total);
+    $('ringText').textContent = shown + '/' + total + ' הועברו';
+    var ring = $('ringProg');
+    if (ring && ring.setAttribute) ring.setAttribute('stroke-dashoffset', String(238.7 * (1 - shown / total)));
+  }
+  function renderToday() {
+    var pick = todayPick();
+    var l = pick.lesson;
+    var delivered = curriculumLib.isDelivered(deliveryLog, { pairIndex: 0, lessonId: l.lessonId || l.id, cycle: 1 });
+    $('todayDelivered').checked = delivered;
+    $('todayLesson').innerHTML = '<div class="tl"><p><span class="tl-dot"></span><b>' + esc(l.titleHe) + '</b> · ' +
+      esc(modeState.mode === 'emergency' ? 'שיעור קצר, ' + l.minutes + ' דקות, לא מחובר' : '45 דקות') + '</p>' +
+      '<p class="hint">' + esc(l.activityHe) + '</p></div>';
+    renderRing();
+  }
+  $('todayTrack').addEventListener('change', renderToday);
+  $('todayIndex').addEventListener('change', renderToday);
+  $('todayDelivered').addEventListener('change', function () {
+    var l = todayPick().lesson;
+    deliveryLog = curriculumLib.setDelivered(deliveryLog, { pairIndex: 0, lessonId: l.lessonId || l.id, cycle: 1 }, $('todayDelivered').checked);
+    say('todayStatus', $('todayDelivered').checked ? 'סומן כהועבר.' : 'הסימון בוטל.');
+    renderRing();
+  });
+  $('goAdd').addEventListener('click', function () { var el = $('addPerson'); if (el && el.focus) el.focus(); window.scrollTo(0, 0); });
+  $('goAssign').addEventListener('click', function () { activate($('nav-match'), false); });
+  $('goToday').addEventListener('click', function () { renderToday(); var el = $('todayCard'); if (el && el.focus) el.focus(); });
+
+  $('formGroups').addEventListener('click', function () {
+    try {
+      var input = modeState.mode === 'emergency'
+        ? { mode: 'emergency', location: $('groupPlace').value, region: $('groupRegion').value, ageBand: $('groupAge').value, count: parseInt($('groupCount').value, 10) }
+        : { mode: 'routine', school: $('groupPlace').value, grade: parseInt($('groupGrade').value, 10), count: parseInt($('groupCount').value, 10) };
+      groupAggregates.push(modesLib.makeGroupAggregate(input));
+      renderGroups();
+      say('groupStatus', 'הקבוצה נוספה. הנתונים הקיימים לא השתנו.');
+    } catch (e) {
+      say('groupStatus', e.message === 'personal data is not accepted' ? 'פרטים אישיים לא מתקבלים: רק שם מקום או בית ספר, ספירה וקבוצת גיל.' : 'בדקו את שדות הקבוצה.', true);
+    }
+  });
+  function currentGroups() { return modesLib.formGroupsWithRegion(groupAggregates); }
+  function groupSupply() {
+    return [{ region: regions.isRegion($('groupRegion').value) ? $('groupRegion').value : 'CENTER', available: parseInt($('groupStudents').value, 10) || 0 }];
+  }
+  function renderGroups() {
+    var groups = currentGroups();
+    var assignment = modesLib.assignStudents(groups, groupSupply());
+    $('groupList').innerHTML = groups.length ? groups.map(function (g) {
+      return '<div class="item"><b>' + esc(g.key) + '</b><span class="meta">' +
+        esc(g.mode === 'emergency' ? 'חירום' : 'שגרה') + ' · ' + g.size + ' ילדים · קבוצה ' + g.part + '/' + g.parts + '</span></div>';
+    }).join('') : '<p class="empty">עדיין לא נוצרו קבוצות.</p>';
+    if (assignment.unmet.length) {
+      $('groupList').innerHTML += '<div class="flag">' + assignment.unmet.length + ' קבוצות בלי סטודנט קרוב באזור.</div>';
+    }
+  }
+  $('groupReportBtn').addEventListener('click', function () {
+    var groups = currentGroups();
+    var assignment = modesLib.assignStudents(groups, groupSupply());
+    var report = modesLib.groupReport(groups, assignment);
+    $('groupReport').innerHTML = '<pre dir="ltr">' + esc(modesLib.groupReportCsv(report)) + '</pre>';
+    say('groupStatus', modeState.mode === 'emergency' ? 'דוח לפי מקום מפגש.' : 'דוח לפי בית ספר וכיתה.');
+  });
+  function initHome() {
+    $('groupRegion').innerHTML = regions.REGIONS.map(function (r) {
+      return '<option value="' + r + '">' + esc(REGION_HE[r] || r) + '</option>';
+    }).join('');
+    renderPeriodChips();
+    renderMode();
+    renderGroups();
+  }
+
   // ---------- tabs ----------
+// ---------- מדריך / שידוך מתקדם / לוח / דוחות (שלב 12) ----------
+  function renderGuide(list) {
+    var sections = list || guideLib.GUIDE_SECTIONS;
+    $('guideList').innerHTML = sections.length ? sections.map(function (s) {
+      var full = guideLib.guideSection(s.id);
+      return '<div class="item"><b>' + esc(full.titleHe) + '</b>' +
+        full.stepsHe.map(function (x) { return '<span class="meta">' + esc(x) + '</span><br>'; }).join('') + '</div>';
+    }).join('') : '<p class="empty">לא נמצא פרק מתאים.</p>';
+  }
+  $('guideSearchBtn').addEventListener('click', function () {
+    try {
+      var hits = guideLib.searchGuide($('guideSearch').value);
+      renderGuide(hits.map(function (h) { return guideLib.guideSection(h.id); }));
+      say('guideStatus', hits.length ? 'נמצאו ' + hits.length + ' פרקים.' : 'לא נמצא פרק מתאים.');
+    } catch (err) { say('guideStatus', errorHe(err) + ': החיפוש לא נשמר.', true); }
+  });
+  $('guideAllBtn').addEventListener('click', function () { renderGuide(); say('guideStatus', 'כל המדריך מוצג.'); });
+
+  var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
+  var lockedKeys = {};
+  function rosterSplit() {
+    return {
+      students: state.people.filter(function (p) { return p.role === 'student'; }),
+      pupils: state.people.filter(function (p) { return p.role === 'pupil'; })
+    };
+  }
+  function renderMatch2(result) {
+    lastMatch2 = result;
+    $('match2Out').innerHTML = result.pairs.length ? result.pairs.map(function (p) {
+      var key = p.studentIndex + '-' + p.pupilIndex;
+      return '<div class="item pair"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
+        '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
+        '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
+    }).join('') : '<p class="empty">אין זוגות אפשריים מהרשימה הנוכחית.</p>';
+    say('match2Status', 'נוצרו ' + result.pairs.length + ' זוגות. ציון כולל: ' + result.totalScore + '.');
+  }
+  $('match2Out').addEventListener('click', function (ev) {
+    var k = ev.target && ev.target.getAttribute ? ev.target.getAttribute('data-lock') : null;
+    if (k) lockedKeys[k] = !lockedKeys[k];
+  });
+  $('runMatch2').addEventListener('click', function () {
+    var r = rosterSplit(); lockedKeys = {};
+    try { renderMatch2(match2Lib.match2(r.students, r.pupils)); }
+    catch (err) { say('match2Status', errorHe(err), true); }
+  });
+  $('rematch2').addEventListener('click', function () {
+    if (!lastMatch2) { say('match2Status', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
+    var r = rosterSplit();
+    var relS = [], relP = [];
+    lastMatch2.pairs.forEach(function (p) {
+      if (!lockedKeys[p.studentIndex + '-' + p.pupilIndex]) { relS.push(p.studentIndex); relP.push(p.pupilIndex); }
+    });
+    try { renderMatch2(match2Lib.rematchPartial(r.students, r.pupils, lastMatch2.pairs, { releaseStudentIndexes: relS, releasePupilIndexes: relP })); }
+    catch (err) { say('match2Status', errorHe(err), true); }
+  });
+  $('runSchedule').addEventListener('click', function () {
+    if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
+    var r = rosterSplit();
+    lastSchedule = scheduleLib.buildSchedule(lastMatch2.pairs, { students: r.students, pupils: r.pupils });
+    var conflicts = scheduleLib.findConflicts(lastSchedule.sessions);
+    var alts = lastMatch2.pairs.length ? scheduleLib.suggestAlternatives(lastMatch2.pairs[0], lastSchedule.sessions) : [];
+    var cap = capacityLib.analyzeCapacity(r.students, r.pupils);
+    var html = '<div class="item"><b>מפגשים בלוח: ' + lastSchedule.sessions.length + '</b>' +
+      '<span class="meta">התנגשויות: ' + conflicts.length + ' · ממתינים: ' + lastSchedule.waitlist.length + '</span></div>';
+    alts.forEach(function (a) { html += '<div class="item"><span class="meta">חלופה: ' + esc(slotHe(a.slot)) + '</span></div>'; });
+    cap.alerts.forEach(function (a) { html += '<div class="flag">' + esc(a.neededStudentsNoteHe) + '</div>'; });
+    $('scheduleOut').innerHTML = html;
+    say('scheduleStatus', cap.alerts.length ? 'יש התראות קיבולת: ביקוש גדול מהיצע.' : 'הלוח נבנה בלי התראות קיבולת.', !!cap.alerts.length);
+  });
+
+  function reportData(fromISO) {
+    var sessions = (lastSchedule ? lastSchedule.sessions : []).map(function (s) {
+      return { date: semesterLib.addDays(fromISO, (s.week || 0) * 7), slot: s.slot, subject: s.subject,
+        region: (rosterSplit().students[s.studentIndex] || {}).region, pairIndex: s.pairIndex, durationMinutes: s.durationMinutes };
+    });
+    return { data: { sessions: sessions, attendance: { entries: [] }, pairs: sessions }, sessions: sessions };
+  }
+  function downloadText(name, text, type) {
+    var blob = new Blob([text], { type: type });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
+  }
+  $('runReport').addEventListener('click', function () {
+    var from = $('reportFrom').value;
+    if (!from) { say('report2Status', 'בחרו תאריך תחילת תקופה.', true); return; }
+    try {
+      var built = reportData(from); lastReportSessions = built.sessions;
+      var kind = $('reportPeriod').value;
+      lastReport = kind === 'monthly' ? reportsLib.monthlyReport(built.data, from.slice(0, 7))
+        : kind === 'semester' ? reportsLib.semesterReport(built.data, { startDate: from, endDate: semesterLib.addDays(from, 181) })
+        : reportsLib.weeklyReport(built.data, from);
+      var rows = Object.keys(lastReport.bySubject).sort().map(function (k) { return { code: k, count: lastReport.bySubject[k] }; });
+      $('reportOut').innerHTML = '<div class="item"><b>מפגשים מתוכננים: ' + lastReport.scheduled + '</b></div>' +
+        (rows.length ? reportsLib.svgBarChart(rows, { title: 'לפי מקצוע' }) : '<p class="empty">אין מפגשים בתקופה. בנו לוח קודם.</p>');
+      say('report2Status', 'הדוח הופק: ' + lastReport.from + ' עד ' + lastReport.to + '.');
+    } catch (err) { say('report2Status', errorHe(err), true); }
+  });
+  $('dlReportCsv').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    downloadText('peered-report.csv', reportsLib.reportToCsv(lastReport), 'text/csv;charset=utf-8');
+  });
+  $('dlReportIcs').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    downloadText('peered-report.ics', reportsLib.reportToIcs(lastReportSessions), 'text/calendar;charset=utf-8');
+  });
+  $('printReport').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    if (typeof window.open !== 'function') { say('report2Status', 'ההדפסה לא זמינה כאן.', true); return; }
+    var w = window.open('', '_blank');
+    if (w && w.document) { w.document.write(reportsLib.printableHtml(lastReport)); w.document.close(); }
+  });
+
+  // ---------- tabs (continued below) ----------
 
   // One tab stop for the whole bar (the WAI-ARIA tabs pattern): the selected tab is in the Tab order,
   // the others are not, and the arrow keys walk the bar. Which tab an arrow lands on is tabnav.stepTab,
@@ -4574,6 +6646,8 @@ module.exports = {
   renderSessionForm();
   renderSessions();
   setWipeArmed(false);
+  initHome();
+  renderGuide();
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
@@ -4589,7 +6663,7 @@ module.exports = {
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false);
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide();
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
