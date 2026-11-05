@@ -12,13 +12,16 @@ function parseAvailabilityCsv(text) {
   if (typeof text !== 'string') throw new Error('invalid import: expected text');
   const hits = findPersonalData(text);
   if (hits.length > 0) throw new Error(PERSONAL_DATA_ERROR);
-  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim() !== '');
-  if (lines.length === 0) return Object.freeze({ profiles: Object.freeze([]), errors: Object.freeze([]) });
-  const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
+  // physical line numbers are kept (blank lines included), so an error names the row the coordinator sees
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const firstData = lines.findIndex((l) => l.trim() !== '');
+  if (firstData === -1) return Object.freeze({ profiles: Object.freeze([]), errors: Object.freeze([]) });
+  const header = lines[firstData].split(',').map((h) => h.trim().toLowerCase());
   const want = ['role', 'region', 'subjects', 'availability'];
   if (header.length !== 4 || !want.every((w, i) => header[i] === w)) throw new Error('invalid import header: expected role,region,subjects,availability');
-  const profiles = []; const errors = [];
-  for (let i = 1; i < lines.length; i += 1) {
+  const profiles = []; const errors = []; const seenRows = new Set();
+  for (let i = firstData + 1; i < lines.length; i += 1) {
+    if (lines[i].trim() === '') continue;
     const cells = lines[i].split(',');
     if (cells.length !== 4) { errors.push(Object.freeze({ line: i + 1, reason: 'WRONG_COLUMNS' })); continue; }
     const role = cells[0].trim().toLowerCase();
@@ -29,6 +32,9 @@ function parseAvailabilityCsv(text) {
     if (region === null) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_REGION' })); continue; }
     if (subjects.length === 0 || subjects.some((s) => SUBJECTS.indexOf(s) === -1)) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SUBJECT' })); continue; }
     if (availability.length === 0 || availability.length !== cells[3].split(';').filter((s) => s.trim() !== '').length) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SLOT' })); continue; }
+    const rowKey = role + '|' + region + '|' + subjects.slice().sort().join(';') + '|' + availability.slice().sort().join(';');
+    if (seenRows.has(rowKey)) { errors.push(Object.freeze({ line: i + 1, reason: 'DUPLICATE_ROW' })); continue; }
+    seenRows.add(rowKey);
     try { profiles.push(makeProfile({ role, region, availability, subjects })); }
     catch (e) { errors.push(Object.freeze({ line: i + 1, reason: 'PROFILE_REJECTED' })); }
   }

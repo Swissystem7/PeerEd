@@ -5,7 +5,22 @@
 
 const { DAYS } = require('./profile.js');
 
-const HOLIDAYS_IL = Object.freeze([
+// A *_BREAK code written twice is a range: both written dates and every day between them are holidays,
+// so a "break" is never just its two endpoints. (Break ranges are school-break approximations; a
+// coordinator overrides the whole list per semester when the official calendar differs.)
+function expandBreaks(rows) {
+  const out = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i]; const next = rows[i + 1];
+    if (/_BREAK$/.test(r.code) && next && next.code === r.code && next.date > r.date) {
+      const end = new Date(next.date + 'T00:00:00Z');
+      for (let d = new Date(r.date + 'T00:00:00Z'); d <= end; d.setUTCDate(d.getUTCDate() + 1)) out.push({ date: d.toISOString().slice(0, 10), code: r.code });
+      i += 1;
+    } else out.push(r);
+  }
+  return out;
+}
+const HOLIDAYS_IL = Object.freeze(expandBreaks([
   { date: '2025-09-23', code: 'ROSH_HASHANA' }, { date: '2025-09-24', code: 'ROSH_HASHANA' },
   { date: '2025-10-02', code: 'YOM_KIPPUR' }, { date: '2025-10-07', code: 'SUKKOT' }, { date: '2025-10-14', code: 'SUKKOT' },
   { date: '2025-12-16', code: 'HANUKKAH_BREAK' }, { date: '2025-12-23', code: 'HANUKKAH_BREAK' },
@@ -13,7 +28,7 @@ const HOLIDAYS_IL = Object.freeze([
   { date: '2026-04-22', code: 'YOM_HAATZMAUT' }, { date: '2026-05-21', code: 'SHAVUOT' },
   { date: '2026-10-02', code: 'ROSH_HASHANA' }, { date: '2026-10-03', code: 'ROSH_HASHANA' },
   { date: '2026-10-11', code: 'YOM_KIPPUR' }, { date: '2026-10-16', code: 'SUKKOT' }, { date: '2026-10-23', code: 'SUKKOT' }
-].map(Object.freeze));
+]).map(Object.freeze));
 
 function parseDate(iso) {
   const m = typeof iso === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);

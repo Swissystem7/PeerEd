@@ -5,6 +5,9 @@
 // privacy gate is untouched and a pupil still needs parentConsent === true to be paired at all.
 
 const { shared, hasParentConsent } = require('./match.js');
+const { isRegion } = require('./regions.js');
+const { SUBJECTS, normalizeSlot } = require('./profile.js');
+const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
 
 const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10 });
 const PAIR_BONUS = 1000; // > max score of one pair (100), so one more pair always beats a better score
@@ -14,35 +17,47 @@ function weightsOf(opts) {
   for (const k of Object.keys(DEFAULT_WEIGHTS)) if (!(Number(w[k]) >= 0)) w[k] = DEFAULT_WEIGHTS[k];
   return w;
 }
-function normLevel(x) { const n = Number(x && x.level); return Number.isFinite(n) ? Math.min(5, Math.max(1, n)) : null; }
-function langs(x) { return Array.isArray(x && x.languages) ? x.languages.filter((v) => typeof v === 'string') : []; }
-function prefs(x) { return Array.isArray(x && x.preferredSubjects) ? x.preferredSubjects : []; }
+function normLevel(x) { const n = x && x.level; return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null; }
+function langs(x) { return Array.isArray(x && x.languages) ? x.languages.filter((v) => LANG_CODES.indexOf(v) !== -1) : []; }
+function prefs(x) { return Array.isArray(x && x.preferredSubjects) ? x.preferredSubjects.filter((v) => SUBJECTS.indexOf(v) !== -1) : []; }
 function capacityOf(s, opts) {
-  const c = s && s.maxPupils !== undefined ? Number(s.maxPupils) : (opts && opts.studentCapacity);
-  return Number.isInteger(c) && c > 0 ? c : 1;
+  // absent means 1; an explicit 0 means this student takes nobody (it never silently becomes 1)
+  if (s && s.maxPupils !== undefined) { const c = Number(s.maxPupils); if (!Number.isInteger(c) || c < 0) throw new Error('invalid maxPupils'); return c; }
+  if (opts && opts.studentCapacity !== undefined) { const c = Number(opts.studentCapacity); if (!Number.isInteger(c) || c < 0) throw new Error('invalid studentCapacity'); return c; }
+  return 1;
 }
 
 function scorePair(student, pupil, weights) {
-  const w = weights || DEFAULT_WEIGHTS;
-  const sharedSlots = shared(student.availability, pupil.availability);
-  const sharedSubjects = shared(student.subjects, pupil.subjects);
-  const sharedLanguages = shared(langs(student), langs(pupil));
-  const regionSame = typeof student.region === 'string' && student.region === pupil.region;
-  const sl = normLevel(student); const pl = normLevel(pupil);
-  const levelFit = sl === null || pl === null ? 0.5 : 1 - Math.abs(sl - pl) / 4;
-  const langFit = langs(student).length === 0 || langs(pupil).length === 0 ? 0.5
-    : (sharedLanguages.length > 0 ? 1 : 0);
-  const prefHits = shared(prefs(student), pupil.subjects).length + shared(prefs(pupil), student.subjects).length;
+  const w = weightsOf({ weights: weights });
+  const s = student || {}; const p = pupil || {};
+  // only canonical codes are ever scored or printed: slots, subjects, languages, region
+  const sharedSlots = shared(s.availability, p.availability).filter((x) => normalizeSlot(x) === x);
+  const sharedSubjects = shared(s.subjects, p.subjects).filter((x) => SUBJECTS.indexOf(x) !== -1);
+  const sharedLanguages = shared(langs(s), langs(p));
+  const regionSame = isRegion(s.region) && s.region === p.region;
+  const sl = normLevel(s); const pl = normLevel(p);
+  const levelIn = sl !== null && pl !== null;
+  const langIn = langs(s).length > 0 && langs(p).length > 0;
+  const levelFit = levelIn ? 1 - Math.abs(sl - pl) / 4 : 0;
+  const langFit = langIn && sharedLanguages.length > 0 ? 1 : 0;
+  const prefHits = shared(prefs(s), (p.subjects || []).filter((x) => SUBJECTS.indexOf(x) !== -1)).length +
+    shared(prefs(p), (s.subjects || []).filter((x) => SUBJECTS.indexOf(x) !== -1)).length;
   const prefFit = Math.min(1, prefHits / 2);
   const b = {
     region: Math.round(w.region * (regionSame ? 1 : 0)),
     hours: Math.round(w.hours * Math.min(1, sharedSlots.length / 3)),
     subject: Math.round(w.subject * Math.min(1, sharedSubjects.length / 2)),
-    level: Math.round(w.level * levelFit),
-    language: Math.round(w.language * langFit),
+    level: levelIn ? Math.round(w.level * levelFit) : 0,
+    language: langIn ? Math.round(w.language * langFit) : 0,
     preference: Math.round(w.preference * prefFit)
   };
-  b.total = b.region + b.hours + b.subject + b.level + b.language + b.preference;
+  // criteria with no data on either side are excluded, not credited: the total is renormalised to 100
+  let included = w.region + w.hours + w.subject + w.preference;
+  if (levelIn) included += w.level;
+  if (langIn) included += w.language;
+  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference;
+  b.total = included > 0 ? Math.round((earned / included) * 100) : 0;
+  b.levelCounted = levelIn; b.languageCounted = langIn;
   return { score: b.total, breakdown: b, sharedSlots, sharedSubjects, sharedLanguages, regionSame, levelFit };
 }
 
@@ -123,7 +138,14 @@ function match2(students, pupils, opts) {
 // Partial re-match: pairs of participants not released are kept (if still valid); the rest are re-optimised.
 function rematchPartial(students, pupils, existingPairs, opts) {
   const o = opts || {}; const relS = new Set(o.releaseStudentIndexes || []); const relP = new Set(o.releasePupilIndexes || []);
-  const keep = (Array.isArray(existingPairs) ? existingPairs : []).filter((x) => x && !relS.has(x.studentIndex) && !relP.has(x.pupilIndex) && students[x.studentIndex] && pupils[x.pupilIndex] && isCandidate(students[x.studentIndex], pupils[x.pupilIndex], o, x.studentIndex, x.pupilIndex));
+  // stale kept pairs (duplicate pupil, capacity since lowered) are dropped, never thrown on
+  const seenP = new Set(); const countS = new Map();
+  const keep = (Array.isArray(existingPairs) ? existingPairs : []).filter((x) => {
+    if (!x || relS.has(x.studentIndex) || relP.has(x.pupilIndex) || !students[x.studentIndex] || !pupils[x.pupilIndex]) return false;
+    if (seenP.has(x.pupilIndex) || !isCandidate(students[x.studentIndex], pupils[x.pupilIndex], o, x.studentIndex, x.pupilIndex)) return false;
+    if ((countS.get(x.studentIndex) || 0) >= capacityOf(students[x.studentIndex], o)) return false;
+    seenP.add(x.pupilIndex); countS.set(x.studentIndex, (countS.get(x.studentIndex) || 0) + 1); return true;
+  });
   const locked = keep.map((x) => ({ studentIndex: x.studentIndex, pupilIndex: x.pupilIndex })).concat(Array.isArray(o.locked) ? o.locked : []);
   return match2(students, pupils, Object.assign({}, o, { locked }));
 }

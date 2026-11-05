@@ -12,7 +12,7 @@ function inRange(date, from, to) { return date >= from && date <= to; }
 function buildReport(data, from, to, kind) {
   const d = data || {}; parseDate(from); parseDate(to);
   const sessions = (Array.isArray(d.sessions) ? d.sessions : []).filter((s) => s && s.date && inRange(s.date, from, to));
-  const entries = (d.attendance && Array.isArray(d.attendance.entries) ? d.attendance.entries : []).filter((e) => inRange(e.date, from, to));
+  const entries = (d.attendance && Array.isArray(d.attendance.entries) ? d.attendance.entries : []).filter((e) => e && inRange(e.date, from, to));
   const byStatus = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
   entries.forEach((e) => { if (byStatus[e.status] !== undefined) byStatus[e.status] += 1; });
   const bySubject = {}; const byRegion = {};
@@ -57,12 +57,18 @@ function reportToIcs(sessions, opts) {
   const stamp = String((opts && opts.dtstamp) || '20260101T000000Z').replace(/[^0-9TZ]/gi, '');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PeerEd//Coordinator//EN'];
   (Array.isArray(sessions) ? sessions : []).forEach((s) => {
-    if (!s || !s.date) return;
-    const m = /^([A-Z]{3})_(\d{1,2})$/.exec(s.slot || 'SUN_8'); const hour = m ? Number(m[2]) : 8;
-    const ymd = s.date.replace(/-/g, ''); const hh = String(hour).padStart(2, '0');
-    lines.push('BEGIN:VEVENT', 'UID:peered-' + s.pairIndex + '-' + ymd + '-' + (s.slot || 'x') + '@peered', 'DTSTAMP:' + stamp,
-      'DTSTART:' + ymd + 'T' + hh + '0000', 'DTEND:' + ymd + 'T' + String(hour + Math.max(1, Math.round((s.durationMinutes || 60) / 60))).padStart(2, '0') + '0000',
-      'SUMMARY:' + icsEscape('PeerEd pair ' + s.pairIndex + ' ' + (s.subject || '')), 'END:VEVENT');
+    // identifiers are validated, never interpolated raw: a forged pairIndex or slot must not inject lines
+    if (!s || !s.date || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) return;
+    let ymd; try { parseDate(s.date); ymd = s.date.replace(/-/g, ''); } catch (e) { return; }
+    const slot = typeof s.slot === 'string' && /^([A-Z]{3})_(\d{1,2})$/.test(s.slot) ? s.slot : null;
+    if (slot === null) return;
+    const hour = Number(slot.split('_')[1]);
+    const dur = Number.isInteger(s.durationMinutes) && s.durationMinutes > 0 ? s.durationMinutes : 60;
+    const endTotal = hour * 60 + dur; const endDay = addDays(s.date, Math.floor(endTotal / 1440)); const endMin = endTotal % 1440;
+    const hh = String(hour).padStart(2, '0'); const eh = String(Math.floor(endMin / 60)).padStart(2, '0'); const em = String(endMin % 60).padStart(2, '0');
+    lines.push('BEGIN:VEVENT', 'UID:peered-' + s.pairIndex + '-' + ymd + '-' + slot + '@peered', 'DTSTAMP:' + stamp,
+      'DTSTART:' + ymd + 'T' + hh + '0000', 'DTEND:' + endDay.replace(/-/g, '') + 'T' + eh + em + '00',
+      'SUMMARY:' + icsEscape('PeerEd pair ' + s.pairIndex + ' ' + (typeof s.subject === 'string' && /^[A-Z0-9_]+$/.test(s.subject) ? s.subject : '')), 'END:VEVENT');
   });
   lines.push('END:VCALENDAR');
   return lines.join('\r\n') + '\r\n';
