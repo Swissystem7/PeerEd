@@ -2881,6 +2881,372 @@ module.exports = {
   __registry["session"] = module.exports;
 })();
 
+/* ===== src/lib/import-availability.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - paste import of availability (stage 5). The whole paste passes the free-text privacy gate
+// BEFORE parsing: one email/phone/id anywhere refuses everything, and nothing is partially stored.
+// Columns: role,region,subjects,availability  (subjects ';'-separated, slots ';'-separated DAY_HOUR).
+// parentConsent is never read from a paste: an imported pupil has no consent until granted elsewhere.
+
+const { findPersonalData, PERSONAL_DATA_ERROR } = require('./validator.js');
+const { makeProfile, normalizeSlot, SUBJECTS } = require('./profile.js');
+const { normalizeRegion } = require('./regions.js');
+
+function parseAvailabilityCsv(text) {
+  if (typeof text !== 'string') throw new Error('invalid import: expected text');
+  const hits = findPersonalData(text);
+  if (hits.length > 0) throw new Error(PERSONAL_DATA_ERROR);
+  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim() !== '');
+  if (lines.length === 0) return Object.freeze({ profiles: Object.freeze([]), errors: Object.freeze([]) });
+  const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
+  const want = ['role', 'region', 'subjects', 'availability'];
+  if (header.length !== 4 || !want.every((w, i) => header[i] === w)) throw new Error('invalid import header: expected role,region,subjects,availability');
+  const profiles = []; const errors = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const cells = lines[i].split(',');
+    if (cells.length !== 4) { errors.push(Object.freeze({ line: i + 1, reason: 'WRONG_COLUMNS' })); continue; }
+    const role = cells[0].trim().toLowerCase();
+    const region = normalizeRegion(cells[1]);
+    const subjects = cells[2].split(';').map((s) => s.trim().toUpperCase()).filter(Boolean);
+    const availability = cells[3].split(';').map((s) => normalizeSlot(s.trim().toUpperCase())).filter(Boolean);
+    if (role !== 'student' && role !== 'pupil') { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_ROLE' })); continue; }
+    if (region === null) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_REGION' })); continue; }
+    if (subjects.length === 0 || subjects.some((s) => SUBJECTS.indexOf(s) === -1)) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SUBJECT' })); continue; }
+    if (availability.length === 0 || availability.length !== cells[3].split(';').filter((s) => s.trim() !== '').length) { errors.push(Object.freeze({ line: i + 1, reason: 'INVALID_SLOT' })); continue; }
+    try { profiles.push(makeProfile({ role, region, availability, subjects })); }
+    catch (e) { errors.push(Object.freeze({ line: i + 1, reason: 'PROFILE_REJECTED' })); }
+  }
+  return Object.freeze({ profiles: Object.freeze(profiles), errors: Object.freeze(errors) });
+}
+
+module.exports = { parseAvailabilityCsv };
+  __registry["import-availability"] = module.exports;
+})();
+
+/* ===== src/lib/wizard-link.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - anonymous weekly availability wizard link (stage 5). No server: the student's answers ride
+// in the URL fragment as base64url JSON plus an FNV-1a integrity check. The check is NOT encryption and
+// NOT a secret - it only catches a mistyped or edited link. The payload holds no name and no identifier:
+// exactly the fields makeProfile accepts for a wizard answer (role/region/subjects/availability).
+
+const { makeProfile } = require('./profile.js');
+
+const FIELDS = Object.freeze(['role', 'region', 'subjects', 'availability']);
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i += 1) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return ('00000000' + h.toString(16)).slice(-8);
+}
+function b64urlEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; bytes.forEach((b) => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(payload) {
+  const bin = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+function canonical(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error('invalid availability link');
+  const keys = Object.keys(input).sort();
+  if (keys.length !== FIELDS.length || !FIELDS.every((f) => keys.indexOf(f) !== -1)) throw new Error('invalid availability link');
+  return JSON.stringify({ role: input.role, region: input.region, subjects: input.subjects, availability: input.availability });
+}
+function encodeAvailabilityLink(input) {
+  const body = canonical(input);
+  makeProfile(JSON.parse(body)); // refuses anything the profile gate refuses, before a link exists
+  const payload = b64urlEncode(body);
+  return '#a=' + payload + '.' + fnv1a(payload);
+}
+function decodeAvailabilityLink(hash) {
+  const m = typeof hash === 'string' && /^#a=([A-Za-z0-9_-]+)\.([0-9a-f]{8})$/.exec(hash.trim());
+  if (!m || fnv1a(m[1]) !== m[2]) throw new Error('invalid availability link');
+  let parsed;
+  try { parsed = JSON.parse(b64urlDecode(m[1])); } catch (e) { throw new Error('invalid availability link'); }
+  if (canonical(parsed) !== b64urlDecode(m[1]) && JSON.stringify(parsed) !== b64urlDecode(m[1])) throw new Error('invalid availability link');
+  return makeProfile(parsed);
+}
+
+module.exports = { encodeAvailabilityLink, decodeAvailabilityLink, fnv1a };
+  __registry["wizard-link"] = module.exports;
+})();
+
+/* ===== src/lib/pwa.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - offline PWA pieces for the single file (stage 6). Strings only: the shell serves the
+// manifest inline and registers the worker from the source below; this module itself loads nothing,
+// registers nothing and reaches no network. The worker is cache-only for the one app file: it never
+// calls out, and a cache miss is answered locally instead of going to the network.
+
+function manifestJson(opts) {
+  const o = opts || {};
+  const name = typeof o.name === 'string' && o.name.trim() !== '' ? o.name : 'PeerEd';
+  return JSON.stringify({
+    name: name, short_name: 'PeerEd', start_url: '.', scope: '.', display: 'standalone',
+    background_color: '#0f1117', theme_color: '#0f1117', icons: []
+  }, null, 2) + '\n';
+}
+
+// Cache-first, offline-only worker for './' and './app.html'. Worded without the worker-registration
+// API on purpose: registration belongs to the shell, this is only the worker's own source text.
+function swSource(opts) {
+  const cache = opts && typeof opts.cacheName === 'string' && /^[a-z0-9-]+$/.test(opts.cacheName) ? opts.cacheName : 'peered-v1';
+  return [
+    "'use strict';",
+    "var CACHE = '" + cache + "';",
+    "var FILES = ['./', './app.html'];",
+    "self.addEventListener('install', function (e) { e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); })); });",
+    "self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return k === CACHE ? null : caches.delete(k); })); }).then(function () { return self.clients.claim(); })); });",
+    "self.addEventListener('fetch', function (e) { e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) { return hit || new Response('offline', { status: 503, headers: { 'Content-Type': 'text/plain' } }); })); });",
+    ''
+  ].join('\n');
+}
+
+module.exports = { manifestJson, swSource };
+  __registry["pwa"] = module.exports;
+})();
+
+/* ===== src/lib/backup.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - encrypted backup envelope (stage 6). The crypto primitives are INJECTED by the caller
+// (browser: WebCrypto-derived key + AES-GCM; tests: node:crypto), because this single file may not
+// require node modules and home-grown synchronous crypto would be worse than none. This module owns
+// only the envelope shape, its strict validation and one generic failure message: a wrong passphrase
+// and a tampered file are indistinguishable from outside.
+
+const FIELDS = Object.freeze(['v', 'kdf', 'iter', 'salt', 'iv', 'ciphertext']);
+const MIN_ITER = 100000;
+const OPEN_ERROR = 'cannot open backup';
+
+function isHex(s, minLen) { return typeof s === 'string' && /^[0-9a-f]+$/.test(s) && s.length >= minLen && s.length % 2 === 0; }
+
+function makeBackupEnvelope(plaintext, opts) {
+  const o = opts || {};
+  if (typeof plaintext !== 'string' || plaintext === '') throw new Error('invalid backup: expected non-empty text');
+  if (!isHex(o.saltHex, 16) || !isHex(o.ivHex, 16)) throw new Error('invalid backup: salt and iv must be hex');
+  const iter = o.iter === undefined ? 210000 : o.iter;
+  if (!Number.isInteger(iter) || iter < MIN_ITER) throw new Error('invalid backup: iteration count too low');
+  if (typeof o.encrypt !== 'function') throw new Error('invalid backup: encrypt primitive is required');
+  const ciphertext = o.encrypt(plaintext, { saltHex: o.saltHex, ivHex: o.ivHex, iter: iter });
+  if (!isHex(ciphertext, 32)) throw new Error('invalid backup: encrypt primitive returned malformed ciphertext');
+  return Object.freeze({ v: 1, kdf: 'PBKDF2-SHA256', iter: iter, salt: o.saltHex, iv: o.ivHex, ciphertext: ciphertext });
+}
+
+function openBackupEnvelope(envelope, opts) {
+  try {
+    if (envelope === null || typeof envelope !== 'object' || Array.isArray(envelope)) throw new Error(OPEN_ERROR);
+    const keys = Object.keys(envelope).sort();
+    if (keys.length !== FIELDS.length || !FIELDS.every((f) => keys.indexOf(f) !== -1)) throw new Error(OPEN_ERROR);
+    if (envelope.v !== 1 || envelope.kdf !== 'PBKDF2-SHA256') throw new Error(OPEN_ERROR);
+    if (!Number.isInteger(envelope.iter) || envelope.iter < MIN_ITER) throw new Error(OPEN_ERROR);
+    if (!isHex(envelope.salt, 16) || !isHex(envelope.iv, 16) || !isHex(envelope.ciphertext, 32)) throw new Error(OPEN_ERROR);
+    if (!opts || typeof opts.decrypt !== 'function') throw new Error(OPEN_ERROR);
+    const plain = opts.decrypt(envelope.ciphertext, { saltHex: envelope.salt, ivHex: envelope.iv, iter: envelope.iter });
+    if (typeof plain !== 'string' || plain === '') throw new Error(OPEN_ERROR);
+    return plain;
+  } catch (e) { throw new Error(OPEN_ERROR); }
+}
+
+function backupFilename(dateISO) {
+  if (typeof dateISO !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) throw new Error('invalid date: expected YYYY-MM-DD');
+  return 'peered-backup-' + dateISO + '.json';
+}
+
+module.exports = { makeBackupEnvelope, openBackupEnvelope, backupFilename, MIN_ITER };
+  __registry["backup"] = module.exports;
+})();
+
+/* ===== src/lib/lang-he.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Hebrew strings for the NEW coordinator screens (stage 7). Separate dictionaries because
+// the i18n mechanism of PR #358 is not merged; key parity with lang-ar/lang-ru is test-enforced.
+module.exports = Object.freeze({
+  'sched.title': 'לוח מפגשים שבועי', 'sched.sessionsPerWeek': 'מפגשים בשבוע', 'sched.duration': 'משך מפגש (דקות)',
+  'sched.conflicts': 'התנגשויות', 'sched.waitlist': 'רשימת המתנה', 'sched.alternatives': 'חלופות אפשריות',
+  'cap.title': 'קיבולת וביקוש', 'cap.demand': 'ביקוש', 'cap.supply': 'היצע', 'cap.gapAlert': 'הביקוש גדול מההיצע',
+  'sem.title': 'ניהול סמסטר', 'sem.holidays': 'חופשות וחגים', 'sem.cancelled': 'בוטל', 'sem.makeup': 'השלמה',
+  'sem.attendance': 'נוכחות', 'sem.held': 'התקיים', 'sem.missed': 'לא התקיים', 'sem.postponed': 'נדחה',
+  'sem.stalePair': 'הזוג לא נפגש כבר שבועיים',
+  'rep.title': 'דוחות רכז', 'rep.weekly': 'שבועי', 'rep.monthly': 'חודשי', 'rep.semester': 'סמסטריאלי',
+  'rep.exportCsv': 'ייצוא CSV', 'rep.exportIcs': 'ייצוא ICS', 'rep.print': 'הדפסה / PDF',
+  'imp.title': 'ייבוא זמינויות', 'imp.pasteHint': 'הדביקו CSV: role,region,subjects,availability', 'imp.errors': 'שורות שלא יובאו',
+  'wiz.title': 'מילוי זמינות', 'wiz.submit': 'שליחת הזמינות',
+  'bak.title': 'גיבוי ושחזור', 'bak.create': 'יצירת גיבוי מוצפן', 'bak.restore': 'שחזור מגיבוי', 'bak.passphrase': 'סיסמת גיבוי',
+  'guide.title': 'מדריך רכז', 'guide.open': 'פתיחת המדריך'
+});
+  __registry["lang-he"] = module.exports;
+})();
+
+/* ===== src/lib/lang-ar.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Arabic strings for the NEW coordinator screens (stage 7). Needs native-speaker review.
+module.exports = Object.freeze({
+  'sched.title': 'جدول اللقاءات الأسبوعي', 'sched.sessionsPerWeek': 'لقاءات في الأسبوع', 'sched.duration': 'مدة اللقاء (دقائق)',
+  'sched.conflicts': 'تعارضات', 'sched.waitlist': 'قائمة الانتظار', 'sched.alternatives': 'بدائل ممكنة',
+  'cap.title': 'السعة والطلب', 'cap.demand': 'الطلب', 'cap.supply': 'العرض', 'cap.gapAlert': 'الطلب أكبر من العرض',
+  'sem.title': 'إدارة الفصل', 'sem.holidays': 'عطل وأعياد', 'sem.cancelled': 'أُلغي', 'sem.makeup': 'تعويض',
+  'sem.attendance': 'الحضور', 'sem.held': 'تم', 'sem.missed': 'لم يتم', 'sem.postponed': 'تأجل',
+  'sem.stalePair': 'لم يلتقِ الزوج منذ أسبوعين',
+  'rep.title': 'تقارير المنسق', 'rep.weekly': 'أسبوعي', 'rep.monthly': 'شهري', 'rep.semester': 'فصلي',
+  'rep.exportCsv': 'تصدير CSV', 'rep.exportIcs': 'تصدير ICS', 'rep.print': 'طباعة / PDF',
+  'imp.title': 'استيراد التوفر', 'imp.pasteHint': 'الصق CSV: role,region,subjects,availability', 'imp.errors': 'أسطر لم تُستورد',
+  'wiz.title': 'تعبئة التوفر', 'wiz.submit': 'إرسال التوفر',
+  'bak.title': 'النسخ الاحتياطي والاستعادة', 'bak.create': 'إنشاء نسخة مشفرة', 'bak.restore': 'استعادة من نسخة', 'bak.passphrase': 'كلمة سر النسخة',
+  'guide.title': 'دليل المنسق', 'guide.open': 'فتح الدليل'
+});
+  __registry["lang-ar"] = module.exports;
+})();
+
+/* ===== src/lib/lang-ru.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - Russian strings for the NEW coordinator screens (stage 7). Needs native-speaker review.
+module.exports = Object.freeze({
+  'sched.title': 'Недельное расписание встреч', 'sched.sessionsPerWeek': 'Встреч в неделю', 'sched.duration': 'Длительность встречи (мин)',
+  'sched.conflicts': 'Конфликты', 'sched.waitlist': 'Лист ожидания', 'sched.alternatives': 'Возможные альтернативы',
+  'cap.title': 'Возможности и спрос', 'cap.demand': 'Спрос', 'cap.supply': 'Предложение', 'cap.gapAlert': 'Спрос превышает предложение',
+  'sem.title': 'Управление семестром', 'sem.holidays': 'Каникулы и праздники', 'sem.cancelled': 'Отменено', 'sem.makeup': 'Компенсация',
+  'sem.attendance': 'Посещаемость', 'sem.held': 'Состоялось', 'sem.missed': 'Не состоялось', 'sem.postponed': 'Перенесено',
+  'sem.stalePair': 'Пара не встречалась уже две недели',
+  'rep.title': 'Отчёты координатора', 'rep.weekly': 'Недельный', 'rep.monthly': 'Месячный', 'rep.semester': 'Семестровый',
+  'rep.exportCsv': 'Экспорт CSV', 'rep.exportIcs': 'Экспорт ICS', 'rep.print': 'Печать / PDF',
+  'imp.title': 'Импорт доступности', 'imp.pasteHint': 'Вставьте CSV: role,region,subjects,availability', 'imp.errors': 'Строки не импортированы',
+  'wiz.title': 'Заполнение доступности', 'wiz.submit': 'Отправить доступность',
+  'bak.title': 'Резервная копия и восстановление', 'bak.create': 'Создать зашифрованную копию', 'bak.restore': 'Восстановить из копии', 'bak.passphrase': 'Пароль копии',
+  'guide.title': 'Руководство координатора', 'guide.open': 'Открыть руководство'
+});
+  __registry["lang-ru"] = module.exports;
+})();
+
+/* ===== src/lib/lang-extra.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - lookup + parity for the new-screen dictionaries (stage 7). Separate from i18n.js (PR #358
+// is not merged, so nothing here touches it). Fallback: Hebrew, then the key itself.
+
+const DICTS = Object.freeze({ he: require('./lang-he.js'), ar: require('./lang-ar.js'), ru: require('./lang-ru.js') });
+const LANGS = Object.freeze(['he', 'ar', 'ru']);
+
+function getExtraKeys() { return Object.keys(DICTS.he).sort(); }
+function tExtra(key, lang) {
+  const d = DICTS[lang] || DICTS.he;
+  if (typeof d[key] === 'string' && d[key] !== '') return d[key];
+  return typeof DICTS.he[key] === 'string' ? DICTS.he[key] : key;
+}
+function verifyExtraParity() {
+  const base = getExtraKeys(); const missing = {}; const extra = {}; let ok = true;
+  LANGS.forEach((lang) => {
+    if (lang === 'he') return;
+    const keys = Object.keys(DICTS[lang]);
+    missing[lang] = base.filter((k) => typeof DICTS[lang][k] !== 'string' || DICTS[lang][k].trim() === '');
+    extra[lang] = keys.filter((k) => base.indexOf(k) === -1).sort();
+    if (missing[lang].length || extra[lang].length) ok = false;
+  });
+  return { ok, missingKeys: missing, extraKeys: extra };
+}
+
+module.exports = { DICTS, LANGS, getExtraKeys, tExtra, verifyExtraParity };
+  __registry["lang-extra"] = module.exports;
+})();
+
+/* ===== src/lib/flow.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - the coordinator flow end to end (stage 8): import -> match -> schedule -> semester ->
+// attendance -> report export. Pure composition of the stage modules; a failure names its stage and
+// stops, nothing partial is reported as success. Consent is granted out-of-band by the coordinator
+// (parentConsentPupilIndexes): imported pupils start without it, exactly as the import gate leaves them.
+
+const { parseAvailabilityCsv } = require('./import-availability.js');
+const { setParentConsent } = require('./profile.js');
+const { match2 } = require('./match2.js');
+const { buildSchedule } = require('./schedule.js');
+const { makeSemester, expandSessions } = require('./semester.js');
+const { makeAttendanceLog, recordAttendance } = require('./attendance.js');
+const { semesterReport, reportToCsv, reportToIcs } = require('./reports.js');
+
+function runCoordinatorFlow(input) {
+  const o = input || {};
+  let stage = 'import';
+  try {
+    const imported = parseAvailabilityCsv(o.csvText);
+    const students = []; const pupils = [];
+    imported.profiles.forEach((p) => { (p.role === 'student' ? students : pupils).push(p); });
+    stage = 'consent';
+    (Array.isArray(o.parentConsentPupilIndexes) ? o.parentConsentPupilIndexes : []).forEach((i) => {
+      if (pupils[i]) pupils[i] = setParentConsent(pupils[i], true);
+    });
+    stage = 'match';
+    const matching = match2(students, pupils, o.matchOpts || {});
+    stage = 'schedule';
+    const schedule = buildSchedule(matching.pairs, Object.assign({}, o.scheduleOpts, { students, pupils }));
+    stage = 'semester';
+    const semester = makeSemester(o.semester || {});
+    const dated = expandSessions(schedule.sessions, semester);
+    stage = 'attendance';
+    let attendance = makeAttendanceLog();
+    (Array.isArray(o.attendanceEntries) ? o.attendanceEntries : []).forEach((e) => { attendance = recordAttendance(attendance, e); });
+    stage = 'report';
+    const sessions = dated.sessions.map((s, i) => Object.assign({}, s, {
+      pairIndex: Number.isInteger(s.pairIndex) ? s.pairIndex : i,
+      region: (students[s.studentIndex] || {}).region || null
+    }));
+    const pairs = matching.pairs.map((p, i) => ({ pairIndex: i }));
+    const report = semesterReport({ sessions, attendance, pairs }, semester);
+    return Object.freeze({
+      ok: true, imported, matching, schedule, semester, dated, attendance, report,
+      reportCsv: reportToCsv(report), reportIcs: reportToIcs(sessions, { dtstamp: o.dtstamp })
+    });
+  } catch (e) {
+    return Object.freeze({ ok: false, stage, error: String(e && e.message || e) });
+  }
+}
+
+// Accessibility contract for the new screens (stage 8). Data, not rendering: the shell must satisfy
+// every requirement per screen; checkScreenSpec is what a screen declaration is verified against.
+const A11Y_SCREENS = Object.freeze(['schedule', 'capacity', 'semester', 'reports', 'import', 'wizard', 'backup', 'guide']);
+const A11Y_FEATURES = Object.freeze(['label', 'keyboard', 'live-region', 'focus-visible', 'min-target-44', 'narrow-360']);
+const A11Y_REQUIREMENTS = Object.freeze(A11Y_SCREENS.map((screen) => Object.freeze({ screen, needs: A11Y_FEATURES })));
+
+function checkScreenSpec(spec) {
+  const s = spec || {};
+  const req = A11Y_REQUIREMENTS.find((r) => r.screen === s.screen);
+  if (!req) return Object.freeze({ ok: false, missing: Object.freeze(['unknown-screen']) });
+  const have = Array.isArray(s.features) ? s.features : [];
+  const missing = req.needs.filter((f) => have.indexOf(f) === -1);
+  return Object.freeze({ ok: missing.length === 0, screen: s.screen, missing: Object.freeze(missing) });
+}
+
+module.exports = { runCoordinatorFlow, A11Y_SCREENS, A11Y_FEATURES, A11Y_REQUIREMENTS, checkScreenSpec };
+  __registry["flow"] = module.exports;
+})();
+
 /* ===== src/lib/store.js ===== */
 (function () {
   var module = { exports: {} };
