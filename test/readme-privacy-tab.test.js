@@ -14,9 +14,13 @@ const intro = readme.slice(readme.indexOf('Besides people'), readme.indexOf('| F
 
 test('the opening paragraph names every tab of the tab bar', () => {
   const tabs = shell.match(/<button role="tab"[^>]*>[^<]*<\/button>/g);
-  assert.equal(tabs.length, 5);
+  assert.equal(tabs.length, 7);
   assert.ok(tabs.some(function (t) { return t.includes('>פרטיות<'); }));
   assert.match(intro, /privacy tab \("פרטיות"\)/);
+  assert.ok(tabs.some(function (t) { return t.includes('>מדריך<'); }), 'guide tab added in stage 12');
+  assert.ok(tabs.some(function (t) { return t.includes('>דוחות<'); }), 'reports tab added in stage 12');
+  assert.match(intro, /guide tab \("מדריך"\)/);
+  assert.match(intro, /reports tab \("דוחות"\)/);
   assert.match(intro, /units screen/);
   assert.match(intro, /sessions screen/);
 });

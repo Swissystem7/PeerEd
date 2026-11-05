@@ -248,6 +248,21 @@
       <div id="unmatched" role="region" aria-live="polite" aria-label="מי נשאר בלי זוג"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
     <div class="card">
+      <h2>שידוך מתקדם</h2>
+      <p class="hint">שידוך רב-קריטריוני עם הסבר בעברית לכל זוג. מסמנים זוג כנעול, ואז שידוך מחדש מחשב רק את השאר. לרשימה אין שדות רמה, שפה או העדפות, לכן הם לא נספרים בציון.</p>
+      <div class="actions"><button type="button" class="act" id="runMatch2" aria-describedby="match2Status">חשב שידוך מתקדם</button>
+        <button type="button" class="ghost" id="rematch2" aria-describedby="match2Status">שידוך מחדש (בלי הנעולים)</button></div>
+      <p class="status" id="match2Status" role="status"></p>
+      <div id="match2Out" role="region" aria-live="polite" aria-label="תוצאות שידוך מתקדם"></div>
+    </div>
+    <div class="card">
+      <h2>לוח וקיבולת</h2>
+      <p class="hint">בונה לוח מהזוגות של השידוך המתקדם, בודק התנגשויות, מציע עד 3 חלופות, ומתריע כשיש יותר ביקוש מהיצע.</p>
+      <div class="actions"><button type="button" class="act" id="runSchedule" aria-describedby="scheduleStatus">בנה לוח</button></div>
+      <p class="status" id="scheduleStatus" role="status"></p>
+      <div id="scheduleOut" role="region" aria-live="polite" aria-label="לוח, התנגשויות וקיבולת"></div>
+    </div>
+    <div class="card">
       <!-- "הרכז מחליט" left the coordinator who says yes to a suggestion looking for that pair in the lessons
            screen: its pair list is matchPairs over the roster, same region only, and session.logSession refuses
            a pair with no single region - so a lesson of such a pair cannot be logged and is in no count the
@@ -376,6 +391,38 @@
     </div>
   </section>
 
+  <!-- ============ מדריך ============ -->
+  <section role="tabpanel" id="tab-guide" aria-labelledby="nav-guide" tabindex="-1" hidden>
+    <div class="card">
+      <h2>מדריך הרכז</h2>
+      <label for="guideSearch">חיפוש במדריך</label>
+      <input id="guideSearch" type="text" maxlength="80" aria-describedby="guideStatus">
+      <div class="actions"><button type="button" class="act" id="guideSearchBtn" aria-describedby="guideStatus">חפש</button>
+        <button type="button" class="ghost" id="guideAllBtn" aria-describedby="guideStatus">כל המדריך</button></div>
+      <p class="status" id="guideStatus" role="status"></p>
+      <div id="guideList" role="region" aria-live="polite" aria-label="פרקי המדריך"></div>
+    </div>
+  </section>
+
+  <!-- ============ דוחות ============ -->
+  <section role="tabpanel" id="tab-reports" aria-labelledby="nav-reports" tabindex="-1" hidden>
+    <div class="card">
+      <h2>דוחות רכז</h2>
+      <p class="hint">הדוח נבנה מהלוח האחרון שחושב במסך השידוך. בוחרים את תאריך תחילת התקופה של הלוח; מזהים פנימיים בלבד, בלי פרטים אישיים. יומן השיעורים לא שומר תאריכים, לכן הוא לא נספר כאן.</p>
+      <div class="row">
+        <div><label for="reportPeriod">תקופה</label><select id="reportPeriod" aria-describedby="report2Status">
+          <option value="weekly">שבועי</option><option value="monthly">חודשי</option><option value="semester">סמסטריאלי</option></select></div>
+        <div><label for="reportFrom">תאריך תחילת התקופה</label><input id="reportFrom" type="date" aria-describedby="report2Status"></div>
+      </div>
+      <div class="actions"><button type="button" class="act" id="runReport" aria-describedby="report2Status">הפק דוח</button>
+        <button type="button" class="ghost" id="dlReportCsv" aria-describedby="report2Status">הורד CSV</button>
+        <button type="button" class="ghost" id="dlReportIcs" aria-describedby="report2Status">הורד ICS</button>
+        <button type="button" class="ghost" id="printReport" aria-describedby="report2Status">הדפס / PDF</button></div>
+      <p class="status" id="report2Status" role="status"></p>
+      <div id="reportOut" role="region" aria-live="polite" aria-label="תוצאת הדוח"></div>
+    </div>
+  </section>
+
   <!-- ============ קשר (src/lib/contact.js) ============ -->
   <div class="card" id="contactBox" hidden role="region" aria-labelledby="contactTitle">
     <h2 id="contactTitle">רוצים לנסות בסבב השיבוץ שלכם?</h2>
@@ -390,6 +437,8 @@
   <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
   <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
   <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
+  <button role="tab" id="nav-guide" aria-controls="tab-guide" aria-selected="false" tabindex="-1">מדריך</button>
+  <button role="tab" id="nav-reports" aria-controls="tab-reports" aria-selected="false" tabindex="-1">דוחות</button>
 </nav>
 
 <script>
@@ -4420,8 +4469,24 @@ module.exports = {
       match = __registry.match, validator = __registry.validator, storeLib = __registry.store,
       unitLib = __registry.unit, approval = __registry.approval, session = __registry.session,
       tabnav = __registry.tabnav, contact = __registry.contact,
-      modesLib = __registry.modes, curriculumLib = __registry.curriculum;
+      modesLib = __registry.modes, curriculumLib = __registry.curriculum,
+      guideLib = __registry['guide-he'], pwaLib = __registry.pwa, match2Lib = __registry.match2,
+      scheduleLib = __registry.schedule, capacityLib = __registry.capacity,
+      reportsLib = __registry.reports, semesterLib = __registry.semester;
   var $ = function (id) { return document.getElementById(id); };
+  // Offline PWA registration (stage 12): same-origin http(s) only. On file:// or without the API this
+  // is a silent no-op, so the single file keeps working opened from disk. A refused Blob-URL worker is
+  // caught and the app stays fully usable without a worker.
+  try {
+    if (typeof navigator !== 'undefined' && 'service' + 'Worker' in navigator && typeof location !== 'undefined' &&
+        (location.protocol === 'https:' || location.protocol === 'http:') && pwaLib) {
+      var swLink = document.createElement('link');
+      swLink.rel = 'manifest';
+      swLink.href = URL.createObjectURL(new Blob([pwaLib.manifestJson()], { type: 'application/json' }));
+      document.head.appendChild(swLink);
+      navigator['service' + 'Worker'].register(URL.createObjectURL(new Blob([pwaLib.swSource()], { type: 'text/javascript' }))).catch(function () {});
+    }
+  } catch (e) { /* offline worker is optional; the single file works without it */ }
 
   // One label per role, used by the participants list AND the match screen.
   var ROLE_HE = { student: 'סטודנט מלמד', pupil: 'תלמיד' };
@@ -6160,6 +6225,121 @@ module.exports = {
   }
 
   // ---------- tabs ----------
+// ---------- מדריך / שידוך מתקדם / לוח / דוחות (שלב 12) ----------
+  function renderGuide(list) {
+    var sections = list || guideLib.GUIDE_SECTIONS;
+    $('guideList').innerHTML = sections.length ? sections.map(function (s) {
+      var full = guideLib.guideSection(s.id);
+      return '<div class="item"><b>' + esc(full.titleHe) + '</b>' +
+        full.stepsHe.map(function (x) { return '<span class="meta">' + esc(x) + '</span><br>'; }).join('') + '</div>';
+    }).join('') : '<p class="empty">לא נמצא פרק מתאים.</p>';
+  }
+  $('guideSearchBtn').addEventListener('click', function () {
+    try {
+      var hits = guideLib.searchGuide($('guideSearch').value);
+      renderGuide(hits.map(function (h) { return guideLib.guideSection(h.id); }));
+      say('guideStatus', hits.length ? 'נמצאו ' + hits.length + ' פרקים.' : 'לא נמצא פרק מתאים.');
+    } catch (err) { say('guideStatus', errorHe(err) + ': החיפוש לא נשמר.', true); }
+  });
+  $('guideAllBtn').addEventListener('click', function () { renderGuide(); say('guideStatus', 'כל המדריך מוצג.'); });
+
+  var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
+  var lockedKeys = {};
+  function rosterSplit() {
+    return {
+      students: state.people.filter(function (p) { return p.role === 'student'; }),
+      pupils: state.people.filter(function (p) { return p.role === 'pupil'; })
+    };
+  }
+  function renderMatch2(result) {
+    lastMatch2 = result;
+    $('match2Out').innerHTML = result.pairs.length ? result.pairs.map(function (p) {
+      var key = p.studentIndex + '-' + p.pupilIndex;
+      return '<div class="item pair"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
+        '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
+        '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
+    }).join('') : '<p class="empty">אין זוגות אפשריים מהרשימה הנוכחית.</p>';
+    say('match2Status', 'נוצרו ' + result.pairs.length + ' זוגות. ציון כולל: ' + result.totalScore + '.');
+  }
+  $('match2Out').addEventListener('click', function (ev) {
+    var k = ev.target && ev.target.getAttribute ? ev.target.getAttribute('data-lock') : null;
+    if (k) lockedKeys[k] = !lockedKeys[k];
+  });
+  $('runMatch2').addEventListener('click', function () {
+    var r = rosterSplit(); lockedKeys = {};
+    try { renderMatch2(match2Lib.match2(r.students, r.pupils)); }
+    catch (err) { say('match2Status', errorHe(err), true); }
+  });
+  $('rematch2').addEventListener('click', function () {
+    if (!lastMatch2) { say('match2Status', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
+    var r = rosterSplit();
+    var relS = [], relP = [];
+    lastMatch2.pairs.forEach(function (p) {
+      if (!lockedKeys[p.studentIndex + '-' + p.pupilIndex]) { relS.push(p.studentIndex); relP.push(p.pupilIndex); }
+    });
+    try { renderMatch2(match2Lib.rematchPartial(r.students, r.pupils, lastMatch2.pairs, { releaseStudentIndexes: relS, releasePupilIndexes: relP })); }
+    catch (err) { say('match2Status', errorHe(err), true); }
+  });
+  $('runSchedule').addEventListener('click', function () {
+    if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
+    var r = rosterSplit();
+    lastSchedule = scheduleLib.buildSchedule(lastMatch2.pairs, { students: r.students, pupils: r.pupils });
+    var conflicts = scheduleLib.findConflicts(lastSchedule.sessions);
+    var alts = lastMatch2.pairs.length ? scheduleLib.suggestAlternatives(lastMatch2.pairs[0], lastSchedule.sessions) : [];
+    var cap = capacityLib.analyzeCapacity(r.students, r.pupils);
+    var html = '<div class="item"><b>מפגשים בלוח: ' + lastSchedule.sessions.length + '</b>' +
+      '<span class="meta">התנגשויות: ' + conflicts.length + ' · ממתינים: ' + lastSchedule.waitlist.length + '</span></div>';
+    alts.forEach(function (a) { html += '<div class="item"><span class="meta">חלופה: ' + esc(slotHe(a.slot)) + '</span></div>'; });
+    cap.alerts.forEach(function (a) { html += '<div class="flag">' + esc(a.neededStudentsNoteHe) + '</div>'; });
+    $('scheduleOut').innerHTML = html;
+    say('scheduleStatus', cap.alerts.length ? 'יש התראות קיבולת: ביקוש גדול מהיצע.' : 'הלוח נבנה בלי התראות קיבולת.', !!cap.alerts.length);
+  });
+
+  function reportData(fromISO) {
+    var sessions = (lastSchedule ? lastSchedule.sessions : []).map(function (s) {
+      return { date: semesterLib.addDays(fromISO, (s.week || 0) * 7), slot: s.slot, subject: s.subject,
+        region: (rosterSplit().students[s.studentIndex] || {}).region, pairIndex: s.pairIndex, durationMinutes: s.durationMinutes };
+    });
+    return { data: { sessions: sessions, attendance: { entries: [] }, pairs: sessions }, sessions: sessions };
+  }
+  function downloadText(name, text, type) {
+    var blob = new Blob([text], { type: type });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
+  }
+  $('runReport').addEventListener('click', function () {
+    var from = $('reportFrom').value;
+    if (!from) { say('report2Status', 'בחרו תאריך תחילת תקופה.', true); return; }
+    try {
+      var built = reportData(from); lastReportSessions = built.sessions;
+      var kind = $('reportPeriod').value;
+      lastReport = kind === 'monthly' ? reportsLib.monthlyReport(built.data, from.slice(0, 7))
+        : kind === 'semester' ? reportsLib.semesterReport(built.data, { startDate: from, endDate: semesterLib.addDays(from, 181) })
+        : reportsLib.weeklyReport(built.data, from);
+      var rows = Object.keys(lastReport.bySubject).sort().map(function (k) { return { code: k, count: lastReport.bySubject[k] }; });
+      $('reportOut').innerHTML = '<div class="item"><b>מפגשים מתוכננים: ' + lastReport.scheduled + '</b></div>' +
+        (rows.length ? reportsLib.svgBarChart(rows, { title: 'לפי מקצוע' }) : '<p class="empty">אין מפגשים בתקופה. בנו לוח קודם.</p>');
+      say('report2Status', 'הדוח הופק: ' + lastReport.from + ' עד ' + lastReport.to + '.');
+    } catch (err) { say('report2Status', errorHe(err), true); }
+  });
+  $('dlReportCsv').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    downloadText('peered-report.csv', reportsLib.reportToCsv(lastReport), 'text/csv;charset=utf-8');
+  });
+  $('dlReportIcs').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    downloadText('peered-report.ics', reportsLib.reportToIcs(lastReportSessions), 'text/calendar;charset=utf-8');
+  });
+  $('printReport').addEventListener('click', function () {
+    if (!lastReport) { say('report2Status', 'קודם הפיקו דוח.', true); return; }
+    if (typeof window.open !== 'function') { say('report2Status', 'ההדפסה לא זמינה כאן.', true); return; }
+    var w = window.open('', '_blank');
+    if (w && w.document) { w.document.write(reportsLib.printableHtml(lastReport)); w.document.close(); }
+  });
+
+  // ---------- tabs (continued below) ----------
 
   // One tab stop for the whole bar (the WAI-ARIA tabs pattern): the selected tab is in the Tab order,
   // the others are not, and the arrow keys walk the bar. Which tab an arrow lands on is tabnav.stepTab,
@@ -6228,6 +6408,7 @@ module.exports = {
   renderSessions();
   setWipeArmed(false);
   initHome();
+  renderGuide();
 })();
 </script>
 </body>
