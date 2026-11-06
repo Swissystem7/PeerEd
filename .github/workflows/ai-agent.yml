@@ -14,9 +14,9 @@ jobs:
     timeout-minutes: 90
     env: {OLLAMA_HOST: http://127.0.0.1:11434, OPENAI_API_BASE: http://127.0.0.1:11434/v1, OPENAI_API_KEY: local-only, NO_COLOR: '1'}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: {fetch-depth: 0}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: {node-version: 20}
       - name: Resolve task
         env: {INPUT_TASK: '${{ inputs.task }}', ISSUE_TITLE: '${{ github.event.issue.title }}', ISSUE_BODY: '${{ github.event.issue.body }}', COMMENT_BODY: '${{ github.event.comment.body }}', ISSUE_NUMBER: '${{ github.event.issue.number }}'}
