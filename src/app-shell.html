@@ -516,6 +516,39 @@
   var DAY_NAMES = { he: null, ar: { SUN: 'الأحد', MON: 'الاثنين', TUE: 'الثلاثاء', WED: 'الأربعاء', THU: 'الخميس', FRI: 'الجمعة', SAT: 'السبت' }, ru: { SUN: 'Вс', MON: 'Пн', TUE: 'Вт', WED: 'Ср', THU: 'Чт', FRI: 'Пт', SAT: 'Сб' } };
   var KIND_HE = { email: 'כתובת מייל', phone: 'מספר טלפון', id_number: 'מספר זהות',
                   url: 'קישור', handle: 'שם משתמש', profanity: 'מילה פוגענית' };
+
+  // Ministry of Education AI topics specification (PEERED-SRV-001-REV)
+  var AI_TOPICS = Object.freeze({
+    AI_LIT_PROMPT: Object.freeze({ he: 'אוריינות בינה מלאכותית והנחיה', ar: 'الذكاء الاصطناعي وهندسة الأوامר', ru: 'Грамотность в ИИ и промптинг' }),
+    AI_CREATIVE: Object.freeze({ he: 'יצירתיות ובינה יוצרת', ar: 'الإبداع والذكاء التوليدي', ru: 'Творчество и генеративный ИИ' }),
+    AI_STEM_CODE: Object.freeze({ he: 'מדעים, טכנולוגיה ותכנות', ar: 'العلوم والتقنية والברמجة', ru: 'STEM и программирование' }),
+    AI_ETHICS_SEC: Object.freeze({ he: 'אתיקה, פרטיות ובטיחות', ar: 'الأخلاقيات والأمان والخصوصية', ru: 'Этика и безопасность ИИ' })
+  });
+
+  function validateAITopics(topics) {
+    if (!Array.isArray(topics) || topics.length === 0) return false;
+    return topics.every(function (t) {
+      return typeof t === 'string' && Object.prototype.hasOwnProperty.call(AI_TOPICS, t);
+    });
+  }
+
+  function calculateAITopicMatch(studentTopics, needTopics) {
+    if (!Array.isArray(needTopics) || needTopics.length === 0) return 0;
+    if (!Array.isArray(studentTopics) || studentTopics.length === 0) return 0;
+    var matched = 0;
+    for (var i = 0; i < needTopics.length; i++) {
+      if (studentTopics.indexOf(needTopics[i]) !== -1) {
+        matched += 1;
+      }
+    }
+    return matched / needTopics.length;
+  }
+
+  if (typeof window !== 'undefined') {
+    window.AI_TOPICS = AI_TOPICS;
+    window.validateAITopics = validateAITopics;
+    window.calculateAITopicMatch = calculateAITopicMatch;
+  }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
   var HOURS = [];
   for (var hh = profile.HOUR_MIN; hh <= profile.HOUR_MAX; hh += 1) HOURS.push(hh);
