@@ -190,6 +190,87 @@ test('cycle-manager: the stamp on a row is not its limit, so a tightened policy 
   assert.throws(() => applyRetentionPolicy({ matches: [foreign], profiles: [] }, ASOF), /no limit for audit-log/);
 });
 
+test('cycle-manager: applyRetentionPolicy throws when stored input is null, undefined, primitive, or array', () => {
+  for (const bad of [null, undefined, 'invalid', 123, 0, true, false, Symbol('stored'), 10n, [], ['records']]) {
+    assert.throws(
+      () => applyRetentionPolicy(bad, ASOF),
+      /stored input must be an object with matches and profiles arrays/
+    );
+  }
+});
+
+test('cycle-manager: applyRetentionPolicy defaults empty object or non-array matches/profiles gracefully to empty arrays', () => {
+  assert.deepEqual(applyRetentionPolicy({}, ASOF), { matches: [], profiles: [] });
+  assert.deepEqual(applyRetentionPolicy({ matches: null, profiles: undefined }, ASOF), { matches: [], profiles: [] });
+  assert.deepEqual(applyRetentionPolicy({ matches: 'not-array', profiles: 123 }, ASOF), { matches: [], profiles: [] });
+  assert.deepEqual(applyRetentionPolicy({ matches: {}, profiles: false }, ASOF), { matches: [], profiles: [] });
+  assert.deepEqual(applyRetentionPolicy({ matches: undefined }, ASOF), { matches: [], profiles: [] });
+  assert.deepEqual(applyRetentionPolicy({ profiles: undefined }, ASOF), { matches: [], profiles: [] });
+
+  const validMatch = makeMatchRecord(matchPairs([st()], [pu()])[0], '2026-03-01');
+  const validProfile = storedProfile(st(), '2026-03-01');
+
+  assert.deepEqual(
+    applyRetentionPolicy({ matches: [validMatch], profiles: null }, ASOF),
+    { matches: [validMatch], profiles: [] }
+  );
+  assert.deepEqual(
+    applyRetentionPolicy({ matches: undefined, profiles: [validProfile] }, ASOF),
+    { matches: [], profiles: [validProfile] }
+  );
+});
+
+test('cycle-manager: records within matches or profiles validate their structure', () => {
+  // Non-object records throw /retention record must be an object/
+  for (const badRecord of [null, undefined, 'string', 42, true, Symbol('record')]) {
+    assert.throws(
+      () => applyRetentionPolicy({ matches: [badRecord], profiles: [] }, ASOF),
+      /retention record must be an object/
+    );
+    assert.throws(
+      () => applyRetentionPolicy({ matches: [], profiles: [badRecord] }, ASOF),
+      /retention record must be an object/
+    );
+  }
+
+  // Records missing retention or retention.maxAgeDays throw /retention record is missing maxAgeDays/
+  const missingMaxAge = [
+    { recordedAt: ASOF },
+    { recordedAt: ASOF, retention: null },
+    { recordedAt: ASOF, retention: undefined },
+    { recordedAt: ASOF, retention: {} },
+    { recordedAt: ASOF, retention: { maxAgeDays: undefined } },
+    { recordedAt: ASOF, retention: { dataCategory: 'match' } }
+  ];
+  for (const badRecord of missingMaxAge) {
+    assert.throws(
+      () => applyRetentionPolicy({ matches: [badRecord], profiles: [] }, ASOF),
+      /retention record is missing maxAgeDays/
+    );
+    assert.throws(
+      () => applyRetentionPolicy({ matches: [], profiles: [badRecord] }, ASOF),
+      /retention record is missing maxAgeDays/
+    );
+  }
+
+  // Records where recordedAt is missing or null throw /retention record is missing recordedAt/
+  const missingRecordedAt = [
+    { retention: { dataCategory: 'match', maxAgeDays: 30 } },
+    { recordedAt: undefined, retention: { dataCategory: 'match', maxAgeDays: 30 } },
+    { recordedAt: null, retention: { dataCategory: 'match', maxAgeDays: 30 } }
+  ];
+  for (const badRecord of missingRecordedAt) {
+    assert.throws(
+      () => applyRetentionPolicy({ matches: [badRecord], profiles: [] }, ASOF),
+      /retention record is missing recordedAt/
+    );
+    assert.throws(
+      () => applyRetentionPolicy({ matches: [], profiles: [badRecord] }, ASOF),
+      /retention record is missing recordedAt/
+    );
+  }
+});
+
 test('cycle sweep: a day is read only from a Date or an ISO string, and only if the calendar has it', () => {
   // the legacy parser rolled '2026-02-30' into March, read '12' as 2001 and '3/4/2026' on the local clock
   for (const bad of ['2026-02-30', '2025-02-29', '3/4/2026', 'March 4 2026', '12', '2026', '2026-03-04T10:00', 12, 0, true]) {
