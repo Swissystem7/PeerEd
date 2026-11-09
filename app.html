@@ -394,6 +394,7 @@
         חולק, ורק יחידה שאושרה במסך "יחידות" באותו מקצוע.</p>
       <label for="sessionPair">זוג</label>
       <select id="sessionPair" aria-required="true" aria-describedby="sessionStatus"></select>
+      <span id="pairTotalHoursBadge" class="pair-total-hours-badge meta" role="status" aria-live="polite">סך שעות: 0</span>
       <div class="row">
         <div><label for="sessionSlot">שעה</label><select id="sessionSlot" aria-required="true" aria-describedby="sessionStatus"></select></div>
         <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject" aria-required="true" aria-describedby="sessionStatus"></select></div>
@@ -6938,6 +6939,42 @@ module.exports = {
   $('sessionPair').addEventListener('change', function () { renderSessionChoices(currentPairs()); });
   $('sessionSubject').addEventListener('change', renderSessionUnits);
 
+
+  function pairHoursBadgeLabels(total) {
+    var n = Number(total);
+    if (!Number.isFinite(n) || n < 0) n = 0;
+    var shown = Math.round(n * 10) / 10;
+    return {
+      he: 'סך שעות: ' + shown,
+      ar: 'إجمالي الساعات: ' + shown,
+      ru: 'Всего часов: ' + shown
+    };
+  }
+  function activeSessionPairIndex() {
+    var sel = $('sessionPair');
+    if (!sel || !sel.value) return null;
+    var n = Number(sel.value);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  }
+  function updatePairTotalHoursBadge() {
+    var el = $('pairTotalHoursBadge');
+    if (!el) return;
+    var idx = activeSessionPairIndex();
+    var total = 0;
+    if (idx != null && attendance && typeof attendance.calculatePairHours === 'function') {
+      total = attendance.calculatePairHours(Array.isArray(state.attendance) ? state.attendance : [], idx);
+    }
+    var labels = pairHoursBadgeLabels(total);
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    el.textContent = labels[lang] || labels.he;
+  }
+
+
+  if ($('sessionPair')) {
+    $('sessionPair').addEventListener('change', updatePairTotalHoursBadge);
+  }
+  updatePairTotalHoursBadge();
+
   $('logSession').addEventListener('click', function () {
     var pairs = currentPairs();
     var pair = pairs[Number($('sessionPair').value)];
@@ -6980,6 +7017,7 @@ module.exports = {
         unitId: $('sessionUnit').value,
         outcome: $('sessionOutcome').value
       });
+      updatePairTotalHoursBadge();
     } catch (err) {
       if (/unit/i.test(err.message)) {
         var u = $('sessionUnit');
@@ -7129,7 +7167,8 @@ module.exports = {
     ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
       say(id, '');
     });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions();
+    renderPeople(); renderUnits(); renderSessionForm();
+    updatePairTotalHoursBadge(); renderSessions();
     setWipeArmed(false);
     // The memory fallback clears without complaint, but the device was never reached: the line says what
     // was emptied (the screen and the memory) and what this button could not touch, instead of
