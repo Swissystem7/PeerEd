@@ -285,6 +285,7 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 		totalHeldSessions: 0,
 		totalHours: 0,
 		byParticipant: {},
+		sortedParticipants: [],
 	};
 	if (!Array.isArray(attendanceRecords) || attendanceRecords.length === 0) {
 		return result;
@@ -323,6 +324,18 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 			}
 		}
 	}
+	result.sortedParticipants = Object.keys(result.byParticipant)
+		.map((k) => {
+			const index = Number(k);
+			return {
+				index,
+				totalHours: result.byParticipant[index],
+			};
+		})
+		.sort(
+			(a, b) =>
+				b.totalHours - a.totalHours || a.index - b.index,
+		);
 	return result;
 }
 

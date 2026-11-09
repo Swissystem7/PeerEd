@@ -50,6 +50,7 @@ test("empty/invalid input = 0 and does not throw", () => {
 			totalHeldSessions: 0,
 			totalHours: 0,
 			byParticipant: {},
+			sortedParticipants: [],
 		});
 	}
 
@@ -78,6 +79,7 @@ test("empty/invalid input = 0 and does not throw", () => {
 		totalHeldSessions: 0,
 		totalHours: 0,
 		byParticipant: {},
+		sortedParticipants: [],
 	});
 });
 
@@ -202,9 +204,16 @@ test("no PII fields in the output (only numeric keys/values)", () => {
 	assert.deepEqual(topKeys, [
 		"byPair",
 		"byParticipant",
+		"sortedParticipants",
 		"totalHeldSessions",
 		"totalHours",
 	]);
+	assert.ok(Array.isArray(summary.sortedParticipants));
+	for (const row of summary.sortedParticipants) {
+		assert.equal(typeof row.index, "number");
+		assert.equal(typeof row.totalHours, "number");
+		assert.deepEqual(Object.keys(row).sort(), ["index", "totalHours"]);
+	}
 
 	assert.equal(typeof summary.totalHeldSessions, "number");
 	assert.equal(typeof summary.totalHours, "number");
