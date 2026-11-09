@@ -210,6 +210,14 @@
       <p class="hint">הרשימה נשמרת בדפדפן הזה בלבד: היא לא עוברת לטלפון אחר, נמחקת עם ניקוי נתוני הגלישה, ואין ממנה גיבוי.
         "הורד זוגות (CSV)" במסך השידוך מוריד את תוצאת השידוך לפי מספרי הרשימה, לא את הרשימה: שעות שאינן משותפות
         לזוג לא נמצאות בקובץ, אישור הורה מופיע בו רק כסיבה אצל מי שנשאר בלי זוג בגללו, ואי אפשר לטעון אותו בחזרה.</p>
+      <label for="peopleAiFilter" id="peopleAiFilterLabel">נושאי בינה מלאכותית</label>
+      <select id="peopleAiFilter">
+        <option value="">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+        <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+        <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+        <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+      </select>
       <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
     </div>
     <div class="card">
@@ -4924,6 +4932,16 @@ module.exports = {
     ar: 'موضوعات الذكاء الاصطناعي',
     ru: 'Темы искусственного интеллекта'
   });
+  const AI_TOPIC_ALL_LABELS = Object.freeze({
+    he: 'כל הנושאים',
+    ar: 'كل المواضيع',
+    ru: 'Все темы'
+  });
+  const AI_FILTER_EMPTY_LABELS = Object.freeze({
+    he: 'אין משתתפים התואמים לנושא שנבחר.',
+    ar: 'لا يوجد مشاركون يطابقون الموضوع المحدد.',
+    ru: 'Нет участников, соответствующих выбранной теме.'
+  });
   const AI_SUMMARY_HEADINGS = Object.freeze({
     he: 'פילוח נושאי בינה מלאכותית',
     ar: 'توزيع موضوعات الذكاء الاصطناعي',
@@ -4975,6 +4993,10 @@ module.exports = {
     window.sortMatch2Pairs = sortMatch2Pairs;
     window.renderMatch2 = renderMatch2;
     window.renderAITopicsSummary = renderAITopicsSummary;
+    window.AI_TOPIC_ALL_LABELS = AI_TOPIC_ALL_LABELS;
+    window.AI_FILTER_EMPTY_LABELS = AI_FILTER_EMPTY_LABELS;
+    window.renderPeople = renderPeople;
+    window.renderPeopleAiFilter = renderPeopleAiFilter;
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
   var HOURS = [];
@@ -5240,6 +5262,25 @@ module.exports = {
     resetMatchView();
   }
 
+  function renderPeopleAiFilter() {
+    const sel = $('peopleAiFilter');
+    if (!sel) return;
+    const currentVal = sel.value;
+    const lbl = $('peopleAiFilterLabel');
+    if (lbl) {
+      lbl.textContent = AI_TOPIC_GROUP_LABELS[currentLang] ?? AI_TOPIC_GROUP_LABELS.he;
+    }
+    const allLabel = AI_TOPIC_ALL_LABELS[currentLang] ?? AI_TOPIC_ALL_LABELS.he;
+    const opts = [`<option value="">${esc(allLabel)}</option>`];
+    const keys = AI_TOPICS ? Object.keys(AI_TOPICS) : [];
+    for (const key of keys) {
+      const topicName = AI_TOPICS[key]?.[currentLang] ?? AI_TOPICS[key]?.he ?? key;
+      opts.push(`<option value="${esc(key)}">${esc(topicName)}</option>`);
+    }
+    sel.innerHTML = opts.join('');
+    sel.value = currentVal;
+  }
+
   function buildInputs() {
     $('region').innerHTML = regions.REGIONS.map(function (r) {
       return '<option value="' + r + '">' + esc(REGION_HE[r] || r) + '</option>';
@@ -5253,6 +5294,7 @@ module.exports = {
       const label = AI_TOPICS[key][currentLang] || AI_TOPICS[key].he;
       return `<label class="check"><input type="checkbox" value="${key}" data-ai-topic="${key}"> ${esc(label)}</label>`;
     }).join('');
+    renderPeopleAiFilter();
     var cells = ['<span></span>'];
     profile.DAYS.forEach(function (d) { cells.push('<span>' + esc(DAY_HE[d] || d) + '</span>'); });
     HOURS.forEach(function (h) {
@@ -5291,25 +5333,56 @@ module.exports = {
   }
 
   function renderPeople() {
-    $('peopleList').innerHTML = state.people.length ? state.people.map(function (p, i) {
-      var pupil = p.role === 'pupil';
-      var consented = match.hasParentConsent(p);
-      var personLabel = ROLE_HE[p.role] + ' #' + (i + 1);
-      return '<div class="item"><b>' + personLabel +
-        '</b><span class="meta">' + esc(REGION_HE[p.region] || p.region) + ' · ' +
-        p.subjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') + ' · ' +
-        countHe(p.availability.length, 'שעה פנויה', 'שעות פנויות', 'אחת') +
-        (pupil ? ' · אישור הורה: ' + (consented ? 'יש' : 'אין') : '') + '</span>' +
-        (pupil && !consented ? '<div class="flag">בלי אישור הורה התלמיד לא נכנס לשידוך.</div>' : '') +
-        '<div class="actions">' +
-        (pupil ? '<button type="button" class="ghost small" id="consentBtn-' + i + '" data-consent="' + i + '" aria-pressed="' +
-          (consented ? 'true' : 'false') + '" aria-describedby="addStatus" aria-label="' +
-          esc((consented ? 'בטל אישור הורה ל' : 'סמן אישור הורה ל') + personLabel) + '">' +
-          (consented ? 'בטל אישור הורה' : 'סמן אישור הורה') + '</button>' : '') +
-        '<button type="button" class="ghost small" id="delBtn-' + i + '" data-del="' + i + '" aria-describedby="addStatus" aria-label="' +
-        esc('מחק ' + personLabel) + '">מחק</button></div></div>';
-    }).join('') : '<p class="empty">' + esc(emptyRosterHe()) + '</p>';
+    if (!state.people.length) {
+      $('peopleList').innerHTML = `<p class="empty">${esc(emptyRosterHe())}</p>`;
+      renderAITopicsSummary();
+      return;
+    }
+    const selectedTopic = $('peopleAiFilter')?.value || '';
+    let filtered = state.people;
+    if (selectedTopic && typeof storeLib?.filterParticipantsByAITopic === 'function') {
+      try {
+        filtered = storeLib.filterParticipantsByAITopic(state.people, selectedTopic);
+      } catch {
+        filtered = state.people;
+      }
+    }
+    if (!Array.isArray(filtered)) {
+      filtered = state.people;
+    }
+    if (!filtered.length) {
+      const emptyMsg = AI_FILTER_EMPTY_LABELS[currentLang] ?? AI_FILTER_EMPTY_LABELS.he;
+      $('peopleList').innerHTML = `<p class="empty">${esc(emptyMsg)}</p>`;
+      renderAITopicsSummary();
+      return;
+    }
+    const filteredSet = new Set(filtered);
+    const rows = [];
+    for (let i = 0; i < state.people.length; i += 1) {
+      const p = state.people[i];
+      if (!filteredSet.has(p)) continue;
+      const pupil = p.role === 'pupil';
+      const consented = match?.hasParentConsent ? match.hasParentConsent(p) : false;
+      const personLabel = `${ROLE_HE[p.role]} #${i + 1}`;
+      rows.push(
+        `<div class="item"><b>${personLabel}</b><span class="meta">${esc(REGION_HE[p.region] || p.region)} · ` +
+        `${p.subjects.map((s) => esc(SUBJECT_HE[s] || s)).join(', ')} · ` +
+        `${countHe(p.availability.length, 'שעה פנויה', 'שעות פנויות', 'אחת')}` +
+        `${pupil ? ` · אישור הורה: ${consented ? 'יש' : 'אין'}` : ''}</span>` +
+        `${pupil && !consented ? '<div class="flag">בלי אישור הורה התלמיד לא נכנס לשידוך.</div>' : ''}` +
+        `<div class="actions">${pupil ? `<button type="button" class="ghost small" id="consentBtn-${i}" data-consent="${i}" aria-pressed="${consented ? 'true' : 'false'}" aria-describedby="addStatus" aria-label="${esc(`${consented ? 'בטל אישור הורה ל' : 'סמן אישור הורה ל'}${personLabel}`)}">${consented ? 'בטל אישור הורה' : 'סמן אישור הורה'}</button>` : ''}` +
+        `<button type="button" class="ghost small" id="delBtn-${i}" data-del="${i}" aria-describedby="addStatus" aria-label="${esc(`מחק ${personLabel}`)}">מחק</button></div></div>`
+      );
+    }
+    $('peopleList').innerHTML = rows.join('');
     renderAITopicsSummary();
+  }
+
+  const peopleAiFilterEl = $('peopleAiFilter');
+  if (peopleAiFilterEl) {
+    peopleAiFilterEl.addEventListener('change', () => {
+      renderPeople();
+    });
   }
 
   $('subjects').addEventListener('click', function (ev) {
