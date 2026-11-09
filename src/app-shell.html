@@ -3005,6 +3005,7 @@
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
     document.documentElement.lang = currentLang;
     document.documentElement.dir = i18n.dirFor(currentLang);
+    if (typeof refreshSortAiMatchLabel === 'function') refreshSortAiMatchLabel();
     var sel = $('langSelect'); if (sel) sel.value = currentLang;
     REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
     SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
