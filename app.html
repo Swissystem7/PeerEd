@@ -2214,6 +2214,25 @@ const ATTENDANCE_STATUSES = Object.freeze([
 
 const MAX_ATTENDANCE_RECORDS = 5000;
 
+function todayLocalISO() {
+	const now = new Date();
+	const y = now.getFullYear();
+	const m = String(now.getMonth() + 1).padStart(2, "0");
+	const d = String(now.getDate()).padStart(2, "0");
+	return `${y}-${m}-${d}`;
+}
+
+/** Valid YYYY-MM-DD calendar date that is not after today (local). */
+function isValidAttendanceDate(dateStr) {
+	try {
+		parseDate(dateStr);
+	} catch {
+		return false;
+	}
+	return dateStr <= todayLocalISO();
+}
+
+
 function makeAttendanceLog() {
 	return Object.freeze({ entries: Object.freeze([]) });
 }
@@ -2228,6 +2247,8 @@ function recordAttendance(log, input) {
 	if (!Number.isInteger(o.pairIndex) || o.pairIndex < 0)
 		throw new Error("invalid attendance: pairIndex");
 	parseDate(o.date);
+	if (!isValidAttendanceDate(o.date))
+		throw new Error("invalid attendance: future or invalid date");
 	if (ATTENDANCE_STATUSES.indexOf(o.status) === -1)
 		throw new Error("invalid attendance status");
 	if (log.entries.some((e) => e.pairIndex === o.pairIndex && e.date === o.date))
@@ -2514,6 +2535,7 @@ module.exports = {
 	serializeAttendance,
 	deserializeAttendance,
 	MAX_ATTENDANCE_RECORDS,
+	isValidAttendanceDate,
 };
   __registry["attendance"] = module.exports;
 })();
