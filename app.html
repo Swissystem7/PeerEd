@@ -287,7 +287,8 @@
       <h2>שידוך מתקדם</h2>
       <p class="hint">שידוך רב-קריטריוני עם הסבר בעברית לכל זוג. מסמנים זוג כנעול, ואז שידוך מחדש מחשב רק את השאר. לרשימה אין שדות רמה, שפה או העדפות, לכן הם לא נספרים בציון.</p>
       <div class="actions"><button type="button" class="act" id="runMatch2" aria-describedby="match2Status">חשב שידוך מתקדם</button>
-        <button type="button" class="ghost" id="rematch2" aria-describedby="match2Status">שידוך מחדש (בלי הנעולים)</button></div>
+        <button type="button" class="ghost" id="rematch2" aria-describedby="match2Status">שידוך מחדש (בלי הנעולים)</button>
+        <button type="button" class="ghost" id="btn-sort-ai-match" aria-describedby="match2Status">מיין לפי חפיפת נושאי AI</button></div>
       <p class="status" id="match2Status" role="status"></p>
       <div id="match2Out" role="region" aria-live="polite" aria-label="תוצאות שידוך מתקדם"></div>
     </div>
@@ -5328,6 +5329,11 @@ module.exports = {
     totalHeldSessions: Object.freeze({ he: "מפגשים שהתקיימו", ar: "اللقاءات المنعقدة", ru: "Состоявшихся занятий" })
   });
 
+  var SORT_AI_MATCH_LABELS = Object.freeze({
+    he: 'מיין לפי חפיפת נושאי AI',
+    ar: 'ترتيب حسب تداخل مواضيع الذكاء الاصطناعي',
+    ru: 'Сортировать по пересечению тем ИИ'
+  });
   var AI_TOPIC_BADGE_LABELS = Object.freeze({
     he: 'התאמת נושאי AI',
     ar: 'توافق مواضيع الذكاء الاصطناعي',
@@ -7471,6 +7477,40 @@ module.exports = {
     if (aiDiff !== 0) return aiDiff;
     return a._order - b._order;
   }
+  function compareMatch2PairsByAi(a, b) {
+    var aAi = typeof a.aiTopicMatch === 'number' ? a.aiTopicMatch : 0;
+    var bAi = typeof b.aiTopicMatch === 'number' ? b.aiTopicMatch : 0;
+    var aiDiff = bAi - aAi;
+    if (aiDiff !== 0) return aiDiff;
+    var aScore = typeof a.score === 'number' ? a.score : 0;
+    var bScore = typeof b.score === 'number' ? b.score : 0;
+    var scoreDiff = bScore - aScore;
+    if (scoreDiff !== 0) return scoreDiff;
+    return a._order - b._order;
+  }
+  function sortMatch2PairsByAi(pairs, students, pupils) {
+    var list = pairs || [];
+    var decorated = [];
+    var i, p, copy, student, pupil, sTopics, pTopics;
+    for (i = 0; i < list.length; i++) {
+      p = list[i];
+      copy = Object.assign({}, p);
+      if (typeof copy.aiTopicMatch !== 'number') {
+        student = Array.isArray(students) ? (students[p.studentIndex] || null) : null;
+        pupil = Array.isArray(pupils) ? (pupils[p.pupilIndex] || null) : null;
+        sTopics = student && Array.isArray(student.target_ai_topics) ? student.target_ai_topics : [];
+        pTopics = pupil && Array.isArray(pupil.target_ai_topics) ? pupil.target_ai_topics : [];
+        copy.aiTopicMatch = calculateAITopicMatch(sTopics, pTopics);
+      }
+      copy._order = i;
+      decorated.push(copy);
+    }
+    decorated.sort(compareMatch2PairsByAi);
+    for (i = 0; i < decorated.length; i++) {
+      delete decorated[i]._order;
+    }
+    return decorated;
+  }
   function sortMatch2Pairs(pairs, students, pupils) {
     var list = pairs || [];
     var decorated = [];
@@ -7524,7 +7564,9 @@ module.exports = {
           }
         }
       } catch (err) { aiExplHtml = ''; }
-      return '<div class="item pair"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
+      var aiVal = typeof p.aiTopicMatch === 'number' ? p.aiTopicMatch : 0;
+      var scoreVal = typeof p.score === 'number' ? p.score : 0;
+      return '<div class="item pair" data-ai-overlap="' + aiVal + '" data-score="' + scoreVal + '"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
         '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
         (topics ? ['<span class="meta">', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang)), '</span><br>'].join('') : '') +
         aiExplHtml +
@@ -7551,6 +7593,25 @@ module.exports = {
     try { renderMatch2(match2Lib.rematchPartial(r.students, r.pupils, lastMatch2.pairs, { releaseStudentIndexes: relS, releasePupilIndexes: relP })); }
     catch (err) { say('match2Status', errorHe(err), true); }
   });
+  function refreshSortAiMatchLabel() {
+    var btn = $('btn-sort-ai-match');
+    if (!btn) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    btn.textContent = SORT_AI_MATCH_LABELS[lang] || SORT_AI_MATCH_LABELS.he;
+  }
+  if ($('btn-sort-ai-match')) {
+    $('btn-sort-ai-match').addEventListener('click', function () {
+      if (!lastMatch2 || !lastMatch2.pairs || !lastMatch2.pairs.length) {
+        say('match2Status', 'קודם לחצו "חשב שידוך מתקדם".', true);
+        return;
+      }
+      var r = rosterSplit();
+      var sorted = sortMatch2PairsByAi(lastMatch2.pairs, r.students, r.pupils);
+      renderMatch2(Object.assign({}, lastMatch2, { pairs: sorted }));
+    });
+  }
+  refreshSortAiMatchLabel();
+
   $('runSchedule').addEventListener('click', function () {
     if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
     var r = rosterSplit();
@@ -7695,6 +7756,7 @@ module.exports = {
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
     document.documentElement.lang = currentLang;
     document.documentElement.dir = i18n.dirFor(currentLang);
+    if (typeof refreshSortAiMatchLabel === 'function') refreshSortAiMatchLabel();
     var sel = $('langSelect'); if (sel) sel.value = currentLang;
     REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
     SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
