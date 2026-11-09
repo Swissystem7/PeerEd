@@ -30,6 +30,42 @@ function attendanceSummary(log, opts) {
   return { byStatus, byPair, heldRate: decided === 0 ? null : Math.round((byStatus.held / decided) * 1000) / 1000 };
 }
 
+// Mirrors AI_TOPICS in src/app-shell.html
+const AI_TOPIC_KEYS = Object.freeze(['AI_LIT_PROMPT', 'AI_CREATIVE', 'AI_STEM_CODE', 'AI_ETHICS_SEC']);
+
+function isAITopicList(topics) {
+  if (!Array.isArray(topics) || topics.length === 0) return false;
+  return topics.every((t) => typeof t === 'string' && AI_TOPIC_KEYS.includes(t));
+}
+
+function getAITopicsSummary(participants) {
+  const result = {
+    AI_LIT_PROMPT: { total: 0, requested: 0, offered: 0 },
+    AI_CREATIVE: { total: 0, requested: 0, offered: 0 },
+    AI_STEM_CODE: { total: 0, requested: 0, offered: 0 },
+    AI_ETHICS_SEC: { total: 0, requested: 0, offered: 0 }
+  };
+  if (!Array.isArray(participants) || participants.length === 0) {
+    return result;
+  }
+  for (const p of participants) {
+    if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
+    const topics = p.target_ai_topics;
+    if (!Array.isArray(topics)) continue;
+    const uniqueTopics = new Set(topics);
+    for (const topic of uniqueTopics) {
+      if (!isAITopicList([topic])) continue;
+      result[topic].total += 1;
+      if (p.role === 'student') {
+        result[topic].offered += 1;
+      } else if (p.role === 'pupil') {
+        result[topic].requested += 1;
+      }
+    }
+  }
+  return result;
+}
+
 // Pairs with no 'held' session for at least `days` days (default 14) as of asOfISO.
 function stalePairs(pairs, log, asOfISO, opts) {
   assertLog(log); parseDate(asOfISO); const days = opts && Number.isInteger(opts.days) ? opts.days : 14;
@@ -48,4 +84,12 @@ function stalePairs(pairs, log, asOfISO, opts) {
   return out.sort((a, b) => (b.daysSince - a.daysSince) || (a.pairIndex - b.pairIndex));
 }
 
-module.exports = { ATTENDANCE_STATUSES, makeAttendanceLog, recordAttendance, attendanceSummary, stalePairs };
+module.exports = {
+  ATTENDANCE_STATUSES,
+  makeAttendanceLog,
+  recordAttendance,
+  attendanceSummary,
+  stalePairs,
+  AI_TOPIC_KEYS,
+  getAITopicsSummary
+};
