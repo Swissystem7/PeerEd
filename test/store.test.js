@@ -1,242 +1,449 @@
-'use strict';
-const test = require('node:test');
-const assert = require('node:assert/strict');
+const test = require("node:test");
+const assert = require("node:assert/strict");
 
 const {
-  SCHEMA, DEFAULT_KEY, REJECTED_SUFFIX, emptyState, serialize, deserialize, memoryBackend, createStore,
-  INVALID_STATE_ERROR
-} = require('../src/lib/store.js');
-const { makeProfile, PERSONAL_DATA_ERROR } = require('../src/lib/profile.js');
-const { PROFANITY_ERROR } = require('../src/lib/validator.js');
-const { emptyQueue, submit, approve, statusOf } = require('../src/lib/approval.js');
-const { makeUnit } = require('../src/lib/unit.js');
-const { emptyLog, logSession, summarize } = require('../src/lib/session.js');
-const { matchPairs } = require('../src/lib/match.js');
+	SCHEMA,
+	DEFAULT_KEY,
+	REJECTED_SUFFIX,
+	emptyState,
+	serialize,
+	deserialize,
+	memoryBackend,
+	createStore,
+	INVALID_STATE_ERROR,
+} = require("../src/lib/store.js");
+const { makeProfile, PERSONAL_DATA_ERROR } = require("../src/lib/profile.js");
+const { PROFANITY_ERROR } = require("../src/lib/validator.js");
+const {
+	emptyQueue,
+	submit,
+	approve,
+	statusOf,
+} = require("../src/lib/approval.js");
+const { makeUnit } = require("../src/lib/unit.js");
+const { emptyLog, logSession, summarize } = require("../src/lib/session.js");
+const { matchPairs } = require("../src/lib/match.js");
 
-const MATH = makeUnit({ title: 'משוואות ריבועיות', subject: 'MATH', durationMinutes: 20, body: 'פותרים שלוש משוואות.' });
-const STUDENT = makeProfile({ role: 'student', region: 'SOUTH', availability: ['SUN_16', 'MON_18'], subjects: ['MATH', 'PHYSICS'] });
-const PUPIL = makeProfile({ role: 'pupil', region: 'SOUTH', availability: ['MON_18'], subjects: ['MATH'], parentConsent: true });
+const MATH = makeUnit({
+	title: "משוואות ריבועיות",
+	subject: "MATH",
+	durationMinutes: 20,
+	body: "פותרים שלוש משוואות.",
+});
+const STUDENT = makeProfile({
+	role: "student",
+	region: "SOUTH",
+	availability: ["SUN_16", "MON_18"],
+	subjects: ["MATH", "PHYSICS"],
+});
+const PUPIL = makeProfile({
+	role: "pupil",
+	region: "SOUTH",
+	availability: ["MON_18"],
+	subjects: ["MATH"],
+	parentConsent: true,
+});
 const QUEUE = approve(submit(emptyQueue(), MATH), MATH.id);
 const PAIR = matchPairs([STUDENT], [PUPIL])[0];
-const LOG = logSession(emptyLog(), QUEUE, PAIR, { slot: 'MON_18', subject: 'MATH', unitId: MATH.id, outcome: 'held' });
-const STATE = Object.freeze({ people: Object.freeze([STUDENT, PUPIL]), queue: QUEUE, log: LOG });
-
-test('store: the empty state is frozen and serializes to a fixed document', () => {
-  const s = emptyState();
-  assert.ok(Object.isFrozen(s) && Object.isFrozen(s.people));
-  assert.equal(s.people.length, 0);
-  assert.equal(serialize(s), JSON.stringify({ schema: SCHEMA, people: [], queue: emptyQueue(), log: emptyLog() }));
+const LOG = logSession(emptyLog(), QUEUE, PAIR, {
+	slot: "MON_18",
+	subject: "MATH",
+	unitId: MATH.id,
+	outcome: "held",
+});
+const STATE = Object.freeze({
+	people: Object.freeze([STUDENT, PUPIL]),
+	queue: QUEUE,
+	log: LOG,
+	attendance: Object.freeze([]),
 });
 
-test('store: a full state survives a round trip byte for byte', () => {
-  const text = serialize(STATE);
-  const back = deserialize(text);
-  assert.ok(Object.isFrozen(back) && Object.isFrozen(back.people) && Object.isFrozen(back.people[0]));
-  assert.deepEqual(back.people, [STUDENT, PUPIL]);
-  assert.equal(statusOf(back.queue, MATH.id), 'approved');
-  assert.deepEqual(summarize(back.log), summarize(LOG));
-  assert.equal(serialize(back), text);
-  // deserialize is a pure function of the text: same input, same output, with no clock in between.
-  assert.equal(serialize(deserialize(text)), serialize(deserialize(text)));
+test("store: the empty state is frozen and serializes to a fixed document", () => {
+	const s = emptyState();
+	assert.ok(Object.isFrozen(s) && Object.isFrozen(s.people));
+	assert.equal(s.people.length, 0);
+	assert.equal(
+		serialize(s),
+		JSON.stringify({
+			schema: SCHEMA,
+			people: [],
+			queue: emptyQueue(),
+			log: emptyLog(),
+			attendance: [],
+		}),
+	);
 });
 
-test('store: a stored person with a name is refused, not trimmed', () => {
-  const doc = JSON.parse(serialize(STATE));
-  doc.people[1] = Object.assign({}, doc.people[1], { name: 'דנה' });
-  assert.throws(() => deserialize(JSON.stringify(doc)), { message: PERSONAL_DATA_ERROR });
+test("store: a full state survives a round trip byte for byte", () => {
+	const text = serialize(STATE);
+	const back = deserialize(text);
+	assert.ok(
+		Object.isFrozen(back) &&
+			Object.isFrozen(back.people) &&
+			Object.isFrozen(back.people[0]),
+	);
+	assert.deepEqual(back.people, [STUDENT, PUPIL]);
+	assert.equal(statusOf(back.queue, MATH.id), "approved");
+	assert.deepEqual(summarize(back.log), summarize(LOG));
+	assert.equal(serialize(back), text);
+	// deserialize is a pure function of the text: same input, same output, with no clock in between.
+	assert.equal(serialize(deserialize(text)), serialize(deserialize(text)));
 });
 
-test('store: a name kept under the retention key of a stored person is refused, not dropped', () => {
-  // Before this test the stored stamp was deleted unread before makeProfile ran, so a record whose
-  // retention held a name or a phone loaded without complaint, and the first save wrote over it with no
-  // copy kept. The same gate as a name beside the stamp, with the same message.
-  const doc = JSON.parse(serialize(STATE));
-  doc.people[1].retention = { dataCategory: 'profile', maxAgeDays: 730, name: 'דנה' };
-  assert.throws(() => deserialize(JSON.stringify(doc)), { message: PERSONAL_DATA_ERROR });
-  const backend = memoryBackend();
-  const store = createStore(backend, 'k');
-  backend.setItem('k', JSON.stringify(doc));
-  const loaded = store.load();
-  assert.equal(loaded.problem, PERSONAL_DATA_ERROR);
-  assert.deepEqual(loaded.state, emptyState());
-  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), JSON.stringify(doc));
-  // a stamp of a shape makeProfile never writes is a record the app never wrote
-  for (const stamp of ['דנה 050-1234567', ['profile', 730], null,
-    { dataCategory: 'match', maxAgeDays: 365 }, { dataCategory: 'profile' }, { dataCategory: 'profile', maxAgeDays: 'forever' },
-    { dataCategory: 'profile', maxAgeDays: -1 }, { dataCategory: 'profile', maxAgeDays: 1.5 }]) {
-    doc.people[1].retention = stamp;
-    assert.throws(() => deserialize(JSON.stringify(doc)), { message: /^invalid retention:/ }, JSON.stringify(stamp));
-  }
+test("store: a stored person with a name is refused, not trimmed", () => {
+	const doc = JSON.parse(serialize(STATE));
+	doc.people[1] = Object.assign({}, doc.people[1], { name: "דנה" });
+	assert.throws(() => deserialize(JSON.stringify(doc)), {
+		message: PERSONAL_DATA_ERROR,
+	});
 });
 
-test('store: a stamp from an older policy still loads, and comes back as today\'s', () => {
-  // cycle-manager.js judges a row by today's limit, never by the stamp (#273), so a longer stamp from an
-  // older policy is a record the app did write: it is shed and makeProfile puts today's back.
-  const doc = JSON.parse(serialize(STATE));
-  doc.people[1].retention = { dataCategory: 'profile', maxAgeDays: 99999 };
-  const back = deserialize(JSON.stringify(doc));
-  assert.deepEqual(back.people[1], PUPIL);
-  doc.people[1].retention = { dataCategory: 'profile', maxAgeDays: 0 };
-  assert.deepEqual(deserialize(JSON.stringify(doc)).people[1], PUPIL);
+test("store: a name kept under the retention key of a stored person is refused, not dropped", () => {
+	// Before this test the stored stamp was deleted unread before makeProfile ran, so a record whose
+	// retention held a name or a phone loaded without complaint, and the first save wrote over it with no
+	// copy kept. The same gate as a name beside the stamp, with the same message.
+	const doc = JSON.parse(serialize(STATE));
+	doc.people[1].retention = {
+		dataCategory: "profile",
+		maxAgeDays: 730,
+		name: "דנה",
+	};
+	assert.throws(() => deserialize(JSON.stringify(doc)), {
+		message: PERSONAL_DATA_ERROR,
+	});
+	const backend = memoryBackend();
+	const store = createStore(backend, "k");
+	backend.setItem("k", JSON.stringify(doc));
+	const loaded = store.load();
+	assert.equal(loaded.problem, PERSONAL_DATA_ERROR);
+	assert.deepEqual(loaded.state, emptyState());
+	assert.equal(backend.getItem("k" + REJECTED_SUFFIX), JSON.stringify(doc));
+	// a stamp of a shape makeProfile never writes is a record the app never wrote
+	for (const stamp of [
+		"דנה 050-1234567",
+		["profile", 730],
+		null,
+		{ dataCategory: "match", maxAgeDays: 365 },
+		{ dataCategory: "profile" },
+		{ dataCategory: "profile", maxAgeDays: "forever" },
+		{ dataCategory: "profile", maxAgeDays: -1 },
+		{ dataCategory: "profile", maxAgeDays: 1.5 },
+	]) {
+		doc.people[1].retention = stamp;
+		assert.throws(
+			() => deserialize(JSON.stringify(doc)),
+			{ message: /^invalid retention:/ },
+			JSON.stringify(stamp),
+		);
+	}
 });
 
-test('store: an unknown top-level key is refused with the personal-data message', () => {
-  const doc = JSON.parse(serialize(STATE));
-  doc.contacts = [];
-  assert.throws(() => deserialize(JSON.stringify(doc)), { message: PERSONAL_DATA_ERROR });
+test("store: a stamp from an older policy still loads, and comes back as today's", () => {
+	// cycle-manager.js judges a row by today's limit, never by the stamp (#273), so a longer stamp from an
+	// older policy is a record the app did write: it is shed and makeProfile puts today's back.
+	const doc = JSON.parse(serialize(STATE));
+	doc.people[1].retention = { dataCategory: "profile", maxAgeDays: 99999 };
+	const back = deserialize(JSON.stringify(doc));
+	assert.deepEqual(back.people[1], PUPIL);
+	doc.people[1].retention = { dataCategory: "profile", maxAgeDays: 0 };
+	assert.deepEqual(deserialize(JSON.stringify(doc)).people[1], PUPIL);
 });
 
-test('store: a stored person that does not fit is refused as a stored person, never as a form the coordinator filled', () => {
-  // on load nobody filled the add form: the refusal names the person's place in the list, like loadLog
-  // names a row and loadQueue an entry, so the screen shows its line for a stored person and not the
-  // form's "mark at least one free hour"
-  const edit = (fn) => { const doc = JSON.parse(serialize(STATE)); fn(doc.people); return JSON.stringify(doc); };
-  const cases = [
-    [(p) => { p[1].availability = []; }, 'invalid availability: expected a non-empty array of DAY_HOUR slots'],
-    [(p) => { p[1].availability = ['SUN_7']; }, 'invalid availability slot: SUN_7'],
-    [(p) => { p[1].subjects = []; }, 'invalid subjects: expected a non-empty array'],
-    [(p) => { p[1].subjects = ['ART']; }, 'invalid subjects entry: ART'],
-    [(p) => { p[1].role = 'teacher'; }, 'invalid role: expected student or pupil'],
-    [(p) => { p[1].region = 'MOON'; }, 'invalid region: expected one of the REGIONS codes'],
-    [(p) => { p[1].parentConsent = 'yes'; }, 'invalid parentConsent: expected boolean'],
-    [(p) => { p[1] = 'דנה'; }, 'profile input must be an object with role, region, availability, subjects']
-  ];
-  for (const [patch, inner] of cases) {
-    assert.throws(() => deserialize(edit(patch)), { message: 'invalid stored person at 1: ' + inner }, inner);
-  }
-  // the place is the person's own: the first record is "at 0"
-  assert.throws(() => deserialize(edit((p) => { p[0].availability = []; })), { message: /^invalid stored person at 0: / });
-  // the gate's own refusals read the same on every screen, so on load they are not reworded - and a bad
-  // retention stamp is already named as the stored record's
-  assert.throws(() => deserialize(edit((p) => { p[1].name = 'דנה'; })), { message: PERSONAL_DATA_ERROR });
-  assert.throws(() => deserialize(edit((p) => { p[1].reportEvent = [{ userId: 'p-0123abcd', detail: 'חרא' }]; })),
-    { message: PROFANITY_ERROR });
-  assert.throws(() => deserialize(edit((p) => { p[1].retention = 'דנה'; })), { message: /^invalid retention:/ });
-  // load() hands the same reason to the screen, with the refused document kept beside the key
-  const backend = memoryBackend();
-  backend.setItem('k', edit((p) => { p[1].availability = []; }));
-  const loaded = createStore(backend, 'k').load();
-  assert.match(loaded.problem, /^invalid stored person at 1: invalid availability:/);
-  assert.deepEqual(loaded.state, emptyState());
-  // the live wording is unchanged: the coordinator did leave the hours empty
-  assert.throws(() => makeProfile({ role: 'student', region: 'SOUTH', availability: [], subjects: ['MATH'] }),
-    { message: 'invalid availability: expected a non-empty array of DAY_HOUR slots' });
-  // a roster the app wrote still loads as it was
-  assert.deepEqual(deserialize(serialize(STATE)).people, [STUDENT, PUPIL]);
+test("store: an unknown top-level key is refused with the personal-data message", () => {
+	const doc = JSON.parse(serialize(STATE));
+	doc.contacts = [];
+	assert.throws(() => deserialize(JSON.stringify(doc)), {
+		message: PERSONAL_DATA_ERROR,
+	});
 });
 
-test('store: a session row for a unit the stored queue did not approve is refused', () => {
-  const doc = JSON.parse(serialize(STATE));
-  // a well-formed pending entry: no decider, so the refusal comes from the log, not the queue
-  doc.queue.entries[MATH.id].status = 'pending';
-  delete doc.queue.entries[MATH.id].decidedBy;
-  assert.throws(() => deserialize(JSON.stringify(doc)), /not approved/);
+test("store: a stored person that does not fit is refused as a stored person, never as a form the coordinator filled", () => {
+	// on load nobody filled the add form: the refusal names the person's place in the list, like loadLog
+	// names a row and loadQueue an entry, so the screen shows its line for a stored person and not the
+	// form's "mark at least one free hour"
+	const edit = (fn) => {
+		const doc = JSON.parse(serialize(STATE));
+		fn(doc.people);
+		return JSON.stringify(doc);
+	};
+	const cases = [
+		[
+			(p) => {
+				p[1].availability = [];
+			},
+			"invalid availability: expected a non-empty array of DAY_HOUR slots",
+		],
+		[
+			(p) => {
+				p[1].availability = ["SUN_7"];
+			},
+			"invalid availability slot: SUN_7",
+		],
+		[
+			(p) => {
+				p[1].subjects = [];
+			},
+			"invalid subjects: expected a non-empty array",
+		],
+		[
+			(p) => {
+				p[1].subjects = ["ART"];
+			},
+			"invalid subjects entry: ART",
+		],
+		[
+			(p) => {
+				p[1].role = "teacher";
+			},
+			"invalid role: expected student or pupil",
+		],
+		[
+			(p) => {
+				p[1].region = "MOON";
+			},
+			"invalid region: expected one of the REGIONS codes",
+		],
+		[
+			(p) => {
+				p[1].parentConsent = "yes";
+			},
+			"invalid parentConsent: expected boolean",
+		],
+		[
+			(p) => {
+				p[1] = "דנה";
+			},
+			"profile input must be an object with role, region, availability, subjects",
+		],
+	];
+	for (const [patch, inner] of cases) {
+		assert.throws(
+			() => deserialize(edit(patch)),
+			{ message: "invalid stored person at 1: " + inner },
+			inner,
+		);
+	}
+	// the place is the person's own: the first record is "at 0"
+	assert.throws(
+		() =>
+			deserialize(
+				edit((p) => {
+					p[0].availability = [];
+				}),
+			),
+		{ message: /^invalid stored person at 0: / },
+	);
+	// the gate's own refusals read the same on every screen, so on load they are not reworded - and a bad
+	// retention stamp is already named as the stored record's
+	assert.throws(
+		() =>
+			deserialize(
+				edit((p) => {
+					p[1].name = "דנה";
+				}),
+			),
+		{ message: PERSONAL_DATA_ERROR },
+	);
+	assert.throws(
+		() =>
+			deserialize(
+				edit((p) => {
+					p[1].reportEvent = [{ userId: "p-0123abcd", detail: "חרא" }];
+				}),
+			),
+		{ message: PROFANITY_ERROR },
+	);
+	assert.throws(
+		() =>
+			deserialize(
+				edit((p) => {
+					p[1].retention = "דנה";
+				}),
+			),
+		{ message: /^invalid retention:/ },
+	);
+	// load() hands the same reason to the screen, with the refused document kept beside the key
+	const backend = memoryBackend();
+	backend.setItem(
+		"k",
+		edit((p) => {
+			p[1].availability = [];
+		}),
+	);
+	const loaded = createStore(backend, "k").load();
+	assert.match(
+		loaded.problem,
+		/^invalid stored person at 1: invalid availability:/,
+	);
+	assert.deepEqual(loaded.state, emptyState());
+	// the live wording is unchanged: the coordinator did leave the hours empty
+	assert.throws(
+		() =>
+			makeProfile({
+				role: "student",
+				region: "SOUTH",
+				availability: [],
+				subjects: ["MATH"],
+			}),
+		{
+			message:
+				"invalid availability: expected a non-empty array of DAY_HOUR slots",
+		},
+	);
+	// a roster the app wrote still loads as it was
+	assert.deepEqual(deserialize(serialize(STATE)).people, [STUDENT, PUPIL]);
 });
 
-test('store: revising a unit that was already taught does not wipe the saved roster on the next load', () => {
-  const fixed = makeUnit({ title: MATH.title, subject: 'MATH', durationMinutes: 20, body: 'פותרים ארבע משוואות.' });
-  const state = Object.freeze({ people: STATE.people, queue: submit(QUEUE, fixed), log: LOG });
-  const store = createStore(memoryBackend());
-  assert.equal(store.save(state), true);
-  const loaded = store.load();
-  assert.equal(loaded.problem, null);
-  assert.equal(loaded.state.people.length, 2);
-  assert.equal(statusOf(loaded.state.queue, MATH.id), 'pending');
-  assert.deepEqual(loaded.state.log, LOG);
+test("store: a session row for a unit the stored queue did not approve is refused", () => {
+	const doc = JSON.parse(serialize(STATE));
+	// a well-formed pending entry: no decider, so the refusal comes from the log, not the queue
+	doc.queue.entries[MATH.id].status = "pending";
+	delete doc.queue.entries[MATH.id].decidedBy;
+	assert.throws(() => deserialize(JSON.stringify(doc)), /not approved/);
 });
 
-test('store: garbage, a wrong schema and a non-string are errors with a stable prefix', () => {
-  assert.throws(() => deserialize('{not json'), { message: INVALID_STATE_ERROR + ': not JSON' });
-  assert.throws(() => deserialize('[]'), { message: INVALID_STATE_ERROR });
-  assert.throws(() => deserialize(JSON.stringify({ schema: 'peered/0', people: [] })), /unknown schema/);
-  assert.throws(() => deserialize(42), /expected a string/);
+test("store: revising a unit that was already taught does not wipe the saved roster on the next load", () => {
+	const fixed = makeUnit({
+		title: MATH.title,
+		subject: "MATH",
+		durationMinutes: 20,
+		body: "פותרים ארבע משוואות.",
+	});
+	const state = Object.freeze({
+		people: STATE.people,
+		queue: submit(QUEUE, fixed),
+		log: LOG,
+	});
+	const store = createStore(memoryBackend());
+	assert.equal(store.save(state), true);
+	const loaded = store.load();
+	assert.equal(loaded.problem, null);
+	assert.equal(loaded.state.people.length, 2);
+	assert.equal(statusOf(loaded.state.queue, MATH.id), "pending");
+	assert.deepEqual(loaded.state.log, LOG);
 });
 
-test('store: createStore saves and loads through a Web Storage shaped backend', () => {
-  const backend = memoryBackend();
-  const store = createStore(backend);
-  assert.equal(store.key, DEFAULT_KEY);
-  assert.deepEqual(store.load(), { state: emptyState(), problem: null, kept: false });
-  assert.equal(store.save(STATE), true);
-  assert.equal(backend.getItem(DEFAULT_KEY), serialize(STATE));
-  const loaded = store.load();
-  assert.equal(loaded.problem, null);
-  assert.equal(loaded.kept, false);
-  assert.equal(serialize(loaded.state), serialize(STATE));
-  assert.equal(store.clear(), true);
-  assert.equal(backend.getItem(DEFAULT_KEY), null);
-  assert.deepEqual(store.load(), { state: emptyState(), problem: null, kept: false });
+test("store: garbage, a wrong schema and a non-string are errors with a stable prefix", () => {
+	assert.throws(() => deserialize("{not json"), {
+		message: INVALID_STATE_ERROR + ": not JSON",
+	});
+	assert.throws(() => deserialize("[]"), { message: INVALID_STATE_ERROR });
+	assert.throws(
+		() => deserialize(JSON.stringify({ schema: "peered/0", people: [] })),
+		/unknown schema/,
+	);
+	assert.throws(() => deserialize(42), /expected a string/);
 });
 
-test('store: a tampered or corrupt document loads as empty with the reason, never as half a roster', () => {
-  const backend = memoryBackend();
-  const store = createStore(backend, 'k');
-  const doc = JSON.parse(serialize(STATE));
-  doc.people[0] = Object.assign({}, doc.people[0], { phone: '050-1234567' });
-  backend.setItem('k', JSON.stringify(doc));
-  const badText = JSON.stringify(doc);
-  const tampered = store.load();
-  assert.equal(tampered.problem, PERSONAL_DATA_ERROR);
-  assert.deepEqual(tampered.state, emptyState());
-  assert.equal(tampered.kept, true);
-  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), badText);
-  assert.equal(store.save(STATE), true);
-  assert.equal(backend.getItem('k'), serialize(STATE));
-  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), badText);
-  backend.setItem('k', '<<<');
-  const corrupt = store.load();
-  assert.equal(corrupt.problem, INVALID_STATE_ERROR + ': not JSON');
-  assert.equal(corrupt.kept, true);
-  // the second refused document takes the next slot: the first copy is not written over
-  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), badText);
-  assert.equal(backend.getItem('k' + REJECTED_SUFFIX + ':2'), '<<<');
-  assert.equal(store.clear(), true);
-  assert.equal(backend.getItem('k'), null);
-  assert.equal(backend.getItem('k' + REJECTED_SUFFIX), null);
-  assert.equal(backend.getItem('k' + REJECTED_SUFFIX + ':2'), null);
+test("store: createStore saves and loads through a Web Storage shaped backend", () => {
+	const backend = memoryBackend();
+	const store = createStore(backend);
+	assert.equal(store.key, DEFAULT_KEY);
+	assert.deepEqual(store.load(), {
+		state: emptyState(),
+		problem: null,
+		kept: false,
+	});
+	assert.equal(store.save(STATE), true);
+	assert.equal(backend.getItem(DEFAULT_KEY), serialize(STATE));
+	const loaded = store.load();
+	assert.equal(loaded.problem, null);
+	assert.equal(loaded.kept, false);
+	assert.equal(serialize(loaded.state), serialize(STATE));
+	assert.equal(store.clear(), true);
+	assert.equal(backend.getItem(DEFAULT_KEY), null);
+	assert.deepEqual(store.load(), {
+		state: emptyState(),
+		problem: null,
+		kept: false,
+	});
 });
 
-test('store: a backend that throws (private mode, quota) makes save report false and load fall back to empty', () => {
-  const broken = {
-    getItem: function () { throw new Error('SecurityError'); },
-    setItem: function () { throw new Error('QuotaExceededError'); },
-    removeItem: function () { throw new Error('SecurityError'); }
-  };
-  const store = createStore(broken, 'k');
-  assert.equal(store.save(STATE), false);
-  assert.deepEqual(store.load(), { state: emptyState(), problem: null, kept: false });
-  assert.equal(store.clear(), false);
-  assert.throws(() => createStore({}), /invalid backend/);
-  assert.throws(() => createStore(memoryBackend(), ''), /invalid key/);
+test("store: a tampered or corrupt document loads as empty with the reason, never as half a roster", () => {
+	const backend = memoryBackend();
+	const store = createStore(backend, "k");
+	const doc = JSON.parse(serialize(STATE));
+	doc.people[0] = Object.assign({}, doc.people[0], { phone: "050-1234567" });
+	backend.setItem("k", JSON.stringify(doc));
+	const badText = JSON.stringify(doc);
+	const tampered = store.load();
+	assert.equal(tampered.problem, PERSONAL_DATA_ERROR);
+	assert.deepEqual(tampered.state, emptyState());
+	assert.equal(tampered.kept, true);
+	assert.equal(backend.getItem("k" + REJECTED_SUFFIX), badText);
+	assert.equal(store.save(STATE), true);
+	assert.equal(backend.getItem("k"), serialize(STATE));
+	assert.equal(backend.getItem("k" + REJECTED_SUFFIX), badText);
+	backend.setItem("k", "<<<");
+	const corrupt = store.load();
+	assert.equal(corrupt.problem, INVALID_STATE_ERROR + ": not JSON");
+	assert.equal(corrupt.kept, true);
+	// the second refused document takes the next slot: the first copy is not written over
+	assert.equal(backend.getItem("k" + REJECTED_SUFFIX), badText);
+	assert.equal(backend.getItem("k" + REJECTED_SUFFIX + ":2"), "<<<");
+	assert.equal(store.clear(), true);
+	assert.equal(backend.getItem("k"), null);
+	assert.equal(backend.getItem("k" + REJECTED_SUFFIX), null);
+	assert.equal(backend.getItem("k" + REJECTED_SUFFIX + ":2"), null);
+});
+
+test("store: a backend that throws (private mode, quota) makes save report false and load fall back to empty", () => {
+	const broken = {
+		getItem: () => {
+			throw new Error("SecurityError");
+		},
+		setItem: () => {
+			throw new Error("QuotaExceededError");
+		},
+		removeItem: () => {
+			throw new Error("SecurityError");
+		},
+	};
+	const store = createStore(broken, "k");
+	assert.equal(store.save(STATE), false);
+	assert.deepEqual(store.load(), {
+		state: emptyState(),
+		problem: null,
+		kept: false,
+	});
+	assert.equal(store.clear(), false);
+	assert.throws(() => createStore({}), /invalid backend/);
+	assert.throws(() => createStore(memoryBackend(), ""), /invalid key/);
 });
 
 test('store: the memory backend keeps a "__proto__" key like any other key', () => {
-  const store = createStore(memoryBackend(), '__proto__');
-  assert.equal(store.save(STATE), true);
-  assert.deepEqual(store.load(), { state: STATE, problem: null, kept: false });
-  assert.equal(store.clear(), true);
-  assert.deepEqual(store.load(), { state: emptyState(), problem: null, kept: false });
+	const store = createStore(memoryBackend(), "__proto__");
+	assert.equal(store.save(STATE), true);
+	assert.deepEqual(store.load(), { state: STATE, problem: null, kept: false });
+	assert.equal(store.clear(), true);
+	assert.deepEqual(store.load(), {
+		state: emptyState(),
+		problem: null,
+		kept: false,
+	});
 });
 
-test('store: when the refused copy cannot be written, load reports kept false', () => {
-  const main = memoryBackend();
-  const rejected = memoryBackend();
-  const backend = {
-    getItem: function (key) { return main.getItem(key); },
-    setItem: function (key, value) {
-      if (key.endsWith(REJECTED_SUFFIX)) return rejected.setItem(key, value);
-      return main.setItem(key, value);
-    },
-    removeItem: function (key) {
-      main.removeItem(key);
-      rejected.removeItem(key);
-    }
-  };
-  rejected.setItem = function () { throw new Error('QuotaExceededError'); };
-  const store = createStore(backend, 'k');
-  main.setItem('k', '<<<');
-  const loaded = store.load();
-  assert.equal(loaded.problem, INVALID_STATE_ERROR + ': not JSON');
-  assert.equal(loaded.kept, false);
-  assert.equal(rejected.getItem('k' + REJECTED_SUFFIX), null);
+test("store: when the refused copy cannot be written, load reports kept false", () => {
+	const main = memoryBackend();
+	const rejected = memoryBackend();
+	const backend = {
+		getItem: (key) => main.getItem(key),
+		setItem: (key, value) => {
+			if (key.endsWith(REJECTED_SUFFIX)) return rejected.setItem(key, value);
+			return main.setItem(key, value);
+		},
+		removeItem: (key) => {
+			main.removeItem(key);
+			rejected.removeItem(key);
+		},
+	};
+	rejected.setItem = () => {
+		throw new Error("QuotaExceededError");
+	};
+	const store = createStore(backend, "k");
+	main.setItem("k", "<<<");
+	const loaded = store.load();
+	assert.equal(loaded.problem, INVALID_STATE_ERROR + ": not JSON");
+	assert.equal(loaded.kept, false);
+	assert.equal(rejected.getItem("k" + REJECTED_SUFFIX), null);
 });

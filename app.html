@@ -4771,11 +4771,11 @@ const { makeProfile, withoutRetentionStamp, PERSONAL_DATA_ERROR } = require('./p
 const { PROFANITY_ERROR } = require('./validator.js');
 const { emptyQueue, loadQueue } = require('./approval.js');
 const { emptyLog, loadLog } = require('./session.js');
-const { AI_TOPIC_KEYS } = require('./attendance.js');
+const { AI_TOPIC_KEYS, serializeAttendance, deserializeAttendance } = require('./attendance.js');
 
 const SCHEMA = 'peered/1';
 const DEFAULT_KEY = 'peered_app_v1';
-const ACCEPTED_FIELDS = Object.freeze(['schema', 'people', 'queue', 'log']);
+const ACCEPTED_FIELDS = Object.freeze(['schema', 'people', 'queue', 'log', 'attendance']);
 const INVALID_STATE_ERROR = 'invalid stored state';
 // Where load() puts a document it refused. The app then starts empty, and its first save writes over the
 // main key: without this copy one added person erased the whole refused roster, queue and log for good.
@@ -4791,7 +4791,15 @@ function rejectedSlot(storageKey, n) {
 function isHeld(text) { return text !== null && text !== undefined; }
 
 function emptyState() {
-  return Object.freeze({ people: Object.freeze([]), queue: emptyQueue(), log: emptyLog() });
+  return Object.freeze({ people: Object.freeze([]), queue: emptyQueue(), log: emptyLog(), attendance: Object.freeze([]) });
+}
+
+function attendanceRecords(attendance) {
+  if (Array.isArray(attendance)) return attendance;
+  if (attendance !== null && typeof attendance === 'object' && Array.isArray(attendance.entries)) {
+    return attendance.entries;
+  }
+  return [];
 }
 
 function assertState(state) {
@@ -4799,6 +4807,14 @@ function assertState(state) {
     || !Array.isArray(state.people) || state.queue === null || typeof state.queue !== 'object'
     || state.log === null || typeof state.log !== 'object') {
     throw new Error('invalid state: expected a value from emptyState() or deserialize()');
+  }
+  if (state.attendance !== undefined) {
+    const okArray = Array.isArray(state.attendance);
+    const okLog = state.attendance !== null && typeof state.attendance === 'object'
+      && !Array.isArray(state.attendance) && Array.isArray(state.attendance.entries);
+    if (!okArray && !okLog) {
+      throw new Error('invalid state: expected a value from emptyState() or deserialize()');
+    }
   }
 }
 
@@ -4876,7 +4892,8 @@ function fromDocument(doc) {
   for (let i = 0; i < doc.people.length; i += 1) people.push(storedPerson(doc.people[i], i));
   const queue = loadQueue(doc.queue === undefined ? emptyQueue() : doc.queue);
   const log = loadLog(doc.log === undefined ? emptyLog() : doc.log, queue);
-  return Object.freeze({ people: Object.freeze(people), queue: queue, log: log });
+  const attendance = deserializeAttendance(doc.attendance === undefined ? [] : doc.attendance);
+  return Object.freeze({ people: Object.freeze(people), queue: queue, log: log, attendance: attendance });
 }
 
 function serializedPerson(person) {
@@ -4897,7 +4914,8 @@ function serializedPerson(person) {
 function serialize(state) {
   assertState(state);
   const people = state.people.map(serializedPerson);
-  return JSON.stringify({ schema: SCHEMA, people: people, queue: state.queue, log: state.log });
+  const attendance = serializeAttendance(attendanceRecords(state.attendance));
+  return JSON.stringify({ schema: SCHEMA, people: people, queue: state.queue, log: state.log, attendance: attendance });
 }
 
 function deserialize(text) {
