@@ -81,7 +81,7 @@ test('stage14 anon e2e: no identifying data in localStorage, rendered pairs or p
   const raw = $.store[DEFAULT_KEY];
   assert.doesNotMatch(raw, IDENT_RE, 'stored JSON carries no email/phone/id/url');
   const doc = JSON.parse(raw);
-  assert.deepEqual(Object.keys(doc).sort(), ['log', 'people', 'queue', 'schema']);
+  assert.deepEqual(Object.keys(doc).sort(), ['attendance', 'log', 'people', 'queue', 'schema']);
   assert.equal(doc.schema, 'peered/1');
   assert.equal(doc.people.length, 6);
   for (const person of doc.people) {

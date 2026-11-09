@@ -295,6 +295,7 @@ test("states without target_ai_topics serialize exactly as before", () => {
 		people: [STUDENT, PUPIL],
 		queue: emptyQueue(),
 		log: emptyLog(),
+		attendance: [],
 	});
 
 	assert.equal(serialize(state), expected);
@@ -307,6 +308,7 @@ test("states without target_ai_topics serialize exactly as before", () => {
 			people: [],
 			queue: emptyQueue(),
 			log: emptyLog(),
+			attendance: [],
 		}),
 	);
 
