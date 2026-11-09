@@ -533,6 +533,11 @@
     ar: 'موضوعات الذكاء الاصطناعي',
     ru: 'Темы искусственного интеллекта'
   });
+  var AI_TOPIC_BADGE_LABELS = Object.freeze({
+    he: 'התאמת נושאי AI',
+    ar: 'توافق مواضيع الذكاء الاصطناعي',
+    ru: 'Совпадение тем ИИ'
+  });
 
   function validateAITopics(topics) {
     if (!Array.isArray(topics) || topics.length === 0) return false;
@@ -553,10 +558,21 @@
     return matched / needTopics.length;
   }
 
+  function aiTopicBadgeText(ratio, lang) {
+    var value = typeof ratio === 'number' && Number.isFinite(ratio) ? ratio : 0;
+    value = Math.max(0, Math.min(1, value));
+    var label = AI_TOPIC_BADGE_LABELS[lang] || AI_TOPIC_BADGE_LABELS.he;
+    return [label, ': ', Math.round(value * 100), '%'].join('');
+  }
+
   if (typeof window !== 'undefined') {
     window.AI_TOPICS = AI_TOPICS;
+    window.AI_TOPIC_BADGE_LABELS = AI_TOPIC_BADGE_LABELS;
     window.validateAITopics = validateAITopics;
     window.calculateAITopicMatch = calculateAITopicMatch;
+    window.aiTopicBadgeText = aiTopicBadgeText;
+    window.sortMatch2Pairs = sortMatch2Pairs;
+    window.renderMatch2 = renderMatch2;
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
   var HOURS = [];
@@ -1260,7 +1276,14 @@
     return {
       students: S.length, pupils: P.length, left: left, across: across, barredByConsent: barredByConsent,
       pairs: pairs.map(function (p) {
+        var sEntry = r.students[p.studentIndex];
+        var pEntry = r.pupils[p.pupilIndex];
+        var studentPerson = sEntry ? sEntry.person : null;
+        var pupilPerson = pEntry ? pEntry.person : null;
+        var sTopics = studentPerson && Array.isArray(studentPerson.target_ai_topics) ? studentPerson.target_ai_topics : [];
+        var pTopics = pupilPerson && Array.isArray(pupilPerson.target_ai_topics) ? pupilPerson.target_ai_topics : [];
         return { region: p.region, student: r.students[p.studentIndex].number, pupil: r.pupils[p.pupilIndex].number,
+                 aiTopicMatch: calculateAITopicMatch(sTopics, pTopics),
                  sharedSubjects: p.sharedSubjects, sharedSlots: p.sharedSlots };
       })
     };
@@ -1328,10 +1351,15 @@
     }
     last = m;
     $('pairs').innerHTML = m.pairs.length ? m.pairs.map(function (p, i) {
+      var student = state.people[p.student - 1] || {};
+      var pupil = state.people[p.pupil - 1] || {};
+      var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length) ||
+        (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length);
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
         '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+        (topics ? ['<br>', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang))].join('') : '') +
         '</span></div>';
     }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
     $('unmatched').innerHTML = m.left.length ? m.left.map(function (x) {
@@ -2378,12 +2406,59 @@
       pupils: state.people.filter(function (p) { return p.role === 'pupil'; })
     };
   }
+  function compareMatch2Pairs(a, b) {
+    var aScore = typeof a.score === 'number' ? a.score : 0;
+    var bScore = typeof b.score === 'number' ? b.score : 0;
+    var scoreDiff = bScore - aScore;
+    if (scoreDiff !== 0) return scoreDiff;
+    var aAi = typeof a.aiTopicMatch === 'number' ? a.aiTopicMatch : 0;
+    var bAi = typeof b.aiTopicMatch === 'number' ? b.aiTopicMatch : 0;
+    var aiDiff = bAi - aAi;
+    if (aiDiff !== 0) return aiDiff;
+    return a._order - b._order;
+  }
+  function sortMatch2Pairs(pairs, students, pupils) {
+    var list = pairs || [];
+    var decorated = [];
+    var i, p, copy, student, pupil, sTopics, pTopics;
+    for (i = 0; i < list.length; i++) {
+      p = list[i];
+      copy = Object.assign({}, p);
+      if (typeof copy.aiTopicMatch !== 'number') {
+        student = null;
+        if (Array.isArray(students)) {
+          student = students[p.studentIndex] || null;
+        }
+        pupil = null;
+        if (Array.isArray(pupils)) {
+          pupil = pupils[p.pupilIndex] || null;
+        }
+        sTopics = student && Array.isArray(student.target_ai_topics) ? student.target_ai_topics : [];
+        pTopics = pupil && Array.isArray(pupil.target_ai_topics) ? pupil.target_ai_topics : [];
+        copy.aiTopicMatch = calculateAITopicMatch(sTopics, pTopics);
+      }
+      copy._order = i;
+      decorated.push(copy);
+    }
+    decorated.sort(compareMatch2Pairs);
+    for (i = 0; i < decorated.length; i++) {
+      delete decorated[i]._order;
+    }
+    return decorated;
+  }
   function renderMatch2(result) {
-    lastMatch2 = result;
-    $('match2Out').innerHTML = result.pairs.length ? result.pairs.map(function (p) {
+    var r = rosterSplit();
+    var pairs = sortMatch2Pairs(result.pairs, r.students, r.pupils);
+    lastMatch2 = Object.assign({}, result, { pairs: pairs });
+    $('match2Out').innerHTML = pairs.length ? pairs.map(function (p) {
+      var student = r.students[p.studentIndex] || {};
+      var pupil = r.pupils[p.pupilIndex] || {};
+      var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length > 0) ||
+        (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length > 0);
       var key = p.studentIndex + '-' + p.pupilIndex;
       return '<div class="item pair"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
         '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
+        (topics ? ['<span class="meta">', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang)), '</span><br>'].join('') : '') +
         '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
     }).join('') : '<p class="empty">אין זוגות אפשריים מהרשימה הנוכחית.</p>';
     say('match2Status', 'נוצרו ' + result.pairs.length + ' זוגות. ציון כולל: ' + result.totalScore + '.');
