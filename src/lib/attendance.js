@@ -10,6 +10,8 @@ const ATTENDANCE_STATUSES = Object.freeze([
 	"cancelled",
 ]);
 
+const MAX_ATTENDANCE_RECORDS = 5000;
+
 function makeAttendanceLog() {
 	return Object.freeze({ entries: Object.freeze([]) });
 }
@@ -42,7 +44,11 @@ function recordAttendance(log, input) {
 		status: o.status,
 		durationHours: durationHours,
 	});
-	return Object.freeze({ entries: Object.freeze(log.entries.concat([entry])) });
+	let prior = log.entries;
+	if (prior.length >= MAX_ATTENDANCE_RECORDS) {
+		prior = prior.slice(prior.length - MAX_ATTENDANCE_RECORDS + 1);
+	}
+	return Object.freeze({ entries: Object.freeze(prior.concat([entry])) });
 }
 
 function serializeAttendance(records) {
@@ -305,4 +311,5 @@ module.exports = {
 	getScholarshipHoursSummary,
 	serializeAttendance,
 	deserializeAttendance,
+	MAX_ATTENDANCE_RECORDS,
 };
