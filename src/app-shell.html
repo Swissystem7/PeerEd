@@ -2720,9 +2720,24 @@
       var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length > 0) ||
         (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length > 0);
       var key = p.studentIndex + '-' + p.pupilIndex;
+      var aiExplHtml = '';
+      try {
+        var scored = (match2Lib && typeof match2Lib.scorePair === 'function')
+          ? match2Lib.scorePair(student, pupil)
+          : null;
+        var expl = scored && scored.aiExplanation ? scored.aiExplanation : null;
+        var sharedCount = expl && expl.sharedCount ? expl.sharedCount : 0;
+        if (expl && sharedCount > 0) {
+          var line = expl[currentLang] || expl.he || '';
+          if (line) {
+            aiExplHtml = '<div class="ai-match-explanation meta">' + esc(line) + '</div>';
+          }
+        }
+      } catch (err) { aiExplHtml = ''; }
       return '<div class="item pair"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
         '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
         (topics ? ['<span class="meta">', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang)), '</span><br>'].join('') : '') +
+        aiExplHtml +
         '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
     }).join('') : '<p class="empty">אין זוגות אפשריים מהרשימה הנוכחית.</p>';
     say('match2Status', 'נוצרו ' + result.pairs.length + ' זוגות. ציון כולל: ' + result.totalScore + '.');
