@@ -427,6 +427,11 @@
       <p class="status" id="guideStatus" role="status"></p>
       <div id="guideList" role="region" aria-live="polite" aria-label="פרקי המדריך"></div>
     </div>
+    <div class="card" id="aiTopicsSummaryCard">
+      <h2 id="aiTopicsSummaryHeading">פילוח נושאי בינה מלאכותית</h2>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic AI summary -->
+      <div id="aiTopicsSummaryList" role="region" aria-live="polite" aria-label="פילוח נושאי בינה מלאכותית"></div>
+    </div>
   </section>
 
   <!-- ============ דוחות ============ -->
@@ -4861,7 +4866,7 @@ module.exports = {
       guideLib = __registry['guide-he'], pwaLib = __registry.pwa, match2Lib = __registry.match2,
       scheduleLib = __registry.schedule, capacityLib = __registry.capacity,
       reportsLib = __registry.reports, semesterLib = __registry.semester,
-      i18n = __registry.i18n;
+      attendance = __registry.attendance, i18n = __registry.i18n;
   var $ = function (id) { return document.getElementById(id); };
   // Offline PWA registration (stage 12): same-origin http(s) only. On file:// or without the API this
   // is a silent no-op, so the single file keeps working opened from disk. A refused Blob-URL worker is
@@ -4904,6 +4909,16 @@ module.exports = {
     ar: 'موضوعات الذكاء الاصطناعي',
     ru: 'Темы искусственного интеллекта'
   });
+  const AI_SUMMARY_HEADINGS = Object.freeze({
+    he: 'פילוח נושאי בינה מלאכותית',
+    ar: 'توزيع موضوعات الذكاء الاصطناعي',
+    ru: 'Распределение тем ИИ'
+  });
+  const AI_SUMMARY_LABELS = Object.freeze({
+    total: Object.freeze({ he: 'סה״כ', ar: 'المجموع', ru: 'Всего' }),
+    requested: Object.freeze({ he: 'מבוקש', ar: 'مطلوب', ru: 'Запрошено' }),
+    offered: Object.freeze({ he: 'מוצע', ar: 'معروض', ru: 'Предложено' })
+  });
   var AI_TOPIC_BADGE_LABELS = Object.freeze({
     he: 'התאמת נושאי AI',
     ar: 'توافق مواضيع الذكاء الاصطناعي',
@@ -4944,6 +4959,7 @@ module.exports = {
     window.aiTopicBadgeText = aiTopicBadgeText;
     window.sortMatch2Pairs = sortMatch2Pairs;
     window.renderMatch2 = renderMatch2;
+    window.renderAITopicsSummary = renderAITopicsSummary;
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
   var HOURS = [];
@@ -5278,6 +5294,7 @@ module.exports = {
         '<button type="button" class="ghost small" id="delBtn-' + i + '" data-del="' + i + '" aria-describedby="addStatus" aria-label="' +
         esc('מחק ' + personLabel) + '">מחק</button></div></div>';
     }).join('') : '<p class="empty">' + esc(emptyRosterHe()) + '</p>';
+    renderAITopicsSummary();
   }
 
   $('subjects').addEventListener('click', function (ev) {
@@ -6759,6 +6776,37 @@ module.exports = {
       return '<div class="item"><b>' + esc(full.titleHe) + '</b>' +
         full.stepsHe.map(function (x) { return '<span class="meta">' + esc(x) + '</span><br>'; }).join('') + '</div>';
     }).join('') : '<p class="empty">לא נמצא פרק מתאים.</p>';
+    renderAITopicsSummary();
+  }
+
+  function renderAITopicsSummary() {
+    const container = $('aiTopicsSummaryList');
+    if (!container) return;
+    const headingEl = $('aiTopicsSummaryHeading');
+    const headingText = AI_SUMMARY_HEADINGS[currentLang] ?? AI_SUMMARY_HEADINGS.he;
+    if (headingEl) {
+      headingEl.textContent = headingText;
+    }
+    container.setAttribute('aria-label', headingText);
+    if (!attendance || typeof attendance.getAITopicsSummary !== 'function') {
+      container.innerHTML = '';
+      return;
+    }
+    const participants = state?.people && Array.isArray(state.people) ? state.people : [];
+    const summary = attendance.getAITopicsSummary(participants);
+    const lang = currentLang ?? 'he';
+    const totalLabel = AI_SUMMARY_LABELS.total[lang] ?? AI_SUMMARY_LABELS.total.he;
+    const reqLabel = AI_SUMMARY_LABELS.requested[lang] ?? AI_SUMMARY_LABELS.requested.he;
+    const offLabel = AI_SUMMARY_LABELS.offered[lang] ?? AI_SUMMARY_LABELS.offered.he;
+    const keys = AI_TOPICS ? Object.keys(AI_TOPICS) : [];
+    container.innerHTML = keys.map((k) => {
+      const topicName = AI_TOPICS[k]?.[lang] ?? AI_TOPICS[k]?.he ?? k;
+      const counts = summary?.[k] ?? { total: 0, requested: 0, offered: 0 };
+      const tot = Number.isInteger(counts.total) ? counts.total : 0;
+      const req = Number.isInteger(counts.requested) ? counts.requested : 0;
+      const off = Number.isInteger(counts.offered) ? counts.offered : 0;
+      return `<div class="item" data-topic="${esc(k)}"><b>${esc(topicName)}</b><span class="meta">${esc(totalLabel)}: ${tot} (${esc(reqLabel)}: ${req}, ${esc(offLabel)}: ${off})</span></div>`;
+    }).join('');
   }
   $('guideSearchBtn').addEventListener('click', function () {
     try {
@@ -6933,6 +6981,7 @@ module.exports = {
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
@@ -6982,6 +7031,7 @@ module.exports = {
   setWipeArmed(false);
   initHome();
   renderGuide();
+  renderAITopicsSummary();
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
@@ -6997,11 +7047,12 @@ module.exports = {
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide();
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary();
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
   if (currentLang !== 'he') applyLanguage(currentLang);
+  if (typeof window !== 'undefined') window.applyLanguage = applyLanguage;
 })();
 </script>
 </body>
