@@ -25,9 +25,8 @@ test("under limit keeps all records", () => {
 
 test("at limit FIFO drops oldest when adding", () => {
 	let log = makeAttendanceLog();
-	// Build a log already at MAX by bypassing via deserialize? recordAttendance one-by-one would be slow.
-	// Seed by recording MAX_ATTENDANCE_RECORDS entries using a compact loop.
-	const start = Date.UTC(2020, 0, 1);
+	// Seed MAX past dates only (SRV-022 rejects future dates).
+	const start = Date.UTC(2000, 0, 1);
 	for (let i = 0; i < MAX_ATTENDANCE_RECORDS; i++) {
 		const d = new Date(start + i * 86400000);
 		const iso = d.toISOString().slice(0, 10);
@@ -40,15 +39,18 @@ test("at limit FIFO drops oldest when adding", () => {
 	assert.equal(log.entries.length, MAX_ATTENDANCE_RECORDS);
 	const oldest = log.entries[0].date;
 	const newestPrior = log.entries[log.entries.length - 1].date;
+	const overflowDate = new Date(start + MAX_ATTENDANCE_RECORDS * 86400000)
+		.toISOString()
+		.slice(0, 10);
 	log = recordAttendance(log, {
 		pairIndex: 99,
-		date: "2099-12-31",
+		date: overflowDate,
 		status: "missed",
 		durationHours: 2,
 	});
 	assert.equal(log.entries.length, MAX_ATTENDANCE_RECORDS);
 	assert.notEqual(log.entries[0].date, oldest);
-	assert.equal(log.entries[log.entries.length - 1].date, "2099-12-31");
+	assert.equal(log.entries[log.entries.length - 1].date, overflowDate);
 	assert.equal(log.entries[log.entries.length - 1].pairIndex, 99);
 	assert.equal(
 		log.entries.some((e) => e.date === oldest),
