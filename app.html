@@ -218,6 +218,7 @@
         <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
         <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
       </select>
+      <button type="button" class="ghost small" id="resetAiFilter" aria-label="איפוס סינון נושאי בינה מלאכותית">איפוס סינון</button>
       <p class="hint" id="ai-filter-count" aria-live="polite">0</p>
       <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
     </div>
@@ -5214,6 +5215,11 @@ module.exports = {
     ar: 'لا يوجد مشاركون يطابقون الموضوع المحدد.',
     ru: 'Нет участников, соответствующих выбранной теме.'
   });
+  const AI_FILTER_RESET_LABELS = Object.freeze({
+    he: 'איפוס סינון',
+    ar: 'إعادة ضبط التصفية',
+    ru: 'Сбросить фильтр'
+  });
   const AI_FILTER_COUNT_LABELS = Object.freeze({
     he: Object.freeze({ all: 'סה״כ משתתפים: {n}', filtered: 'מוצגים {shown} מתוך {total}' }),
     ar: Object.freeze({ all: 'إجمالي المشاركين: {n}', filtered: 'يُعرض {shown} من أصل {total}' }),
@@ -5283,6 +5289,7 @@ module.exports = {
     window.renderScholarshipHoursSummary = renderScholarshipHoursSummary;
     window.AI_TOPIC_ALL_LABELS = AI_TOPIC_ALL_LABELS;
     window.AI_FILTER_EMPTY_LABELS = AI_FILTER_EMPTY_LABELS;
+    window.AI_FILTER_RESET_LABELS = AI_FILTER_RESET_LABELS;
     window.renderPeople = renderPeople;
     window.renderPeopleAiFilter = renderPeopleAiFilter;
   }
@@ -5560,6 +5567,12 @@ module.exports = {
     if (lbl) {
       lbl.textContent = AI_TOPIC_GROUP_LABELS[currentLang] ?? AI_TOPIC_GROUP_LABELS.he;
     }
+    const resetBtn = $('resetAiFilter');
+    if (resetBtn) {
+      const resetLabel = AI_FILTER_RESET_LABELS[currentLang] ?? AI_FILTER_RESET_LABELS.he;
+      resetBtn.textContent = resetLabel;
+      resetBtn.setAttribute('aria-label', resetLabel);
+    }
     const allLabel = AI_TOPIC_ALL_LABELS[currentLang] ?? AI_TOPIC_ALL_LABELS.he;
     const opts = [`<option value="">${esc(allLabel)}</option>`];
     const keys = AI_TOPICS ? Object.keys(AI_TOPICS) : [];
@@ -5689,6 +5702,16 @@ module.exports = {
   const peopleAiFilterEl = $('peopleAiFilter');
   if (peopleAiFilterEl) {
     peopleAiFilterEl.addEventListener('change', () => {
+      renderPeople();
+    });
+  }
+  const resetAiFilterEl = $('resetAiFilter');
+  if (resetAiFilterEl) {
+    resetAiFilterEl.addEventListener('click', () => {
+      const sel = $('peopleAiFilter');
+      if (!sel) return;
+      sel.value = '';
+      sel.dispatchEvent(new Event('change'));
       renderPeople();
     });
   }
