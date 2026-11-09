@@ -100,22 +100,22 @@ test('Test 2: Each topic key has non-empty string labels for he, ar, and ru and 
   const expectedValues = {
     AI_LIT_PROMPT: {
       he: 'אוריינות בינה מלאכותית והנחיה',
-      ar: 'الذكاء الاصطناعي وهندسة الأوامר',
+      ar: 'محو الأمية في التوجيهات',
       ru: 'Грамотность в ИИ и промптинг'
     },
     AI_CREATIVE: {
       he: 'יצירתיות ובינה יוצרת',
-      ar: 'الإبداع والذكاء التوليدي',
+      ar: 'إنشاء المحتوى والوسائط',
       ru: 'Творчество и генеративный ИИ'
     },
     AI_STEM_CODE: {
       he: 'מדעים, טכנולוגיה ותכנות',
-      ar: 'العلوم والتقنية والברמجة',
+      ar: 'كفاءة الذكاء الاصطناعي والبرمجة',
       ru: 'STEM и программирование'
     },
     AI_ETHICS_SEC: {
       he: 'אתיקה, פרטיות ובטיחות',
-      ar: 'الأخلاقيات والأمان والخصوصية',
+      ar: 'الأخلاق والأمان',
       ru: 'Этика и безопасность ИИ'
     }
   };
@@ -130,6 +130,7 @@ test('Test 2: Each topic key has non-empty string labels for he, ar, and ru and 
       assert.ok(topic[lang].trim().length > 0, `${key}.${lang} should be non-empty`);
       assert.strictEqual(topic[lang], labels[lang], `${key}.${lang} should match expected specification label`);
     }
+    assert.doesNotMatch(topic.ar, /[\u0590-\u05FF]/, `${key}.ar should not contain Hebrew characters`);
   }
 });
 
