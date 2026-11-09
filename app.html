@@ -457,13 +457,13 @@
 </main>
 
 <nav role="tablist" aria-label="ניווט">
-  <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
-  <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
-  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
-  <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
-  <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
-  <button role="tab" id="nav-guide" aria-controls="tab-guide" aria-selected="false" tabindex="-1">מדריך</button>
-  <button role="tab" id="nav-reports" aria-controls="tab-reports" aria-selected="false" tabindex="-1">דוחות</button>
+  <button role="tab" type="button" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
+  <button role="tab" type="button" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
+  <button role="tab" type="button" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
+  <button role="tab" type="button" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
+  <button role="tab" type="button" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
+  <button role="tab" type="button" id="nav-guide" aria-controls="tab-guide" aria-selected="false" tabindex="-1">מדריך</button>
+  <button role="tab" type="button" id="nav-reports" aria-controls="tab-reports" aria-selected="false" tabindex="-1">דוחות</button>
 </nav>
 
 <script>
@@ -5012,6 +5012,46 @@ module.exports = {
   // comes back as an empty roster plus the reason, and the screen says so instead of guessing.
   function load() {
     var loaded = store.load();
+    var storedText;
+    var storedDocument;
+    var topicPeople;
+    var cleanPeople;
+    var cleanDocument;
+    var restored;
+    if (loaded.problem === 'personal data is not accepted') {
+      storedText = null;
+      try { storedText = window.localStorage.getItem(store.key); } catch (e) { storedText = null; }
+      try {
+        storedDocument = JSON.parse(storedText);
+        topicPeople = storedDocument.people;
+        if (storedDocument && Array.isArray(topicPeople)) {
+          cleanPeople = topicPeople.map((person) => {
+            var topics = person.target_ai_topics;
+            if (topics === undefined) topics = [];
+            if (!Array.isArray(topics) || !topics.every((topic) =>
+              typeof topic === 'string' && Object.hasOwn(AI_TOPICS, topic))) throw new Error('invalid target_ai_topics');
+            var clean = Object.assign({}, person);
+            delete clean.target_ai_topics;
+            return clean;
+          });
+          cleanDocument = Object.assign({}, storedDocument, { people: cleanPeople });
+          restored = storeLib.deserialize(JSON.stringify(cleanDocument));
+          loaded = {
+            state: {
+              people: restored.people.map((person, i) => {
+                var withTopics = Object.assign({}, person);
+                withTopics.target_ai_topics = (topicPeople[i].target_ai_topics || []).slice();
+                return withTopics;
+              }),
+              queue: restored.queue,
+              log: restored.log
+            },
+            problem: null,
+            kept: false
+          };
+        }
+      } catch (e) {}
+    }
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
     refusedOnKey = !!loaded.problem;
     refusedKept = !!(loaded.problem && loaded.kept);
@@ -5186,7 +5226,7 @@ module.exports = {
       return;
     }
     made = Object.assign({}, made);
-    Object.defineProperty(made, 'target_ai_topics', { value: targetAITopics, enumerable: false });
+    if (targetAITopics.length) made.target_ai_topics = targetAITopics;
     state.people.push(made);
     resetMatchView();
     clearDraft();
@@ -5207,10 +5247,7 @@ module.exports = {
         flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(profileInput) : profile.grantParentConsent(profileInput);
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
       flipped = Object.assign({}, flipped);
-      Object.defineProperty(flipped, 'target_ai_topics', {
-        value: who.target_ai_topics || [],
-        enumerable: false
-      });
+      if (who.target_ai_topics && who.target_ai_topics.length) flipped.target_ai_topics = who.target_ai_topics;
       state.people[Number(c)] = flipped;
       // A pairs file already down still pairs this pupil if they were in it: "לא ישודך" alone left the
       // coordinator crossing names against a file that pairs a pupil whose parent consent is withdrawn.

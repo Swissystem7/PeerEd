@@ -60,7 +60,7 @@ function fakeElement(id) {
 	};
 }
 
-function loadApp() {
+function loadApp(initialStore) {
 	const html = fs.readFileSync(
 		path.join(ROOT, "src", "app-shell.html"),
 		"utf8",
@@ -81,6 +81,7 @@ function loadApp() {
 			delete store[key];
 		},
 	};
+	if (initialStore) Object.assign(store, initialStore);
 	const document = {
 		getElementById: $,
 		querySelectorAll: (selector) =>
@@ -163,9 +164,9 @@ test("stage15: intake rerenders all four Russian labels", () => {
 
 test("stage15: saving checked topics stores exactly the selected enum keys", () => {
 	const app = loadApp();
-	addPerson(app, ["AI_LIT_PROMPT", "AI_ETHICS_SEC"]);
+	const person = addPerson(app, ["AI_LIT_PROMPT", "AI_ETHICS_SEC"]);
 	assert.match(app.html, /filter\(\(key\) => validateAITopics\(\[key\]\)\)/);
-	assert.match(app.html, /Object\.defineProperty\(made, ['"]target_ai_topics/);
+	assert.deepEqual(person.target_ai_topics, ["AI_LIT_PROMPT", "AI_ETHICS_SEC"]);
 });
 
 test("stage15: invalid or free-text topic values are rejected and empty selection defaults to []", () => {
@@ -180,6 +181,15 @@ test("stage15: invalid or free-text topic values are rejected and empty selectio
 	assert.match(empty.$("addStatus").textContent, /נוסף/);
 });
 
+test("stage15: target topics serialize as an enumerable field", () => {
+	const app = loadApp();
+	const person = addPerson(app, ["AI_CREATIVE", "AI_STEM_CODE"]);
+	assert.deepEqual(JSON.parse(JSON.stringify(person)).target_ai_topics, [
+		"AI_CREATIVE",
+		"AI_STEM_CODE",
+	]);
+});
+
 test("stage15: saved intake record contains no personal-data fields and only enum topics", () => {
 	const app = loadApp();
 	const person = addPerson(app, ["AI_CREATIVE", "AI_STEM_CODE"]);
@@ -189,6 +199,17 @@ test("stage15: saved intake record contains no personal-data fields and only enu
 		),
 		[],
 	);
-	assert.equal(Object.keys(person).includes("target_ai_topics"), false);
+	assert.equal(Object.keys(person).includes("target_ai_topics"), true);
 	assert.match(app.html, /target_ai_topics/);
+});
+
+test("stage15: saved intake topics survive a storage reload", () => {
+	const app = loadApp();
+	addPerson(app, ["AI_LIT_PROMPT", "AI_ETHICS_SEC"]);
+	const reloaded = loadApp(app.store);
+	addPerson(reloaded, ["AI_CREATIVE"]);
+	assert.deepEqual(
+		JSON.parse(reloaded.store.peered_app_v1).people[0].target_ai_topics,
+		["AI_LIT_PROMPT", "AI_ETHICS_SEC"],
+	);
 });
