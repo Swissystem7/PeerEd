@@ -8,9 +8,26 @@ const { shared, hasParentConsent } = require('./match.js');
 const { isRegion } = require('./regions.js');
 const { SUBJECTS, normalizeSlot } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
+const AI_TOPIC_KEY_RE = /^[A-Z0-9_]+$/;
+const AI_TOPIC_WEIGHT = 20;
 
-const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10 });
+const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10, aiTopics: AI_TOPIC_WEIGHT });
 const PAIR_BONUS = 1000; // > max score of one pair (100), so one more pair always beats a better score
+
+function cleanTopics(x) {
+  return Array.isArray(x) ? x.filter((v) => typeof v === 'string' && AI_TOPIC_KEY_RE.test(v)) : [];
+}
+
+function aiTopicOverlap(studentTopics, pupilTopics) {
+  const s = cleanTopics(studentTopics);
+  const p = cleanTopics(pupilTopics);
+  if (s.length === 0 || p.length === 0) return 0;
+  let matched = 0;
+  for (const t of p) {
+    if (s.includes(t)) matched += 1;
+  }
+  return matched / p.length;
+}
 
 function weightsOf(opts) {
   const w = Object.assign({}, DEFAULT_WEIGHTS, (opts && opts.weights) || {});
@@ -38,6 +55,10 @@ function scorePair(student, pupil, weights) {
   const sl = normLevel(s); const pl = normLevel(p);
   const levelIn = sl !== null && pl !== null;
   const langIn = langs(s).length > 0 && langs(p).length > 0;
+  const sTopics = cleanTopics(s?.target_ai_topics);
+  const pTopics = cleanTopics(p?.target_ai_topics);
+  const aiIn = sTopics.length > 0 && pTopics.length > 0;
+  const overlap = aiIn ? aiTopicOverlap(sTopics, pTopics) : 0;
   const levelFit = levelIn ? 1 - Math.abs(sl - pl) / 4 : 0;
   const langFit = langIn && sharedLanguages.length > 0 ? 1 : 0;
   const prefHits = shared(prefs(s), (p.subjects || []).filter((x) => SUBJECTS.indexOf(x) !== -1)).length +
@@ -49,15 +70,17 @@ function scorePair(student, pupil, weights) {
     subject: Math.round(w.subject * Math.min(1, sharedSubjects.length / 2)),
     level: levelIn ? Math.round(w.level * levelFit) : 0,
     language: langIn ? Math.round(w.language * langFit) : 0,
-    preference: Math.round(w.preference * prefFit)
+    preference: Math.round(w.preference * prefFit),
+    aiTopics: aiIn ? Math.round(w.aiTopics * overlap) : 0
   };
   // criteria with no data on either side are excluded, not credited: the total is renormalised to 100
   let included = w.region + w.hours + w.subject + w.preference;
   if (levelIn) included += w.level;
   if (langIn) included += w.language;
-  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference;
+  if (aiIn) included += w.aiTopics;
+  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference + b.aiTopics;
   b.total = included > 0 ? Math.round((earned / included) * 100) : 0;
-  b.levelCounted = levelIn; b.languageCounted = langIn;
+  b.levelCounted = levelIn; b.languageCounted = langIn; b.aiTopicsCounted = aiIn;
   return { score: b.total, breakdown: b, sharedSlots, sharedSubjects, sharedLanguages, regionSame, levelFit };
 }
 
@@ -150,4 +173,4 @@ function rematchPartial(students, pupils, existingPairs, opts) {
   return match2(students, pupils, Object.assign({}, o, { locked }));
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, DEFAULT_WEIGHTS };
+module.exports = { match2, rematchPartial, scorePair, explainHe, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, aiTopicOverlap };
