@@ -395,6 +395,7 @@
       <label for="sessionPair">זוג</label>
       <select id="sessionPair" aria-required="true" aria-describedby="sessionStatus"></select>
       <span id="pairTotalHoursBadge" class="pair-total-hours-badge meta" role="status" aria-live="polite">סך שעות: 0</span>
+      <p id="pairZeroHoursHint" class="hint empty" role="status" aria-live="polite" hidden></p>
       <div class="row">
         <div><label for="sessionSlot">שעה</label><select id="sessionSlot" aria-required="true" aria-describedby="sessionStatus"></select></div>
         <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject" aria-required="true" aria-describedby="sessionStatus"></select></div>
@@ -6950,6 +6951,14 @@ module.exports = {
       ru: 'Всего часов: ' + shown
     };
   }
+  var PAIR_ZERO_HOURS_HINT = {
+    he: 'טרם נרשמו שעות מאושרות לזוג זה',
+    ar: 'لم تُسجَّل بعد ساعات معتمدة لهذا الزوج',
+    ru: 'Для этой пары ещё не записаны подтверждённые часы'
+  };
+  function pairZeroHoursHintText(lang) {
+    return PAIR_ZERO_HOURS_HINT[lang] || PAIR_ZERO_HOURS_HINT.he;
+  }
   function activeSessionPairIndex() {
     var sel = $('sessionPair');
     if (!sel || !sel.value) return null;
@@ -6967,6 +6976,16 @@ module.exports = {
     var labels = pairHoursBadgeLabels(total);
     var lang = typeof currentLang === 'string' ? currentLang : 'he';
     el.textContent = labels[lang] || labels.he;
+    var hint = $('pairZeroHoursHint');
+    if (hint) {
+      if (total > 0) {
+        hint.hidden = true;
+        hint.textContent = '';
+      } else {
+        hint.hidden = false;
+        hint.textContent = pairZeroHoursHintText(lang);
+      }
+    }
   }
 
 
