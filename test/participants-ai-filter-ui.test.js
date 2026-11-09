@@ -149,12 +149,13 @@ test("choosing a topic shows only matching people and empty message when no matc
 	$empty("peopleAiFilter").value = "AI_CREATIVE";
 	$empty("peopleAiFilter").fire("change");
 	const emptyListHtml = $empty("peopleList").innerHTML;
-	assert.ok(
-		emptyListHtml.includes('class="empty"'),
-		"empty message must have empty class",
-	);
-	assert.ok(
-		emptyListHtml.includes("אין משתתפים"),
+	const emptyMsg = $empty("ai-filter-empty-message");
+	assert.equal(emptyListHtml.trim(), "", "peopleList cleared when filter has no matches");
+	assert.ok(emptyMsg, "dedicated ai-filter-empty-message exists");
+	assert.equal(emptyMsg.hidden, false, "empty message visible");
+	assert.match(
+		emptyMsg.textContent,
+		/לא נמצאו משתתפים בנושא זה/,
 		"empty message must state no matching participants",
 	);
 });
