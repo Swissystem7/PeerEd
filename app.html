@@ -4540,6 +4540,7 @@ const { makeProfile, withoutRetentionStamp, PERSONAL_DATA_ERROR } = require('./p
 const { PROFANITY_ERROR } = require('./validator.js');
 const { emptyQueue, loadQueue } = require('./approval.js');
 const { emptyLog, loadLog } = require('./session.js');
+const { AI_TOPIC_KEYS } = require('./attendance.js');
 
 const SCHEMA = 'peered/1';
 const DEFAULT_KEY = 'peered_app_v1';
@@ -4582,6 +4583,18 @@ function storedProfileInput(person) {
   return withoutRetentionStamp(person);
 }
 
+function cleanAITopics(value) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  for (let i = 0; i < value.length; i += 1) {
+    const item = value[i];
+    if (typeof item === 'string' && AI_TOPIC_KEYS.includes(item) && !out.includes(item)) {
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 // A stored person goes through the same gate as one the coordinator just added - makeProfile - and that
 // gate words a refusal for the add form: 'invalid availability: expected a non-empty array' is the line
 // "mark at least one free hour", 'invalid subjects:' is "choose at least one subject". On load nobody
@@ -4593,8 +4606,24 @@ function storedProfileInput(person) {
 // as they read the same on every screen; so does a bad retention stamp, which only a stored record
 // carries and whose line already names the record.
 function storedPerson(person, at) {
+  let input = person;
+  let hasTopics = false;
+  let rawTopics;
+  if (person !== null && typeof person === 'object' && !Array.isArray(person) && Object.hasOwn(person, 'target_ai_topics')) {
+    hasTopics = true;
+    rawTopics = person.target_ai_topics;
+    input = { ...person };
+    delete input.target_ai_topics;
+  }
   try {
-    return makeProfile(storedProfileInput(person));
+    const profile = makeProfile(storedProfileInput(input));
+    if (hasTopics) {
+      const cleaned = cleanAITopics(rawTopics);
+      if (cleaned.length > 0) {
+        return Object.freeze({ ...profile, target_ai_topics: Object.freeze(cleaned) });
+      }
+    }
+    return profile;
   } catch (err) {
     if (err.message === PERSONAL_DATA_ERROR || err.message === PROFANITY_ERROR
       || err.message.indexOf('invalid retention:') === 0) throw err;
@@ -4619,11 +4648,25 @@ function fromDocument(doc) {
   return Object.freeze({ people: Object.freeze(people), queue: queue, log: log });
 }
 
+function serializedPerson(person) {
+  if (person === null || typeof person !== 'object' || Array.isArray(person) || !Object.hasOwn(person, 'target_ai_topics')) {
+    return person;
+  }
+  const cleaned = cleanAITopics(person.target_ai_topics);
+  if (cleaned.length === 0) {
+    const copy = { ...person };
+    delete copy.target_ai_topics;
+    return copy;
+  }
+  return { ...person, target_ai_topics: cleaned };
+}
+
 // The stored form. Stable key order, no whitespace: the same state always gives the same string, so
 // two devices that hold the same roster can be compared byte for byte.
 function serialize(state) {
   assertState(state);
-  return JSON.stringify({ schema: SCHEMA, people: state.people, queue: state.queue, log: state.log });
+  const people = state.people.map(serializedPerson);
+  return JSON.stringify({ schema: SCHEMA, people: people, queue: state.queue, log: state.log });
 }
 
 function deserialize(text) {
