@@ -181,6 +181,10 @@
       </div>
       <label id="subjectsLabel">מקצועות</label>
       <div class="chips" id="subjects" role="group" aria-labelledby="subjectsLabel"></div>
+      <fieldset id="aiTopicsFieldset">
+        <legend id="aiTopicsLabel">נושאי בינה מלאכותית</legend>
+        <div class="chips" id="aiTopics" role="group" aria-labelledby="aiTopicsLabel"></div>
+      </fieldset>
       <label id="periodLabel">זמינות לפי חלקי יום</label>
       <p class="hint" id="periodHint">בוחרים בוקר, צהריים או אחה״צ לכל יום. זה מספיק לשיבוץ; שעות מדויקות נמצאות תחת "מתקדם".</p>
       <div class="chips" id="periodChips" role="group" aria-labelledby="periodLabel" aria-describedby="periodHint"></div>
@@ -4785,6 +4789,11 @@ module.exports = {
     AI_STEM_CODE: Object.freeze({ he: 'מדעים, טכנולוגיה ותכנות', ar: 'كفاءة الذكاء الاصطناعي والبرمجة', ru: 'STEM и программирование' }),
     AI_ETHICS_SEC: Object.freeze({ he: 'אתיקה, פרטיות ובטיחות', ar: 'الأخلاق والأمان', ru: 'Этика и безопасность ИИ' })
   });
+  const AI_TOPIC_GROUP_LABELS = Object.freeze({
+    he: 'נושאי בינה מלאכותית',
+    ar: 'موضوعات الذكاء الاصطناعي',
+    ru: 'Темы искусственного интеллекта'
+  });
 
   function validateAITopics(topics) {
     if (!Array.isArray(topics) || topics.length === 0) return false;
@@ -5042,6 +5051,11 @@ module.exports = {
       return '<button type="button" class="chip" id="subjectBtn-' + s + '" data-subject="' + s + '" aria-pressed="false">' +
         esc(SUBJECT_HE[s] || s) + '</button>';
     }).join('');
+    $('aiTopicsLabel').textContent = AI_TOPIC_GROUP_LABELS[currentLang] || AI_TOPIC_GROUP_LABELS.he;
+    $('aiTopics').innerHTML = Object.keys(AI_TOPICS).map((key) => {
+      const label = AI_TOPICS[key][currentLang] || AI_TOPICS[key].he;
+      return `<label class="check"><input type="checkbox" value="${key}" data-ai-topic="${key}"> ${esc(label)}</label>`;
+    }).join('');
     var cells = ['<span></span>'];
     profile.DAYS.forEach(function (d) { cells.push('<span>' + esc(DAY_HE[d] || d) + '</span>'); });
     HOURS.forEach(function (h) {
@@ -5126,6 +5140,9 @@ module.exports = {
     draft = { subjects: [], availability: [] };
     renderPeriodChips();
     $('consent').checked = false;
+    Array.prototype.forEach.call(document.querySelectorAll?.('#aiTopics input[type="checkbox"]') || [], (input) => {
+      input.checked = false;
+    });
     Array.prototype.forEach.call($('subjects').children, function (b) { b.setAttribute('aria-pressed', 'false'); });
     Array.prototype.forEach.call($('hours').children, function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', 'false');
@@ -5133,6 +5150,11 @@ module.exports = {
   }
 
   $('addPerson').addEventListener('click', function () {
+    const topicInputs = document.querySelectorAll?.('#aiTopics input[type="checkbox"]') || [];
+    const targetAITopics = Array.from(topicInputs)
+      .filter((input) => input.checked)
+      .map((input) => input.getAttribute('data-ai-topic') || input.value)
+      .filter((key) => validateAITopics([key]));
     var candidate = {
       role: $('role').value,
       region: $('region').value,
@@ -5163,6 +5185,8 @@ module.exports = {
       say('addStatus', 'נדחה: ' + errorHe(err) + '.', true);
       return;
     }
+    made = Object.assign({}, made);
+    Object.defineProperty(made, 'target_ai_topics', { value: targetAITopics, enumerable: false });
     state.people.push(made);
     resetMatchView();
     clearDraft();
@@ -5173,12 +5197,20 @@ module.exports = {
 
   $('peopleList').addEventListener('click', function (ev) {
     var c = ev.target.getAttribute('data-consent');
+    let profileInput;
+    let flipped;
     if (c !== null) {
       var who = state.people[Number(c)];
-      var flipped;
+      profileInput = Object.assign({}, who);
+      delete profileInput.target_ai_topics;
       try {
-        flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(who) : profile.grantParentConsent(who);
+        flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(profileInput) : profile.grantParentConsent(profileInput);
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
+      flipped = Object.assign({}, flipped);
+      Object.defineProperty(flipped, 'target_ai_topics', {
+        value: who.target_ai_topics || [],
+        enumerable: false
+      });
       state.people[Number(c)] = flipped;
       // A pairs file already down still pairs this pupil if they were in it: "לא ישודך" alone left the
       // coordinator crossing names against a file that pairs a pupil whose parent consent is withdrawn.
