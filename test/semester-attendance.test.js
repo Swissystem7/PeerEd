@@ -74,7 +74,7 @@ test('recordAttendance: validation and immutability', () => {
   assert.equal(Object.isFrozen(resLog.entries[0]), true);
   assert.equal(origLog.entries.length, 0);
   assert.equal(resLog.entries.length, 1);
-  assert.deepEqual(resLog.entries[0], { pairIndex: 0, date: '2026-09-06', status: 'held' });
+  assert.deepEqual(resLog.entries[0], { pairIndex: 0, date: '2026-09-06', status: 'held', durationHours: 1 });
 });
 
 test('attendanceSummary: options and metrics', () => {
