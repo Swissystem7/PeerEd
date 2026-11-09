@@ -2283,7 +2283,7 @@ function deserializeAttendance(raw) {
 		if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) continue;
 		try {
 			parseDate(r.date);
-		} catch (e) {
+		} catch {
 			continue;
 		}
 		if (ATTENDANCE_STATUSES.indexOf(r.status) === -1) continue;
