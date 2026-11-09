@@ -1785,6 +1785,12 @@ const { SUBJECTS, normalizeSlot } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
 const AI_TOPIC_KEY_RE = /^[A-Z0-9_]+$/;
 const AI_TOPIC_WEIGHT = 20;
+const AI_TOPIC_LABELS = Object.freeze({
+  AI_LIT_PROMPT: Object.freeze({ he: 'אוריינות בינה מלאכותית והנחיה', ar: 'معرفة الذكاء الاصطناعي والتوجيه', ru: 'ИИ-грамотность и промпты' }),
+  AI_CREATIVE: Object.freeze({ he: 'יצירתיות ובינה יוצרת', ar: 'الإبداع والذكاء التوليدي', ru: 'Креативность и генеративный ИИ' }),
+  AI_STEM_CODE: Object.freeze({ he: 'מדעים, טכנולוגיה ותכנות', ar: 'العلوم والتكنولوجيا والبرمجة', ru: 'Наука, технологии и программирование' }),
+  AI_ETHICS_SEC: Object.freeze({ he: 'אתיקה, פרטיות ובטיחות', ar: 'الأخلاق والخصوصية والأمان', ru: 'Этика, конфиденциальность и безопасность' }),
+});
 
 const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10, aiTopics: AI_TOPIC_WEIGHT });
 const PAIR_BONUS = 1000; // > max score of one pair (100), so one more pair always beats a better score
@@ -1856,7 +1862,64 @@ function scorePair(student, pupil, weights) {
   const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference + b.aiTopics;
   b.total = included > 0 ? Math.round((earned / included) * 100) : 0;
   b.levelCounted = levelIn; b.languageCounted = langIn; b.aiTopicsCounted = aiIn;
-  return { score: b.total, breakdown: b, sharedSlots, sharedSubjects, sharedLanguages, regionSame, levelFit };
+  const sharedAiTopics = aiIn
+    ? cleanTopics(pTopics).filter((t) => sTopics.includes(t))
+    : [];
+  const aiExplanation = explainAiTopics({
+    counted: aiIn,
+    sharedCount: sharedAiTopics.length,
+    points: b.aiTopics,
+    topics: sharedAiTopics,
+  });
+  return {
+    score: b.total,
+    breakdown: b,
+    sharedSlots,
+    sharedSubjects,
+    sharedLanguages,
+    sharedAiTopics,
+    aiExplanation,
+    regionSame,
+    levelFit,
+  };
+}
+
+
+function topicLabel(key, lang) {
+  const row = AI_TOPIC_LABELS[key];
+  if (!row) return key;
+  return row[lang] || row.he || key;
+}
+
+function explainAiTopics({ counted, sharedCount, points, topics }) {
+  const namesHe = (topics || []).map((t) => topicLabel(t, 'he')).join(', ');
+  const namesAr = (topics || []).map((t) => topicLabel(t, 'ar')).join(', ');
+  const namesRu = (topics || []).map((t) => topicLabel(t, 'ru')).join(', ');
+  if (!counted) {
+    return Object.freeze({
+      he: '',
+      ar: '',
+      ru: '',
+      sharedCount: 0,
+      points: 0,
+    });
+  }
+  if (!sharedCount) {
+    return Object.freeze({
+      he: 'נושאי בינה מלאכותית: אין חפיפה (0 נק׳)',
+      ar: 'موضوعات الذكاء الاصطناعي: لا تداخل (0 نقطة)',
+      ru: 'Темы ИИ: нет пересечения (0 баллов)',
+      sharedCount: 0,
+      points: 0,
+    });
+  }
+  return Object.freeze({
+    he: 'נושאי בינה מלאכותית משותפים: ' + sharedCount + ' (' + namesHe + ') — ' + points + ' נק׳',
+    ar: 'موضوعات ذكاء اصطناعي مشتركة: ' + sharedCount + ' (' + namesAr + ') — ' + points + ' نقطة',
+    ru: 'Общие темы ИИ: ' + sharedCount + ' (' + namesRu + ') — ' + points + ' баллов',
+    sharedCount,
+    points,
+  });
 }
 
 function explainHe(scored, student, pupil) {
@@ -1866,6 +1929,7 @@ function explainHe(scored, student, pupil) {
   parts.push('\u05de\u05e7\u05e6\u05d5\u05e2\u05d5\u05ea \u05de\u05e9\u05d5\u05ea\u05e4\u05d9\u05dd: ' + scored.sharedSubjects.join(', '));
   if (normLevel(student) !== null && normLevel(pupil) !== null) parts.push('\u05d4\u05ea\u05d0\u05de\u05ea \u05e8\u05de\u05d4 ' + student.level + ' \u05de\u05d5\u05dc ' + pupil.level);
   if (scored.sharedLanguages.length) parts.push('\u05e9\u05e4\u05d4 \u05de\u05e9\u05d5\u05ea\u05e4\u05ea: ' + scored.sharedLanguages.join(', '));
+  if (scored.aiExplanation && scored.aiExplanation.he) parts.push(scored.aiExplanation.he);
   return '\u05e6\u05d9\u05d5\u05df ' + b.total + '/100 \u2014 ' + parts.join('; ') + ' [\u05d0\u05d6\u05d5\u05e8 ' + b.region + ', \u05e9\u05e2\u05d5\u05ea ' + b.hours + ', \u05de\u05e7\u05e6\u05d5\u05e2 ' + b.subject + ', \u05e8\u05de\u05d4 ' + b.level + ', \u05e9\u05e4\u05d4 ' + b.language + ', \u05d4\u05e2\u05d3\u05e4\u05d5\u05ea ' + b.preference + ']';
 }
 
@@ -1948,7 +2012,7 @@ function rematchPartial(students, pupils, existingPairs, opts) {
   return match2(students, pupils, Object.assign({}, o, { locked }));
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, aiTopicOverlap };
+module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS };
   __registry["match2"] = module.exports;
 })();
 
