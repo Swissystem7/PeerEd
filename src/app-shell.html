@@ -181,6 +181,10 @@
       </div>
       <label id="subjectsLabel">מקצועות</label>
       <div class="chips" id="subjects" role="group" aria-labelledby="subjectsLabel"></div>
+      <fieldset id="aiTopicsFieldset">
+        <legend id="aiTopicsLabel">נושאי בינה מלאכותית</legend>
+        <div class="chips" id="aiTopics" role="group" aria-labelledby="aiTopicsLabel"></div>
+      </fieldset>
       <label id="periodLabel">זמינות לפי חלקי יום</label>
       <p class="hint" id="periodHint">בוחרים בוקר, צהריים או אחה״צ לכל יום. זה מספיק לשיבוץ; שעות מדויקות נמצאות תחת "מתקדם".</p>
       <div class="chips" id="periodChips" role="group" aria-labelledby="periodLabel" aria-describedby="periodHint"></div>
@@ -453,13 +457,13 @@
 </main>
 
 <nav role="tablist" aria-label="ניווט">
-  <button role="tab" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
-  <button role="tab" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
-  <button role="tab" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
-  <button role="tab" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
-  <button role="tab" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
-  <button role="tab" id="nav-guide" aria-controls="tab-guide" aria-selected="false" tabindex="-1">מדריך</button>
-  <button role="tab" id="nav-reports" aria-controls="tab-reports" aria-selected="false" tabindex="-1">דוחות</button>
+  <button role="tab" type="button" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
+  <button role="tab" type="button" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
+  <button role="tab" type="button" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
+  <button role="tab" type="button" id="nav-units" aria-controls="tab-units" aria-selected="false" tabindex="-1">יחידות</button>
+  <button role="tab" type="button" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
+  <button role="tab" type="button" id="nav-guide" aria-controls="tab-guide" aria-selected="false" tabindex="-1">מדריך</button>
+  <button role="tab" type="button" id="nav-reports" aria-controls="tab-reports" aria-selected="false" tabindex="-1">דוחות</button>
 </nav>
 
 <script>
@@ -523,6 +527,11 @@
     AI_CREATIVE: Object.freeze({ he: 'יצירתיות ובינה יוצרת', ar: 'إنشاء المحتوى والوسائط', ru: 'Творчество и генеративный ИИ' }),
     AI_STEM_CODE: Object.freeze({ he: 'מדעים, טכנולוגיה ותכנות', ar: 'كفاءة الذكاء الاصطناعي والبرمجة', ru: 'STEM и программирование' }),
     AI_ETHICS_SEC: Object.freeze({ he: 'אתיקה, פרטיות ובטיחות', ar: 'الأخلاق والأمان', ru: 'Этика и безопасность ИИ' })
+  });
+  const AI_TOPIC_GROUP_LABELS = Object.freeze({
+    he: 'נושאי בינה מלאכותית',
+    ar: 'موضوعات الذكاء الاصطناعي',
+    ru: 'Темы искусственного интеллекта'
   });
 
   function validateAITopics(topics) {
@@ -742,6 +751,46 @@
   // comes back as an empty roster plus the reason, and the screen says so instead of guessing.
   function load() {
     var loaded = store.load();
+    var storedText;
+    var storedDocument;
+    var topicPeople;
+    var cleanPeople;
+    var cleanDocument;
+    var restored;
+    if (loaded.problem === 'personal data is not accepted') {
+      storedText = null;
+      try { storedText = window.localStorage.getItem(store.key); } catch (e) { storedText = null; }
+      try {
+        storedDocument = JSON.parse(storedText);
+        topicPeople = storedDocument.people;
+        if (storedDocument && Array.isArray(topicPeople)) {
+          cleanPeople = topicPeople.map((person) => {
+            var topics = person.target_ai_topics;
+            if (topics === undefined) topics = [];
+            if (!Array.isArray(topics) || !topics.every((topic) =>
+              typeof topic === 'string' && Object.hasOwn(AI_TOPICS, topic))) throw new Error('invalid target_ai_topics');
+            var clean = Object.assign({}, person);
+            delete clean.target_ai_topics;
+            return clean;
+          });
+          cleanDocument = Object.assign({}, storedDocument, { people: cleanPeople });
+          restored = storeLib.deserialize(JSON.stringify(cleanDocument));
+          loaded = {
+            state: {
+              people: restored.people.map((person, i) => {
+                var withTopics = Object.assign({}, person);
+                withTopics.target_ai_topics = (topicPeople[i].target_ai_topics || []).slice();
+                return withTopics;
+              }),
+              queue: restored.queue,
+              log: restored.log
+            },
+            problem: null,
+            kept: false
+          };
+        }
+      } catch (e) {}
+    }
     state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
     refusedOnKey = !!loaded.problem;
     refusedKept = !!(loaded.problem && loaded.kept);
@@ -780,6 +829,11 @@
     $('subjects').innerHTML = profile.SUBJECTS.map(function (s) {
       return '<button type="button" class="chip" id="subjectBtn-' + s + '" data-subject="' + s + '" aria-pressed="false">' +
         esc(SUBJECT_HE[s] || s) + '</button>';
+    }).join('');
+    $('aiTopicsLabel').textContent = AI_TOPIC_GROUP_LABELS[currentLang] || AI_TOPIC_GROUP_LABELS.he;
+    $('aiTopics').innerHTML = Object.keys(AI_TOPICS).map((key) => {
+      const label = AI_TOPICS[key][currentLang] || AI_TOPICS[key].he;
+      return `<label class="check"><input type="checkbox" value="${key}" data-ai-topic="${key}"> ${esc(label)}</label>`;
     }).join('');
     var cells = ['<span></span>'];
     profile.DAYS.forEach(function (d) { cells.push('<span>' + esc(DAY_HE[d] || d) + '</span>'); });
@@ -865,6 +919,9 @@
     draft = { subjects: [], availability: [] };
     renderPeriodChips();
     $('consent').checked = false;
+    Array.prototype.forEach.call(document.querySelectorAll?.('#aiTopics input[type="checkbox"]') || [], (input) => {
+      input.checked = false;
+    });
     Array.prototype.forEach.call($('subjects').children, function (b) { b.setAttribute('aria-pressed', 'false'); });
     Array.prototype.forEach.call($('hours').children, function (b) {
       if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', 'false');
@@ -872,6 +929,11 @@
   }
 
   $('addPerson').addEventListener('click', function () {
+    const topicInputs = document.querySelectorAll?.('#aiTopics input[type="checkbox"]') || [];
+    const targetAITopics = Array.from(topicInputs)
+      .filter((input) => input.checked)
+      .map((input) => input.getAttribute('data-ai-topic') || input.value)
+      .filter((key) => validateAITopics([key]));
     var candidate = {
       role: $('role').value,
       region: $('region').value,
@@ -902,6 +964,8 @@
       say('addStatus', 'נדחה: ' + errorHe(err) + '.', true);
       return;
     }
+    made = Object.assign({}, made);
+    if (targetAITopics.length) made.target_ai_topics = targetAITopics;
     state.people.push(made);
     resetMatchView();
     clearDraft();
@@ -912,12 +976,17 @@
 
   $('peopleList').addEventListener('click', function (ev) {
     var c = ev.target.getAttribute('data-consent');
+    let profileInput;
+    let flipped;
     if (c !== null) {
       var who = state.people[Number(c)];
-      var flipped;
+      profileInput = Object.assign({}, who);
+      delete profileInput.target_ai_topics;
       try {
-        flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(who) : profile.grantParentConsent(who);
+        flipped = match.hasParentConsent(who) ? profile.revokeParentConsent(profileInput) : profile.grantParentConsent(profileInput);
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
+      flipped = Object.assign({}, flipped);
+      if (who.target_ai_topics && who.target_ai_topics.length) flipped.target_ai_topics = who.target_ai_topics;
       state.people[Number(c)] = flipped;
       // A pairs file already down still pairs this pupil if they were in it: "לא ישודך" alone left the
       // coordinator crossing names against a file that pairs a pupil whose parent consent is withdrawn.
