@@ -218,6 +218,7 @@
         <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
         <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
       </select>
+      <p class="hint" id="ai-filter-count" aria-live="polite">0</p>
       <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
     </div>
     <div class="card">
@@ -5207,6 +5208,11 @@ module.exports = {
     ar: 'لا يوجد مشاركون يطابقون الموضوع المحدد.',
     ru: 'Нет участников, соответствующих выбранной теме.'
   });
+  const AI_FILTER_COUNT_LABELS = Object.freeze({
+    he: Object.freeze({ all: 'סה״כ משתתפים: {n}', filtered: 'מוצגים {shown} מתוך {total}' }),
+    ar: Object.freeze({ all: 'إجمالي المشاركين: {n}', filtered: 'يُعرض {shown} من أصل {total}' }),
+    ru: Object.freeze({ all: 'Всего участников: {n}', filtered: 'Показано {shown} из {total}' })
+  });
   const AI_SUMMARY_HEADINGS = Object.freeze({
     he: 'פילוח נושאי בינה מלאכותית',
     ar: 'توزيع موضوعات الذكاء الاصطناعي',
@@ -5610,9 +5616,25 @@ module.exports = {
     return 'אין עדיין משתתפים. אפשר לטעון דוגמה.';
   }
 
+
+  function updateAiFilterCount(shown, total) {
+    const el = $('ai-filter-count');
+    if (!el) return;
+    const labels = AI_FILTER_COUNT_LABELS[currentLang] || AI_FILTER_COUNT_LABELS.he;
+    const selectedTopic = $('peopleAiFilter')?.value || '';
+    if (!selectedTopic) {
+      el.textContent = labels.all.replace('{n}', String(total));
+    } else {
+      el.textContent = labels.filtered
+        .replace('{shown}', String(shown))
+        .replace('{total}', String(total));
+    }
+  }
+
   function renderPeople() {
     if (!state.people.length) {
       $('peopleList').innerHTML = `<p class="empty">${esc(emptyRosterHe())}</p>`;
+      updateAiFilterCount(0, 0);
       renderAITopicsSummary();
       return;
     }
@@ -5631,6 +5653,7 @@ module.exports = {
     if (!filtered.length) {
       const emptyMsg = AI_FILTER_EMPTY_LABELS[currentLang] ?? AI_FILTER_EMPTY_LABELS.he;
       $('peopleList').innerHTML = `<p class="empty">${esc(emptyMsg)}</p>`;
+      updateAiFilterCount(0, state.people.length);
       renderAITopicsSummary();
       return;
     }
@@ -5653,6 +5676,7 @@ module.exports = {
       );
     }
     $('peopleList').innerHTML = rows.join('');
+    updateAiFilterCount(rows.length, state.people.length);
     renderAITopicsSummary();
   }
 
