@@ -5252,7 +5252,7 @@ module.exports = {
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
   // The roster lives in this browser only (MVP item 7): one localStorage key, no server, and a stored
   // record is re-validated by src/lib/store.js on every load, so devtools cannot smuggle a name in.
-  var state = { people: [], queue: null, log: null, attendance: { entries: [] }, pairs: [] };
+  var state = { people: [], queue: null, log: null, attendance: [], pairs: [] };
   if (typeof window !== 'undefined') window.state = state;
   var draft = { subjects: [], availability: [] };
   // When the browser does not hand out its storage at all (site data blocked in the settings, a sandboxed
@@ -5479,7 +5479,7 @@ module.exports = {
         }
       } catch (e) {}
     }
-    state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log, attendance: loaded.state.attendance || { entries: [] }, pairs: loaded.state.pairs || [] };
+    state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log, attendance: Array.isArray(loaded.state.attendance) ? loaded.state.attendance.slice() : (loaded.state.attendance && Array.isArray(loaded.state.attendance.entries) ? loaded.state.attendance.entries.slice() : []), pairs: loaded.state.pairs || [] };
     if (typeof window !== 'undefined') window.state = state;
     refusedOnKey = !!loaded.problem;
     refusedKept = !!(loaded.problem && loaded.kept);
@@ -6933,7 +6933,7 @@ module.exports = {
     fileNoConsent = null;
     fileAcross = null;
     var empty = storeLib.emptyState();
-    state = { people: [], queue: empty.queue, log: empty.log, attendance: { entries: [] }, pairs: [] };
+    state = { people: [], queue: empty.queue, log: empty.log, attendance: [], pairs: [] };
     if (typeof window !== 'undefined') window.state = state;
     clearDraft();
     resetMatchView();
@@ -7320,7 +7320,7 @@ module.exports = {
       return { date: semesterLib.addDays(fromISO, (s.week || 0) * 7), slot: s.slot, subject: s.subject,
         region: (rosterSplit().students[s.studentIndex] || {}).region, pairIndex: s.pairIndex, durationMinutes: s.durationMinutes };
     });
-    return { data: { sessions: sessions, attendance: { entries: [] }, pairs: sessions }, sessions: sessions };
+    return { data: { sessions: sessions, attendance: { entries: Array.isArray(state.attendance) ? state.attendance : [] }, pairs: sessions }, sessions: sessions };
   }
   function downloadText(name, text, type) {
     var blob = new Blob([text], { type: type });
