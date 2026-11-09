@@ -440,6 +440,11 @@
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic AI summary -->
       <div id="aiTopicsSummaryList" role="region" aria-live="polite" aria-label="פילוח נושאי בינה מלאכותית"></div>
     </div>
+    <div class="card" id="scholarshipHoursSummaryCard">
+      <h2 id="scholarshipHoursSummaryHeading">סיכום שעות מלגה ומעורבות</h2>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for scholarship hours summary -->
+      <div id="scholarshipHoursSummaryList" role="region" aria-live="polite" aria-label="סיכום שעות מלגה ומעורבות"></div>
+    </div>
   </section>
 
   <!-- ============ דוחות ============ -->
@@ -5029,6 +5034,16 @@ module.exports = {
     requested: Object.freeze({ he: 'מבוקש', ar: 'مطلوب', ru: 'Запрошено' }),
     offered: Object.freeze({ he: 'מוצע', ar: 'معروض', ru: 'Предложено' })
   });
+  const SCHOLARSHIP_SUMMARY_HEADINGS = Object.freeze({
+    he: "סיכום שעות מלגה ומעורבות",
+    ar: "ملخص ساعات المنحة والمشاركة",
+    ru: "Сводка стипендиальных часов и вовлеченности"
+  });
+  const SCHOLARSHIP_SUMMARY_LABELS = Object.freeze({
+    totalHours: Object.freeze({ he: "סה״כ שעות", ar: "إجمالي الساعات", ru: "Всего часов" }),
+    totalHeldSessions: Object.freeze({ he: "מפגשים שהתקיימו", ar: "اللقاءات المنعقدة", ru: "Состоявшихся занятий" })
+  });
+
   var AI_TOPIC_BADGE_LABELS = Object.freeze({
     he: 'התאמת נושאי AI',
     ar: 'توافق مواضيع الذكاء الاصطناعي',
@@ -5070,6 +5085,7 @@ module.exports = {
     window.sortMatch2Pairs = sortMatch2Pairs;
     window.renderMatch2 = renderMatch2;
     window.renderAITopicsSummary = renderAITopicsSummary;
+    window.renderScholarshipHoursSummary = renderScholarshipHoursSummary;
     window.AI_TOPIC_ALL_LABELS = AI_TOPIC_ALL_LABELS;
     window.AI_FILTER_EMPTY_LABELS = AI_FILTER_EMPTY_LABELS;
     window.renderPeople = renderPeople;
@@ -5082,7 +5098,8 @@ module.exports = {
   // Only what the engine accepts is ever held: role, region, availability, subjects. No name, ever.
   // The roster lives in this browser only (MVP item 7): one localStorage key, no server, and a stored
   // record is re-validated by src/lib/store.js on every load, so devtools cannot smuggle a name in.
-  var state = { people: [], queue: null, log: null };
+  var state = { people: [], queue: null, log: null, attendance: { entries: [] }, pairs: [] };
+  if (typeof window !== 'undefined') window.state = state;
   var draft = { subjects: [], availability: [] };
   // When the browser does not hand out its storage at all (site data blocked in the settings, a sandboxed
   // frame, some private modes), the store falls back to memory: the app keeps working for this visit and
@@ -5308,7 +5325,8 @@ module.exports = {
         }
       } catch (e) {}
     }
-    state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log };
+    state = { people: loaded.state.people.slice(), queue: loaded.state.queue, log: loaded.state.log, attendance: loaded.state.attendance || { entries: [] }, pairs: loaded.state.pairs || [] };
+    if (typeof window !== 'undefined') window.state = state;
     refusedOnKey = !!loaded.problem;
     refusedKept = !!(loaded.problem && loaded.kept);
     // problem is store.js's English message; the status line is Hebrew like every other one.
@@ -6761,7 +6779,8 @@ module.exports = {
     fileNoConsent = null;
     fileAcross = null;
     var empty = storeLib.emptyState();
-    state = { people: [], queue: empty.queue, log: empty.log };
+    state = { people: [], queue: empty.queue, log: empty.log, attendance: { entries: [] }, pairs: [] };
+    if (typeof window !== 'undefined') window.state = state;
     clearDraft();
     resetMatchView();
     $('reportBox').hidden = true;
@@ -6942,6 +6961,67 @@ module.exports = {
         full.stepsHe.map(function (x) { return '<span class="meta">' + esc(x) + '</span><br>'; }).join('') + '</div>';
     }).join('') : '<p class="empty">לא נמצא פרק מתאים.</p>';
     renderAITopicsSummary();
+    renderScholarshipHoursSummary();
+  }
+
+  function renderScholarshipHoursSummary(customAttendance, customPairs) {
+    const container = $("scholarshipHoursSummaryList");
+    if (!container) return;
+    const headingEl = $("scholarshipHoursSummaryHeading");
+    const lang = currentLang ?? "he";
+    const headingText = (i18n?.STRINGS?.[lang]?.scholarshipSummaryHeading) ??
+      SCHOLARSHIP_SUMMARY_HEADINGS[lang] ?? SCHOLARSHIP_SUMMARY_HEADINGS.he;
+    if (headingEl) {
+      headingEl.textContent = headingText;
+    }
+    container.setAttribute("aria-label", headingText);
+    if (!attendance || typeof attendance.getScholarshipHoursSummary !== "function") {
+      container.innerHTML = "";
+      return;
+    }
+    const s = (typeof window !== "undefined" && window.state) ? window.state : state;
+    const cardEl = $("scholarshipHoursSummaryCard");
+    const sourceState = cardEl?.state || s;
+
+    let records = [];
+    if (customAttendance !== undefined) {
+      records = customAttendance;
+    } else if (sourceState?.attendance && Array.isArray(sourceState.attendance.entries)) {
+      records = sourceState.attendance.entries;
+    } else if (Array.isArray(sourceState?.attendance)) {
+      records = sourceState.attendance;
+    } else if (Array.isArray(sourceState?.attendanceEntries)) {
+      records = sourceState.attendanceEntries;
+    } else if (Array.isArray(sourceState?.heldRecords)) {
+      records = sourceState.heldRecords;
+    }
+
+    let pairs = [];
+    if (customPairs !== undefined) {
+      pairs = customPairs;
+    } else if (Array.isArray(sourceState?.pairs)) {
+      pairs = sourceState.pairs;
+    } else if (sourceState?.pairs && typeof sourceState.pairs === "object") {
+      pairs = sourceState.pairs;
+    } else if (Array.isArray(lastMatch2?.pairs)) {
+      pairs = lastMatch2.pairs;
+    }
+
+    const summary = attendance.getScholarshipHoursSummary(records, pairs);
+    const totalHours = typeof summary?.totalHours === "number" ? summary.totalHours : 0;
+    const totalHeldSessions = typeof summary?.totalHeldSessions === "number" ? summary.totalHeldSessions : 0;
+
+    const totalHoursLabel = (i18n?.STRINGS?.[lang]?.scholarshipTotalHours) ??
+      SCHOLARSHIP_SUMMARY_LABELS.totalHours[lang] ?? SCHOLARSHIP_SUMMARY_LABELS.totalHours.he;
+    const totalSessionsLabel = (i18n?.STRINGS?.[lang]?.scholarshipTotalSessions) ??
+      SCHOLARSHIP_SUMMARY_LABELS.totalHeldSessions[lang] ?? SCHOLARSHIP_SUMMARY_LABELS.totalHeldSessions.he;
+
+    container.innerHTML = `<div class="item" data-metric="totalHours"><b>${esc(totalHoursLabel)}:</b> <span class="meta">${totalHours}</span></div><div class="item" data-metric="totalHeldSessions"><b>${esc(totalSessionsLabel)}:</b> <span class="meta">${totalHeldSessions}</span></div>`;
+
+    if (cardEl) {
+      cardEl.state = sourceState;
+      cardEl.renderScholarshipHoursSummary = renderScholarshipHoursSummary;
+    }
   }
 
   function renderAITopicsSummary() {
@@ -7146,9 +7226,16 @@ module.exports = {
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
-    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); }
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
+  }
+  for (const id of ["nav-guide", "nav-reports"]) {
+    const el = $(id);
+    if (el && !tabs.includes(el)) {
+      tabs.push(el);
+      el.addEventListener("click", () => { activate(el, false); });
+    }
   }
   tabs.forEach(function (tab, i) {
     tab.addEventListener('click', function () { activate(tab, false); });
@@ -7197,6 +7284,7 @@ module.exports = {
   initHome();
   renderGuide();
   renderAITopicsSummary();
+  renderScholarshipHoursSummary();
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
@@ -7212,7 +7300,7 @@ module.exports = {
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary();
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary();
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
