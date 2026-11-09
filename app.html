@@ -220,6 +220,7 @@
       </select>
       <button type="button" class="ghost small" id="resetAiFilter" aria-label="איפוס סינון נושאי בינה מלאכותית">איפוס סינון</button>
       <p class="hint" id="ai-filter-count" aria-live="polite">0</p>
+      <p class="empty" id="ai-filter-empty-message" hidden aria-live="polite"></p>
       <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
     </div>
     <div class="card">
@@ -5224,9 +5225,9 @@ module.exports = {
     ru: 'Все темы'
   });
   const AI_FILTER_EMPTY_LABELS = Object.freeze({
-    he: 'אין משתתפים התואמים לנושא שנבחר.',
-    ar: 'لا يوجد مشاركون يطابقون الموضوع المحدد.',
-    ru: 'Нет участников, соответствующих выбранной теме.'
+    he: 'לא נמצאו משתתפים בנושא זה',
+    ar: 'لم يتم العثور على مشاركين في هذا الموضوع',
+    ru: 'Участники по этой теме не найдены'
   });
   const AI_FILTER_RESET_LABELS = Object.freeze({
     he: 'איפוס סינון',
@@ -5649,6 +5650,19 @@ module.exports = {
   }
 
 
+
+  function setAiFilterEmptyMessage(visible) {
+    const el = $('ai-filter-empty-message');
+    if (!el) return;
+    if (visible) {
+      el.textContent = AI_FILTER_EMPTY_LABELS[currentLang] ?? AI_FILTER_EMPTY_LABELS.he;
+      el.hidden = false;
+    } else {
+      el.textContent = '';
+      el.hidden = true;
+    }
+  }
+
   function updateAiFilterCount(shown, total) {
     const el = $('ai-filter-count');
     if (!el) return;
@@ -5666,6 +5680,7 @@ module.exports = {
   function renderPeople() {
     if (!state.people.length) {
       $('peopleList').innerHTML = `<p class="empty">${esc(emptyRosterHe())}</p>`;
+      setAiFilterEmptyMessage(false);
       updateAiFilterCount(0, 0);
       renderAITopicsSummary();
       return;
@@ -5683,12 +5698,13 @@ module.exports = {
       filtered = state.people;
     }
     if (!filtered.length) {
-      const emptyMsg = AI_FILTER_EMPTY_LABELS[currentLang] ?? AI_FILTER_EMPTY_LABELS.he;
-      $('peopleList').innerHTML = `<p class="empty">${esc(emptyMsg)}</p>`;
+      $('peopleList').innerHTML = '';
+      setAiFilterEmptyMessage(true);
       updateAiFilterCount(0, state.people.length);
       renderAITopicsSummary();
       return;
     }
+    setAiFilterEmptyMessage(false);
     const filteredSet = new Set(filtered);
     const rows = [];
     for (let i = 0; i < state.people.length; i += 1) {
