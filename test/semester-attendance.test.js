@@ -32,7 +32,7 @@ test('attendance: statuses, duplicate upsert, two-week stale alert in Hebrew', (
   log = recordAttendance(log, { pairIndex: 0, date: '2026-09-06', status: 'missed', durationHours: 2 });
   assert.equal(log.entries.length, 2);
   assert.equal(log.entries[0].status, 'missed');
-  assert.equal(log.entries[0].durationHours, 2);
+  assert.equal(log.entries[0].durationHours, 0);
   assert.equal(log.entries[1].status, 'postponed');
   assert.throws(() => recordAttendance(log, { pairIndex: 0, date: '2026-09-07', status: 'done' }), /status/);
   assert.equal(attendanceSummary(log).heldRate, 0);

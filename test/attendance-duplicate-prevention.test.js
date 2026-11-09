@@ -21,7 +21,7 @@ test("repeat recording upserts same pairIndex+date", () => {
 	});
 	assert.equal(log.entries.length, 1);
 	assert.equal(log.entries[0].status, "missed");
-	assert.equal(log.entries[0].durationHours, 2);
+	assert.equal(log.entries[0].durationHours, 0);
 });
 
 test("updated status replaces in place", () => {
@@ -90,5 +90,5 @@ test("order preserved on upsert", () => {
 		[0, 1, 2],
 	);
 	assert.equal(log.entries[1].status, "missed");
-	assert.equal(log.entries[1].durationHours, 3);
+	assert.equal(log.entries[1].durationHours, 0);
 });

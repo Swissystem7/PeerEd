@@ -75,13 +75,13 @@ test("serialize/deserialize round-trip", () => {
 		status: "missed",
 		durationHours: 0.5,
 	});
-	// 0.5 is positive so kept; missed still has durationHours field
+	// non-held statuses always store 0.0 durationHours
 	const ser = serializeAttendance(log.entries);
 	const back = deserializeAttendance(ser);
 	assert.equal(back.length, 1);
 	assert.equal(back[0].pairIndex, 3);
 	assert.equal(back[0].status, "missed");
-	assert.equal(back[0].durationHours, 0.5);
+	assert.equal(back[0].durationHours, 0);
 });
 
 test("zero PII in serialized output", () => {
