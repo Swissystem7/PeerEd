@@ -49,13 +49,16 @@ function recordAttendance(log, input) {
 		throw new Error("invalid attendance: future or invalid date");
 	if (ATTENDANCE_STATUSES.indexOf(o.status) === -1)
 		throw new Error("invalid attendance status");
-	let durationHours = 1.0;
-	if (
-		typeof o.durationHours === "number" &&
-		Number.isFinite(o.durationHours) &&
-		o.durationHours > 0
-	) {
-		durationHours = o.durationHours;
+	let durationHours = 0.0;
+	if (o.status === "held") {
+		durationHours = 1.0;
+		if (
+			typeof o.durationHours === "number" &&
+			Number.isFinite(o.durationHours) &&
+			o.durationHours > 0
+		) {
+			durationHours = o.durationHours;
+		}
 	}
 	const entry = Object.freeze({
 		pairIndex: o.pairIndex,
@@ -90,7 +93,7 @@ function serializeAttendance(records) {
 		if (
 			typeof r.durationHours === "number" &&
 			Number.isFinite(r.durationHours) &&
-			r.durationHours > 0
+			r.durationHours >= 0
 		) {
 			durationHours = r.durationHours;
 		}
@@ -122,7 +125,7 @@ function deserializeAttendance(raw) {
 		if (
 			typeof r.durationHours === "number" &&
 			Number.isFinite(r.durationHours) &&
-			r.durationHours > 0
+			r.durationHours >= 0
 		) {
 			durationHours = r.durationHours;
 		}

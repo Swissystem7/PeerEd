@@ -40,6 +40,6 @@ test('store roundtrip keeps bare attendance array', () => {
   assert.ok(Array.isArray(back.attendance));
   assert.equal(back.attendance.length, 1);
   assert.deepEqual(back.attendance[0], {
-    pairIndex: 1, date: '2026-09-07', status: 'missed', durationHours: 2,
+    pairIndex: 1, date: '2026-09-07', status: 'missed', durationHours: 0,
   });
 });

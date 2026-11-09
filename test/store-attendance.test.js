@@ -47,7 +47,7 @@ test("store attendance: roundtrip keeps durationHours", () => {
 		pairIndex: 1,
 		date: "2026-09-07",
 		status: "missed",
-		durationHours: 1,
+		durationHours: 0,
 	});
 	assert.ok(Object.isFrozen(back.attendance));
 	assert.ok(Object.isFrozen(back.attendance[0]));
