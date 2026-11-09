@@ -4757,6 +4757,20 @@ function createStore(backend, key) {
   });
 }
 
+// Pure helper to filter a participants array by an AI topic key.
+// Never mutates inputs; returns the same participant objects unchanged.
+// If participants is not an array, returns [].
+// If topicId is '' / null / undefined, returns participants itself unchanged.
+// If topicId is not a valid AI topic key in AI_TOPIC_KEYS, returns [].
+function filterParticipantsByAITopic(participants, topicId) {
+  if (!Array.isArray(participants)) return [];
+  if (topicId === '' || topicId === null || topicId === undefined) return participants;
+  if (typeof topicId !== 'string' || !AI_TOPIC_KEYS.includes(topicId)) return [];
+  return participants.filter(
+    (p) => Boolean(p && Array.isArray(p.target_ai_topics) && p.target_ai_topics.includes(topicId))
+  );
+}
+
 module.exports = {
   SCHEMA,
   DEFAULT_KEY,
@@ -4767,7 +4781,8 @@ module.exports = {
   serialize,
   deserialize,
   memoryBackend,
-  createStore
+  createStore,
+  filterParticipantsByAITopic
 };
   __registry["store"] = module.exports;
 })();
