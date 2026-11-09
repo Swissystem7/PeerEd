@@ -67,6 +67,10 @@
   label.check { display:flex; align-items:center; gap:9px; color:var(--ink); font-size:.92rem; margin-top:12px; }
   label.check input { width:auto; margin:0; accent-color:var(--key); }
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
+  .scholarship-progress { margin-top:8px; max-width:280px; }
+  .scholarship-progress-track { height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
+  .scholarship-progress-fill { height:100%; background:var(--key); width:0%; transition:width .2s ease; }
+
   .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
   a { color:var(--key); }
@@ -397,6 +401,12 @@
       <select id="sessionPair" aria-required="true" aria-describedby="sessionStatus"></select>
       <span id="pairTotalHoursBadge" class="pair-total-hours-badge meta" role="status" aria-live="polite">סך שעות: 0</span>
       <p id="pairZeroHoursHint" class="hint empty" role="status" aria-live="polite" hidden></p>
+      <div id="scholarshipProgress" class="scholarship-progress" aria-label="התקדמות מלגה">
+        <div class="scholarship-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="scholarshipProgressBar">
+          <div class="scholarship-progress-fill" id="scholarshipProgressFill" style="width:0%"></div>
+        </div>
+        <p class="hint" id="scholarshipProgressLabel" role="status" aria-live="polite"></p>
+      </div>
       <div class="row">
         <div><label for="sessionSlot">שעה</label><select id="sessionSlot" aria-required="true" aria-describedby="sessionStatus"></select></div>
         <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject" aria-required="true" aria-describedby="sessionStatus"></select></div>
@@ -6947,6 +6957,17 @@ module.exports = {
   $('sessionSubject').addEventListener('change', renderSessionUnits);
 
 
+  var SCHOLARSHIP_PROGRESS_TARGET_HOURS = 30;
+  var SCHOLARSHIP_PROGRESS_LABELS = Object.freeze({
+    he: function (pct) { return pct + '% מהיעד (' + SCHOLARSHIP_PROGRESS_TARGET_HOURS + ' שעות)'; },
+    ar: function (pct) { return pct + '% من الهدف (' + SCHOLARSHIP_PROGRESS_TARGET_HOURS + ' ساعة)'; },
+    ru: function (pct) { return pct + '% от цели (' + SCHOLARSHIP_PROGRESS_TARGET_HOURS + ' ч)'; }
+  });
+  function scholarshipProgressPct(hours) {
+    var n = Number(hours);
+    if (!Number.isFinite(n) || n < 0) n = 0;
+    return Math.min(100, Math.round((n / SCHOLARSHIP_PROGRESS_TARGET_HOURS) * 100));
+  }
   function pairHoursBadgeLabels(total) {
     var n = Number(total);
     if (!Number.isFinite(n) || n < 0) n = 0;
@@ -6991,6 +7012,18 @@ module.exports = {
         hint.hidden = false;
         hint.textContent = pairZeroHoursHintText(lang);
       }
+    }
+    var pct = scholarshipProgressPct(total);
+    var bar = $('scholarshipProgressBar');
+    var fill = $('scholarshipProgressFill');
+    var lab = $('scholarshipProgressLabel');
+    if (bar) {
+      bar.setAttribute('aria-valuenow', String(pct));
+    }
+    if (fill && fill.style) fill.style.width = pct + '%';
+    if (lab) {
+      var fmt = SCHOLARSHIP_PROGRESS_LABELS[lang] || SCHOLARSHIP_PROGRESS_LABELS.he;
+      lab.textContent = fmt(pct);
     }
   }
 
