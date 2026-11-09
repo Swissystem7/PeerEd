@@ -25,13 +25,17 @@ test('semester: cancellation on a teaching day needs makeup; makeup dates are te
   assert.equal(cancelSession({ pairIndex: 0, date: '2026-09-08', slot: 'TUE_8' }, sem).needsMakeup, false);
 });
 
-test('attendance: statuses, duplicate refusal, two-week stale alert in Hebrew', () => {
+test('attendance: statuses, duplicate upsert, two-week stale alert in Hebrew', () => {
   let log = makeAttendanceLog();
   log = recordAttendance(log, { pairIndex: 0, date: '2026-09-06', status: 'held' });
   log = recordAttendance(log, { pairIndex: 1, date: '2026-09-06', status: 'postponed' });
-  assert.throws(() => recordAttendance(log, { pairIndex: 0, date: '2026-09-06', status: 'held' }), /duplicate/);
+  log = recordAttendance(log, { pairIndex: 0, date: '2026-09-06', status: 'missed', durationHours: 2 });
+  assert.equal(log.entries.length, 2);
+  assert.equal(log.entries[0].status, 'missed');
+  assert.equal(log.entries[0].durationHours, 2);
+  assert.equal(log.entries[1].status, 'postponed');
   assert.throws(() => recordAttendance(log, { pairIndex: 0, date: '2026-09-07', status: 'done' }), /status/);
-  assert.equal(attendanceSummary(log).heldRate, 1);
+  assert.equal(attendanceSummary(log).heldRate, 0);
   const stale = stalePairs([{ pairIndex: 0 }, { pairIndex: 1 }], log, '2026-09-25', { since: '2026-09-06' });
   assert.equal(stale.length, 2);
   assert.match(stale[0].alertHe, /לא נפגש/);
