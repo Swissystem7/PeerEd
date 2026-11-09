@@ -2252,8 +2252,6 @@ function recordAttendance(log, input) {
 		throw new Error("invalid attendance: future or invalid date");
 	if (ATTENDANCE_STATUSES.indexOf(o.status) === -1)
 		throw new Error("invalid attendance status");
-	if (log.entries.some((e) => e.pairIndex === o.pairIndex && e.date === o.date))
-		throw new Error("duplicate attendance for pair and date");
 	let durationHours = 1.0;
 	if (
 		typeof o.durationHours === "number" &&
@@ -2268,6 +2266,14 @@ function recordAttendance(log, input) {
 		status: o.status,
 		durationHours: durationHours,
 	});
+	const existingIdx = log.entries.findIndex(
+		(e) => e.pairIndex === o.pairIndex && e.date === o.date,
+	);
+	if (existingIdx !== -1) {
+		const updated = log.entries.slice();
+		updated[existingIdx] = entry;
+		return Object.freeze({ entries: Object.freeze(updated) });
+	}
 	let prior = log.entries;
 	if (prior.length >= MAX_ATTENDANCE_RECORDS) {
 		prior = prior.slice(prior.length - MAX_ATTENDANCE_RECORDS + 1);
