@@ -215,14 +215,14 @@
         "הורד זוגות (CSV)" במסך השידוך מוריד את תוצאת השידוך לפי מספרי הרשימה, לא את הרשימה: שעות שאינן משותפות
         לזוג לא נמצאות בקובץ, אישור הורה מופיע בו רק כסיבה אצל מי שנשאר בלי זוג בגללו, ואי אפשר לטעון אותו בחזרה.</p>
       <label for="peopleAiFilter" id="peopleAiFilterLabel">נושאי בינה מלאכותית</label>
-      <select id="peopleAiFilter">
+      <select id="peopleAiFilter" role="combobox" aria-expanded="false" aria-controls="peopleList">
         <option value="">כל הנושאים</option>
         <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
         <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
         <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
         <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
       </select>
-      <button type="button" class="ghost small" id="resetAiFilter" aria-label="איפוס סינון נושאי בינה מלאכותית">איפוס סינון</button>
+      <button type="button" class="ghost small" id="resetAiFilter" aria-controls="peopleAiFilter peopleList" aria-label="איפוס סינון נושאי בינה מלאכותית">איפוס סינון</button>
       <p class="hint" id="ai-filter-count" aria-live="polite">0</p>
       <p class="empty" id="ai-filter-empty-message" hidden aria-live="polite"></p>
       <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
@@ -949,6 +949,7 @@
     }
     sel.innerHTML = opts.join('');
     sel.value = currentVal;
+    sel.setAttribute('aria-expanded', currentVal ? 'true' : 'false');
   }
 
   function buildInputs() {
@@ -1031,6 +1032,10 @@
   }
 
   function renderPeople() {
+    const filterEl = $('peopleAiFilter');
+    if (filterEl) {
+      filterEl.setAttribute('aria-expanded', filterEl.value ? 'true' : 'false');
+    }
     if (!state.people.length) {
       $('peopleList').innerHTML = `<p class="empty">${esc(emptyRosterHe())}</p>`;
       setAiFilterEmptyMessage(false);
@@ -1084,6 +1089,7 @@
   const peopleAiFilterEl = $('peopleAiFilter');
   if (peopleAiFilterEl) {
     peopleAiFilterEl.addEventListener('change', () => {
+      peopleAiFilterEl.setAttribute('aria-expanded', peopleAiFilterEl.value ? 'true' : 'false');
       renderPeople();
     });
   }
@@ -1093,7 +1099,12 @@
       const sel = $('peopleAiFilter');
       if (!sel) return;
       sel.value = '';
-      sel.dispatchEvent(new Event('change'));
+      sel.setAttribute('aria-expanded', 'false');
+      if (typeof Event !== 'undefined' && typeof sel.dispatchEvent === 'function') {
+        sel.dispatchEvent(new Event('change'));
+      } else if (typeof sel.fire === 'function') {
+        sel.fire('change');
+      }
       renderPeople();
     });
   }
