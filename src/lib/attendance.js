@@ -30,7 +30,6 @@ function isValidAttendanceDate(dateStr) {
 	return dateStr <= todayLocalISO();
 }
 
-
 function makeAttendanceLog() {
 	return Object.freeze({ entries: Object.freeze([]) });
 }
@@ -217,7 +216,7 @@ function stalePairs(pairs, log, asOfISO, opts) {
 	assertLog(log);
 	parseDate(asOfISO);
 	const days = opts && Number.isInteger(opts.days) ? opts.days : 14;
-	const since = opts && opts.since ? opts.since : null;
+	const since = opts?.since ? opts.since : null;
 	if (since) parseDate(since);
 	const last = new Map();
 	log.entries.forEach((e) => {
@@ -240,7 +239,7 @@ function stalePairs(pairs, log, asOfISO, opts) {
 				pairIndex: idx,
 				lastHeldDate: lastHeld,
 				daysSince: gap,
-				alertHe: "הזוג לא נפגש כבר " + gap + " ימים",
+				alertHe: `הזוג לא נפגש כבר ${gap} ימים`,
 			});
 	});
 	return out.sort(
@@ -305,15 +304,42 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 
 		let pair = null;
 		if (Array.isArray(pairs)) {
-			pair = pairs[r.pairIndex];
-			if (!pair && pairs.length > 0) {
-				pair = pairs.find((p) => p?.pairIndex === r.pairIndex) || null;
+			const candidate = pairs[r.pairIndex];
+			if (
+				candidate &&
+				typeof candidate === "object" &&
+				!Array.isArray(candidate)
+			) {
+				const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
+				if (!hasExplicitIndex || candidate.pairIndex === r.pairIndex) {
+					pair = candidate;
+				}
 			}
-		} else if (pairs && typeof pairs === "object") {
-			pair = pairs[r.pairIndex] || null;
+			if (!pair && pairs.length > 0) {
+				pair =
+					pairs.find(
+						(p) =>
+							p &&
+							typeof p === "object" &&
+							!Array.isArray(p) &&
+							p.pairIndex === r.pairIndex,
+					) || null;
+			}
+		} else if (pairs && typeof pairs === "object" && !Array.isArray(pairs)) {
+			const candidate = pairs[r.pairIndex];
+			if (
+				candidate &&
+				typeof candidate === "object" &&
+				!Array.isArray(candidate)
+			) {
+				const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
+				if (!hasExplicitIndex || candidate.pairIndex === r.pairIndex) {
+					pair = candidate;
+				}
+			}
 		}
 
-		if (pair && typeof pair === "object") {
+		if (pair && typeof pair === "object" && !Array.isArray(pair)) {
 			const participants = new Set();
 			if (Number.isInteger(pair.studentIndex) && pair.studentIndex >= 0) {
 				participants.add(pair.studentIndex);
@@ -335,10 +361,7 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 				totalHours: result.byParticipant[index],
 			};
 		})
-		.sort(
-			(a, b) =>
-				b.totalHours - a.totalHours || a.index - b.index,
-		);
+		.sort((a, b) => b.totalHours - a.totalHours || a.index - b.index);
 	return result;
 }
 
