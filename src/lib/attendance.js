@@ -365,6 +365,206 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 	return result;
 }
 
+const TOPIC_PASTEL_PALETTE = Object.freeze([
+	"#93c5fd", // pastel blue
+	"#86efac", // pastel green
+	"#c4b5fd", // pastel purple
+	"#fde047", // pastel yellow
+	"#fca5a5", // pastel rose
+	"#67e8f9", // pastel cyan
+	"#fdba74", // pastel amber
+]);
+
+function hashTopicKey(str) {
+	let hash = 5381;
+	for (let i = 0; i < str.length; i += 1) {
+		hash = (hash << 5) + hash + str.charCodeAt(i);
+		hash |= 0;
+	}
+	return Math.abs(hash);
+}
+
+function estimateReadingTimeHebrew(text, wordsPerMinute = 180) {
+	if (typeof text !== "string") {
+		return { words: 0, minutes: 0, formattedHe: "0 דק׳ קריאה" };
+	}
+	const trimmed = text.trim();
+	if (!trimmed) {
+		return { words: 0, minutes: 0, formattedHe: "0 דק׳ קריאה" };
+	}
+	const wpm =
+		typeof wordsPerMinute === "number" && wordsPerMinute > 0
+			? wordsPerMinute
+			: 180;
+	const tokens = trimmed.match(/[\p{L}\p{N}]+(?:["'’״׳־-][\p{L}\p{N}]+)*/gu);
+	const words = tokens ? tokens.length : 0;
+	if (words === 0) {
+		return { words: 0, minutes: 0, formattedHe: "0 דק׳ קריאה" };
+	}
+	const minutes = Math.max(1, Math.ceil(words / wpm));
+	return {
+		words,
+		minutes,
+		formattedHe: `${minutes} דק׳ קריאה`,
+	};
+}
+
+function getTopicTagColor(topicKey) {
+	if (typeof topicKey !== "string" || !topicKey.trim()) {
+		return TOPIC_PASTEL_PALETTE[0];
+	}
+	const clean = topicKey.trim();
+	const hash = hashTopicKey(clean);
+	return TOPIC_PASTEL_PALETTE[hash % TOPIC_PASTEL_PALETTE.length];
+}
+
+function hexToRgbValues(hex) {
+	const clean = hex.replace("#", "");
+	const r = Number.parseInt(clean.substring(0, 2), 16);
+	const g = Number.parseInt(clean.substring(2, 4), 16);
+	const b = Number.parseInt(clean.substring(4, 6), 16);
+	return { r, g, b };
+}
+
+function getTopicTagStyle(topicKey) {
+	const color = getTopicTagColor(topicKey);
+	const { r, g, b } = hexToRgbValues(color);
+	return {
+		background: `rgba(${r}, ${g}, ${b}, 0.15)`,
+		color,
+		borderColor: color,
+	};
+}
+
+function getSummaryQualityScore(summary) {
+	if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+
+	const keys = Object.keys(summary);
+	if (keys.length === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+
+	const isAiSummary =
+		keys.some((k) => AI_TOPIC_KEYS.includes(k)) ||
+		keys.some(
+			(k) =>
+				summary[k] && typeof summary[k] === "object" && "total" in summary[k],
+		);
+
+	const isScholarshipSummary =
+		"totalHours" in summary || "totalHeldSessions" in summary;
+
+	const isAttendanceSummary =
+		"byStatus" in summary &&
+		summary.byStatus &&
+		typeof summary.byStatus === "object";
+
+	let rawScore = 0;
+
+	if (isAiSummary) {
+		let totalCount = 0;
+		let activeTopics = 0;
+		let balancedTopics = 0;
+		const topicKeys = keys.filter(
+			(k) => summary[k] && typeof summary[k] === "object",
+		);
+		if (topicKeys.length === 0) {
+			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+		}
+		for (const k of topicKeys) {
+			const item = summary[k];
+			const tot = typeof item.total === "number" ? item.total : 0;
+			const req = typeof item.requested === "number" ? item.requested : 0;
+			const off = typeof item.offered === "number" ? item.offered : 0;
+			totalCount += tot;
+			if (tot > 0) activeTopics += 1;
+			if (req > 0 && off > 0) balancedTopics += 1;
+		}
+		if (totalCount === 0) {
+			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+		}
+		const diversityScore = (activeTopics / Math.max(1, topicKeys.length)) * 40;
+		const volumeScore = Math.min(35, totalCount * 7);
+		const balanceScore = (balancedTopics / Math.max(1, activeTopics)) * 25;
+		rawScore = Math.round(diversityScore + volumeScore + balanceScore);
+	} else if (isScholarshipSummary) {
+		const totalHours =
+			typeof summary.totalHours === "number" ? summary.totalHours : 0;
+		const totalHeld =
+			typeof summary.totalHeldSessions === "number"
+				? summary.totalHeldSessions
+				: 0;
+		const participantCount =
+			summary.byParticipant && typeof summary.byParticipant === "object"
+				? Object.keys(summary.byParticipant).length
+				: 0;
+		if (totalHours === 0 && totalHeld === 0 && participantCount === 0) {
+			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+		}
+		const hoursScore = Math.min(45, totalHours * 5);
+		const sessionsScore = Math.min(35, totalHeld * 7);
+		const participantScore = Math.min(20, participantCount * 10);
+		rawScore = Math.round(hoursScore + sessionsScore + participantScore);
+	} else if (isAttendanceSummary) {
+		const st = summary.byStatus;
+		const held = typeof st.held === "number" ? st.held : 0;
+		const missed = typeof st.missed === "number" ? st.missed : 0;
+		const postponed = typeof st.postponed === "number" ? st.postponed : 0;
+		const cancelled = typeof st.cancelled === "number" ? st.cancelled : 0;
+		const total = held + missed + postponed + cancelled;
+		if (total === 0) {
+			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+		}
+		const heldRate =
+			typeof summary.heldRate === "number"
+				? summary.heldRate
+				: held / Math.max(1, held + missed);
+		const volumeScore = Math.min(50, total * 5);
+		const rateScore = heldRate * 50;
+		rawScore = Math.round(volumeScore + rateScore);
+	} else {
+		let sumNumbers = 0;
+		let nonZeroCount = 0;
+		for (const k of keys) {
+			const val = summary[k];
+			if (typeof val === "number" && Number.isFinite(val)) {
+				sumNumbers += Math.abs(val);
+				if (val > 0) nonZeroCount += 1;
+			}
+		}
+		if (sumNumbers === 0 && nonZeroCount === 0) {
+			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+		}
+		rawScore = Math.min(
+			100,
+			Math.max(10, Math.round(nonZeroCount * 25 + sumNumbers * 2)),
+		);
+	}
+
+	const score = Math.max(1, Math.min(100, rawScore));
+	let rating = "low";
+	let labelHe = "בסיסי";
+	if (score >= 80) {
+		rating = "high";
+		labelHe = "מצוין";
+	} else if (score >= 45) {
+		rating = "medium";
+		labelHe = "טוב";
+	}
+
+	return { score, rating, labelHe };
+}
+
+const summaryCardMeta = Object.freeze({
+	estimateReadingTimeHebrew,
+	getTopicTagColor,
+	getTopicTagStyle,
+	getSummaryQualityScore,
+	TOPIC_PASTEL_PALETTE,
+});
+
 module.exports = {
 	ATTENDANCE_STATUSES,
 	makeAttendanceLog,
@@ -379,4 +579,9 @@ module.exports = {
 	deserializeAttendance,
 	MAX_ATTENDANCE_RECORDS,
 	isValidAttendanceDate,
+	estimateReadingTimeHebrew,
+	getTopicTagColor,
+	getTopicTagStyle,
+	getSummaryQualityScore,
+	summaryCardMeta,
 };

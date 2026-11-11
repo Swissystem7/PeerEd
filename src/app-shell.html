@@ -453,11 +453,13 @@
     </div>
     <div class="card" id="aiTopicsSummaryCard">
       <h2 id="aiTopicsSummaryHeading">פילוח נושאי בינה מלאכותית</h2>
+      <div id="aiTopicsSummaryMeta" class="hint" aria-live="polite"></div>
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic AI summary -->
       <div id="aiTopicsSummaryList" role="region" aria-live="polite" aria-label="פילוח נושאי בינה מלאכותית"></div>
     </div>
     <div class="card" id="scholarshipHoursSummaryCard">
       <h2 id="scholarshipHoursSummaryHeading">סיכום שעות מלגה ומעורבות</h2>
+      <div id="scholarshipHoursSummaryMeta" class="hint" aria-live="polite"></div>
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for scholarship hours summary -->
       <div id="scholarshipHoursSummaryList" role="region" aria-live="polite" aria-label="סיכום שעות מלגה ומעורבות"></div>
     </div>
@@ -659,6 +661,13 @@
     window.AI_FILTER_RESET_LABELS = AI_FILTER_RESET_LABELS;
     window.renderPeople = renderPeople;
     window.renderPeopleAiFilter = renderPeopleAiFilter;
+    if (attendance) {
+      window.estimateReadingTimeHebrew = attendance.estimateReadingTimeHebrew;
+      window.getTopicTagColor = attendance.getTopicTagColor;
+      window.getTopicTagStyle = attendance.getTopicTagStyle;
+      window.getSummaryQualityScore = attendance.getSummaryQualityScore;
+      window.summaryCardMeta = attendance.summaryCardMeta;
+    }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
   var HOURS = [];
@@ -2726,6 +2735,25 @@
 
     container.innerHTML = `<div class="item" data-metric="totalHours"><b>${esc(totalHoursLabel)}:</b> <span class="meta">${totalHours}</span></div><div class="item" data-metric="totalHeldSessions"><b>${esc(totalSessionsLabel)}:</b> <span class="meta">${totalHeldSessions}</span></div>`;
 
+    const metaEl = $('scholarshipHoursSummaryMeta');
+    if (metaEl) {
+      const quality = typeof attendance?.getSummaryQualityScore === 'function'
+        ? attendance.getSummaryQualityScore(summary)
+        : null;
+      const cardText = container.textContent || (container.innerHTML ? container.innerHTML.replace(/<[^>]+>/g, ' ') : '');
+      const reading = typeof attendance?.estimateReadingTimeHebrew === 'function'
+        ? attendance.estimateReadingTimeHebrew(cardText)
+        : null;
+      const indicators = [];
+      if (reading && reading.words > 0) {
+        indicators.push(reading.formattedHe);
+      }
+      if (quality) {
+        indicators.push(`איכות נתונים: ${quality.labelHe}`);
+      }
+      metaEl.textContent = indicators.join(' · ');
+    }
+
     if (cardEl) {
       cardEl.state = sourceState;
       cardEl.renderScholarshipHoursSummary = renderScholarshipHoursSummary;
@@ -2752,14 +2780,38 @@
     const reqLabel = AI_SUMMARY_LABELS.requested[lang] ?? AI_SUMMARY_LABELS.requested.he;
     const offLabel = AI_SUMMARY_LABELS.offered[lang] ?? AI_SUMMARY_LABELS.offered.he;
     const keys = AI_TOPICS ? Object.keys(AI_TOPICS) : [];
+    const tagStyleFn = typeof attendance.getTopicTagStyle === 'function' ? attendance.getTopicTagStyle : null;
+    const tagColorFn = typeof attendance.getTopicTagColor === 'function' ? attendance.getTopicTagColor : null;
     container.innerHTML = keys.map((k) => {
       const topicName = AI_TOPICS[k]?.[lang] ?? AI_TOPICS[k]?.he ?? k;
       const counts = summary?.[k] ?? { total: 0, requested: 0, offered: 0 };
       const tot = Number.isInteger(counts.total) ? counts.total : 0;
       const req = Number.isInteger(counts.requested) ? counts.requested : 0;
       const off = Number.isInteger(counts.offered) ? counts.offered : 0;
-      return `<div class="item" data-topic="${esc(k)}"><b>${esc(topicName)}</b><span class="meta">${esc(totalLabel)}: ${tot} (${esc(reqLabel)}: ${req}, ${esc(offLabel)}: ${off})</span></div>`;
+      const styleObj = tagStyleFn ? tagStyleFn(k) : null;
+      const tagColor = styleObj?.borderColor || (tagColorFn ? tagColorFn(k) : '');
+      const styleAttr = tagColor ? ` style="border-inline-start:4px solid ${esc(tagColor)};"` : '';
+      return `<div class="item" data-topic="${esc(k)}"${styleAttr}><b>${esc(topicName)}</b><span class="meta">${esc(totalLabel)}: ${tot} (${esc(reqLabel)}: ${req}, ${esc(offLabel)}: ${off})</span></div>`;
     }).join('');
+
+    const metaEl = $('aiTopicsSummaryMeta');
+    if (metaEl) {
+      const quality = typeof attendance.getSummaryQualityScore === 'function'
+        ? attendance.getSummaryQualityScore(summary)
+        : null;
+      const cardText = container.textContent || (container.innerHTML ? container.innerHTML.replace(/<[^>]+>/g, ' ') : '');
+      const reading = typeof attendance.estimateReadingTimeHebrew === 'function'
+        ? attendance.estimateReadingTimeHebrew(cardText)
+        : null;
+      const indicators = [];
+      if (reading && reading.words > 0) {
+        indicators.push(reading.formattedHe);
+      }
+      if (quality) {
+        indicators.push(`איכות נתונים: ${quality.labelHe}`);
+      }
+      metaEl.textContent = indicators.join(' · ');
+    }
   }
   $('guideSearchBtn').addEventListener('click', function () {
     try {
