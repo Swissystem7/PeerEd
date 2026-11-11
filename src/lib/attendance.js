@@ -729,6 +729,148 @@ const searchHighlight = Object.freeze({
 	renderEmptyState,
 });
 
+const FOCUS_READER_FONT_SIZES = Object.freeze(["normal", "large", "huge"]);
+const FOCUS_READER_LINE_WIDTH = "65ch";
+const DEFAULT_FOCUS_READER_CONFIG = Object.freeze({
+	enabled: false,
+	fontSize: "normal",
+	maxWidth: "65ch",
+	rtl: true,
+	inlineFormulas: true,
+});
+
+const FONT_SIZE_REM_MAP = Object.freeze({
+	normal: "1rem",
+	large: "1.25rem",
+	huge: "1.5rem",
+});
+
+function validateFocusReaderConfig(config) {
+	if (!config || typeof config !== "object" || Array.isArray(config)) {
+		return Object.freeze({ ...DEFAULT_FOCUS_READER_CONFIG });
+	}
+	const enabled = typeof config.enabled === "boolean" ? config.enabled : false;
+	const fontSize = FOCUS_READER_FONT_SIZES.includes(config.fontSize)
+		? config.fontSize
+		: "normal";
+	const maxWidth =
+		typeof config.maxWidth === "string" && config.maxWidth.trim().length > 0
+			? config.maxWidth.trim()
+			: FOCUS_READER_LINE_WIDTH;
+	const rtl = typeof config.rtl === "boolean" ? config.rtl : true;
+	const inlineFormulas =
+		typeof config.inlineFormulas === "boolean" ? config.inlineFormulas : true;
+
+	return Object.freeze({
+		enabled,
+		fontSize,
+		maxWidth,
+		rtl,
+		inlineFormulas,
+	});
+}
+
+function toggleFocusReader(currentConfig) {
+	const normalized = validateFocusReaderConfig(currentConfig);
+	return Object.freeze({
+		...normalized,
+		enabled: !normalized.enabled,
+	});
+}
+
+function setFocusReaderFontSize(currentConfig, fontSize) {
+	const normalized = validateFocusReaderConfig(currentConfig);
+	const validSize = FOCUS_READER_FONT_SIZES.includes(fontSize)
+		? fontSize
+		: normalized.fontSize;
+	return Object.freeze({
+		...normalized,
+		fontSize: validSize,
+	});
+}
+
+function getFocusReaderStyles(config) {
+	const normalized = validateFocusReaderConfig(config);
+	return Object.freeze({
+		maxWidth: normalized.maxWidth,
+		direction: normalized.rtl ? "rtl" : "ltr",
+		textAlign: normalized.rtl ? "right" : "left",
+		fontSize: FONT_SIZE_REM_MAP[normalized.fontSize] || "1rem",
+	});
+}
+
+function formatInlineFormulas(text) {
+	if (typeof text !== "string" || text.length === 0) {
+		return "";
+	}
+	const escaped = escapeHtml(text);
+	return escaped.replace(
+		/(\$\$[^\r\n]+?\$\$|\$[^$\r\n]+?\$|\\\([^\r\n]+?\\\)|\\\[[^\r\n]+?\\\])/g,
+		'<span class="math-inline" dir="ltr">$1</span>',
+	);
+}
+
+function saveFocusReaderConfig(
+	backend,
+	config,
+	key = "peered_focus_reader_v1",
+) {
+	try {
+		if (!backend || typeof backend.setItem !== "function") {
+			return { ok: false, error: "invalid backend" };
+		}
+		const storageKey =
+			typeof key === "string" && key.length > 0
+				? key
+				: "peered_focus_reader_v1";
+		const normalized = validateFocusReaderConfig(config);
+		backend.setItem(storageKey, JSON.stringify(normalized));
+		return { ok: true };
+	} catch (err) {
+		return {
+			ok: false,
+			error: err?.message ? err.message : String(err),
+		};
+	}
+}
+
+function loadFocusReaderConfig(backend, key = "peered_focus_reader_v1") {
+	try {
+		if (!backend || typeof backend.getItem !== "function") {
+			return DEFAULT_FOCUS_READER_CONFIG;
+		}
+		const storageKey =
+			typeof key === "string" && key.length > 0
+				? key
+				: "peered_focus_reader_v1";
+		const raw = backend.getItem(storageKey);
+		if (
+			raw === null ||
+			raw === undefined ||
+			(typeof raw === "string" && raw.trim().length === 0)
+		) {
+			return DEFAULT_FOCUS_READER_CONFIG;
+		}
+		const parsed = JSON.parse(raw);
+		return validateFocusReaderConfig(parsed);
+	} catch {
+		return DEFAULT_FOCUS_READER_CONFIG;
+	}
+}
+
+const focusReaderConfig = Object.freeze({
+	FOCUS_READER_FONT_SIZES,
+	FOCUS_READER_LINE_WIDTH,
+	DEFAULT_FOCUS_READER_CONFIG,
+	validateFocusReaderConfig,
+	toggleFocusReader,
+	setFocusReaderFontSize,
+	getFocusReaderStyles,
+	formatInlineFormulas,
+	saveFocusReaderConfig,
+	loadFocusReaderConfig,
+});
+
 module.exports = {
 	ATTENDANCE_STATUSES,
 	makeAttendanceLog,
@@ -753,4 +895,15 @@ module.exports = {
 	filterSummaryItems,
 	renderEmptyState,
 	searchHighlight,
+	FOCUS_READER_FONT_SIZES,
+	FOCUS_READER_LINE_WIDTH,
+	DEFAULT_FOCUS_READER_CONFIG,
+	validateFocusReaderConfig,
+	toggleFocusReader,
+	setFocusReaderFontSize,
+	getFocusReaderStyles,
+	formatInlineFormulas,
+	saveFocusReaderConfig,
+	loadFocusReaderConfig,
+	focusReaderConfig,
 };
