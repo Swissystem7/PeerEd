@@ -67,6 +67,9 @@
   label.check { display:flex; align-items:center; gap:9px; color:var(--ink); font-size:.92rem; margin-top:12px; }
   label.check input { width:auto; margin:0; accent-color:var(--key); }
   .empty { color:var(--muted); padding:12px 0; font-size:.88rem; line-height:1.6; }
+  mark.search-hit { background:#fde047; color:var(--ink); padding:0 2px; border-radius:2px; font-weight:bold; }
+  .empty-state { text-align:center; padding:16px 8px; }
+  .empty-state .empty { margin:0; }
   .scholarship-progress { margin-top:8px; max-width:280px; }
   .scholarship-progress-track { height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
   .scholarship-progress-fill { height:100%; background:var(--key); width:0%; transition:width .2s ease; }
@@ -667,6 +670,10 @@
       window.getTopicTagStyle = attendance.getTopicTagStyle;
       window.getSummaryQualityScore = attendance.getSummaryQualityScore;
       window.summaryCardMeta = attendance.summaryCardMeta;
+      window.highlightSearchHits = attendance.highlightSearchHits;
+      window.filterSummaryItems = attendance.filterSummaryItems;
+      window.renderEmptyState = attendance.renderEmptyState;
+      window.searchHighlight = attendance.searchHighlight;
     }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.

@@ -565,6 +565,170 @@ const summaryCardMeta = Object.freeze({
 	TOPIC_PASTEL_PALETTE,
 });
 
+/**
+ * Escapes &, <, >, ", ' in text.
+ * Returns empty string for null, undefined, or non-string inputs.
+ */
+function escapeHtml(text) {
+	if (typeof text !== "string" || text.length === 0) return "";
+	return text
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
+/**
+ * XSS-safe search keyword highlighter.
+ * Safely escapes text first before wrapping matched keywords in <mark class="search-hit">$1</mark>.
+ */
+function highlightSearchHits(text, query) {
+	if (typeof text !== "string" || text.length === 0) {
+		return "";
+	}
+	if (typeof query !== "string" || query.trim().length === 0) {
+		return escapeHtml(text);
+	}
+	const escapedText = escapeHtml(text);
+	const escapedQuery = escapeHtml(query.trim());
+	const safePattern = escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	if (!safePattern) {
+		return escapedText;
+	}
+	// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+	const regex = new RegExp(`(${safePattern})`, "gi");
+	return escapedText.replace(regex, '<mark class="search-hit">$1</mark>');
+}
+
+/**
+ * Filters an array of summary items based on criteria { query, semester, difficulty, topic }.
+ * Safely returns [] when items is null, undefined, or empty.
+ */
+function filterSummaryItems(items, filters) {
+	if (!Array.isArray(items) || items.length === 0) {
+		return [];
+	}
+	if (!filters || typeof filters !== "object") {
+		return items.slice();
+	}
+
+	const q =
+		typeof filters.query === "string" ? filters.query.trim().toLowerCase() : "";
+	const filterSemester =
+		filters.semester != null &&
+		filters.semester !== "" &&
+		filters.semester !== "all"
+			? filters.semester
+			: null;
+	const filterDifficulty =
+		filters.difficulty != null &&
+		filters.difficulty !== "" &&
+		filters.difficulty !== "all"
+			? filters.difficulty
+			: null;
+	const filterTopic =
+		filters.topic != null && filters.topic !== "" && filters.topic !== "all"
+			? filters.topic
+			: null;
+
+	return items.filter((item) => {
+		if (!item || typeof item !== "object") return false;
+
+		if (q) {
+			const parts = [];
+			if (typeof item.title === "string") parts.push(item.title);
+			if (typeof item.text === "string") parts.push(item.text);
+			if (typeof item.description === "string") parts.push(item.description);
+			if (typeof item.name === "string") parts.push(item.name);
+			if (typeof item.topic === "string") {
+				parts.push(item.topic);
+			} else if (Array.isArray(item.topic)) {
+				parts.push(item.topic.join(" "));
+			}
+			const haystack = parts.join(" ").toLowerCase();
+			if (!haystack.includes(q)) {
+				return false;
+			}
+		}
+
+		if (filterSemester !== null) {
+			if (item.semester == null) return false;
+			if (Array.isArray(filterSemester)) {
+				const semStrings = filterSemester.map((s) => String(s).toLowerCase());
+				if (!semStrings.includes(String(item.semester).toLowerCase())) {
+					return false;
+				}
+			} else if (
+				String(item.semester).toLowerCase() !==
+				String(filterSemester).toLowerCase()
+			) {
+				return false;
+			}
+		}
+
+		if (filterDifficulty !== null) {
+			if (item.difficulty == null) return false;
+			if (Array.isArray(filterDifficulty)) {
+				const diffStrings = filterDifficulty.map((d) =>
+					String(d).toLowerCase(),
+				);
+				if (!diffStrings.includes(String(item.difficulty).toLowerCase())) {
+					return false;
+				}
+			} else if (
+				String(item.difficulty).toLowerCase() !==
+				String(filterDifficulty).toLowerCase()
+			) {
+				return false;
+			}
+		}
+
+		if (filterTopic !== null) {
+			if (item.topic == null) return false;
+			if (Array.isArray(item.topic)) {
+				const itemTopics = item.topic.map((t) => String(t).toLowerCase());
+				if (Array.isArray(filterTopic)) {
+					const targetTopics = filterTopic.map((t) => String(t).toLowerCase());
+					if (!itemTopics.some((t) => targetTopics.includes(t))) return false;
+				} else if (!itemTopics.includes(String(filterTopic).toLowerCase())) {
+					return false;
+				}
+			} else {
+				if (Array.isArray(filterTopic)) {
+					const targetTopics = filterTopic.map((t) => String(t).toLowerCase());
+					if (!targetTopics.includes(String(item.topic).toLowerCase()))
+						return false;
+				} else if (
+					String(item.topic).toLowerCase() !== String(filterTopic).toLowerCase()
+				) {
+					return false;
+				}
+			}
+		}
+
+		return true;
+	});
+}
+
+/**
+ * Returns accessible HTML for empty results.
+ */
+function renderEmptyState(messageHe) {
+	const msg =
+		typeof messageHe === "string" && messageHe.trim().length > 0
+			? messageHe.trim()
+			: "לא נמצאו תוצאות מתאימות";
+	return `<div class="empty-state" role="status" aria-live="polite"><p class="empty">${escapeHtml(msg)}</p></div>`;
+}
+
+const searchHighlight = Object.freeze({
+	escapeHtml,
+	highlightSearchHits,
+	filterSummaryItems,
+	renderEmptyState,
+});
+
 module.exports = {
 	ATTENDANCE_STATUSES,
 	makeAttendanceLog,
@@ -584,4 +748,9 @@ module.exports = {
 	getTopicTagStyle,
 	getSummaryQualityScore,
 	summaryCardMeta,
+	escapeHtml,
+	highlightSearchHits,
+	filterSummaryItems,
+	renderEmptyState,
+	searchHighlight,
 };
