@@ -1,4 +1,3 @@
-'use strict';
 // Accessibility and interactive controls test:
 // Verifies semantic grouping, accessible button names (WCAG 2.4.4 / 4.1.2), focus styling,
 // and Hebrew error feedback for unit submissions.
@@ -15,8 +14,8 @@ const LATIN = /[A-Za-z]/;
 
 test('a11y: session form selects have aria-required and aria-describedby attributes', () => {
   for (const id of ['sessionPair', 'sessionSlot', 'sessionSubject', 'sessionUnit', 'sessionOutcome']) {
-    const pattern = new RegExp('<select id="' + id + '"[^>]*aria-required="true"[^>]*aria-describedby="sessionStatus"');
-    assert.ok(pattern.test(shell), id + ' must have aria-required="true" and aria-describedby="sessionStatus"');
+    const pattern = new RegExp(`<select id="${id}"[^>]*aria-required="true"[^>]*aria-describedby="[^"]*\\bsessionStatus\\b[^"]*"`);
+    assert.ok(pattern.test(shell), `${id} must have aria-required="true" and aria-describedby="sessionStatus"`);
   }
   assert.ok(/<textarea id="reportText"[^>]*aria-describedby="reportStatus"/.test(shell),
     'reportText must have aria-describedby="reportStatus"');
