@@ -70,6 +70,11 @@
   mark.search-hit { background:#fde047; color:var(--ink); padding:0 2px; border-radius:2px; font-weight:bold; }
   .empty-state { text-align:center; padding:16px 8px; }
   .empty-state .empty { margin:0; }
+  .focus-reader-view { max-width: 65ch; margin: 0 auto; direction: rtl; text-align: right; line-height: 1.7; }
+  .focus-reader-view.font-normal { font-size: 1rem; }
+  .focus-reader-view.font-large { font-size: 1.25rem; }
+  .focus-reader-view.font-huge { font-size: 1.5rem; }
+  span.math-inline { direction: ltr; unicode-bidi: embed; display: inline-block; font-family: monospace; }
   .scholarship-progress { margin-top:8px; max-width:280px; }
   .scholarship-progress-track { height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
   .scholarship-progress-fill { height:100%; background:var(--key); width:0%; transition:width .2s ease; }
@@ -674,6 +679,14 @@
       window.filterSummaryItems = attendance.filterSummaryItems;
       window.renderEmptyState = attendance.renderEmptyState;
       window.searchHighlight = attendance.searchHighlight;
+      window.focusReaderConfig = attendance.focusReaderConfig;
+      window.validateFocusReaderConfig = attendance.validateFocusReaderConfig;
+      window.toggleFocusReader = attendance.toggleFocusReader;
+      window.setFocusReaderFontSize = attendance.setFocusReaderFontSize;
+      window.getFocusReaderStyles = attendance.getFocusReaderStyles;
+      window.formatInlineFormulas = attendance.formatInlineFormulas;
+      window.saveFocusReaderConfig = attendance.saveFocusReaderConfig;
+      window.loadFocusReaderConfig = attendance.loadFocusReaderConfig;
     }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
