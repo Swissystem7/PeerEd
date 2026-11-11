@@ -395,10 +395,10 @@
     </div>
     <div class="card">
       <h2>רישום שיעור</h2>
-      <p class="hint">הזוגות מחושבים מחדש מהרשימה (אותו קלט, אותם זוגות). אפשר לרשום רק שעה ומקצוע שהזוג
+      <p class="hint" id="sessionFormHint">הזוגות מחושבים מחדש מהרשימה (אותו קלט, אותם זוגות). אפשר לרשום רק שעה ומקצוע שהזוג
         חולק, ורק יחידה שאושרה במסך "יחידות" באותו מקצוע.</p>
       <label for="sessionPair">זוג</label>
-      <select id="sessionPair" aria-required="true" aria-describedby="sessionStatus"></select>
+      <select id="sessionPair" aria-required="true" aria-describedby="sessionStatus pairTotalHoursBadge pairZeroHoursHint"></select>
       <span id="pairTotalHoursBadge" class="pair-total-hours-badge meta" role="status" aria-live="polite">סך שעות: 0</span>
       <p id="pairZeroHoursHint" class="hint empty" role="status" aria-live="polite" hidden></p>
       <div id="scholarshipProgress" class="scholarship-progress" aria-label="התקדמות מלגה" aria-live="polite">
@@ -408,7 +408,7 @@
         <p class="hint" id="scholarshipProgressLabel" role="status" aria-live="polite"></p>
       </div>
       <div class="row">
-        <div><label for="sessionSlot">שעה</label><select id="sessionSlot" aria-required="true" aria-describedby="sessionStatus"></select></div>
+        <div><label for="sessionSlot">שעה</label><select id="sessionSlot" aria-required="true" aria-describedby="sessionStatus sessionFormHint"></select></div>
         <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject" aria-required="true" aria-describedby="sessionStatus"></select></div>
       </div>
       <label for="sessionUnit">יחידה מאושרת</label>
