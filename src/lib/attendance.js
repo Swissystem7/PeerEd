@@ -605,6 +605,41 @@ function highlightSearchHits(text, query) {
  * Filters an array of summary items based on criteria { query, semester, difficulty, topic }.
  * Safely returns [] when items is null, undefined, or empty.
  */
+function matchesQuery(item, q) {
+	if (!q) return true;
+	const parts = [];
+	if (typeof item.title === "string") parts.push(item.title);
+	if (typeof item.text === "string") parts.push(item.text);
+	if (typeof item.description === "string") parts.push(item.description);
+	if (typeof item.name === "string") parts.push(item.name);
+	if (typeof item.topic === "string") {
+		parts.push(item.topic);
+	} else if (Array.isArray(item.topic)) {
+		parts.push(item.topic.join(" "));
+	}
+	return parts.join(" ").toLowerCase().includes(q);
+}
+
+function matchesCriterion(itemVal, filterVal, isArrayTarget = false) {
+	if (filterVal === null) return true;
+	if (itemVal == null) return false;
+
+	const normalize = (v) => String(v).toLowerCase();
+
+	if (isArrayTarget) {
+		const itemTopics = Array.isArray(itemVal) ? itemVal.map(normalize) : [normalize(itemVal)];
+		const targetTopics = Array.isArray(filterVal) ? filterVal.map(normalize) : [normalize(filterVal)];
+		return itemTopics.some((t) => targetTopics.includes(t));
+	}
+
+	if (Array.isArray(filterVal)) {
+		const semStrings = filterVal.map(normalize);
+		return semStrings.includes(normalize(itemVal));
+	}
+
+	return normalize(itemVal) === normalize(filterVal);
+}
+
 function filterSummaryItems(items, filters) {
 	if (!Array.isArray(items) || items.length === 0) {
 		return [];
@@ -615,95 +650,38 @@ function filterSummaryItems(items, filters) {
 
 	const q =
 		typeof filters.query === "string" ? filters.query.trim().toLowerCase() : "";
-	const filterSemester =
-		filters.semester != null &&
-		filters.semester !== "" &&
-		filters.semester !== "all"
-			? filters.semester
-			: null;
-	const filterDifficulty =
-		filters.difficulty != null &&
-		filters.difficulty !== "" &&
-		filters.difficulty !== "all"
-			? filters.difficulty
-			: null;
-	const filterTopic =
-		filters.topic != null && filters.topic !== "" && filters.topic !== "all"
-			? filters.topic
-			: null;
+
+	const cleanFilter = (val) => {
+		if (val == null || val === "" || val === "all") return null;
+		return val;
+	};
+
+	const filterSemester = cleanFilter(filters.semester);
+	const filterDifficulty = cleanFilter(filters.difficulty);
+	const filterTopic = cleanFilter(filters.topic);
 
 	return items.filter((item) => {
 		if (!item || typeof item !== "object") return false;
 
-		if (q) {
-			const parts = [];
-			if (typeof item.title === "string") parts.push(item.title);
-			if (typeof item.text === "string") parts.push(item.text);
-			if (typeof item.description === "string") parts.push(item.description);
-			if (typeof item.name === "string") parts.push(item.name);
-			if (typeof item.topic === "string") {
-				parts.push(item.topic);
-			} else if (Array.isArray(item.topic)) {
-				parts.push(item.topic.join(" "));
-			}
-			const haystack = parts.join(" ").toLowerCase();
-			if (!haystack.includes(q)) {
-				return false;
-			}
+		if (!matchesQuery(item, q)) {
+			return false;
 		}
 
 		if (filterSemester !== null) {
-			if (item.semester == null) return false;
-			if (Array.isArray(filterSemester)) {
-				const semStrings = filterSemester.map((s) => String(s).toLowerCase());
-				if (!semStrings.includes(String(item.semester).toLowerCase())) {
-					return false;
-				}
-			} else if (
-				String(item.semester).toLowerCase() !==
-				String(filterSemester).toLowerCase()
-			) {
+			if (!matchesCriterion(item.semester, filterSemester)) {
 				return false;
 			}
 		}
 
 		if (filterDifficulty !== null) {
-			if (item.difficulty == null) return false;
-			if (Array.isArray(filterDifficulty)) {
-				const diffStrings = filterDifficulty.map((d) =>
-					String(d).toLowerCase(),
-				);
-				if (!diffStrings.includes(String(item.difficulty).toLowerCase())) {
-					return false;
-				}
-			} else if (
-				String(item.difficulty).toLowerCase() !==
-				String(filterDifficulty).toLowerCase()
-			) {
+			if (!matchesCriterion(item.difficulty, filterDifficulty)) {
 				return false;
 			}
 		}
 
 		if (filterTopic !== null) {
-			if (item.topic == null) return false;
-			if (Array.isArray(item.topic)) {
-				const itemTopics = item.topic.map((t) => String(t).toLowerCase());
-				if (Array.isArray(filterTopic)) {
-					const targetTopics = filterTopic.map((t) => String(t).toLowerCase());
-					if (!itemTopics.some((t) => targetTopics.includes(t))) return false;
-				} else if (!itemTopics.includes(String(filterTopic).toLowerCase())) {
-					return false;
-				}
-			} else {
-				if (Array.isArray(filterTopic)) {
-					const targetTopics = filterTopic.map((t) => String(t).toLowerCase());
-					if (!targetTopics.includes(String(item.topic).toLowerCase()))
-						return false;
-				} else if (
-					String(item.topic).toLowerCase() !== String(filterTopic).toLowerCase()
-				) {
-					return false;
-				}
+			if (!matchesCriterion(item.topic, filterTopic, true)) {
+				return false;
 			}
 		}
 
