@@ -59,5 +59,7 @@ module.exports = Object.freeze({
   'mode.count': 'عدد الأطفال', 'mode.formGroups': 'شكّل مجموعات', 'mode.unmet': 'مجموعات دون طالب قريب',
   'mode.shortLesson': 'درس قصير دون اتصال', 'mode.addParticipant': 'أضف مشاركًا', 'mode.assignGroups': 'وزّع المجموعات',
   'mode.todayLesson': 'درس اليوم', 'mode.advanced': 'متقدم', 'mode.perSchool': 'تقرير حسب المدرسة',
-  'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية'
+  'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية',
+  'match.aiOnlyFilter': 'تطابق الذكاء الاصطناعي فقط', 'match.aiOnlyEmpty': 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
+  matchAiOnlyFilter: 'تطابق الذكاء الاصطناعي فقط', matchAiOnlyEmpty: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي'
 });
