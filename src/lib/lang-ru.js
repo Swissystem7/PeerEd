@@ -61,5 +61,7 @@ module.exports = Object.freeze({
   'mode.todayLesson': 'Урок на сегодня', 'mode.advanced': 'Дополнительно', 'mode.perSchool': 'Отчёт по школам',
   'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных',
   'match.aiOnlyFilter': 'Только совпадения ИИ', 'match.aiOnlyEmpty': 'Нет совпадений по темам ИИ',
-  matchAiOnlyFilter: 'Только совпадения ИИ', matchAiOnlyEmpty: 'Нет совпадений по темам ИИ'
+  matchAiOnlyFilter: 'Только совпадения ИИ', matchAiOnlyEmpty: 'Нет совпадений по темам ИИ',
+  'people.missingAiFilter': 'Без тем ИИ',
+  peopleMissingAiFilter: 'Без тем ИИ'
 });
