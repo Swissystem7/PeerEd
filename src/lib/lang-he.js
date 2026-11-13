@@ -62,5 +62,7 @@ module.exports = Object.freeze({
   'mode.todayLesson': 'השיעור של היום', 'mode.advanced': 'מתקדם', 'mode.perSchool': 'דוח לפי בית ספר',
   'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים',
   'match.aiOnlyFilter': 'התאמת AI בלבד', 'match.aiOnlyEmpty': 'אין שידוכים עם חפיפת AI',
-  matchAiOnlyFilter: 'התאמת AI בלבד', matchAiOnlyEmpty: 'אין שידוכים עם חפיפת AI'
+  matchAiOnlyFilter: 'התאמת AI בלבד', matchAiOnlyEmpty: 'אין שידוכים עם חפיפת AI',
+  'people.missingAiFilter': 'ללא נושאי AI',
+  peopleMissingAiFilter: 'ללא נושאי AI'
 });

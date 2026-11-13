@@ -61,5 +61,7 @@ module.exports = Object.freeze({
   'mode.todayLesson': 'درس اليوم', 'mode.advanced': 'متقدم', 'mode.perSchool': 'تقرير حسب المدرسة',
   'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية',
   'match.aiOnlyFilter': 'تطابق الذكاء الاصطناعي فقط', 'match.aiOnlyEmpty': 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
-  matchAiOnlyFilter: 'تطابق الذكاء الاصطناعي فقط', matchAiOnlyEmpty: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي'
+  matchAiOnlyFilter: 'تطابق الذكاء الاصطناعي فقط', matchAiOnlyEmpty: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
+  'people.missingAiFilter': 'بدون مواضيع ذكاء اصطناعي',
+  peopleMissingAiFilter: 'بدون مواضيع ذكاء اصطناعي'
 });

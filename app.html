@@ -232,6 +232,7 @@
         <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
       </select>
       <button type="button" class="ghost small" id="resetAiFilter" aria-controls="peopleAiFilter peopleList" aria-label="איפוס סינון נושאי בינה מלאכותית">איפוס סינון</button>
+      <button type="button" class="ghost small" id="btn-filter-missing-ai" aria-pressed="false" aria-controls="peopleList">ללא נושאי AI</button>
       <p class="hint" id="ai-filter-count" aria-live="polite">0</p>
       <p class="empty" id="ai-filter-empty-message" hidden aria-live="polite"></p>
       <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
@@ -635,6 +636,8 @@
       matchAiOnlyEmpty: 'אין שידוכים עם חפיפת AI',
       'match.aiOnlyFilter': 'התאמת AI בלבד',
       'match.aiOnlyEmpty': 'אין שידוכים עם חפיפת AI',
+      peopleMissingAiFilter: 'ללא נושאי AI',
+      'people.missingAiFilter': 'ללא נושאי AI',
       sharedSubjects: 'מקצועות משותפים',
       sharedHours: 'שעות משותפות',
       outcomeHeld: 'התקיים',
@@ -736,6 +739,8 @@
       matchAiOnlyEmpty: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
       'match.aiOnlyFilter': 'تطابق الذكاء الاصطناعي فقط',
       'match.aiOnlyEmpty': 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
+      peopleMissingAiFilter: 'بدون مواضيع ذكاء اصطناعي',
+      'people.missingAiFilter': 'بدون مواضيع ذكاء اصطناعي',
       sharedSubjects: 'مواضيع مشتركة',
       sharedHours: 'ساعات مشتركة',
       outcomeHeld: 'عُقدت',
@@ -837,6 +842,8 @@
       matchAiOnlyEmpty: 'Нет совпадений по темам ИИ',
       'match.aiOnlyFilter': 'Только совпадения ИИ',
       'match.aiOnlyEmpty': 'Нет совпадений по темам ИИ',
+      peopleMissingAiFilter: 'Без тем ИИ',
+      'people.missingAiFilter': 'Без тем ИИ',
       sharedSubjects: 'Общие предметы',
       sharedHours: 'Общие часы',
       outcomeHeld: 'Состоялось',
@@ -5140,7 +5147,9 @@ module.exports = Object.freeze({
   'mode.todayLesson': 'השיעור של היום', 'mode.advanced': 'מתקדם', 'mode.perSchool': 'דוח לפי בית ספר',
   'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים',
   'match.aiOnlyFilter': 'התאמת AI בלבד', 'match.aiOnlyEmpty': 'אין שידוכים עם חפיפת AI',
-  matchAiOnlyFilter: 'התאמת AI בלבד', matchAiOnlyEmpty: 'אין שידוכים עם חפיפת AI'
+  matchAiOnlyFilter: 'התאמת AI בלבד', matchAiOnlyEmpty: 'אין שידוכים עם חפיפת AI',
+  'people.missingAiFilter': 'ללא נושאי AI',
+  peopleMissingAiFilter: 'ללא נושאי AI'
 });
   __registry["lang-he"] = module.exports;
 })();
@@ -5212,7 +5221,9 @@ module.exports = Object.freeze({
   'mode.todayLesson': 'درس اليوم', 'mode.advanced': 'متقدم', 'mode.perSchool': 'تقرير حسب المدرسة',
   'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية',
   'match.aiOnlyFilter': 'تطابق الذكاء الاصطناعي فقط', 'match.aiOnlyEmpty': 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
-  matchAiOnlyFilter: 'تطابق الذكاء الاصطناعي فقط', matchAiOnlyEmpty: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي'
+  matchAiOnlyFilter: 'تطابق الذكاء الاصطناعي فقط', matchAiOnlyEmpty: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
+  'people.missingAiFilter': 'بدون مواضيع ذكاء اصطناعي',
+  peopleMissingAiFilter: 'بدون مواضيع ذكاء اصطناعي'
 });
   __registry["lang-ar"] = module.exports;
 })();
@@ -5284,7 +5295,9 @@ module.exports = Object.freeze({
   'mode.todayLesson': 'Урок на сегодня', 'mode.advanced': 'Дополнительно', 'mode.perSchool': 'Отчёт по школам',
   'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных',
   'match.aiOnlyFilter': 'Только совпадения ИИ', 'match.aiOnlyEmpty': 'Нет совпадений по темам ИИ',
-  matchAiOnlyFilter: 'Только совпадения ИИ', matchAiOnlyEmpty: 'Нет совпадений по темам ИИ'
+  matchAiOnlyFilter: 'Только совпадения ИИ', matchAiOnlyEmpty: 'Нет совпадений по темам ИИ',
+  'people.missingAiFilter': 'Без тем ИИ',
+  peopleMissingAiFilter: 'Без тем ИИ'
 });
   __registry["lang-ru"] = module.exports;
 })();
@@ -6025,6 +6038,11 @@ module.exports = {
     ar: 'إعادة ضبط التصفية',
     ru: 'Сбросить фильтр'
   });
+  const AI_FILTER_MISSING_LABELS = Object.freeze({
+    he: 'ללא נושאי AI',
+    ar: 'بدون مواضيع ذكاء اصطناعي',
+    ru: 'Без тем ИИ'
+  });
   const AI_FILTER_COUNT_LABELS = Object.freeze({
     he: Object.freeze({ all: 'סה״כ משתתפים: {n}', filtered: 'מוצגים {shown} מתוך {total}' }),
     ar: Object.freeze({ all: 'إجمالي المشاركين: {n}', filtered: 'يُعرض {shown} من أصل {total}' }),
@@ -6129,8 +6147,11 @@ module.exports = {
     window.AI_TOPIC_ALL_LABELS = AI_TOPIC_ALL_LABELS;
     window.AI_FILTER_EMPTY_LABELS = AI_FILTER_EMPTY_LABELS;
     window.AI_FILTER_RESET_LABELS = AI_FILTER_RESET_LABELS;
+    window.AI_FILTER_MISSING_LABELS = AI_FILTER_MISSING_LABELS;
+    window.PEOPLE_MISSING_AI_LABELS = AI_FILTER_MISSING_LABELS;
     window.renderPeople = renderPeople;
     window.renderPeopleAiFilter = renderPeopleAiFilter;
+    window.refreshFilterMissingAiLabel = refreshFilterMissingAiLabel;
     if (attendance) {
       window.estimateReadingTimeHebrew = attendance.estimateReadingTimeHebrew;
       window.getTopicTagColor = attendance.getTopicTagColor;
@@ -6431,6 +6452,12 @@ module.exports = {
       resetBtn.textContent = resetLabel;
       resetBtn.setAttribute('aria-label', resetLabel);
     }
+    const missingBtn = $('btn-filter-missing-ai');
+    if (missingBtn) {
+      const missingLabel = AI_FILTER_MISSING_LABELS[currentLang] ?? AI_FILTER_MISSING_LABELS.he;
+      missingBtn.textContent = missingLabel;
+      missingBtn.setAttribute('aria-label', missingLabel);
+    }
     const allLabel = AI_TOPIC_ALL_LABELS[currentLang] ?? AI_TOPIC_ALL_LABELS.he;
     const opts = [`<option value="">${esc(allLabel)}</option>`];
     const keys = AI_TOPICS ? Object.keys(AI_TOPICS) : [];
@@ -6513,7 +6540,8 @@ module.exports = {
     if (!el) return;
     const labels = AI_FILTER_COUNT_LABELS[currentLang] || AI_FILTER_COUNT_LABELS.he;
     const selectedTopic = $('peopleAiFilter')?.value || '';
-    if (!selectedTopic) {
+    const missingAiActive = $('btn-filter-missing-ai')?.getAttribute('aria-pressed') === 'true';
+    if (!selectedTopic && !missingAiActive) {
       el.textContent = labels.all.replace('{n}', String(total));
     } else {
       el.textContent = labels.filtered
@@ -6534,9 +6562,12 @@ module.exports = {
       renderAITopicsSummary();
       return;
     }
+    const missingAiActive = $('btn-filter-missing-ai')?.getAttribute('aria-pressed') === 'true';
     const selectedTopic = $('peopleAiFilter')?.value || '';
     let filtered = state.people;
-    if (selectedTopic && typeof storeLib?.filterParticipantsByAITopic === 'function') {
+    if (missingAiActive) {
+      filtered = state.people.filter((p) => !Array.isArray(p.target_ai_topics) || p.target_ai_topics.length === 0);
+    } else if (selectedTopic && typeof storeLib?.filterParticipantsByAITopic === 'function') {
       try {
         filtered = storeLib.filterParticipantsByAITopic(state.people, selectedTopic);
       } catch {
@@ -6581,6 +6612,10 @@ module.exports = {
   if (peopleAiFilterEl) {
     peopleAiFilterEl.addEventListener('change', () => {
       peopleAiFilterEl.setAttribute('aria-expanded', peopleAiFilterEl.value ? 'true' : 'false');
+      if (peopleAiFilterEl.value) {
+        const missingBtn = $('btn-filter-missing-ai');
+        if (missingBtn) missingBtn.setAttribute('aria-pressed', 'false');
+      }
       renderPeople();
     });
   }
@@ -6595,6 +6630,26 @@ module.exports = {
         sel.dispatchEvent(new Event('change'));
       } else if (typeof sel.fire === 'function') {
         sel.fire('change');
+      }
+      const missingAiBtn = $('btn-filter-missing-ai');
+      if (missingAiBtn) {
+        missingAiBtn.setAttribute('aria-pressed', 'false');
+      }
+      renderPeople();
+    });
+  }
+  const btnFilterMissingAiEl = $('btn-filter-missing-ai');
+  if (btnFilterMissingAiEl) {
+    btnFilterMissingAiEl.addEventListener('click', () => {
+      const isPressed = btnFilterMissingAiEl.getAttribute('aria-pressed') === 'true';
+      const nextPressed = !isPressed;
+      btnFilterMissingAiEl.setAttribute('aria-pressed', nextPressed ? 'true' : 'false');
+      if (nextPressed) {
+        const sel = $('peopleAiFilter');
+        if (sel) {
+          sel.value = '';
+          sel.setAttribute('aria-expanded', 'false');
+        }
       }
       renderPeople();
     });
@@ -8547,6 +8602,16 @@ module.exports = {
   }
   refreshFilterAiOnlyLabel();
 
+  function refreshFilterMissingAiLabel() {
+    var btn = $('btn-filter-missing-ai');
+    if (!btn) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var label = AI_FILTER_MISSING_LABELS[lang] || AI_FILTER_MISSING_LABELS.he;
+    btn.textContent = label;
+    btn.setAttribute('aria-label', label);
+  }
+  refreshFilterMissingAiLabel();
+
   $('runSchedule').addEventListener('click', function () {
     if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
     var r = rosterSplit();
@@ -8693,6 +8758,7 @@ module.exports = {
     document.documentElement.dir = i18n.dirFor(currentLang);
     if (typeof refreshSortAiMatchLabel === 'function') refreshSortAiMatchLabel();
     if (typeof refreshFilterAiOnlyLabel === 'function') refreshFilterAiOnlyLabel();
+    if (typeof refreshFilterMissingAiLabel === 'function') refreshFilterMissingAiLabel();
     var sel = $('langSelect'); if (sel) sel.value = currentLang;
     REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
     SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
