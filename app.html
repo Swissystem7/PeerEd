@@ -61,6 +61,7 @@
   .item .meta { color:var(--muted); font-size:.78rem; line-height:1.55; }
   .pair { border-inline-start:3px solid var(--ok); }
   .pill { background:#EEF2FF; border-radius:999px; padding:2px 9px; font-size:.72rem; color:var(--muted); }
+  .status-tag { display:inline-block; font-weight:normal; margin-inline-start:6px; vertical-align:middle; }
   .status { min-height:1.2em; color:var(--ok); font-size:.84rem; margin-top:8px; line-height:1.5; }
   .status.bad { color:var(--bad); }
   .hint { color:var(--muted); font-size:.78rem; line-height:1.6; margin:6px 0 0; }
@@ -6039,6 +6040,18 @@ module.exports = {
     requested: Object.freeze({ he: 'מבוקש', ar: 'مطلوب', ru: 'Запрошено' }),
     offered: Object.freeze({ he: 'מוצע', ar: 'معروض', ru: 'Предложено' })
   });
+  const AI_TOPIC_GAP_LABELS = Object.freeze({
+    missing: Object.freeze({
+      he: 'חסר מדריכים: {n}',
+      ar: 'نقص مدربين: {n}',
+      ru: 'Нехватка наставников: {n}'
+    }),
+    balanced: Object.freeze({
+      he: 'מאוזן',
+      ar: 'متوازن',
+      ru: 'Сбалансировано'
+    })
+  });
   const SCHOLARSHIP_SUMMARY_HEADINGS = Object.freeze({
     he: "סיכום שעות מלגה ומעורבות",
     ar: "ملخص ساعات المنحة والمشاركة",
@@ -6111,6 +6124,8 @@ module.exports = {
     window.renderMatch2 = renderMatch2;
     window.renderAITopicsSummary = renderAITopicsSummary;
     window.renderScholarshipHoursSummary = renderScholarshipHoursSummary;
+    window.AI_TOPIC_GAP_LABELS = AI_TOPIC_GAP_LABELS;
+    window.getTopicGapStatus = getTopicGapStatus;
     window.AI_TOPIC_ALL_LABELS = AI_TOPIC_ALL_LABELS;
     window.AI_FILTER_EMPTY_LABELS = AI_FILTER_EMPTY_LABELS;
     window.AI_FILTER_RESET_LABELS = AI_FILTER_RESET_LABELS;
@@ -8227,6 +8242,26 @@ module.exports = {
     }
   }
 
+  function getTopicGapStatus(requested, offered, lang) {
+    const l = lang ?? currentLang ?? 'he';
+    const req = Number.isInteger(requested) ? requested : 0;
+    const off = Number.isInteger(offered) ? offered : 0;
+    if (req > off) {
+      const gap = req - off;
+      const pattern = (i18n?.STRINGS?.[l]?.aiTopicGapMissing) ??
+        AI_TOPIC_GAP_LABELS.missing[l] ??
+        AI_TOPIC_GAP_LABELS.missing.he;
+      return { status: 'gap', gap, text: pattern.replace('{n}', String(gap)) };
+    }
+    if (off >= req && req > 0) {
+      const text = (i18n?.STRINGS?.[l]?.aiTopicGapBalanced) ??
+        AI_TOPIC_GAP_LABELS.balanced[l] ??
+        AI_TOPIC_GAP_LABELS.balanced.he;
+      return { status: 'balanced', gap: 0, text };
+    }
+    return null;
+  }
+
   function renderAITopicsSummary() {
     const container = $('aiTopicsSummaryList');
     if (!container) return;
@@ -8258,7 +8293,11 @@ module.exports = {
       const styleObj = tagStyleFn ? tagStyleFn(k) : null;
       const tagColor = styleObj?.borderColor || (tagColorFn ? tagColorFn(k) : '');
       const styleAttr = tagColor ? ` style="border-inline-start:4px solid ${esc(tagColor)};"` : '';
-      return `<div class="item" data-topic="${esc(k)}"${styleAttr}><b>${esc(topicName)}</b><span class="meta">${esc(totalLabel)}: ${tot} (${esc(reqLabel)}: ${req}, ${esc(offLabel)}: ${off})</span></div>`;
+      const gapInfo = getTopicGapStatus(req, off, lang);
+      const tagHtml = gapInfo
+        ? ` <span class="tag status-tag pill ${esc(gapInfo.status)}" data-status="${esc(gapInfo.status)}" data-topic-status="${esc(gapInfo.status)}"${gapInfo.gap > 0 ? ` data-gap="${gapInfo.gap}"` : ''}>${esc(gapInfo.text)}</span>`
+        : '';
+      return `<div class="item" data-topic="${esc(k)}"${styleAttr}><b>${esc(topicName)}${tagHtml}</b><span class="meta">${esc(totalLabel)}: ${tot} (${esc(reqLabel)}: ${req}, ${esc(offLabel)}: ${off})</span></div>`;
     }).join('');
 
     const metaEl = $('aiTopicsSummaryMeta');
