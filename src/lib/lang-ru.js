@@ -59,5 +59,7 @@ module.exports = Object.freeze({
   'mode.count': 'Число детей', 'mode.formGroups': 'Сформировать группы', 'mode.unmet': 'Группы без студента рядом',
   'mode.shortLesson': 'Короткий урок без сети', 'mode.addParticipant': 'Добавить участника', 'mode.assignGroups': 'Распределить группы',
   'mode.todayLesson': 'Урок на сегодня', 'mode.advanced': 'Дополнительно', 'mode.perSchool': 'Отчёт по школам',
-  'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных'
+  'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных',
+  'match.aiOnlyFilter': 'Только совпадения ИИ', 'match.aiOnlyEmpty': 'Нет совпадений по темам ИИ',
+  matchAiOnlyFilter: 'Только совпадения ИИ', matchAiOnlyEmpty: 'Нет совпадений по темам ИИ'
 });

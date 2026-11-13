@@ -60,5 +60,7 @@ module.exports = Object.freeze({
   'mode.count': 'מספר ילדים', 'mode.formGroups': 'צור קבוצות', 'mode.unmet': 'קבוצות בלי סטודנט קרוב',
   'mode.shortLesson': 'שיעור קצר לא מחובר', 'mode.addParticipant': 'הוסף משתתף', 'mode.assignGroups': 'שבץ קבוצות',
   'mode.todayLesson': 'השיעור של היום', 'mode.advanced': 'מתקדם', 'mode.perSchool': 'דוח לפי בית ספר',
-  'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים'
+  'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים',
+  'match.aiOnlyFilter': 'התאמת AI בלבד', 'match.aiOnlyEmpty': 'אין שידוכים עם חפיפת AI',
+  matchAiOnlyFilter: 'התאמת AI בלבד', matchAiOnlyEmpty: 'אין שידוכים עם חפיפת AI'
 });

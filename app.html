@@ -300,8 +300,10 @@
       <p class="hint">שידוך רב-קריטריוני עם הסבר בעברית לכל זוג. מסמנים זוג כנעול, ואז שידוך מחדש מחשב רק את השאר. לרשימה אין שדות רמה, שפה או העדפות, לכן הם לא נספרים בציון.</p>
       <div class="actions"><button type="button" class="act" id="runMatch2" aria-describedby="match2Status">חשב שידוך מתקדם</button>
         <button type="button" class="ghost" id="rematch2" aria-describedby="match2Status">שידוך מחדש (בלי הנעולים)</button>
-        <button type="button" class="ghost" id="btn-sort-ai-match" aria-describedby="match2Status">מיין לפי חפיפת נושאי AI</button></div>
+        <button type="button" class="ghost" id="btn-sort-ai-match" aria-describedby="match2Status">מיין לפי חפיפת נושאי AI</button>
+        <button type="button" class="ghost" id="btn-filter-ai-only" aria-pressed="false" aria-describedby="match2Status">התאמת AI בלבד</button></div>
       <p class="status" id="match2Status" role="status"></p>
+      <p class="empty" id="matchAiOnlyEmpty" hidden aria-live="polite"></p>
       <div id="match2Out" role="region" aria-live="polite" aria-label="תוצאות שידוך מתקדם"></div>
     </div>
     <div class="card">
@@ -628,6 +630,10 @@
       versionLabel: 'גרסה',
       noPairs: 'לא נוצר אף זוג.',
       allMatched: 'כולם שובצו.',
+      matchAiOnlyFilter: 'התאמת AI בלבד',
+      matchAiOnlyEmpty: 'אין שידוכים עם חפיפת AI',
+      'match.aiOnlyFilter': 'התאמת AI בלבד',
+      'match.aiOnlyEmpty': 'אין שידוכים עם חפיפת AI',
       sharedSubjects: 'מקצועות משותפים',
       sharedHours: 'שעות משותפות',
       outcomeHeld: 'התקיים',
@@ -725,6 +731,10 @@
       versionLabel: 'إصدار',
       noPairs: 'لم يتكون أي زوج.',
       allMatched: 'تم إقران الجميع.',
+      matchAiOnlyFilter: 'تطابق الذكاء الاصطناعي فقط',
+      matchAiOnlyEmpty: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
+      'match.aiOnlyFilter': 'تطابق الذكاء الاصطناعي فقط',
+      'match.aiOnlyEmpty': 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
       sharedSubjects: 'مواضيع مشتركة',
       sharedHours: 'ساعات مشتركة',
       outcomeHeld: 'عُقدت',
@@ -822,6 +832,10 @@
       versionLabel: 'Версия',
       noPairs: 'Ни одной пары не создано.',
       allMatched: 'Все распределены по парам.',
+      matchAiOnlyFilter: 'Только совпадения ИИ',
+      matchAiOnlyEmpty: 'Нет совпадений по темам ИИ',
+      'match.aiOnlyFilter': 'Только совпадения ИИ',
+      'match.aiOnlyEmpty': 'Нет совпадений по темам ИИ',
       sharedSubjects: 'Общие предметы',
       sharedHours: 'Общие часы',
       outcomeHeld: 'Состоялось',
@@ -5123,7 +5137,9 @@ module.exports = Object.freeze({
   'mode.count': 'מספר ילדים', 'mode.formGroups': 'צור קבוצות', 'mode.unmet': 'קבוצות בלי סטודנט קרוב',
   'mode.shortLesson': 'שיעור קצר לא מחובר', 'mode.addParticipant': 'הוסף משתתף', 'mode.assignGroups': 'שבץ קבוצות',
   'mode.todayLesson': 'השיעור של היום', 'mode.advanced': 'מתקדם', 'mode.perSchool': 'דוח לפי בית ספר',
-  'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים'
+  'mode.perLocation': 'דוח לפי מקום', 'mode.emergencyBanner': 'מצב חירום: שיעורים קצרים של 20–30 דקות, בלי פרטים אישיים',
+  'match.aiOnlyFilter': 'התאמת AI בלבד', 'match.aiOnlyEmpty': 'אין שידוכים עם חפיפת AI',
+  matchAiOnlyFilter: 'התאמת AI בלבד', matchAiOnlyEmpty: 'אין שידוכים עם חפיפת AI'
 });
   __registry["lang-he"] = module.exports;
 })();
@@ -5193,7 +5209,9 @@ module.exports = Object.freeze({
   'mode.count': 'عدد الأطفال', 'mode.formGroups': 'شكّل مجموعات', 'mode.unmet': 'مجموعات دون طالب قريب',
   'mode.shortLesson': 'درس قصير دون اتصال', 'mode.addParticipant': 'أضف مشاركًا', 'mode.assignGroups': 'وزّع المجموعات',
   'mode.todayLesson': 'درس اليوم', 'mode.advanced': 'متقدم', 'mode.perSchool': 'تقرير حسب المدرسة',
-  'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية'
+  'mode.perLocation': 'تقرير حسب المكان', 'mode.emergencyBanner': 'وضع طوارئ: دروس قصيرة 20–30 دقيقة، دون بيانات شخصية',
+  'match.aiOnlyFilter': 'تطابق الذكاء الاصطناعي فقط', 'match.aiOnlyEmpty': 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
+  matchAiOnlyFilter: 'تطابق الذكاء الاصطناعي فقط', matchAiOnlyEmpty: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي'
 });
   __registry["lang-ar"] = module.exports;
 })();
@@ -5263,7 +5281,9 @@ module.exports = Object.freeze({
   'mode.count': 'Число детей', 'mode.formGroups': 'Сформировать группы', 'mode.unmet': 'Группы без студента рядом',
   'mode.shortLesson': 'Короткий урок без сети', 'mode.addParticipant': 'Добавить участника', 'mode.assignGroups': 'Распределить группы',
   'mode.todayLesson': 'Урок на сегодня', 'mode.advanced': 'Дополнительно', 'mode.perSchool': 'Отчёт по школам',
-  'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных'
+  'mode.perLocation': 'Отчёт по местам', 'mode.emergencyBanner': 'Режим ЧС: короткие уроки 20–30 минут, без личных данных',
+  'match.aiOnlyFilter': 'Только совпадения ИИ', 'match.aiOnlyEmpty': 'Нет совпадений по темам ИИ',
+  matchAiOnlyFilter: 'Только совпадения ИИ', matchAiOnlyEmpty: 'Нет совпадений по темам ИИ'
 });
   __registry["lang-ru"] = module.exports;
 })();
@@ -6034,6 +6054,16 @@ module.exports = {
     ar: 'ترتيب حسب تداخل مواضيع الذكاء الاصطناعي',
     ru: 'Сортировать по пересечению тем ИИ'
   });
+  var FILTER_AI_ONLY_LABELS = Object.freeze({
+    he: 'התאמת AI בלבד',
+    ar: 'تطابق الذكاء الاصطناعي فقط',
+    ru: 'Только совпадения ИИ'
+  });
+  var MATCH_AI_ONLY_EMPTY_LABELS = Object.freeze({
+    he: 'אין שידוכים עם חפיפת AI',
+    ar: 'لا توجد مطابقات بتطابق الذكاء الاصطناعي',
+    ru: 'Нет совпадений по темам ИИ'
+  });
   var AI_TOPIC_BADGE_LABELS = Object.freeze({
     he: 'התאמת נושאי AI',
     ar: 'توافق مواضيع الذكاء الاصطناعي',
@@ -6069,6 +6099,11 @@ module.exports = {
   if (typeof window !== 'undefined') {
     window.AI_TOPICS = AI_TOPICS;
     window.AI_TOPIC_BADGE_LABELS = AI_TOPIC_BADGE_LABELS;
+    window.SORT_AI_MATCH_LABELS = SORT_AI_MATCH_LABELS;
+    window.FILTER_AI_ONLY_LABELS = FILTER_AI_ONLY_LABELS;
+    window.MATCH_AI_ONLY_EMPTY_LABELS = MATCH_AI_ONLY_EMPTY_LABELS;
+    window.setMatchAiOnlyEmptyMessage = setMatchAiOnlyEmptyMessage;
+    window.filterMatch2PairsByAiOnly = filterMatch2PairsByAiOnly;
     window.validateAITopics = validateAITopics;
     window.calculateAITopicMatch = calculateAITopicMatch;
     window.aiTopicBadgeText = aiTopicBadgeText;
@@ -8336,11 +8371,54 @@ module.exports = {
     }
     return decorated;
   }
+  var filterAiOnlyActive = false;
+  function setMatchAiOnlyEmptyMessage(visible) {
+    var el = $('matchAiOnlyEmpty');
+    if (!el) return;
+    if (visible) {
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      el.textContent = MATCH_AI_ONLY_EMPTY_LABELS[lang] || MATCH_AI_ONLY_EMPTY_LABELS.he;
+      el.hidden = false;
+    } else {
+      el.textContent = '';
+      el.hidden = true;
+    }
+  }
+  function filterMatch2PairsByAiOnly(pairs, students, pupils) {
+    var list = pairs || [];
+    return list.filter(function (p) {
+      if (typeof p.aiTopicMatch === 'number') {
+        return p.aiTopicMatch > 0;
+      }
+      var s = Array.isArray(students) ? (students[p.studentIndex] || {}) : {};
+      var pu = Array.isArray(pupils) ? (pupils[p.pupilIndex] || {}) : {};
+      var sTopics = Array.isArray(s.target_ai_topics) ? s.target_ai_topics : [];
+      var pTopics = Array.isArray(pu.target_ai_topics) ? pu.target_ai_topics : [];
+      return calculateAITopicMatch(sTopics, pTopics) > 0;
+    });
+  }
   function renderMatch2(result) {
     var r = rosterSplit();
     var pairs = sortMatch2Pairs(result.pairs, r.students, r.pupils);
     lastMatch2 = Object.assign({}, result, { pairs: pairs });
-    $('match2Out').innerHTML = pairs.length ? pairs.map(function (p) {
+    var displayPairs = pairs;
+    if (filterAiOnlyActive) {
+      displayPairs = filterMatch2PairsByAiOnly(pairs, r.students, r.pupils);
+    }
+    if (!pairs.length) {
+      setMatchAiOnlyEmptyMessage(false);
+      $('match2Out').innerHTML = '<p class="empty">אין זוגות אפשריים מהרשימה הנוכחית.</p>';
+      say('match2Status', 'נוצרו ' + result.pairs.length + ' זוגות. ציון כולל: ' + result.totalScore + '.');
+      return;
+    }
+    if (filterAiOnlyActive && !displayPairs.length) {
+      $('match2Out').innerHTML = '';
+      setMatchAiOnlyEmptyMessage(true);
+      say('match2Status', 'נוצרו ' + result.pairs.length + ' זוגות. ציון כולל: ' + result.totalScore + '.');
+      return;
+    }
+    setMatchAiOnlyEmptyMessage(false);
+    $('match2Out').innerHTML = displayPairs.map(function (p) {
       var student = r.students[p.studentIndex] || {};
       var pupil = r.pupils[p.pupilIndex] || {};
       var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length > 0) ||
@@ -8367,7 +8445,7 @@ module.exports = {
         (topics ? ['<span class="meta">', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang)), '</span><br>'].join('') : '') +
         aiExplHtml +
         '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
-    }).join('') : '<p class="empty">אין זוגות אפשריים מהרשימה הנוכחית.</p>';
+    }).join('');
     say('match2Status', 'נוצרו ' + result.pairs.length + ' זוגות. ציון כולל: ' + result.totalScore + '.');
   }
   $('match2Out').addEventListener('click', function (ev) {
@@ -8407,6 +8485,28 @@ module.exports = {
     });
   }
   refreshSortAiMatchLabel();
+
+  function refreshFilterAiOnlyLabel() {
+    var btn = $('btn-filter-ai-only');
+    if (!btn) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    btn.textContent = FILTER_AI_ONLY_LABELS[lang] || FILTER_AI_ONLY_LABELS.he;
+    var el = $('matchAiOnlyEmpty');
+    if (el && !el.hidden) {
+      el.textContent = MATCH_AI_ONLY_EMPTY_LABELS[lang] || MATCH_AI_ONLY_EMPTY_LABELS.he;
+    }
+  }
+  var btnFilterAiOnly = $('btn-filter-ai-only');
+  if (btnFilterAiOnly) {
+    btnFilterAiOnly.addEventListener('click', function () {
+      filterAiOnlyActive = !filterAiOnlyActive;
+      btnFilterAiOnly.setAttribute('aria-pressed', filterAiOnlyActive ? 'true' : 'false');
+      if (lastMatch2 && lastMatch2.pairs) {
+        renderMatch2(lastMatch2);
+      }
+    });
+  }
+  refreshFilterAiOnlyLabel();
 
   $('runSchedule').addEventListener('click', function () {
     if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
@@ -8553,6 +8653,7 @@ module.exports = {
     document.documentElement.lang = currentLang;
     document.documentElement.dir = i18n.dirFor(currentLang);
     if (typeof refreshSortAiMatchLabel === 'function') refreshSortAiMatchLabel();
+    if (typeof refreshFilterAiOnlyLabel === 'function') refreshFilterAiOnlyLabel();
     var sel = $('langSelect'); if (sel) sel.value = currentLang;
     REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
     SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
