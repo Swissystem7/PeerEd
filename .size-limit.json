@@ -1,0 +1,17 @@
+[
+  {
+    "name": "app.html (single-file app)",
+    "path": "app.html",
+    "limit": "122 kB"
+  },
+  {
+    "name": "src/app-shell.html",
+    "path": "src/app-shell.html",
+    "limit": "51 kB"
+  },
+  {
+    "name": "src/lib/*.js",
+    "path": "src/lib/*.js",
+    "limit": "89 kB"
+  }
+]
