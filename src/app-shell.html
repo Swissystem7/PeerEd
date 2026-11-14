@@ -288,6 +288,13 @@
 
   <!-- ============ שידוך ============ -->
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
+    <div class="match-conflict-badge" style="display:none;" data-i18n="matchConflictDetected"></div>
+    <label><input type="checkbox" class="match-compare-chk" data-i18n="matchCompareCheckbox" /> Compare</label>
+    <div id="matchComparePanel" class="card match-compare-panel" style="display:none;" aria-live="polite">
+      <h2>השוואת מועמדים</h2>
+      <div id="matchCompareContent"></div>
+      <button id="clearMatchCompareBtn" type="button" class="ghost" aria-describedby="match2Status">נקה השוואה</button>
+    </div>
     <div class="card">
       <h2>קבוצות לפי מצב</h2>
       <p class="hint" id="groupModeHint">בשגרה: קבוצה לכל בית ספר וכיתה. בחירום: קבוצות של עד 12 ילדים שנמצאים באותו מקום, לפי ספירה וקבוצת גיל בלבד.</p>
