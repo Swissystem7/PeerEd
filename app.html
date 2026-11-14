@@ -2538,8 +2538,7 @@ function assertLog(log) {
 		throw new Error("invalid attendance log");
 }
 
-function recordAttendance(log, input) {
-	assertLog(log);
+function validateAttendanceInput(input) {
 	const o = input || {};
 	if (!Number.isInteger(o.pairIndex) || o.pairIndex < 0)
 		throw new Error("invalid attendance: pairIndex");
@@ -2548,6 +2547,10 @@ function recordAttendance(log, input) {
 		throw new Error("invalid attendance: future or invalid date");
 	if (ATTENDANCE_STATUSES.indexOf(o.status) === -1)
 		throw new Error("invalid attendance status");
+	return o;
+}
+
+function resolveAttendanceDuration(o) {
 	let durationHours = 0.0;
 	if (o.status === "held") {
 		durationHours = 1.0;
@@ -2559,19 +2562,24 @@ function recordAttendance(log, input) {
 			durationHours = o.durationHours;
 		}
 	}
-	let aiTopic;
-	if (o.aiTopic !== undefined) {
-		if (o.aiTopic === null) {
-			aiTopic = null;
-		} else if (
-			typeof o.aiTopic === "string" &&
-			AI_TOPIC_KEYS.includes(o.aiTopic)
-		) {
-			aiTopic = o.aiTopic;
-		} else {
-			throw new Error("invalid attendance: aiTopic");
-		}
+	return durationHours;
+}
+
+function resolveAttendanceAiTopic(o) {
+	if (o.aiTopic === undefined) return undefined;
+	if (o.aiTopic === null) return null;
+	if (typeof o.aiTopic === "string" && AI_TOPIC_KEYS.includes(o.aiTopic)) {
+		return o.aiTopic;
 	}
+	throw new Error("invalid attendance: aiTopic");
+}
+
+function recordAttendance(log, input) {
+	assertLog(log);
+	const o = validateAttendanceInput(input);
+	const durationHours = resolveAttendanceDuration(o);
+	const aiTopic = resolveAttendanceAiTopic(o);
+
 	const entryObj = {
 		pairIndex: o.pairIndex,
 		date: o.date,
@@ -2597,37 +2605,49 @@ function recordAttendance(log, input) {
 	return Object.freeze({ entries: Object.freeze(prior.concat([entry])) });
 }
 
+function sanitizeAttendanceRow(r, validateDateFn) {
+	if (!r || typeof r !== "object" || Array.isArray(r)) return null;
+	if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) return null;
+	if (typeof r.date !== "string") return null;
+	if (validateDateFn) {
+		try {
+			validateDateFn(r.date);
+		} catch {
+			return null;
+		}
+	}
+	if (ATTENDANCE_STATUSES.indexOf(r.status) === -1) return null;
+	let durationHours = 1.0;
+	if (
+		typeof r.durationHours === "number" &&
+		Number.isFinite(r.durationHours) &&
+		r.durationHours >= 0
+	) {
+		durationHours = r.durationHours;
+	}
+	const row = {
+		pairIndex: r.pairIndex,
+		date: r.date,
+		status: r.status,
+		durationHours: durationHours,
+	};
+	if (r.aiTopic !== undefined) {
+		if (
+			r.aiTopic === null ||
+			(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
+		) {
+			row.aiTopic = r.aiTopic;
+		}
+	}
+	return Object.freeze(row);
+}
+
 function serializeAttendance(records) {
 	if (!Array.isArray(records)) return [];
 	const out = [];
 	for (const r of records) {
-		if (!r || typeof r !== "object") continue;
-		if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) continue;
-		if (typeof r.date !== "string") continue;
-		if (ATTENDANCE_STATUSES.indexOf(r.status) === -1) continue;
-		let durationHours = 1.0;
-		if (
-			typeof r.durationHours === "number" &&
-			Number.isFinite(r.durationHours) &&
-			r.durationHours >= 0
-		) {
-			durationHours = r.durationHours;
-		}
-		const row = {
-			pairIndex: r.pairIndex,
-			date: r.date,
-			status: r.status,
-			durationHours: durationHours,
-		};
-		if (r.aiTopic !== undefined) {
-			if (
-				r.aiTopic === null ||
-				(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
-			) {
-				row.aiTopic = r.aiTopic;
-			}
-		}
-		out.push(Object.freeze(row));
+		const row = sanitizeAttendanceRow(r, null);
+		if (row) out.push(row);
 	}
 	return out;
 }
@@ -2636,37 +2656,8 @@ function deserializeAttendance(raw) {
 	if (!Array.isArray(raw)) return Object.freeze([]);
 	const out = [];
 	for (const r of raw) {
-		if (!r || typeof r !== "object" || Array.isArray(r)) continue;
-		if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) continue;
-		try {
-			parseDate(r.date);
-		} catch {
-			continue;
-		}
-		if (ATTENDANCE_STATUSES.indexOf(r.status) === -1) continue;
-		let durationHours = 1.0;
-		if (
-			typeof r.durationHours === "number" &&
-			Number.isFinite(r.durationHours) &&
-			r.durationHours >= 0
-		) {
-			durationHours = r.durationHours;
-		}
-		const row = {
-			pairIndex: r.pairIndex,
-			date: r.date,
-			status: r.status,
-			durationHours: durationHours,
-		};
-		if (r.aiTopic !== undefined) {
-			if (
-				r.aiTopic === null ||
-				(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
-			) {
-				row.aiTopic = r.aiTopic;
-			}
-		}
-		out.push(Object.freeze(row));
+		const row = sanitizeAttendanceRow(r, parseDate);
+		if (row) out.push(row);
 	}
 	return Object.freeze(out);
 }
@@ -2829,12 +2820,62 @@ function calculatePairHours(attendanceRecords, pairIndex) {
 	return total;
 }
 
-// Scholarship hours summary aggregated by pair and participant.
-// Only records with status === 'held' count; duration defaults to 1.0 unless record.durationHours is a positive finite number.
-// byPair includes only pairs with held hours (pairs with 0 held hours are omitted).
-// Each held hour of pair p counts for pairs[p].studentIndex and pairs[p].pupilIndex.
-// Missing pairs entries or omitted pairs table contribute to byPair and totalHours, but not byParticipant.
-// Returns zeroed totals and empty collections for invalid/empty inputs without throwing. Zero PII.
+function findPairObject(pairs, pairIndex) {
+	if (!pairs) return null;
+	if (Array.isArray(pairs)) {
+		const candidate = pairs[pairIndex];
+		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
+			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
+				return candidate;
+			}
+		}
+		return pairs.find(
+			(p) =>
+				p &&
+				typeof p === "object" &&
+				!Array.isArray(p) &&
+				p.pairIndex === pairIndex,
+		) || null;
+	}
+	if (typeof pairs === "object") {
+		const candidate = pairs[pairIndex];
+		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
+			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
+				return candidate;
+			}
+		}
+	}
+	return null;
+}
+
+function accumulateScholarshipRecord(r, pairs, result) {
+	if (!r || typeof r !== "object") return;
+	if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) return;
+	if (r.status !== "held") return;
+
+	const duration = getRecordDurationHours(r);
+	result.totalHeldSessions += 1;
+	result.totalHours += duration;
+	result.byPair[r.pairIndex] = (result.byPair[r.pairIndex] || 0) + duration;
+
+	const pair = findPairObject(pairs, r.pairIndex);
+	if (pair && typeof pair === "object" && !Array.isArray(pair)) {
+		const participants = new Set();
+		if (Number.isInteger(pair.studentIndex) && pair.studentIndex >= 0) {
+			participants.add(pair.studentIndex);
+		}
+		if (Number.isInteger(pair.pupilIndex) && pair.pupilIndex >= 0) {
+			participants.add(pair.pupilIndex);
+		}
+		for (const pIdx of participants) {
+			result.byParticipant[pIdx] =
+				(result.byParticipant[pIdx] || 0) + duration;
+		}
+	}
+}
+
 function getScholarshipHoursSummary(attendanceRecords, pairs) {
 	const result = {
 		byPair: {},
@@ -2847,65 +2888,7 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 		return result;
 	}
 	for (const r of attendanceRecords) {
-		if (!r || typeof r !== "object") continue;
-		if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) continue;
-		if (r.status !== "held") continue;
-
-		const duration = getRecordDurationHours(r);
-		result.totalHeldSessions += 1;
-		result.totalHours += duration;
-		result.byPair[r.pairIndex] = (result.byPair[r.pairIndex] || 0) + duration;
-
-		let pair = null;
-		if (Array.isArray(pairs)) {
-			const candidate = pairs[r.pairIndex];
-			if (
-				candidate &&
-				typeof candidate === "object" &&
-				!Array.isArray(candidate)
-			) {
-				const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
-				if (!hasExplicitIndex || candidate.pairIndex === r.pairIndex) {
-					pair = candidate;
-				}
-			}
-			if (!pair && pairs.length > 0) {
-				pair =
-					pairs.find(
-						(p) =>
-							p &&
-							typeof p === "object" &&
-							!Array.isArray(p) &&
-							p.pairIndex === r.pairIndex,
-					) || null;
-			}
-		} else if (pairs && typeof pairs === "object" && !Array.isArray(pairs)) {
-			const candidate = pairs[r.pairIndex];
-			if (
-				candidate &&
-				typeof candidate === "object" &&
-				!Array.isArray(candidate)
-			) {
-				const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
-				if (!hasExplicitIndex || candidate.pairIndex === r.pairIndex) {
-					pair = candidate;
-				}
-			}
-		}
-
-		if (pair && typeof pair === "object" && !Array.isArray(pair)) {
-			const participants = new Set();
-			if (Number.isInteger(pair.studentIndex) && pair.studentIndex >= 0) {
-				participants.add(pair.studentIndex);
-			}
-			if (Number.isInteger(pair.pupilIndex) && pair.pupilIndex >= 0) {
-				participants.add(pair.pupilIndex);
-			}
-			for (const pIdx of participants) {
-				result.byParticipant[pIdx] =
-					(result.byParticipant[pIdx] || 0) + duration;
-			}
-		}
+		accumulateScholarshipRecord(r, pairs, result);
 	}
 	result.sortedParticipants = Object.keys(result.byParticipant)
 		.map((k) => {
@@ -2917,6 +2900,80 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 		})
 		.sort((a, b) => b.totalHours - a.totalHours || a.index - b.index);
 	return result;
+}
+
+function getCleanAttendanceRecords(records) {
+	return Array.isArray(records)
+		? records
+		: records && Array.isArray(records.entries)
+			? records.entries
+			: [];
+}
+
+function collectPairIndexes(cleanRecords, pairs) {
+	const pairIndexes = new Set();
+	if (Array.isArray(pairs)) {
+		pairs.forEach((p, idx) => {
+			const pIdx =
+				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
+					? p.pairIndex
+					: idx;
+			pairIndexes.add(pIdx);
+		});
+	}
+	for (const r of cleanRecords) {
+		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+			pairIndexes.add(r.pairIndex);
+		}
+	}
+	return Array.from(pairIndexes).sort((a, b) => a - b);
+}
+
+function computePairReport(pIdx, cleanRecords, target) {
+	let heldSessions = 0;
+	let totalHours = 0;
+	const statusCounts = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
+	const coveredAiTopicsSet = new Set();
+
+	for (const r of cleanRecords) {
+		if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
+		if (Object.hasOwn(statusCounts, r.status)) {
+			statusCounts[r.status] += 1;
+		}
+		if (r.status === "held") {
+			heldSessions += 1;
+			const duration = getRecordDurationHours(r);
+			totalHours += duration;
+			if (
+				r.aiTopic &&
+				typeof r.aiTopic === "string" &&
+				AI_TOPIC_KEYS.includes(r.aiTopic)
+			) {
+				coveredAiTopicsSet.add(r.aiTopic);
+			}
+		}
+	}
+
+	const completionPercent =
+		target > 0 ? Math.round((totalHours / target) * 100) : 0;
+
+	return {
+		pairReport: Object.freeze({
+			pairIndex: pIdx,
+			heldSessions,
+			totalHours,
+			targetHours: target,
+			completionPercent,
+			coveredAiTopics: Object.freeze(Array.from(coveredAiTopicsSet).sort()),
+			statusCounts: Object.freeze(statusCounts),
+		}),
+		metrics: {
+			heldSessions,
+			totalHours,
+			statusCounts,
+			coveredAiTopics: coveredAiTopicsSet,
+		},
+	};
 }
 
 /**
@@ -2936,29 +2993,9 @@ function buildScholarshipReport(records, pairs, targetHours) {
 			? targetHours
 			: 30;
 
-	const cleanRecords = Array.isArray(records)
-		? records
-		: records && Array.isArray(records.entries)
-			? records.entries
-			: [];
+	const cleanRecords = getCleanAttendanceRecords(records);
+	const sortedPairIndexes = collectPairIndexes(cleanRecords, pairs);
 
-	const pairIndexes = new Set();
-	if (Array.isArray(pairs)) {
-		pairs.forEach((p, idx) => {
-			const pIdx =
-				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
-					? p.pairIndex
-					: idx;
-			pairIndexes.add(pIdx);
-		});
-	}
-	for (const r of cleanRecords) {
-		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
-			pairIndexes.add(r.pairIndex);
-		}
-	}
-
-	const sortedPairIndexes = Array.from(pairIndexes).sort((a, b) => a - b);
 	const pairReports = [];
 	const byPair = {};
 	let overallHeldSessions = 0;
@@ -2972,48 +3009,18 @@ function buildScholarshipReport(records, pairs, targetHours) {
 	const overallAiTopics = new Set();
 
 	for (const pIdx of sortedPairIndexes) {
-		let heldSessions = 0;
-		let totalHours = 0;
-		const statusCounts = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
-		const coveredAiTopicsSet = new Set();
-
-		for (const r of cleanRecords) {
-			if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
-			if (Object.hasOwn(statusCounts, r.status)) {
-				statusCounts[r.status] += 1;
-				overallStatusCounts[r.status] += 1;
-			}
-			if (r.status === "held") {
-				heldSessions += 1;
-				overallHeldSessions += 1;
-				const duration = getRecordDurationHours(r);
-				totalHours += duration;
-				overallTotalHours += duration;
-				if (
-					r.aiTopic &&
-					typeof r.aiTopic === "string" &&
-					AI_TOPIC_KEYS.includes(r.aiTopic)
-				) {
-					coveredAiTopicsSet.add(r.aiTopic);
-					overallAiTopics.add(r.aiTopic);
-				}
-			}
-		}
-
-		const completionPercent =
-			target > 0 ? Math.round((totalHours / target) * 100) : 0;
-
-		const pairReport = Object.freeze({
-			pairIndex: pIdx,
-			heldSessions,
-			totalHours,
-			targetHours: target,
-			completionPercent,
-			coveredAiTopics: Object.freeze(Array.from(coveredAiTopicsSet).sort()),
-			statusCounts: Object.freeze(statusCounts),
-		});
+		const { pairReport, metrics } = computePairReport(pIdx, cleanRecords, target);
 		pairReports.push(pairReport);
 		byPair[pIdx] = pairReport;
+
+		overallHeldSessions += metrics.heldSessions;
+		overallTotalHours += metrics.totalHours;
+		for (const st of Object.keys(overallStatusCounts)) {
+			overallStatusCounts[st] += metrics.statusCounts[st];
+		}
+		for (const top of metrics.coveredAiTopics) {
+			overallAiTopics.add(top);
+		}
 	}
 
 	const totalPairs = sortedPairIndexes.length;
@@ -3118,6 +3125,92 @@ function getTopicTagStyle(topicKey) {
 	};
 }
 
+function scoreAiSummary(summary, keys) {
+	let totalCount = 0;
+	let activeTopics = 0;
+	let balancedTopics = 0;
+	const topicKeys = keys.filter(
+		(k) => summary[k] && typeof summary[k] === "object",
+	);
+	if (topicKeys.length === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	for (const k of topicKeys) {
+		const item = summary[k];
+		const tot = typeof item.total === "number" ? item.total : 0;
+		const req = typeof item.requested === "number" ? item.requested : 0;
+		const off = typeof item.offered === "number" ? item.offered : 0;
+		totalCount += tot;
+		if (tot > 0) activeTopics += 1;
+		if (req > 0 && off > 0) balancedTopics += 1;
+	}
+	if (totalCount === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	const diversityScore = (activeTopics / Math.max(1, topicKeys.length)) * 40;
+	const volumeScore = Math.min(35, totalCount * 7);
+	const balanceScore = (balancedTopics / Math.max(1, activeTopics)) * 25;
+	return Math.round(diversityScore + volumeScore + balanceScore);
+}
+
+function scoreScholarshipSummary(summary) {
+	const totalHours =
+		typeof summary.totalHours === "number" ? summary.totalHours : 0;
+	const totalHeld =
+		typeof summary.totalHeldSessions === "number"
+			? summary.totalHeldSessions
+			: 0;
+	const participantCount =
+		summary.byParticipant && typeof summary.byParticipant === "object"
+			? Object.keys(summary.byParticipant).length
+			: 0;
+	if (totalHours === 0 && totalHeld === 0 && participantCount === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	const hoursScore = Math.min(45, totalHours * 5);
+	const sessionsScore = Math.min(35, totalHeld * 7);
+	const participantScore = Math.min(20, participantCount * 10);
+	return Math.round(hoursScore + sessionsScore + participantScore);
+}
+
+function scoreAttendanceSummary(summary) {
+	const st = summary.byStatus;
+	const held = typeof st.held === "number" ? st.held : 0;
+	const missed = typeof st.missed === "number" ? st.missed : 0;
+	const postponed = typeof st.postponed === "number" ? st.postponed : 0;
+	const cancelled = typeof st.cancelled === "number" ? st.cancelled : 0;
+	const total = held + missed + postponed + cancelled;
+	if (total === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	const heldRate =
+		typeof summary.heldRate === "number"
+			? summary.heldRate
+			: held / Math.max(1, held + missed);
+	const volumeScore = Math.min(50, total * 5);
+	const rateScore = heldRate * 50;
+	return Math.round(volumeScore + rateScore);
+}
+
+function scoreGenericSummary(summary, keys) {
+	let sumNumbers = 0;
+	let nonZeroCount = 0;
+	for (const k of keys) {
+		const val = summary[k];
+		if (typeof val === "number" && Number.isFinite(val)) {
+			sumNumbers += Math.abs(val);
+			if (val > 0) nonZeroCount += 1;
+		}
+	}
+	if (sumNumbers === 0 && nonZeroCount === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	return Math.min(
+		100,
+		Math.max(10, Math.round(nonZeroCount * 25 + sumNumbers * 2)),
+	);
+}
+
 function getSummaryQualityScore(summary) {
 	if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
 		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
@@ -3146,83 +3239,21 @@ function getSummaryQualityScore(summary) {
 	let rawScore = 0;
 
 	if (isAiSummary) {
-		let totalCount = 0;
-		let activeTopics = 0;
-		let balancedTopics = 0;
-		const topicKeys = keys.filter(
-			(k) => summary[k] && typeof summary[k] === "object",
-		);
-		if (topicKeys.length === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		for (const k of topicKeys) {
-			const item = summary[k];
-			const tot = typeof item.total === "number" ? item.total : 0;
-			const req = typeof item.requested === "number" ? item.requested : 0;
-			const off = typeof item.offered === "number" ? item.offered : 0;
-			totalCount += tot;
-			if (tot > 0) activeTopics += 1;
-			if (req > 0 && off > 0) balancedTopics += 1;
-		}
-		if (totalCount === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		const diversityScore = (activeTopics / Math.max(1, topicKeys.length)) * 40;
-		const volumeScore = Math.min(35, totalCount * 7);
-		const balanceScore = (balancedTopics / Math.max(1, activeTopics)) * 25;
-		rawScore = Math.round(diversityScore + volumeScore + balanceScore);
+		const res = scoreAiSummary(summary, keys);
+		if (typeof res === "object") return res;
+		rawScore = res;
 	} else if (isScholarshipSummary) {
-		const totalHours =
-			typeof summary.totalHours === "number" ? summary.totalHours : 0;
-		const totalHeld =
-			typeof summary.totalHeldSessions === "number"
-				? summary.totalHeldSessions
-				: 0;
-		const participantCount =
-			summary.byParticipant && typeof summary.byParticipant === "object"
-				? Object.keys(summary.byParticipant).length
-				: 0;
-		if (totalHours === 0 && totalHeld === 0 && participantCount === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		const hoursScore = Math.min(45, totalHours * 5);
-		const sessionsScore = Math.min(35, totalHeld * 7);
-		const participantScore = Math.min(20, participantCount * 10);
-		rawScore = Math.round(hoursScore + sessionsScore + participantScore);
+		const res = scoreScholarshipSummary(summary);
+		if (typeof res === "object") return res;
+		rawScore = res;
 	} else if (isAttendanceSummary) {
-		const st = summary.byStatus;
-		const held = typeof st.held === "number" ? st.held : 0;
-		const missed = typeof st.missed === "number" ? st.missed : 0;
-		const postponed = typeof st.postponed === "number" ? st.postponed : 0;
-		const cancelled = typeof st.cancelled === "number" ? st.cancelled : 0;
-		const total = held + missed + postponed + cancelled;
-		if (total === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		const heldRate =
-			typeof summary.heldRate === "number"
-				? summary.heldRate
-				: held / Math.max(1, held + missed);
-		const volumeScore = Math.min(50, total * 5);
-		const rateScore = heldRate * 50;
-		rawScore = Math.round(volumeScore + rateScore);
+		const res = scoreAttendanceSummary(summary);
+		if (typeof res === "object") return res;
+		rawScore = res;
 	} else {
-		let sumNumbers = 0;
-		let nonZeroCount = 0;
-		for (const k of keys) {
-			const val = summary[k];
-			if (typeof val === "number" && Number.isFinite(val)) {
-				sumNumbers += Math.abs(val);
-				if (val > 0) nonZeroCount += 1;
-			}
-		}
-		if (sumNumbers === 0 && nonZeroCount === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		rawScore = Math.min(
-			100,
-			Math.max(10, Math.round(nonZeroCount * 25 + sumNumbers * 2)),
-		);
+		const res = scoreGenericSummary(summary, keys);
+		if (typeof res === "object") return res;
+		rawScore = res;
 	}
 
 	const score = Math.max(1, Math.min(100, rawScore));
