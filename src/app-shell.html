@@ -535,6 +535,25 @@
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for scholarship hours summary -->
       <div id="scholarshipHoursSummaryList" role="region" aria-live="polite" aria-label="סיכום שעות מלגה ומעורבות"></div>
     </div>
+    <div class="card" id="dropoutRiskCard">
+      <h2 id="dropoutRiskHeading">זוגות בסיכון נשירה</h2>
+      <div class="row">
+        <div>
+          <label for="dropoutThresholdSelect" id="dropoutThresholdLabel">סף מינימום מפגשים</label>
+          <select id="dropoutThresholdSelect" aria-describedby="dropoutRiskCount">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div>
+          <span id="dropoutRiskCountLabel" class="hint">התראות פעילות</span>
+          <p id="dropoutRiskCount" class="badge" aria-live="polite">0</p>
+        </div>
+      </div>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic dropout risk list -->
+      <div id="dropoutRiskList" role="region" aria-live="polite" aria-label="זוגות בסיכון נשירה"></div>
+    </div>
     <div class="card" id="aiChallengeCard">
       <h2 id="challengeHeading">תחרות כלי AI</h2>
       <div class="row">
@@ -993,6 +1012,7 @@
       window.recordAttendance = attendance.recordAttendance;
       window.serializeAttendance = attendance.serializeAttendance;
       window.deserializeAttendance = attendance.deserializeAttendance;
+      window.detectInactivePairs = attendance.detectInactivePairs;
     }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -2720,6 +2740,7 @@
     }
     var er = $('exportReport');
     if (er) er.setAttribute('aria-expanded', $('reportBox').hidden ? 'false' : 'true');
+    if (typeof renderDropoutRiskList === 'function') renderDropoutRiskList();
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
@@ -3336,6 +3357,7 @@
     }).join('') : '<p class="empty">לא נמצא פרק מתאים.</p>';
     renderAITopicsSummary();
     renderScholarshipHoursSummary();
+    renderDropoutRiskList();
   }
 
   function renderScholarshipHoursSummary(customAttendance, customPairs) {
@@ -3502,6 +3524,137 @@
     } catch (err) { say('guideStatus', errorHe(err) + ': החיפוש לא נשמר.', true); }
   });
   $('guideAllBtn').addEventListener('click', function () { renderGuide(); say('guideStatus', 'כל המדריך מוצג.'); });
+
+  // ---------- Dropout Risk Module (#tab-guide) ----------
+  var S_DROPOUT_HEADING = {
+    he: 'זוגות בסיכון נשירה',
+    ar: 'الأزواج المعرضون لخطر التسرب',
+    ru: 'Пары в группе риска отсева'
+  };
+  var S_DROPOUT_THRESHOLD_LABEL = {
+    he: 'סף מינימום מפגשים',
+    ar: 'الحد الأدنى للجلسات',
+    ru: 'Минимальный порог занятий'
+  };
+  var S_DROPOUT_COUNT_LABEL = {
+    he: 'התראות פעילות',
+    ar: 'التنبيهات النشطة',
+    ru: 'Активные оповещения'
+  };
+  var S_DROPOUT_EMPTY = {
+    he: 'אין כרגע זוגות בסיכון נשירה.',
+    ar: 'لا يوجد أزواج معرضون لخطر التسرب حالياً.',
+    ru: 'На данный момент нет пар в группе риска.'
+  };
+  var S_DROPOUT_PAIR = {
+    he: 'זוג',
+    ar: 'الزوج',
+    ru: 'Пара'
+  };
+  var S_DROPOUT_HELD = {
+    he: 'מפגשים שהתקיימו',
+    ar: 'اللقاءات المنعقدة',
+    ru: 'Проведено занятий'
+  };
+  var S_DROPOUT_MISSED = {
+    he: 'החמצות וביטולים',
+    ar: 'إلغاءات وغياب',
+    ru: 'Отмен и пропусков'
+  };
+  var S_DROPOUT_REASON = {
+    he: 'סיבת סיכון',
+    ar: 'سبب الخطر',
+    ru: 'Причина риска'
+  };
+
+  function renderDropoutRiskList(customAttendance, customPairs) {
+    var listEl = $('dropoutRiskList');
+    if (!listEl) return;
+    var countEl = $('dropoutRiskCount');
+    var thresholdEl = $('dropoutThresholdSelect');
+    if (thresholdEl && !thresholdEl.value) {
+      thresholdEl.value = '2';
+    }
+    var threshold = thresholdEl ? (parseInt(thresholdEl.value, 10) || 2) : 2;
+
+    var s = (typeof window !== 'undefined' && window.state) ? window.state : state;
+    var cardEl = $('dropoutRiskCard');
+    var sourceState = cardEl?.state || s;
+
+    var records = [];
+    if (customAttendance !== undefined) {
+      records = customAttendance;
+    } else if (sourceState?.attendance && Array.isArray(sourceState.attendance.entries)) {
+      records = sourceState.attendance.entries;
+    } else if (Array.isArray(sourceState?.attendance)) {
+      records = sourceState.attendance;
+    } else if (Array.isArray(sourceState?.attendanceEntries)) {
+      records = sourceState.attendanceEntries;
+    } else if (Array.isArray(sourceState?.heldRecords)) {
+      records = sourceState.heldRecords;
+    }
+
+    var pairs = [];
+    if (customPairs !== undefined) {
+      pairs = customPairs;
+    } else if (Array.isArray(sourceState?.pairs) && sourceState.pairs.length) {
+      pairs = sourceState.pairs;
+    } else if (typeof currentPairs === 'function') {
+      pairs = currentPairs();
+    } else if (Array.isArray(lastMatch2?.pairs)) {
+      pairs = lastMatch2.pairs;
+    } else if (last && Array.isArray(last.pairs)) {
+      pairs = last.pairs;
+    }
+
+    var lang = currentLang || 'he';
+    var atRisk = [];
+    if (attendance && typeof attendance.detectInactivePairs === 'function') {
+      atRisk = attendance.detectInactivePairs(records, pairs, { minHeldCount: threshold, lang: lang });
+    }
+
+    if (countEl) {
+      countEl.textContent = String(atRisk.length);
+    }
+
+    listEl.setAttribute('aria-label', S_DROPOUT_HEADING[lang] || S_DROPOUT_HEADING.he);
+    if (!atRisk || atRisk.length === 0) {
+      var emptyMsg = S_DROPOUT_EMPTY[lang] || S_DROPOUT_EMPTY.he;
+      listEl.innerHTML = '<div class="empty-state"><p class="empty" id="dropoutRiskEmpty">' + esc(emptyMsg) + '</p></div>';
+    } else {
+      var pairWord = S_DROPOUT_PAIR[lang] || S_DROPOUT_PAIR.he;
+      var heldWord = S_DROPOUT_HELD[lang] || S_DROPOUT_HELD.he;
+      var missedWord = S_DROPOUT_MISSED[lang] || S_DROPOUT_MISSED.he;
+      var reasonWord = S_DROPOUT_REASON[lang] || S_DROPOUT_REASON.he;
+
+      var html = atRisk.map(function (item) {
+        var pNum = item.pairIndex + 1;
+        return '<div class="item dropout-risk-item" data-pair="' + esc(String(item.pairIndex)) + '">' +
+          '<b>' + esc(pairWord + ' ' + pNum) + '</b>' +
+          '<span class="meta">' +
+          esc(heldWord) + ': ' + esc(String(item.heldCount)) + ' · ' +
+          esc(missedWord) + ': ' + esc(String(item.missedOrCancelledCount)) + '<br>' +
+          '<b>' + esc(reasonWord) + ':</b> <span class="risk-reason">' + esc(item.riskReason) + '</span>' +
+          '</span>' +
+          '</div>';
+      }).join('');
+      listEl.innerHTML = html;
+    }
+
+    if (cardEl) {
+      cardEl.state = sourceState;
+      cardEl.renderDropoutRiskList = renderDropoutRiskList;
+    }
+  }
+
+  if ($('dropoutThresholdSelect')) {
+    if (!$('dropoutThresholdSelect').value) {
+      $('dropoutThresholdSelect').value = '2';
+    }
+    $('dropoutThresholdSelect').addEventListener('change', function () {
+      renderDropoutRiskList();
+    });
+  }
 
   // ---------- AI Challenge Module (#tab-guide) ----------
   var challengeEntries = [];
@@ -4001,7 +4154,7 @@
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
-    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderChallengeForm(); renderChallengeLeaderboard(); }
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
@@ -4060,6 +4213,7 @@
   renderGuide();
   renderAITopicsSummary();
   renderScholarshipHoursSummary();
+  renderDropoutRiskList();
   renderChallengeForm();
   renderChallengeLeaderboard();
   function applyLanguage(lang) {
@@ -4082,8 +4236,12 @@
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary();
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList();
     renderChallengeForm(); renderChallengeLeaderboard();
+
+    if ($('dropoutRiskHeading')) $('dropoutRiskHeading').textContent = S_DROPOUT_HEADING[currentLang] || S_DROPOUT_HEADING.he;
+    if ($('dropoutThresholdLabel')) $('dropoutThresholdLabel').textContent = S_DROPOUT_THRESHOLD_LABEL[currentLang] || S_DROPOUT_THRESHOLD_LABEL.he;
+    if ($('dropoutRiskCountLabel')) $('dropoutRiskCountLabel').textContent = S_DROPOUT_COUNT_LABEL[currentLang] || S_DROPOUT_COUNT_LABEL.he;
 
     if ($('challengeHeading')) $('challengeHeading').textContent = S_CHALLENGE_HEADING[currentLang] || S_CHALLENGE_HEADING.he;
     if ($('challengePairLabel')) $('challengePairLabel').textContent = S_CHALLENGE_PAIR[currentLang] || S_CHALLENGE_PAIR.he;
@@ -4206,6 +4364,8 @@
     window.renderScholarshipReport = renderScholarshipReport;
     window.renderChallengeForm = renderChallengeForm;
     window.renderChallengeLeaderboard = renderChallengeLeaderboard;
+    window.renderDropoutRiskList = renderDropoutRiskList;
+    window.detectInactivePairs = (attendance && attendance.detectInactivePairs) || detectInactivePairs;
     window.validateBatchImportZeroPii = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
     window.renderPilotBatchStatus = renderPilotBatchStatus;
   }

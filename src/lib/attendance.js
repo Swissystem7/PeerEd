@@ -1035,6 +1035,163 @@ const focusReaderConfig = Object.freeze({
 	loadFocusReaderConfig,
 });
 
+function getDropoutRiskReason(
+	heldCount,
+	minHeld,
+	consecutiveStreak,
+	_missedCount,
+	lang = "he",
+) {
+	const belowThreshold = heldCount < minHeld;
+	const hasStreak = consecutiveStreak >= 2;
+
+	if (lang === "ar") {
+		if (belowThreshold && hasStreak) {
+			return `أقل من الحد الأدنى للجلسات (${heldCount}/${minHeld}) وتتالي الإلغاءات/الغياب (${consecutiveStreak})`;
+		}
+		if (belowThreshold) {
+			return `أقل من الحد الأدنى للجلسات (${heldCount} من ${minHeld})`;
+		}
+		return `تتالي الإلغاءات أو الغياب (${consecutiveStreak} متتالية)`;
+	}
+
+	if (lang === "ru") {
+		if (belowThreshold && hasStreak) {
+			return `Ниже порога занятий (${heldCount}/${minHeld}) и серия отмен/пропусков (${consecutiveStreak})`;
+		}
+		if (belowThreshold) {
+			return `Ниже порога проведенных занятий (${heldCount} из ${minHeld})`;
+		}
+		return `Серия отмен или пропусков (${consecutiveStreak} подряд)`;
+	}
+
+	// Hebrew (default)
+	if (belowThreshold && hasStreak) {
+		return `מתחת לסף מפגשים (${heldCount}/${minHeld}) ורצף ביטולים/החמצות (${consecutiveStreak})`;
+	}
+	if (belowThreshold) {
+		return `מתחת לסף מפגשים שהתקיימו (${heldCount} מתוך ${minHeld})`;
+	}
+	return `רצף ביטולים או החמצות (${consecutiveStreak} ברצף)`;
+}
+
+function detectInactivePairs(records, pairs, options) {
+	const rawMin =
+		typeof options === "number"
+			? options
+			: options && typeof options.minHeldCount === "number"
+				? options.minHeldCount
+				: 2;
+	const minHeld = Number.isFinite(rawMin) ? rawMin : 2;
+	const lang =
+		options && (options.lang === "ar" || options.lang === "ru")
+			? options.lang
+			: "he";
+	const consecutiveThreshold = 2;
+
+	const cleanRecords = Array.isArray(records)
+		? records
+		: records && Array.isArray(records.entries)
+			? records.entries
+			: [];
+
+	const pairIndexes = new Set();
+	if (Array.isArray(pairs)) {
+		pairs.forEach((p, idx) => {
+			const pIdx =
+				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
+					? p.pairIndex
+					: idx;
+			pairIndexes.add(pIdx);
+		});
+	}
+	for (const r of cleanRecords) {
+		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+			pairIndexes.add(r.pairIndex);
+		}
+	}
+
+	if (pairIndexes.size === 0) {
+		return Object.freeze([]);
+	}
+
+	const sortedPairIndexes = Array.from(pairIndexes).sort((a, b) => a - b);
+	const atRiskPairs = [];
+
+	for (const pIdx of sortedPairIndexes) {
+		const pairRecords = [];
+		for (const r of cleanRecords) {
+			if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
+			pairRecords.push(r);
+		}
+
+		pairRecords.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+		let heldCount = 0;
+		let missedOrCancelledCount = 0;
+		let currentStreak = 0;
+		let maxStreak = 0;
+
+		for (const r of pairRecords) {
+			if (r.status === "held") {
+				heldCount += 1;
+				currentStreak = 0;
+			} else if (r.status === "missed" || r.status === "cancelled") {
+				missedOrCancelledCount += 1;
+				currentStreak += 1;
+				if (currentStreak > maxStreak) {
+					maxStreak = currentStreak;
+				}
+			}
+		}
+
+		const isBelowThreshold = heldCount < minHeld;
+		const hasStreak = maxStreak >= consecutiveThreshold;
+
+		if (isBelowThreshold || hasStreak) {
+			const riskReason = getDropoutRiskReason(
+				heldCount,
+				minHeld,
+				maxStreak,
+				missedOrCancelledCount,
+				lang,
+			);
+			const belowGap = Math.max(0, minHeld - heldCount);
+			const riskScore =
+				belowGap * 1000 +
+				maxStreak * 100 +
+				missedOrCancelledCount * 10 -
+				heldCount;
+
+			atRiskPairs.push({
+				pairIndex: pIdx,
+				heldCount,
+				missedOrCancelledCount,
+				riskReason,
+				_riskScore: riskScore,
+			});
+		}
+	}
+
+	atRiskPairs.sort((a, b) => {
+		if (b._riskScore !== a._riskScore) {
+			return b._riskScore - a._riskScore;
+		}
+		return a.pairIndex - b.pairIndex;
+	});
+
+	const result = atRiskPairs.map((p) =>
+		Object.freeze({
+			pairIndex: p.pairIndex,
+			heldCount: p.heldCount,
+			missedOrCancelledCount: p.missedOrCancelledCount,
+			riskReason: p.riskReason,
+		}),
+	);
+
+	return Object.freeze(result);
+}
+
 module.exports = {
 	ATTENDANCE_STATUSES,
 	makeAttendanceLog,
@@ -1072,4 +1229,5 @@ module.exports = {
 	saveFocusReaderConfig,
 	loadFocusReaderConfig,
 	focusReaderConfig,
+	detectInactivePairs,
 };
