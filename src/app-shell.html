@@ -189,6 +189,12 @@
         <div><label for="role">תפקיד</label><select id="role" aria-required="true" aria-describedby="addStatus">
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region" aria-required="true" aria-describedby="addStatus"></select></div>
+        <div><label for="participantAiLevelSelect" id="participantAiLevelLabel">רמת למידה</label>
+          <select id="participantAiLevelSelect" aria-describedby="addStatus">
+            <option value="">ללא הגדרה</option>
+            <option value="beginner">מתחיל</option>
+            <option value="advanced">מתקדם</option>
+          </select></div>
       </div>
       <div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">
         <label class="check"><input type="checkbox" id="consent" aria-describedby="consentHint"> התקבל אישור הורה לשידוך</label>
@@ -819,6 +825,109 @@
     return [label, ': ', Math.round(value * 100), '%'].join('');
   }
 
+  var OVERLAP_SLOTS_LABELS = Object.freeze({
+    he: 'חפיפת שעות שבועיות',
+    ar: 'تداخل الساعات الأسبوعية',
+    ru: 'Еженедельные пересекающиеся часы'
+  });
+
+  function getWeeklyOverlapSlots(personA, personB) {
+    if (profile && typeof profile.getWeeklyOverlapSlots === 'function') {
+      return profile.getWeeklyOverlapSlots(personA, personB);
+    }
+    var a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
+    var b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
+    var right = new Set();
+    for (var i = 0; i < b.length; i++) {
+      var s = profile && typeof profile.normalizeSlot === 'function' ? profile.normalizeSlot(b[i]) : b[i];
+      if (s) right.add(s);
+    }
+    var seen = new Set();
+    var out = [];
+    for (var j = 0; j < a.length; j++) {
+      var slot = profile && typeof profile.normalizeSlot === 'function' ? profile.normalizeSlot(a[j]) : a[j];
+      if (slot && right.has(slot) && !seen.has(slot)) {
+        seen.add(slot);
+        out.push(slot);
+      }
+    }
+    return out.sort();
+  }
+
+  function weeklyOverlapBadgeText(slots, lang) {
+    lang = lang || currentLang || 'he';
+    var label = OVERLAP_SLOTS_LABELS[lang] || OVERLAP_SLOTS_LABELS.he;
+    var list = Array.isArray(slots) ? slots : [];
+    if (!list.length) {
+      if (lang === 'ar') return label + ': لا يوجد تداخل';
+      if (lang === 'ru') return label + ': нет пересечений';
+      return label + ': אין חפיפה';
+    }
+    return label + ' (' + list.length + '): ' + list.join(', ');
+  }
+
+  var AI_LEVEL_LABELS = Object.freeze({
+    beginner: Object.freeze({
+      he: 'מתחיל',
+      ar: 'مبتدئ',
+      ru: 'начинающий'
+    }),
+    advanced: Object.freeze({
+      he: 'מתקדם',
+      ar: 'متقدم',
+      ru: 'продвинутый'
+    })
+  });
+  var AI_LEVEL_FIELD_LABELS = Object.freeze({
+    label: Object.freeze({
+      he: 'רמת למידה',
+      ar: 'مستوى التعلم',
+      ru: 'Уровень обучения'
+    }),
+    none: Object.freeze({
+      he: 'ללא הגדרה',
+      ar: 'بدון تحديد',
+      ru: 'Не указано'
+    })
+  });
+  var AI_LEVEL_FIT_LABELS = Object.freeze({
+    match: Object.freeze({
+      he: 'התאמת רמת למידה: התאמה',
+      ar: 'تطابق مستوى التعلم: متطابق',
+      ru: 'Соответствие уровня обучения: совпадает'
+    }),
+    diff: Object.freeze({
+      he: 'התאמת רמת למידה: שונה',
+      ar: 'تطابق مستوى التعلم: مختلف',
+      ru: 'Соответствие уровня обучения: не совпадает'
+    }),
+    none: Object.freeze({
+      he: 'התאמת רמת למידה: לא הוגדרה רמה',
+      ar: 'تطابق مستوى التعلم: غير محدد',
+      ru: 'Соответствие уровня обучения: не указано'
+    })
+  });
+
+  function aiLevelBadgeText(studentLevel, pupilLevel, lang) {
+    lang = lang || currentLang || 'he';
+    var sValid = studentLevel === 'beginner' || studentLevel === 'advanced';
+    var pValid = pupilLevel === 'beginner' || pupilLevel === 'advanced';
+    if (!sValid || !pValid) {
+      return AI_LEVEL_FIT_LABELS.none[lang] || AI_LEVEL_FIT_LABELS.none.he;
+    }
+    if (studentLevel === pupilLevel) {
+      var matchPrefix = AI_LEVEL_FIT_LABELS.match[lang] || AI_LEVEL_FIT_LABELS.match.he;
+      var levelName = (AI_LEVEL_LABELS[studentLevel] && AI_LEVEL_LABELS[studentLevel][lang]) || studentLevel;
+      return matchPrefix + ' (' + levelName + ')';
+    }
+    var diffPrefix = AI_LEVEL_FIT_LABELS.diff[lang] || AI_LEVEL_FIT_LABELS.diff.he;
+    var sName = (AI_LEVEL_LABELS[studentLevel] && AI_LEVEL_LABELS[studentLevel][lang]) || studentLevel;
+    var pName = (AI_LEVEL_LABELS[pupilLevel] && AI_LEVEL_LABELS[pupilLevel][lang]) || pupilLevel;
+    if (lang === 'ar') return diffPrefix + ' (' + sName + ' مقابل ' + pName + ')';
+    if (lang === 'ru') return diffPrefix + ' (' + sName + ' против ' + pName + ')';
+    return diffPrefix + ' (' + sName + ' מול ' + pName + ')';
+  }
+
   if (typeof window !== 'undefined') {
     window.AI_TOPICS = AI_TOPICS;
     window.AI_TOPIC_BADGE_LABELS = AI_TOPIC_BADGE_LABELS;
@@ -844,6 +953,13 @@
     window.renderPeople = renderPeople;
     window.renderPeopleAiFilter = renderPeopleAiFilter;
     window.refreshFilterMissingAiLabel = refreshFilterMissingAiLabel;
+    window.getWeeklyOverlapSlots = getWeeklyOverlapSlots;
+    window.weeklyOverlapBadgeText = weeklyOverlapBadgeText;
+    window.aiLevelBadgeText = aiLevelBadgeText;
+    window.AI_LEVEL_LABELS = AI_LEVEL_LABELS;
+    window.AI_LEVEL_FIELD_LABELS = AI_LEVEL_FIELD_LABELS;
+    window.AI_LEVEL_FIT_LABELS = AI_LEVEL_FIT_LABELS;
+    window.OVERLAP_SLOTS_LABELS = OVERLAP_SLOTS_LABELS;
     if (attendance) {
       window.estimateReadingTimeHebrew = attendance.estimateReadingTimeHebrew;
       window.getTopicTagColor = attendance.getTopicTagColor;
@@ -968,6 +1084,7 @@
     ['invalid availability slot:', 'שעה שאינה בלוח'],
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    ['invalid aiLevel:', 'רמת למידה לא מוכרת'],
     // the retention stamp of a stored person (profile.js withoutRetentionStamp, reached through load())
     ['invalid retention:', 'חותמת השמירה ברשומה לא תקינה'],
     // The enrichment-unit record (units screen). One module builds a unit: unit.js, which names the fields
@@ -1377,6 +1494,7 @@
     draft = { subjects: [], availability: [] };
     renderPeriodChips();
     $('consent').checked = false;
+    if ($('participantAiLevelSelect')) $('participantAiLevelSelect').value = '';
     Array.prototype.forEach.call(document.querySelectorAll?.('#aiTopics input[type="checkbox"]') || [], (input) => {
       input.checked = false;
     });
@@ -1392,12 +1510,14 @@
       .filter((input) => input.checked)
       .map((input) => input.getAttribute('data-ai-topic') || input.value)
       .filter((key) => validateAITopics([key]));
+    var aiLevel = $('participantAiLevelSelect') ? $('participantAiLevelSelect').value : '';
     var candidate = {
       role: $('role').value,
       region: $('region').value,
       availability: draft.availability.slice(),
       subjects: draft.subjects.slice()
     };
+    if (aiLevel === 'beginner' || aiLevel === 'advanced') candidate.aiLevel = aiLevel;
     if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
@@ -1424,6 +1544,7 @@
     }
     made = Object.assign({}, made);
     if (targetAITopics.length) made.target_ai_topics = targetAITopics;
+    if (aiLevel === 'beginner' || aiLevel === 'advanced') made.aiLevel = aiLevel;
     state.people.push(made);
     resetMatchView();
     clearDraft();
@@ -1445,6 +1566,7 @@
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
       flipped = Object.assign({}, flipped);
       if (who.target_ai_topics && who.target_ai_topics.length) flipped.target_ai_topics = who.target_ai_topics;
+      if (who.aiLevel) flipped.aiLevel = who.aiLevel;
       state.people[Number(c)] = flipped;
       // A pairs file already down still pairs this pupil if they were in it: "לא ישודך" alone left the
       // coordinator crossing names against a file that pairs a pupil whose parent consent is withdrawn.
@@ -1797,10 +1919,15 @@
       var pupil = state.people[p.pupil - 1] || {};
       var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length) ||
         (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length);
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
         '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+        '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
         (topics ? ['<br>', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang))].join('') : '') +
         '</span></div>';
     }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
@@ -1811,10 +1938,18 @@
         '<br>' + reasonHe(x.reason, x.role, x) + '</span></div>';
     }).join('') : '<p class="empty">' + S('allMatched') + '</p>';
     $('across').innerHTML = m.across.length ? m.across.map(function (p) {
+      var student = state.people[p.student - 1] || {};
+      var pupil = state.people[p.pupil - 1] || {};
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       return '<div class="item pair"><b>' + ROLE_HE.pupil + ' #' + p.pupil + ' (' + esc(REGION_HE[p.pupilRegion] || p.pupilRegion) +
         ') עם ' + ROLE_HE.student + ' #' + p.student + ' (' + esc(REGION_HE[p.studentRegion] || p.studentRegion) + ')</b>' +
         '<span class="meta">מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') + '</span></div>';
+        '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+        '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
+        '</span></div>';
     }).join('') : '<p class="empty">אין הצעה: ' + (m.barredByConsent
       ? (m.barredByConsent === 1 ? 'תלמיד אחד שנשאר בלי זוג חולק' : m.barredByConsent + ' תלמידים שנשארו בלי זוג חולקים') +
         ' שעה ומקצוע עם סטודנט פנוי מאזור אחר, אבל בלי אישור הורה תלמיד לא נכנס לשידוך בכלל, גם לא בין אזורים. ' +
@@ -3537,6 +3672,9 @@
     $('match2Out').innerHTML = displayPairs.map(function (p) {
       var student = r.students[p.studentIndex] || {};
       var pupil = r.pupils[p.pupilIndex] || {};
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length > 0) ||
         (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length > 0);
       var key = p.studentIndex + '-' + p.pupilIndex;
@@ -3558,6 +3696,8 @@
       var scoreVal = typeof p.score === 'number' ? p.score : 0;
       return '<div class="item pair" data-ai-overlap="' + aiVal + '" data-score="' + scoreVal + '"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
         '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
+        '<span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span><br>' +
         (topics ? ['<span class="meta">', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang)), '</span><br>'].join('') : '') +
         aiExplHtml +
         '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
@@ -3825,6 +3965,42 @@
       var copyText = S_COPY_SCHOLARSHIP_REPORT[currentLang] || S_COPY_SCHOLARSHIP_REPORT.he;
       $('copyScholarshipReportBtn').textContent = copyText;
       $('copyScholarshipReportBtn').setAttribute('aria-label', copyText);
+    }
+    var aiLevelSel = $('participantAiLevelSelect');
+    if (aiLevelSel) {
+      var noneTxt = AI_LEVEL_FIELD_LABELS.none[currentLang] || AI_LEVEL_FIELD_LABELS.none.he;
+      var begTxt = AI_LEVEL_LABELS.beginner[currentLang] || AI_LEVEL_LABELS.beginner.he;
+      var advTxt = AI_LEVEL_LABELS.advanced[currentLang] || AI_LEVEL_LABELS.advanced.he;
+      var currentAiVal = aiLevelSel.value || '';
+      aiLevelSel.innerHTML = '<option value="">' + esc(noneTxt) + '</option>' +
+        '<option value="beginner"' + (currentAiVal === 'beginner' ? ' selected' : '') + '>' + esc(begTxt) + '</option>' +
+        '<option value="advanced"' + (currentAiVal === 'advanced' ? ' selected' : '') + '>' + esc(advTxt) + '</option>';
+      aiLevelSel.value = currentAiVal;
+    }
+    if ($('participantAiLevelLabel')) {
+      $('participantAiLevelLabel').textContent = AI_LEVEL_FIELD_LABELS.label[currentLang] || AI_LEVEL_FIELD_LABELS.label.he;
+    }
+    if (last) {
+      $('pairs').innerHTML = last.pairs.length ? last.pairs.map(function (p, i) {
+        var student = state.people[p.student - 1] || {};
+        var pupil = state.people[p.pupil - 1] || {};
+        var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length) ||
+          (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length);
+        var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+        var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+        var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
+        return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
+          '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
+          'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
+          '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+          '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+          ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
+          (topics ? ['<br>', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang))].join('') : '') +
+          '</span></div>';
+      }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
+    }
+    if (lastMatch2 && typeof renderMatch2 === 'function') {
+      renderMatch2(lastMatch2);
     }
     var aiTopicSel = $('sessionAiTopicSelect');
     if (aiTopicSel) {

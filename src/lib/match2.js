@@ -6,18 +6,19 @@
 
 const { shared, hasParentConsent } = require('./match.js');
 const { isRegion } = require('./regions.js');
-const { SUBJECTS, normalizeSlot } = require('./profile.js');
+const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
 const AI_TOPIC_KEY_RE = /^[A-Z0-9_]+$/;
 const AI_TOPIC_WEIGHT = 20;
+const AI_LEVEL_WEIGHT = 10;
 const AI_TOPIC_LABELS = Object.freeze({
   AI_LIT_PROMPT: Object.freeze({ he: 'אוריינות בינה מלאכותית והנחיה', ar: 'معرفة الذكاء الاصطناعي والتوجيه', ru: 'ИИ-грамотность и промпты' }),
-  AI_CREATIVE: Object.freeze({ he: 'יצירתיות ובינה יוצרת', ar: 'الإبداع والذكاء التوليدي', ru: 'Креативность и генеративный ИИ' }),
+  AI_CREATIVE: Object.freeze({ he: 'יצירתיות ובינה יוצרת', ar: 'الإبداع والذكاء التולيدي', ru: 'Креативность и генеративный ИИ' }),
   AI_STEM_CODE: Object.freeze({ he: 'מדעים, טכנולוגיה ותכנות', ar: 'العلوم والتكنولوجيا والبرمجة', ru: 'Наука, технологии и программирование' }),
   AI_ETHICS_SEC: Object.freeze({ he: 'אתיקה, פרטיות ובטיחות', ar: 'الأخلاق والخصوصية والأمان', ru: 'Этика, конфиденциальность и безопасность' }),
 });
 
-const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10, aiTopics: AI_TOPIC_WEIGHT });
+const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10, aiTopics: AI_TOPIC_WEIGHT, aiLevel: AI_LEVEL_WEIGHT });
 const PAIR_BONUS = 1000; // > max score of one pair (100), so one more pair always beats a better score
 
 function cleanTopics(x) {
@@ -54,7 +55,7 @@ function scorePair(student, pupil, weights) {
   const w = weightsOf({ weights: weights });
   const s = student || {}; const p = pupil || {};
   // only canonical codes are ever scored or printed: slots, subjects, languages, region
-  const sharedSlots = shared(s.availability, p.availability).filter((x) => normalizeSlot(x) === x);
+  const sharedSlots = getWeeklyOverlapSlots(s, p);
   const sharedSubjects = shared(s.subjects, p.subjects).filter((x) => SUBJECTS.indexOf(x) !== -1);
   const sharedLanguages = shared(langs(s), langs(p));
   const regionSame = isRegion(s.region) && s.region === p.region;
@@ -64,6 +65,10 @@ function scorePair(student, pupil, weights) {
   const sTopics = cleanTopics(s?.target_ai_topics);
   const pTopics = cleanTopics(p?.target_ai_topics);
   const aiIn = sTopics.length > 0 && pTopics.length > 0;
+  const sAi = s && (s.aiLevel === 'beginner' || s.aiLevel === 'advanced') ? s.aiLevel : null;
+  const pAi = p && (p.aiLevel === 'beginner' || p.aiLevel === 'advanced') ? p.aiLevel : null;
+  const aiLevelIn = sAi !== null && pAi !== null;
+  const aiLevelFit = aiLevelIn && sAi === pAi ? 1 : 0;
   const overlap = aiIn ? aiTopicOverlap(sTopics, pTopics) : 0;
   const levelFit = levelIn ? 1 - Math.abs(sl - pl) / 4 : 0;
   const langFit = langIn && sharedLanguages.length > 0 ? 1 : 0;
@@ -77,16 +82,21 @@ function scorePair(student, pupil, weights) {
     level: levelIn ? Math.round(w.level * levelFit) : 0,
     language: langIn ? Math.round(w.language * langFit) : 0,
     preference: Math.round(w.preference * prefFit),
-    aiTopics: aiIn ? Math.round(w.aiTopics * overlap) : 0
+    aiTopics: aiIn ? Math.round(w.aiTopics * overlap) : 0,
+    aiLevel: aiLevelIn ? Math.round(w.aiLevel * aiLevelFit) : 0
   };
+  b.aiLevelBonus = b.aiLevel;
   // criteria with no data on either side are excluded, not credited: the total is renormalised to 100
   let included = w.region + w.hours + w.subject + w.preference;
   if (levelIn) included += w.level;
   if (langIn) included += w.language;
   if (aiIn) included += w.aiTopics;
-  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference + b.aiTopics;
+  if (aiLevelIn) included += w.aiLevel;
+  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference + b.aiTopics + b.aiLevel;
   b.total = included > 0 ? Math.round((earned / included) * 100) : 0;
   b.levelCounted = levelIn; b.languageCounted = langIn; b.aiTopicsCounted = aiIn;
+  b.aiLevelCounted = aiLevelIn;
+  b.aiLevelMatch = aiLevelIn && sAi === pAi;
   const sharedAiTopics = aiIn
     ? cleanTopics(pTopics).filter((t) => sTopics.includes(t))
     : [];
@@ -106,6 +116,8 @@ function scorePair(student, pupil, weights) {
     aiExplanation,
     regionSame,
     levelFit,
+    aiLevelMatch: b.aiLevelMatch,
+    aiLevelCounted: b.aiLevelCounted,
   };
 }
 
@@ -155,6 +167,11 @@ function explainHe(scored, student, pupil) {
   if (normLevel(student) !== null && normLevel(pupil) !== null) parts.push('\u05d4\u05ea\u05d0\u05de\u05ea \u05e8\u05de\u05d4 ' + student.level + ' \u05de\u05d5\u05dc ' + pupil.level);
   if (scored.sharedLanguages.length) parts.push('\u05e9\u05e4\u05d4 \u05de\u05e9\u05d5\u05ea\u05e4\u05ea: ' + scored.sharedLanguages.join(', '));
   if (scored.aiExplanation && scored.aiExplanation.he) parts.push(scored.aiExplanation.he);
+  if (b.aiLevelCounted) {
+    parts.push(b.aiLevelMatch
+      ? '\u05d4\u05ea\u05d0\u05de\u05ea \u05e8\u05de\u05ea \u05dc\u05de\u05d9\u05d3\u05d4 (' + (student.aiLevel === 'beginner' ? '\u05de\u05ea\u05d7\u05d9\u05dc' : '\u05de\u05ea\u05e7\u05d3\u05dd') + ')'
+      : '\u05e8\u05de\u05ea \u05dc\u05de\u05d9\u05d3\u05d4 \u05e9\u05d5\u05e0\u05d4');
+  }
   return '\u05e6\u05d9\u05d5\u05df ' + b.total + '/100 \u2014 ' + parts.join('; ') + ' [\u05d0\u05d6\u05d5\u05e8 ' + b.region + ', \u05e9\u05e2\u05d5\u05ea ' + b.hours + ', \u05de\u05e7\u05e6\u05d5\u05e2 ' + b.subject + ', \u05e8\u05de\u05d4 ' + b.level + ', \u05e9\u05e4\u05d4 ' + b.language + ', \u05d4\u05e2\u05d3\u05e4\u05d5\u05ea ' + b.preference + ']';
 }
 
@@ -237,4 +254,4 @@ function rematchPartial(students, pupils, existingPairs, opts) {
   return match2(students, pupils, Object.assign({}, o, { locked }));
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS };
+module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS };
