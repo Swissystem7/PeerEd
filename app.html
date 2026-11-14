@@ -9408,7 +9408,6 @@ module.exports = {
   // there is one, since the participants card promised that copy would be kept. The
   // in-memory state is emptied either way, so a blocked storage cannot leave the roster on the screen.
 
-  var WIPE_LABEL = 'מחק הכול מהמכשיר הזה';
   var wipeArmed = false;
   // What a wipe cannot reach when the browser hands out no storage: a list saved here on an earlier
   // visit, if there is one. load() has already said such a list was not loaded, so the wipe cannot
@@ -10079,6 +10078,13 @@ module.exports = {
     }
   }
 
+  // The topic filter above the leaderboard (#challengeTopicFilter): "all" or one AI topic. The leaderboard
+  // and the copied winners summary both show only the entries of that topic.
+  function filteredChallengeEntries() {
+    var topic = $('challengeTopicFilter') ? $('challengeTopicFilter').value : 'all';
+    return curriculumLib.filterChallengeEntriesByTopic(challengeEntries, topic);
+  }
+
   function renderChallengeLeaderboard() {
     var board = $('challengeLeaderboard');
     if (!board) return;
@@ -10087,10 +10093,11 @@ module.exports = {
 
     var ranked = [];
     if (curriculumLib && typeof curriculumLib.rankChallengeLeaderboard === 'function') {
-      ranked = curriculumLib.rankChallengeLeaderboard(challengeEntries);
+      ranked = curriculumLib.rankChallengeLeaderboard(filteredChallengeEntries());
     }
     if (!ranked || ranked.length === 0) {
       var emptyMsg = currentLang === 'ar' ? 'لا توجد مشاركات في تحدي أدوات الذكاء الاصطناعي بعد' : (currentLang === 'ru' ? 'Пока нет заявок на конкурс инструментов ИИ' : 'אין עדיין הגשות לתחרות כלי AI');
+      if (challengeEntries.length) emptyMsg = currentLang === 'ar' ? 'لا توجد مشاركات في هذا الموضوع' : (currentLang === 'ru' ? 'Нет заявок по этой теме' : 'אין הגשות בנושא הזה');
       board.innerHTML = '<div class="empty-state"><p class="empty">' + esc(emptyMsg) + '</p></div>';
       return;
     }
@@ -10133,6 +10140,32 @@ module.exports = {
       '</tr></thead>' +
       '<tbody>' + rowsHtml + '</tbody>' +
       '</table>';
+  }
+
+  if ($('challengeTopicFilter')) {
+    $('challengeTopicFilter').addEventListener('change', function () {
+      if ($('challengeWinnersStatus')) $('challengeWinnersStatus').textContent = '';
+      renderChallengeLeaderboard();
+    });
+  }
+  if ($('copyChallengeWinnersBtn')) {
+    // Anonymous: pair numbers, tool, topic and score only. Copied to the clipboard when the browser allows it;
+    // otherwise the summary is shown in the status line so it can still be copied by hand.
+    $('copyChallengeWinnersBtn').addEventListener('click', function () {
+      // the leaderboard numbers pairs from 1 ("זוג 1" is pairIndex 0); the copied text uses the same numbers
+      var shown = filteredChallengeEntries().map(function (e) { return Object.assign({}, e, { pairIndex: e.pairIndex + 1 }); });
+      var summary = curriculumLib.buildChallengeWinnersSummary(shown, currentLang);
+      var status = $('challengeWinnersStatus');
+      if (!summary.top3.length) { status.textContent = summary.text; return; }
+      var copied = currentLang === 'ar' ? 'تم نسخ ملخص الفائزين' : (currentLang === 'ru' ? 'Сводка победителей скопирована' : 'סיכום הזוכים הועתק ללוח');
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(summary.text).then(function () {
+          status.textContent = copied;
+        }, function () { status.textContent = summary.text; });
+      } else {
+        status.textContent = summary.text;
+      }
+    });
   }
 
   if ($('submitChallengeBtn')) {
