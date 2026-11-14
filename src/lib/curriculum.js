@@ -5,6 +5,9 @@
 // no child personal data, no network, no clock, no randomness. A group's track is passed in
 // by the caller (trackByPair); the module never invents a track for a group it does not know.
 
+const { assertCleanText } = require('./validator.js');
+const { AI_TOPIC_KEYS } = require('./attendance.js');
+
 const TRACKS = Object.freeze(['elementary', 'middle']);
 const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
 const LESSON_MINUTES = 45;
@@ -325,8 +328,130 @@ function progressToCsv(progress) {
   return lines.join('\n') + '\n';
 }
 
+const VALID_AI_TOPICS = Object.freeze(AI_TOPIC_KEYS ? AI_TOPIC_KEYS.slice() : [
+  'AI_LIT_PROMPT',
+  'AI_CREATIVE',
+  'AI_STEM_CODE',
+  'AI_ETHICS_SEC'
+]);
+
+const ALLOWED_CHALLENGE_KEYS = Object.freeze([
+  'pairIndex',
+  'aiTopic',
+  'toolTitle',
+  'innovation',
+  'usefulness',
+  'safety'
+]);
+
+function submitChallengeEntry(entries, entry) {
+  if (entries !== undefined && entries !== null && !Array.isArray(entries)) {
+    throw new Error('invalid entries: expected array');
+  }
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    throw new Error('invalid challenge entry: expected an object');
+  }
+  const keys = Object.keys(entry);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (ALLOWED_CHALLENGE_KEYS.indexOf(keys[i]) === -1) {
+      throw new Error('personal data is not accepted');
+    }
+  }
+  if (!Number.isInteger(entry.pairIndex) || entry.pairIndex < 0) {
+    throw new Error('invalid pairIndex: expected non-negative integer');
+  }
+  if (typeof entry.aiTopic !== 'string' || VALID_AI_TOPICS.indexOf(entry.aiTopic) === -1) {
+    throw new Error('invalid aiTopic: expected valid AI topic key');
+  }
+  if (typeof entry.toolTitle !== 'string') {
+    throw new Error('invalid toolTitle: expected string');
+  }
+  const cleanTitle = assertCleanText(entry.toolTitle, { minLength: 1, maxLength: 80 });
+
+  for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
+    const val = entry[scoreKey];
+    if (!Number.isInteger(val) || val < 1 || val > 5) {
+      throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
+    }
+  }
+
+  const totalScore = entry.innovation + entry.usefulness + entry.safety;
+  const averageScore = Math.round((totalScore / 3) * 100) / 100;
+  const record = Object.freeze({
+    pairIndex: entry.pairIndex,
+    aiTopic: entry.aiTopic,
+    toolTitle: cleanTitle,
+    innovation: entry.innovation,
+    usefulness: entry.usefulness,
+    safety: entry.safety,
+    totalScore: totalScore,
+    averageScore: averageScore,
+    score: totalScore
+  });
+
+  const prev = Array.isArray(entries) ? entries : [];
+  const idx = prev.findIndex((e) => e && e.pairIndex === record.pairIndex);
+  let next;
+  if (idx >= 0) {
+    next = prev.slice();
+    next[idx] = record;
+  } else {
+    next = prev.concat([record]);
+  }
+  return Object.freeze(next);
+}
+
+function rankChallengeLeaderboard(entries) {
+  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+    return Object.freeze([]);
+  }
+  const items = entries.map((e) => {
+    if (!e || typeof e !== 'object' || Array.isArray(e)) {
+      throw new Error('invalid challenge entry in leaderboard');
+    }
+    const pairIndex = Number(e.pairIndex);
+    const innovation = Number(e.innovation);
+    const usefulness = Number(e.usefulness);
+    const safety = Number(e.safety);
+    const totalScore = innovation + usefulness + safety;
+    const averageScore = Math.round((totalScore / 3) * 100) / 100;
+    return {
+      pairIndex: pairIndex,
+      aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
+      toolTitle: typeof e.toolTitle === 'string' ? e.toolTitle : '',
+      innovation: innovation,
+      usefulness: usefulness,
+      safety: safety,
+      totalScore: totalScore,
+      averageScore: averageScore,
+      score: totalScore
+    };
+  });
+
+  items.sort((a, b) => {
+    if (b.totalScore !== a.totalScore) {
+      return b.totalScore - a.totalScore;
+    }
+    return a.pairIndex - b.pairIndex;
+  });
+
+  return Object.freeze(items.map((item, index) => Object.freeze({
+    rank: index + 1,
+    pairIndex: item.pairIndex,
+    aiTopic: item.aiTopic,
+    toolTitle: item.toolTitle,
+    innovation: item.innovation,
+    usefulness: item.usefulness,
+    safety: item.safety,
+    totalScore: item.totalScore,
+    averageScore: item.averageScore,
+    score: item.score
+  })));
+}
+
 module.exports = {
   TRACKS, TRACK_GRADES, LESSON_MINUTES, ALL_LESSONS,
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
-  assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv
+  assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
+  VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard
 };
