@@ -104,7 +104,6 @@ function makeUnit(input) {
 }
 
 module.exports = {
-  ACCEPTED_FIELDS,
   TITLE_MAX_LENGTH,
   BODY_MAX_LENGTH,
   DURATION_MIN,

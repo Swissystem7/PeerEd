@@ -19,6 +19,13 @@ npm test                      # the whole suite (node --test)
 node --test test/unit.test.js # one file (Node's built-in runner; no other test framework)
 npm run build                 # regenerate app.html from src/app-shell.html + src/lib/*.js
 npm run build:check           # exit 1 if app.html is stale — the second CI gate
+npm run check:build           # rebuild app.html, then exit 1 if git diff shows it changed (local only)
+npm run check:size            # size budget for app.html and src/ (size-limit 14.3.0 via npx, local only)
+npm run check:deadcode        # unused files/exports/deps (knip 6.45.1 via npx, local only)
+npm run check:html            # duplicate ids, missing <script>/<link> files, <img> without alt
+npm run check:a11y-static     # <html lang>/dir=rtl, no empty <button>, every <input>/<select> labelled
+npm run check:i18n            # he/ar/ru key parity, empty strings, unclosed HTML tags in UI strings
+npm run doctor                # test + check:deadcode + check:size + check:html + check:a11y-static + check:i18n, one summary
 ```
 
 To run the app, open `app.html` in a browser. It is a single self-contained file with no external

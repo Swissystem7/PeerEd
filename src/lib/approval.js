@@ -254,7 +254,6 @@ function loadQueue(data) {
 }
 
 module.exports = {
-  STATUSES,
   APPROVER_ROLE,
   REASON_MAX_LENGTH,
   NOT_PENDING_ERROR,

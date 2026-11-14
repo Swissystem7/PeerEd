@@ -1036,7 +1036,6 @@ const focusReaderConfig = Object.freeze({
 });
 
 module.exports = {
-	ATTENDANCE_STATUSES,
 	makeAttendanceLog,
 	recordAttendance,
 	attendanceSummary,
