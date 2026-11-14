@@ -15,8 +15,8 @@ const LATIN = /[A-Za-z]/;
 
 test('a11y: demo buttons have unambiguous labels and aria-describedby pointing to status messages', () => {
   const currentShell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
-  assert.ok(/<button type="button" class="ghost" id="demoBtn"[^>]*aria-label="טען משתתפים לדוגמה"[^>]*aria-describedby="addStatus"/.test(currentShell),
-    'demoBtn must have aria-label="טען משתתפים לדוגמה" and aria-describedby="addStatus"');
+  assert.ok(/<button type="button" class="ghost" id="demoBtn"[^>]*aria-label="טען דוגמה – טען משתתפים לדוגמה"[^>]*aria-describedby="addStatus"/.test(currentShell),
+    'demoBtn must have aria-label="טען דוגמה – טען משתתפים לדוגמה" and aria-describedby="addStatus"');
   assert.ok(/<button type="button" class="ghost" id="unitDemoBtn"[^>]*aria-label="טען יחידת העשרה לדוגמה"[^>]*aria-describedby="unitStatus"/.test(currentShell),
     'unitDemoBtn must have aria-label="טען יחידת העשרה לדוגמה" and aria-describedby="unitStatus"');
   assert.ok(/<button type="button" class="ghost" id="badBtn"[^>]*aria-label="טען טקסט לדוגמה עם פרטים אישיים"[^>]*aria-describedby="checkStatus"/.test(currentShell),

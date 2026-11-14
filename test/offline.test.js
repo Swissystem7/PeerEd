@@ -23,8 +23,13 @@ const MARKUP = [
   /\bhref=["'](?!#)/i, /\burl\(/, /@import/i, /https?:\/\/[a-z0-9]/i
 ];
 
+// The one <link> allowed: an empty data: icon. It loads nothing, and it stops the browser asking the
+// server for /favicon.ico. Only this exact tag is exempt; any other icon or link is still caught.
+const EMPTY_ICON = '<link rel="icon" href="data:,">';
+
 function offenders(text, patterns) {
-  return patterns.filter((re) => re.test(text)).map(String);
+  const t = text.split(EMPTY_ICON).join('');
+  return patterns.filter((re) => re.test(t)).map(String);
 }
 
 test('offline: no module in src/lib can reach the network', () => {
@@ -53,4 +58,7 @@ test('offline: the check itself catches a script tag with a src, a stylesheet an
   assert.equal(offenders('fetch("/api")', CALLS).length, 1);
   assert.deepEqual(offenders('const x = require("./regions.js"); // a fetched pupil', CALLS), []);
   assert.deepEqual(offenders('<a href="#tab-match">', MARKUP), []);
+  assert.deepEqual(offenders('<link rel="icon" href="data:,">', MARKUP), []);
+  assert.ok(offenders('<link rel="icon" href="favicon.ico">', MARKUP).length >= 2);
+  assert.ok(offenders('<link rel="icon" href="data:image/svg+xml,x">', MARKUP).length >= 1);
 });
