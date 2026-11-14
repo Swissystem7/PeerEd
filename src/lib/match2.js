@@ -254,4 +254,38 @@ function rematchPartial(students, pupils, existingPairs, opts) {
   return match2(students, pupils, Object.assign({}, o, { locked }));
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS };
+function compareMatchCandidates(candidateA, candidateB) {
+  const a = candidateA || {};
+  const b = candidateB || {};
+  const scoreDiff = (Number(a.score) || 0) - (Number(b.score) || 0);
+  const slotsA = Array.isArray(a.sharedSlots) ? a.sharedSlots.length : 0;
+  const slotsB = Array.isArray(b.sharedSlots) ? b.sharedSlots.length : 0;
+  const sharedSlotsDiff = slotsA - slotsB;
+  const topicsA = Array.isArray(a.sharedAiTopics) ? a.sharedAiTopics.length : 0;
+  const topicsB = Array.isArray(b.sharedAiTopics) ? b.sharedAiTopics.length : 0;
+  const aiTopicsOverlapDiff = topicsA - topicsB;
+  const levelA = a.breakdown && a.breakdown.levelCounted ? 1 : 0;
+  const levelB = b.breakdown && b.breakdown.levelCounted ? 1 : 0;
+  const levelMatchDiff = levelA - levelB;
+  return Object.freeze({
+    scoreDiff,
+    sharedSlotsDiff,
+    aiTopicsOverlapDiff,
+    levelMatchDiff,
+  });
+}
+
+function detectScheduleConflicts(lockedPairs, candidatePair) {
+  const locked = Array.isArray(lockedPairs) ? lockedPairs : [];
+  const cp = candidatePair || {};
+  const cpSlots = Array.isArray(cp.sharedSlots) ? cp.sharedSlots : [];
+  if (cpSlots.length === 0) return false;
+  return locked.some((lk) => {
+    if (!lk) return false;
+    if (lk.studentIndex !== cp.studentIndex && lk.pupilIndex !== cp.pupilIndex) return false;
+    const lkSlots = Array.isArray(lk.sharedSlots) ? lk.sharedSlots : [];
+    return lkSlots.some((slot) => cpSlots.includes(slot));
+  });
+}
+
+module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts };
