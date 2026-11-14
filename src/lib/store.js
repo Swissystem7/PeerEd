@@ -14,7 +14,7 @@ const {
 	withoutRetentionStamp,
 	PERSONAL_DATA_ERROR,
 } = require("./profile.js");
-const { PROFANITY_ERROR } = require("./validator.js");
+const { PROFANITY_ERROR, validateBatchImportZeroPii } = require("./validator.js");
 const { emptyQueue, loadQueue } = require("./approval.js");
 const { emptyLog, loadLog } = require("./session.js");
 const {
@@ -143,29 +143,44 @@ function storedPerson(person, at) {
 	let input = person;
 	let hasTopics = false;
 	let rawTopics;
+	let rawArea;
 	if (
 		person !== null &&
 		typeof person === "object" &&
-		!Array.isArray(person) &&
-		Object.hasOwn(person, "target_ai_topics")
+		!Array.isArray(person)
 	) {
-		hasTopics = true;
-		rawTopics = person.target_ai_topics;
-		input = { ...person };
-		delete input.target_ai_topics;
+		if (Object.hasOwn(person, "target_ai_topics")) {
+			hasTopics = true;
+			rawTopics = person.target_ai_topics;
+			input = { ...person };
+			delete input.target_ai_topics;
+		}
+		if (Object.hasOwn(input, "area")) {
+			rawArea = input.area;
+			input = { ...input };
+			if (!input.region) input.region = input.area;
+			delete input.area;
+		}
 	}
 	try {
 		const profile = makeProfile(storedProfileInput(input));
+		let res = profile;
 		if (hasTopics) {
 			const cleaned = cleanAITopics(rawTopics);
 			if (cleaned.length > 0) {
-				return Object.freeze({
-					...profile,
+				res = Object.freeze({
+					...res,
 					target_ai_topics: Object.freeze(cleaned),
 				});
 			}
 		}
-		return profile;
+		if (rawArea) {
+			res = Object.freeze({
+				...res,
+				area: rawArea,
+			});
+		}
+		return res;
 	} catch (err) {
 		if (
 			err.message === PERSONAL_DATA_ERROR ||
@@ -421,5 +436,6 @@ module.exports = {
 	createStore,
 	isQuotaExceededError,
 	isQuotaExceeded,
+	validateBatchImportZeroPii,
 	filterParticipantsByAITopic
 };
