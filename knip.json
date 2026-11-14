@@ -2,6 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["scripts/**/*.js", "test/**/*.js", "test-support/**/*.js"],
   "project": ["src/**/*.js", "scripts/**/*.js", "test/**/*.js", "test-support/**/*.js"],
+  "ignoreDependencies": ["playwright"],
   "rules": {
     "exports": "warn"
   }

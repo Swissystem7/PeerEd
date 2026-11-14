@@ -26,6 +26,7 @@ npm run check:html            # duplicate ids, missing <script>/<link> files, <i
 npm run check:a11y-static     # <html lang>/dir=rtl, no empty <button>, every <input>/<select> labelled
 npm run check:i18n            # he/ar/ru key parity, empty strings, unclosed HTML tags in UI strings
 npm run doctor                # test + check:deadcode + check:size + check:html + check:a11y-static + check:i18n, one summary
+npm run test:e2e              # Chromium checks in e2e/ (needs: npm i --no-save playwright@1.64.1 && npx playwright install chromium; skipped without it, local only)
 ```
 
 To run the app, open `app.html` in a browser. It is a single self-contained file with no external
