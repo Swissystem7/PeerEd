@@ -59,12 +59,29 @@ function recordAttendance(log, input) {
 			durationHours = o.durationHours;
 		}
 	}
-	const entry = Object.freeze({
+	let aiTopic;
+	if (o.aiTopic !== undefined) {
+		if (o.aiTopic === null) {
+			aiTopic = null;
+		} else if (
+			typeof o.aiTopic === "string" &&
+			AI_TOPIC_KEYS.includes(o.aiTopic)
+		) {
+			aiTopic = o.aiTopic;
+		} else {
+			throw new Error("invalid attendance: aiTopic");
+		}
+	}
+	const entryObj = {
 		pairIndex: o.pairIndex,
 		date: o.date,
 		status: o.status,
 		durationHours: durationHours,
-	});
+	};
+	if (aiTopic !== undefined) {
+		entryObj.aiTopic = aiTopic;
+	}
+	const entry = Object.freeze(entryObj);
 	const existingIdx = log.entries.findIndex(
 		(e) => e.pairIndex === o.pairIndex && e.date === o.date,
 	);
@@ -96,14 +113,21 @@ function serializeAttendance(records) {
 		) {
 			durationHours = r.durationHours;
 		}
-		out.push(
-			Object.freeze({
-				pairIndex: r.pairIndex,
-				date: r.date,
-				status: r.status,
-				durationHours: durationHours,
-			}),
-		);
+		const row = {
+			pairIndex: r.pairIndex,
+			date: r.date,
+			status: r.status,
+			durationHours: durationHours,
+		};
+		if (r.aiTopic !== undefined) {
+			if (
+				r.aiTopic === null ||
+				(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
+			) {
+				row.aiTopic = r.aiTopic;
+			}
+		}
+		out.push(Object.freeze(row));
 	}
 	return out;
 }
@@ -128,14 +152,21 @@ function deserializeAttendance(raw) {
 		) {
 			durationHours = r.durationHours;
 		}
-		out.push(
-			Object.freeze({
-				pairIndex: r.pairIndex,
-				date: r.date,
-				status: r.status,
-				durationHours: durationHours,
-			}),
-		);
+		const row = {
+			pairIndex: r.pairIndex,
+			date: r.date,
+			status: r.status,
+			durationHours: durationHours,
+		};
+		if (r.aiTopic !== undefined) {
+			if (
+				r.aiTopic === null ||
+				(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
+			) {
+				row.aiTopic = r.aiTopic;
+			}
+		}
+		out.push(Object.freeze(row));
 	}
 	return Object.freeze(out);
 }
@@ -169,6 +200,29 @@ function attendanceSummary(log, opts) {
 }
 
 // Mirrors AI_TOPICS in src/app-shell.html
+const AI_TOPICS = Object.freeze({
+	AI_LIT_PROMPT: Object.freeze({
+		he: "אוריינות בינה מלאכותית והנחיה",
+		ar: "محو الأمية في التوجيهات",
+		ru: "Грамотность в ИИ и промптинг",
+	}),
+	AI_CREATIVE: Object.freeze({
+		he: "יצירתיות ובינה יוצרת",
+		ar: "إنشاء المحتوى والوسائط",
+		ru: "Творчество и генеративный ИИ",
+	}),
+	AI_STEM_CODE: Object.freeze({
+		he: "מדעים, טכנולוגיה ותכנות",
+		ar: "كفاءة الذكاء الاصطناعي والبرمجة",
+		ru: "STEM и программирование",
+	}),
+	AI_ETHICS_SEC: Object.freeze({
+		he: "אתיקה, פרטיות ובטיחות",
+		ar: "الأخلاق والأمان",
+		ru: "Этика и безопасность ИИ",
+	}),
+});
+
 const AI_TOPIC_KEYS = Object.freeze([
 	"AI_LIT_PROMPT",
 	"AI_CREATIVE",
@@ -363,6 +417,134 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 		})
 		.sort((a, b) => b.totalHours - a.totalHours || a.index - b.index);
 	return result;
+}
+
+/**
+ * Builds an anonymous scholarship report by pairs and overall summary.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} records Attendance records or log
+ * @param {Array<Object>} pairs Matched pairs list
+ * @param {number} targetHours Target scholarship hours (default 30)
+ * @returns {Object} Report containing pairs list, byPair lookup, and summary
+ */
+function buildScholarshipReport(records, pairs, targetHours) {
+	const target =
+		typeof targetHours === "number" &&
+		Number.isFinite(targetHours) &&
+		targetHours > 0
+			? targetHours
+			: 30;
+
+	const cleanRecords = Array.isArray(records)
+		? records
+		: records && Array.isArray(records.entries)
+			? records.entries
+			: [];
+
+	const pairIndexes = new Set();
+	if (Array.isArray(pairs)) {
+		pairs.forEach((p, idx) => {
+			const pIdx =
+				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
+					? p.pairIndex
+					: idx;
+			pairIndexes.add(pIdx);
+		});
+	}
+	for (const r of cleanRecords) {
+		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+			pairIndexes.add(r.pairIndex);
+		}
+	}
+
+	const sortedPairIndexes = Array.from(pairIndexes).sort((a, b) => a - b);
+	const pairReports = [];
+	const byPair = {};
+	let overallHeldSessions = 0;
+	let overallTotalHours = 0;
+	const overallStatusCounts = {
+		held: 0,
+		missed: 0,
+		postponed: 0,
+		cancelled: 0,
+	};
+	const overallAiTopics = new Set();
+
+	for (const pIdx of sortedPairIndexes) {
+		let heldSessions = 0;
+		let totalHours = 0;
+		const statusCounts = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
+		const coveredAiTopicsSet = new Set();
+
+		for (const r of cleanRecords) {
+			if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
+			if (Object.hasOwn(statusCounts, r.status)) {
+				statusCounts[r.status] += 1;
+				overallStatusCounts[r.status] += 1;
+			}
+			if (r.status === "held") {
+				heldSessions += 1;
+				overallHeldSessions += 1;
+				const duration = getRecordDurationHours(r);
+				totalHours += duration;
+				overallTotalHours += duration;
+				if (
+					r.aiTopic &&
+					typeof r.aiTopic === "string" &&
+					AI_TOPIC_KEYS.includes(r.aiTopic)
+				) {
+					coveredAiTopicsSet.add(r.aiTopic);
+					overallAiTopics.add(r.aiTopic);
+				}
+			}
+		}
+
+		const completionPercent =
+			target > 0 ? Math.round((totalHours / target) * 100) : 0;
+
+		const pairReport = Object.freeze({
+			pairIndex: pIdx,
+			heldSessions,
+			totalHours,
+			targetHours: target,
+			completionPercent,
+			coveredAiTopics: Object.freeze(Array.from(coveredAiTopicsSet).sort()),
+			statusCounts: Object.freeze(statusCounts),
+		});
+		pairReports.push(pairReport);
+		byPair[pIdx] = pairReport;
+	}
+
+	const totalPairs = sortedPairIndexes.length;
+	const expectedTotalHours = totalPairs * target;
+	const overallCompletionPercent =
+		expectedTotalHours > 0
+			? Math.round((overallTotalHours / expectedTotalHours) * 100)
+			: 0;
+
+	const summary = Object.freeze({
+		totalPairs,
+		totalHeldSessions: overallHeldSessions,
+		totalHours: overallTotalHours,
+		targetHours: target,
+		completionPercent: overallCompletionPercent,
+		coveredAiTopics: Object.freeze(Array.from(overallAiTopics).sort()),
+		statusCounts: Object.freeze(overallStatusCounts),
+	});
+
+	return Object.freeze({
+		pairs: Object.freeze(pairReports),
+		byPair: Object.freeze(byPair),
+		summary,
+		totalPairs,
+		totalHeldSessions: overallHeldSessions,
+		totalHours: overallTotalHours,
+		targetHours: target,
+		completionPercent: overallCompletionPercent,
+		coveredAiTopics: summary.coveredAiTopics,
+		statusCounts: summary.statusCounts,
+	});
 }
 
 const TOPIC_PASTEL_PALETTE = Object.freeze([
@@ -627,8 +809,12 @@ function matchesCriterion(itemVal, filterVal, isArrayTarget = false) {
 	const normalize = (v) => String(v).toLowerCase();
 
 	if (isArrayTarget) {
-		const itemTopics = Array.isArray(itemVal) ? itemVal.map(normalize) : [normalize(itemVal)];
-		const targetTopics = Array.isArray(filterVal) ? filterVal.map(normalize) : [normalize(filterVal)];
+		const itemTopics = Array.isArray(itemVal)
+			? itemVal.map(normalize)
+			: [normalize(itemVal)];
+		const targetTopics = Array.isArray(filterVal)
+			? filterVal.map(normalize)
+			: [normalize(filterVal)];
 		return itemTopics.some((t) => targetTopics.includes(t));
 	}
 
@@ -855,10 +1041,12 @@ module.exports = {
 	recordAttendance,
 	attendanceSummary,
 	stalePairs,
+	AI_TOPICS,
 	AI_TOPIC_KEYS,
 	getAITopicsSummary,
 	calculatePairHours,
 	getScholarshipHoursSummary,
+	buildScholarshipReport,
 	serializeAttendance,
 	deserializeAttendance,
 	MAX_ATTENDANCE_RECORDS,

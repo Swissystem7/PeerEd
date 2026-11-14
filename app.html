@@ -427,8 +427,48 @@
       <select id="sessionUnit" aria-required="true" aria-describedby="sessionStatus"></select>
       <label for="sessionOutcome">איך הסתיים</label>
       <select id="sessionOutcome" aria-required="true" aria-describedby="sessionStatus"></select>
+      <div class="row">
+        <div>
+          <label for="sessionDurationSelect" id="sessionDurationLabel">משך שיעור (שעות)</label>
+          <select id="sessionDurationSelect" aria-describedby="sessionStatus">
+            <option value="0.5">0.5</option>
+            <option value="1" selected>1</option>
+            <option value="1.5">1.5</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionAiTopicSelect" id="sessionAiTopicLabel">נושא בינה מלאכותית</label>
+          <select id="sessionAiTopicSelect" aria-describedby="sessionStatus">
+            <option value="">ללא נושא AI</option>
+            <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+            <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+            <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+            <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+          </select>
+        </div>
+      </div>
       <div class="actions"><button type="button" class="act" id="logSession" aria-describedby="sessionStatus">רשום שיעור</button></div>
       <p class="status" id="sessionStatus" role="status"></p>
+    </div>
+    <div class="card" id="scholarshipReportCard">
+      <h2 id="scholarshipReportHeading">דוח שעות מלגה</h2>
+      <p class="hint" id="scholarshipReportHint">דוח אנונימי לפי זוגות וסיכום שעות מלגה ומפגשי AI, ללא פרטים מזהים (PII).</p>
+      <div class="row">
+        <div>
+          <label for="scholarshipTargetSelect" id="scholarshipTargetLabel">יעד שעות מלגה</label>
+          <select id="scholarshipTargetSelect" aria-describedby="scholarshipReportStatus">
+            <option value="30" selected>30 שעות (בסיסי)</option>
+            <option value="130">130 שעות (מלגת IMPACT!)</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
+        <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
+      </div>
+      <p class="status" id="scholarshipReportStatus" role="status"></p>
+      <div id="scholarshipReportOut" role="region" aria-live="polite" aria-label="דוח שעות מלגה"></div>
     </div>
     <div class="card">
       <h2>סיכום לרשות — ספירות בלבד</h2>
@@ -2373,12 +2413,29 @@ function recordAttendance(log, input) {
 			durationHours = o.durationHours;
 		}
 	}
-	const entry = Object.freeze({
+	let aiTopic;
+	if (o.aiTopic !== undefined) {
+		if (o.aiTopic === null) {
+			aiTopic = null;
+		} else if (
+			typeof o.aiTopic === "string" &&
+			AI_TOPIC_KEYS.includes(o.aiTopic)
+		) {
+			aiTopic = o.aiTopic;
+		} else {
+			throw new Error("invalid attendance: aiTopic");
+		}
+	}
+	const entryObj = {
 		pairIndex: o.pairIndex,
 		date: o.date,
 		status: o.status,
 		durationHours: durationHours,
-	});
+	};
+	if (aiTopic !== undefined) {
+		entryObj.aiTopic = aiTopic;
+	}
+	const entry = Object.freeze(entryObj);
 	const existingIdx = log.entries.findIndex(
 		(e) => e.pairIndex === o.pairIndex && e.date === o.date,
 	);
@@ -2410,14 +2467,21 @@ function serializeAttendance(records) {
 		) {
 			durationHours = r.durationHours;
 		}
-		out.push(
-			Object.freeze({
-				pairIndex: r.pairIndex,
-				date: r.date,
-				status: r.status,
-				durationHours: durationHours,
-			}),
-		);
+		const row = {
+			pairIndex: r.pairIndex,
+			date: r.date,
+			status: r.status,
+			durationHours: durationHours,
+		};
+		if (r.aiTopic !== undefined) {
+			if (
+				r.aiTopic === null ||
+				(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
+			) {
+				row.aiTopic = r.aiTopic;
+			}
+		}
+		out.push(Object.freeze(row));
 	}
 	return out;
 }
@@ -2442,14 +2506,21 @@ function deserializeAttendance(raw) {
 		) {
 			durationHours = r.durationHours;
 		}
-		out.push(
-			Object.freeze({
-				pairIndex: r.pairIndex,
-				date: r.date,
-				status: r.status,
-				durationHours: durationHours,
-			}),
-		);
+		const row = {
+			pairIndex: r.pairIndex,
+			date: r.date,
+			status: r.status,
+			durationHours: durationHours,
+		};
+		if (r.aiTopic !== undefined) {
+			if (
+				r.aiTopic === null ||
+				(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
+			) {
+				row.aiTopic = r.aiTopic;
+			}
+		}
+		out.push(Object.freeze(row));
 	}
 	return Object.freeze(out);
 }
@@ -2483,6 +2554,29 @@ function attendanceSummary(log, opts) {
 }
 
 // Mirrors AI_TOPICS in src/app-shell.html
+const AI_TOPICS = Object.freeze({
+	AI_LIT_PROMPT: Object.freeze({
+		he: "אוריינות בינה מלאכותית והנחיה",
+		ar: "محو الأمية في التوجيهات",
+		ru: "Грамотность в ИИ и промптинг",
+	}),
+	AI_CREATIVE: Object.freeze({
+		he: "יצירתיות ובינה יוצרת",
+		ar: "إنشاء المحتوى والوسائط",
+		ru: "Творчество и генеративный ИИ",
+	}),
+	AI_STEM_CODE: Object.freeze({
+		he: "מדעים, טכנולוגיה ותכנות",
+		ar: "كفاءة الذكاء الاصطناعي والبرمجة",
+		ru: "STEM и программирование",
+	}),
+	AI_ETHICS_SEC: Object.freeze({
+		he: "אתיקה, פרטיות ובטיחות",
+		ar: "الأخلاق والأمان",
+		ru: "Этика и безопасность ИИ",
+	}),
+});
+
 const AI_TOPIC_KEYS = Object.freeze([
 	"AI_LIT_PROMPT",
 	"AI_CREATIVE",
@@ -2677,6 +2771,134 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 		})
 		.sort((a, b) => b.totalHours - a.totalHours || a.index - b.index);
 	return result;
+}
+
+/**
+ * Builds an anonymous scholarship report by pairs and overall summary.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} records Attendance records or log
+ * @param {Array<Object>} pairs Matched pairs list
+ * @param {number} targetHours Target scholarship hours (default 30)
+ * @returns {Object} Report containing pairs list, byPair lookup, and summary
+ */
+function buildScholarshipReport(records, pairs, targetHours) {
+	const target =
+		typeof targetHours === "number" &&
+		Number.isFinite(targetHours) &&
+		targetHours > 0
+			? targetHours
+			: 30;
+
+	const cleanRecords = Array.isArray(records)
+		? records
+		: records && Array.isArray(records.entries)
+			? records.entries
+			: [];
+
+	const pairIndexes = new Set();
+	if (Array.isArray(pairs)) {
+		pairs.forEach((p, idx) => {
+			const pIdx =
+				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
+					? p.pairIndex
+					: idx;
+			pairIndexes.add(pIdx);
+		});
+	}
+	for (const r of cleanRecords) {
+		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+			pairIndexes.add(r.pairIndex);
+		}
+	}
+
+	const sortedPairIndexes = Array.from(pairIndexes).sort((a, b) => a - b);
+	const pairReports = [];
+	const byPair = {};
+	let overallHeldSessions = 0;
+	let overallTotalHours = 0;
+	const overallStatusCounts = {
+		held: 0,
+		missed: 0,
+		postponed: 0,
+		cancelled: 0,
+	};
+	const overallAiTopics = new Set();
+
+	for (const pIdx of sortedPairIndexes) {
+		let heldSessions = 0;
+		let totalHours = 0;
+		const statusCounts = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
+		const coveredAiTopicsSet = new Set();
+
+		for (const r of cleanRecords) {
+			if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
+			if (Object.hasOwn(statusCounts, r.status)) {
+				statusCounts[r.status] += 1;
+				overallStatusCounts[r.status] += 1;
+			}
+			if (r.status === "held") {
+				heldSessions += 1;
+				overallHeldSessions += 1;
+				const duration = getRecordDurationHours(r);
+				totalHours += duration;
+				overallTotalHours += duration;
+				if (
+					r.aiTopic &&
+					typeof r.aiTopic === "string" &&
+					AI_TOPIC_KEYS.includes(r.aiTopic)
+				) {
+					coveredAiTopicsSet.add(r.aiTopic);
+					overallAiTopics.add(r.aiTopic);
+				}
+			}
+		}
+
+		const completionPercent =
+			target > 0 ? Math.round((totalHours / target) * 100) : 0;
+
+		const pairReport = Object.freeze({
+			pairIndex: pIdx,
+			heldSessions,
+			totalHours,
+			targetHours: target,
+			completionPercent,
+			coveredAiTopics: Object.freeze(Array.from(coveredAiTopicsSet).sort()),
+			statusCounts: Object.freeze(statusCounts),
+		});
+		pairReports.push(pairReport);
+		byPair[pIdx] = pairReport;
+	}
+
+	const totalPairs = sortedPairIndexes.length;
+	const expectedTotalHours = totalPairs * target;
+	const overallCompletionPercent =
+		expectedTotalHours > 0
+			? Math.round((overallTotalHours / expectedTotalHours) * 100)
+			: 0;
+
+	const summary = Object.freeze({
+		totalPairs,
+		totalHeldSessions: overallHeldSessions,
+		totalHours: overallTotalHours,
+		targetHours: target,
+		completionPercent: overallCompletionPercent,
+		coveredAiTopics: Object.freeze(Array.from(overallAiTopics).sort()),
+		statusCounts: Object.freeze(overallStatusCounts),
+	});
+
+	return Object.freeze({
+		pairs: Object.freeze(pairReports),
+		byPair: Object.freeze(byPair),
+		summary,
+		totalPairs,
+		totalHeldSessions: overallHeldSessions,
+		totalHours: overallTotalHours,
+		targetHours: target,
+		completionPercent: overallCompletionPercent,
+		coveredAiTopics: summary.coveredAiTopics,
+		statusCounts: summary.statusCounts,
+	});
 }
 
 const TOPIC_PASTEL_PALETTE = Object.freeze([
@@ -2941,8 +3163,12 @@ function matchesCriterion(itemVal, filterVal, isArrayTarget = false) {
 	const normalize = (v) => String(v).toLowerCase();
 
 	if (isArrayTarget) {
-		const itemTopics = Array.isArray(itemVal) ? itemVal.map(normalize) : [normalize(itemVal)];
-		const targetTopics = Array.isArray(filterVal) ? filterVal.map(normalize) : [normalize(filterVal)];
+		const itemTopics = Array.isArray(itemVal)
+			? itemVal.map(normalize)
+			: [normalize(itemVal)];
+		const targetTopics = Array.isArray(filterVal)
+			? filterVal.map(normalize)
+			: [normalize(filterVal)];
 		return itemTopics.some((t) => targetTopics.includes(t));
 	}
 
@@ -3169,10 +3395,12 @@ module.exports = {
 	recordAttendance,
 	attendanceSummary,
 	stalePairs,
+	AI_TOPICS,
 	AI_TOPIC_KEYS,
 	getAITopicsSummary,
 	calculatePairHours,
 	getScholarshipHoursSummary,
+	buildScholarshipReport,
 	serializeAttendance,
 	deserializeAttendance,
 	MAX_ATTENDANCE_RECORDS,
@@ -6101,6 +6329,42 @@ module.exports = {
     ru: 'Совпадение тем ИИ'
   });
 
+  const S_SESSION_DURATION = Object.freeze({
+    he: 'משך שיעור (שעות)',
+    ar: 'مدة الجلسة (ساعات)',
+    ru: 'Длительность занятия (часы)'
+  });
+  const S_SESSION_AI_TOPIC = Object.freeze({
+    he: 'נושא בינה מלאכותית',
+    ar: 'موضوع الذكاء الاصطناعي',
+    ru: 'Тема искусственного интеллекта'
+  });
+  const S_SCHOLARSHIP_REPORT_HEADING = Object.freeze({
+    he: 'דוח שעות מלגה',
+    ar: 'تقرير ساعات المنحة',
+    ru: 'Отчет о часах стипендии'
+  });
+  const S_SCHOLARSHIP_REPORT_HINT = Object.freeze({
+    he: 'דוח אנונימי לפי זוגות וסיכום שעות מלגה ומפגשי AI, ללא פרטים מזהים (PII).',
+    ar: 'تقرير مجهول الهوية حسب الأزواج وملخص لساعات المنحة وجلسات الذكاء الاصطناعي، بدون بيانات شخصية.',
+    ru: 'Анонимный отчет по парам и сводка часов стипендии и занятий по ИИ, без персональных данных.'
+  });
+  const S_SCHOLARSHIP_TARGET_LABEL = Object.freeze({
+    he: 'יעד שעות מלגה',
+    ar: 'هدف ساعات المنحة',
+    ru: 'Цель часов стипендии'
+  });
+  const S_GENERATE_SCHOLARSHIP_REPORT = Object.freeze({
+    he: 'הפק דוח שעות מלגה',
+    ar: 'إنشاء تقرير ساعات المنحة',
+    ru: 'Сформировать отчет о стипендии'
+  });
+  const S_COPY_SCHOLARSHIP_REPORT = Object.freeze({
+    he: 'העתק דוח',
+    ar: 'نسخ التقرير',
+    ru: 'Копировать отчет'
+  });
+
   function validateAITopics(topics) {
     if (!Array.isArray(topics) || topics.length === 0) return false;
     return topics.every(function (t) {
@@ -6170,6 +6434,10 @@ module.exports = {
       window.formatInlineFormulas = attendance.formatInlineFormulas;
       window.saveFocusReaderConfig = attendance.saveFocusReaderConfig;
       window.loadFocusReaderConfig = attendance.loadFocusReaderConfig;
+      window.buildScholarshipReport = attendance.buildScholarshipReport;
+      window.recordAttendance = attendance.recordAttendance;
+      window.serializeAttendance = attendance.serializeAttendance;
+      window.deserializeAttendance = attendance.deserializeAttendance;
     }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -7681,7 +7949,11 @@ module.exports = {
         ROLE_HE.pupil + ' #' + r.pupils[p.pupilIndex].number + ' · ' +
         p.sharedSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ');
     }, NO_PAIR_HE);
+    if (pairs.length && ($('sessionPair').value === '' || $('sessionPair').value == null || Number($('sessionPair').value) >= pairs.length)) {
+      $('sessionPair').value = '0';
+    }
     renderSessionChoices(pairs);
+    updatePairTotalHoursBadge();
   }
 
   function sessionRow(e) {
@@ -7813,7 +8085,7 @@ module.exports = {
   }
   function activeSessionPairIndex() {
     var sel = $('sessionPair');
-    if (!sel || !sel.value) return null;
+    if (!sel || sel.value === '' || sel.value == null) return null;
     var n = Number(sel.value);
     return Number.isInteger(n) && n >= 0 ? n : null;
   }
@@ -7900,6 +8172,35 @@ module.exports = {
         unitId: $('sessionUnit').value,
         outcome: $('sessionOutcome').value
       });
+      if (attendance && typeof attendance.recordAttendance === 'function') {
+        var pairIdx = Number($('sessionPair').value);
+        var durationVal = Number($('sessionDurationSelect') ? $('sessionDurationSelect').value : 1) || 1;
+        var topicVal = $('sessionAiTopicSelect') ? $('sessionAiTopicSelect').value : null;
+        var aiTopic = (topicVal && topicVal !== 'none' && topicVal !== '') ? topicVal : null;
+        var attOutcome = $('sessionOutcome').value;
+        var attStatus = attOutcome === 'missed' ? 'missed' : (attOutcome === 'cut_short' ? 'cancelled' : 'held');
+
+        var now = new Date();
+        var y = now.getFullYear();
+        var m = String(now.getMonth() + 1).padStart(2, '0');
+        var d = String(now.getDate()).padStart(2, '0');
+        var today = y + '-' + m + '-' + d;
+
+        var currentLog = { entries: Array.isArray(state.attendance) ? state.attendance : [] };
+        var recInput = {
+          pairIndex: pairIdx,
+          date: today,
+          status: attStatus,
+          durationHours: durationVal
+        };
+        if (aiTopic !== null) {
+          recInput.aiTopic = aiTopic;
+        } else {
+          recInput.aiTopic = null;
+        }
+        var updatedLog = attendance.recordAttendance(currentLog, recInput);
+        state.attendance = updatedLog.entries.slice();
+      }
       updatePairTotalHoursBadge();
     } catch (err) {
       if (/unit/i.test(err.message)) {
@@ -7925,6 +8226,112 @@ module.exports = {
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
     save('sessionStatus');
   });
+
+  var lastScholarshipReportText = '';
+  function renderScholarshipReport(report, targetHours) {
+    var out = $('scholarshipReportOut');
+    if (!out) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var isAr = lang === 'ar';
+    var isRu = lang === 'ru';
+    var pairs = Array.isArray(report.pairs) ? report.pairs : [];
+    var summary = report.summary || {};
+
+    var target = report.targetHours || targetHours || 30;
+    var totalHours = summary.totalHours != null ? summary.totalHours : 0;
+    var totalHeld = summary.totalHeldSessions != null ? summary.totalHeldSessions : 0;
+    var totalPairs = pairs.length;
+    var avgPct = summary.completionPercent != null ? summary.completionPercent : (totalPairs > 0 ? Math.round((totalHours / (totalPairs * target)) * 100) : 0);
+
+    var txtLines = [];
+    txtLines.push('--- ' + (isAr ? 'تقرير ساعات المنحة' : (isRu ? 'Отчет о часах стипендии' : 'דוח שעות מלגה')) + ' (' + (isAr ? 'الهدف: ' : (isRu ? 'Цель: ' : 'יעד: ')) + target + ') ---');
+    txtLines.push((isAr ? 'إجمالي الأزواج: ' : (isRu ? 'Всего пар: ' : 'סך כל הזוגות: ')) + totalPairs);
+    txtLines.push((isAr ? 'اللقاءات المنعقدة: ' : (isRu ? 'Состоявшихся занятий: ' : 'מפגשים שהתקיימו: ')) + totalHeld);
+    txtLines.push((isAr ? 'إجمالي الساعات: ' : (isRu ? 'Всего часов: ' : 'סך כל השעות: ')) + totalHours);
+    txtLines.push((isAr ? 'نسبة الإنجاز: ' : (isRu ? 'Процент выполнения: ' : 'אחוז השלמה כולל: ')) + avgPct + '%');
+
+    var coveredTopics = Array.isArray(summary.coveredAiTopics) ? summary.coveredAiTopics : [];
+    if (coveredTopics.length) {
+      txtLines.push((isAr ? 'مواضيع الذكاء الاصطناعي: ' : (isRu ? 'Темы ИИ: ' : 'נושאי בינה מלאכותית: ')) + coveredTopics.join(', '));
+    }
+    txtLines.push('');
+    txtLines.push(isAr ? 'التفاصيل حسب الأزواج:' : (isRu ? 'Разбивка по парам:' : 'פירוט לפי זוגות:'));
+
+    var pairsHtml = [];
+    pairs.forEach(function (p) {
+      var pTopics = Array.isArray(p.coveredAiTopics) ? p.coveredAiTopics : [];
+      var topicLabels = pTopics.map(function (k) {
+        return (AI_TOPICS && AI_TOPICS[k] && (AI_TOPICS[k][lang] || AI_TOPICS[k].he)) || k;
+      }).join(', ');
+
+      var pairLine = (isAr ? 'زوج #' : (isRu ? 'Пара #' : 'זוג #')) + p.pairIndex + ': ' +
+        p.totalHours + '/' + p.targetHours + ' ' + (isAr ? 'ساعات' : (isRu ? 'ч' : 'שעות')) + ' (' +
+        p.completionPercent + '%) · ' +
+        (isAr ? 'لقاءات: ' : (isRu ? 'Занятий: ' : 'מפגשים: ')) + p.heldSessions +
+        (pTopics.length ? ' · AI: ' + pTopics.join(', ') : '');
+      txtLines.push(pairLine);
+
+      pairsHtml.push(
+        '<div class="item scholarship-pair-item" data-pair-index="' + p.pairIndex + '">' +
+        '<b>' + esc(isAr ? 'زوج #' : (isRu ? 'Пара #' : 'זוג #')) + p.pairIndex + '</b> · ' +
+        '<span>' + p.totalHours + ' / ' + p.targetHours + ' ' + (isAr ? 'ساعة' : (isRu ? 'ч' : 'שעות')) + ' (' + p.completionPercent + '%)</span> · ' +
+        '<span>' + esc(isAr ? 'اللقاءات: ' : (isRu ? 'Занятий: ' : 'מפגשים: ')) + p.heldSessions + '</span>' +
+        (topicLabels ? '<br><span class="meta">' + esc(isAr ? 'المواضيع: ' : (isRu ? 'Темы: ' : 'נושאי AI: ')) + esc(topicLabels) + '</span>' : '') +
+        '</div>'
+      );
+    });
+
+    lastScholarshipReportText = txtLines.join('\n');
+    out.innerHTML =
+      '<div class="scholarship-report-summary">' +
+      '<p><b>' + (isAr ? 'إجمالي الساعات:' : (isRu ? 'Всего часов:' : 'סך שעות כולל:')) + '</b> ' + totalHours + ' / ' + (totalPairs * target) + ' (' + avgPct + '%)</p>' +
+      '<p><b>' + (isAr ? 'اللقاءات المنعقدة:' : (isRu ? 'Состоявшихся занятий:' : 'מפגשים שהתקיימו:')) + '</b> ' + totalHeld + '</p>' +
+      (coveredTopics.length ? '<p><b>' + (isAr ? 'مواضيع الذكاء الاصطناعي:' : (isRu ? 'Темы ИИ:' : 'נושאי AI שכוסו:')) + '</b> ' + esc(coveredTopics.join(', ')) + '</p>' : '') +
+      '</div>' +
+      '<div class="scholarship-report-pairs">' +
+      (pairsHtml.length ? pairsHtml.join('') : '<p class="hint empty">' + (isAr ? 'لا توجد بيانات للأزواج' : (isRu ? 'Нет данных по парам' : 'אין נתוני שעות לזוגות')) + '</p>') +
+      '</div>';
+  }
+
+  function generateScholarshipReport() {
+    var targetSelect = $('scholarshipTargetSelect');
+    var targetHours = Number(targetSelect ? targetSelect.value : 30) || 30;
+    var records = Array.isArray(state.attendance) ? state.attendance : [];
+    var pairs = currentPairs();
+    var report = attendance && typeof attendance.buildScholarshipReport === 'function'
+      ? attendance.buildScholarshipReport(records, pairs, targetHours)
+      : { pairs: [], summary: { totalHours: 0, totalHeldSessions: 0, completionPercent: 0 } };
+    renderScholarshipReport(report, targetHours);
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var msg = lang === 'ar' ? 'تم إنشاء تقرير ساعات المنحة.' : (lang === 'ru' ? 'Отчет о часах стипендии сформирован.' : 'דוח שעות המלגה הופק בהצלחה.');
+    say('scholarshipReportStatus', msg);
+    return report;
+  }
+
+  if ($('generateScholarshipReportBtn')) {
+    $('generateScholarshipReportBtn').addEventListener('click', generateScholarshipReport);
+  }
+
+  if ($('copyScholarshipReportBtn')) {
+    $('copyScholarshipReportBtn').addEventListener('click', function () {
+      if (!lastScholarshipReportText) {
+        generateScholarshipReport();
+      }
+      var textToCopy = lastScholarshipReportText;
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      var copiedMsg = lang === 'ar' ? 'تم نسخ تقرير ساعات المنحة إلى الحافظة.' : (lang === 'ru' ? 'Отчет о часах стипендии скопирован в буфер обмена.' : 'דוח שעות המלגה הועתק ללוח.');
+      var readyMsg = lang === 'ar' ? 'تقرير ساعات المنحة جاهز للنسخ.' : (lang === 'ru' ? 'Отчет о часах стипендии готов к копированию.' : 'דוח שעות המלגה מוכן להעתקה.');
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(function () {
+          say('scholarshipReportStatus', copiedMsg);
+        }, function () {
+          say('scholarshipReportStatus', readyMsg);
+        });
+      } else {
+        say('scholarshipReportStatus', readyMsg);
+      }
+    });
+  }
 
   // ---------- wipe this device ----------
   // Everything the app holds sits under one key of this browser's storage (store.js), so ending a pilot
@@ -8754,8 +9161,10 @@ module.exports = {
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
-    document.documentElement.lang = currentLang;
-    document.documentElement.dir = i18n.dirFor(currentLang);
+    if (document.documentElement) {
+      document.documentElement.lang = currentLang;
+      document.documentElement.dir = i18n.dirFor(currentLang);
+    }
     if (typeof refreshSortAiMatchLabel === 'function') refreshSortAiMatchLabel();
     if (typeof refreshFilterAiOnlyLabel === 'function') refreshFilterAiOnlyLabel();
     if (typeof refreshFilterMissingAiLabel === 'function') refreshFilterMissingAiLabel();
@@ -8770,11 +9179,57 @@ module.exports = {
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
     renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary();
+
+    if ($('sessionDurationLabel')) $('sessionDurationLabel').textContent = S_SESSION_DURATION[currentLang] || S_SESSION_DURATION.he;
+    if ($('sessionAiTopicLabel')) $('sessionAiTopicLabel').textContent = S_SESSION_AI_TOPIC[currentLang] || S_SESSION_AI_TOPIC.he;
+    if ($('scholarshipReportHeading')) $('scholarshipReportHeading').textContent = S_SCHOLARSHIP_REPORT_HEADING[currentLang] || S_SCHOLARSHIP_REPORT_HEADING.he;
+    if ($('scholarshipReportHint')) $('scholarshipReportHint').textContent = S_SCHOLARSHIP_REPORT_HINT[currentLang] || S_SCHOLARSHIP_REPORT_HINT.he;
+    if ($('scholarshipTargetLabel')) $('scholarshipTargetLabel').textContent = S_SCHOLARSHIP_TARGET_LABEL[currentLang] || S_SCHOLARSHIP_TARGET_LABEL.he;
+    if ($('generateScholarshipReportBtn')) {
+      var genText = S_GENERATE_SCHOLARSHIP_REPORT[currentLang] || S_GENERATE_SCHOLARSHIP_REPORT.he;
+      $('generateScholarshipReportBtn').textContent = genText;
+      $('generateScholarshipReportBtn').setAttribute('aria-label', genText);
+    }
+    if ($('copyScholarshipReportBtn')) {
+      var copyText = S_COPY_SCHOLARSHIP_REPORT[currentLang] || S_COPY_SCHOLARSHIP_REPORT.he;
+      $('copyScholarshipReportBtn').textContent = copyText;
+      $('copyScholarshipReportBtn').setAttribute('aria-label', copyText);
+    }
+    var aiTopicSel = $('sessionAiTopicSelect');
+    if (aiTopicSel) {
+      var currentTopicVal = aiTopicSel.value;
+      var emptyText = currentLang === 'ar' ? 'بدون موضوع ذكاء اصطناعي' : (currentLang === 'ru' ? 'Без темы ИИ' : 'ללא נושא AI');
+      var optsHtml = '<option value="">' + esc(emptyText) + '</option>';
+      if (AI_TOPICS) {
+        Object.keys(AI_TOPICS).forEach(function (k) {
+          var label = (AI_TOPICS[k] && (AI_TOPICS[k][currentLang] || AI_TOPICS[k].he)) || k;
+          optsHtml += '<option value="' + esc(k) + '"' + (currentTopicVal === k ? ' selected' : '') + '>' + esc(label) + '</option>';
+        });
+      }
+      aiTopicSel.innerHTML = optsHtml;
+      aiTopicSel.value = currentTopicVal;
+    }
+    var targetSel = $('scholarshipTargetSelect');
+    if (targetSel) {
+      var currentTargetVal = targetSel.value;
+      var t30 = currentLang === 'ar' ? '30 ساعة (أساسي)' : (currentLang === 'ru' ? '30 часов (базовый)' : '30 שעות (בסיסי)');
+      var t130 = currentLang === 'ar' ? '130 ساعة (منحة IMPACT!)' : (currentLang === 'ru' ? '130 часов (стипендия IMPACT!)' : '130 שעות (מלגת IMPACT!)');
+      targetSel.innerHTML = '<option value="30"' + (currentTargetVal === '30' ? ' selected' : '') + '>' + esc(t30) + '</option>' +
+        '<option value="130"' + (currentTargetVal === '130' ? ' selected' : '') + '>' + esc(t130) + '</option>';
+      targetSel.value = currentTargetVal || '30';
+    }
+    if (lastScholarshipReportText) {
+      generateScholarshipReport();
+    }
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
-  if (currentLang !== 'he') applyLanguage(currentLang);
-  if (typeof window !== 'undefined') window.applyLanguage = applyLanguage;
+  applyLanguage(currentLang);
+  if (typeof window !== 'undefined') {
+    window.applyLanguage = applyLanguage;
+    window.generateScholarshipReport = generateScholarshipReport;
+    window.renderScholarshipReport = renderScholarshipReport;
+  }
 })();
 </script>
 </body>
