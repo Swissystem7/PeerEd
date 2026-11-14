@@ -449,9 +449,50 @@ function rankChallengeLeaderboard(entries) {
   })));
 }
 
+function filterChallengeEntriesByTopic(entries, aiTopic) {
+  const list = Array.isArray(entries) ? entries : [];
+  if (!aiTopic || aiTopic === 'all') {
+    return Object.freeze(list.slice());
+  }
+  return Object.freeze(list.filter((e) => e && e.aiTopic === aiTopic));
+}
+
+function buildChallengeWinnersSummary(entries, lang) {
+  const list = Array.isArray(entries) ? entries : [];
+  const ranked = rankChallengeLeaderboard(list);
+  const top3 = ranked.slice(0, 3);
+  const l = (lang === 'ar' || lang === 'ru' || lang === 'he') ? lang : 'he';
+
+  const titles = {
+    he: { header: 'סיכום זוכים אנונימי - Top 3', empty: 'אין הגשות זמינות', format: (r) => `#${r.rank} זוג ${r.pairIndex} | ${r.toolTitle} (${r.aiTopic}) - ציון: ${r.totalScore}` },
+    ar: { header: 'ملخص الفائزين - Top 3', empty: 'لا توجد مشاركات', format: (r) => `#${r.rank} الثنائي ${r.pairIndex} | ${r.toolTitle} (${r.aiTopic}) - المجموع: ${r.totalScore}` },
+    ru: { header: 'Сводка победителей - Top 3', empty: 'Нет заявок', format: (r) => `#${r.rank} Пара ${r.pairIndex} | ${r.toolTitle} (${r.aiTopic}) - Счёт: ${r.totalScore}` }
+  };
+
+  const t = titles[l];
+  if (top3.length === 0) {
+    return Object.freeze({ text: t.empty, top3: Object.freeze([]) });
+  }
+
+  const lines = [t.header];
+  top3.forEach((r) => {
+    lines.push(t.format(r));
+  });
+
+  return Object.freeze({
+    text: lines.join('\n'),
+    top3: Object.freeze(top3.map((r) => Object.freeze({
+      pairIndex: r.pairIndex,
+      toolTitle: r.toolTitle,
+      aiTopic: r.aiTopic,
+      totalScore: r.totalScore
+    })))
+  });
+}
+
 module.exports = {
   TRACKS, TRACK_GRADES, LESSON_MINUTES, ALL_LESSONS,
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
-  VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard
+  VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary
 };
