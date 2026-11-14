@@ -331,6 +331,152 @@ function makeResponseToReport(input) {
   return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
+const PILOT_ROLES = Object.freeze(['student', 'pupil']);
+const PILOT_REGIONS = Object.freeze(['NORTH', 'HAIFA', 'CENTER', 'TEL_AVIV', 'JERUSALEM', 'SOUTH']);
+const PILOT_AI_TOPICS = Object.freeze(['AI_LIT_PROMPT', 'AI_CREATIVE', 'AI_STEM_CODE', 'AI_ETHICS_SEC']);
+
+const PII_KEY_RE = /(?:name|email|mail|phone|tel|mobile|id_?number|tz|zehut|address)/i;
+const EMAIL_CHECK_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/i;
+const PHONE_CHECK_RE = /(?:(?:\+|00)?972[-\s.]?\(?0?|\(?0)(?:5\d|7[2-9]|[23489])\)?[-\s.–—]?(?:\d{3}[-\s.–—]?\d{4}|\d{3}[-\s.–—]?\d{2}[-\s.–—]?\d{2}|\d{2}[-\s.–—]?\d{2}[-\s.–—]?\d{3})/i;
+const ID_CHECK_RE = /(?<!\d)(?:\d{9}|\d{8}[-–]\d|\d{3}-\d{3}-\d{3})(?!\d)/i;
+
+function hasPiiKey(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  const keys = Object.keys(obj);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (PII_KEY_RE.test(keys[i])) return true;
+  }
+  return false;
+}
+
+function hasPiiString(val) {
+  if (typeof val !== 'string') return false;
+  const hits = findPersonalData(val);
+  for (let i = 0; i < hits.length; i += 1) {
+    if (hits[i].kind !== 'profanity') return true;
+  }
+  if (EMAIL_CHECK_RE.test(val)) return true;
+  if (PHONE_CHECK_RE.test(val)) return true;
+  if (ID_CHECK_RE.test(val)) return true;
+  return false;
+}
+
+function checkDeepPii(val) {
+  if (val === null || val === undefined) return false;
+  if (typeof val === 'string') return hasPiiString(val);
+  if (Array.isArray(val)) {
+    for (let i = 0; i < val.length; i += 1) {
+      if (checkDeepPii(val[i])) return true;
+    }
+    return false;
+  }
+  if (typeof val === 'object') {
+    if (hasPiiKey(val)) return true;
+    const keys = Object.keys(val);
+    for (let j = 0; j < keys.length; j += 1) {
+      if (checkDeepPii(val[keys[j]])) return true;
+    }
+  }
+  return false;
+}
+
+function cleanBatchAiTopics(rawTopics) {
+  const topics = Array.isArray(rawTopics) ? rawTopics : [];
+  const out = [];
+  for (let i = 0; i < topics.length; i += 1) {
+    const t = topics[i];
+    if (typeof t === 'string') {
+      const norm = t.trim().toUpperCase();
+      if (PILOT_AI_TOPICS.indexOf(norm) !== -1 && out.indexOf(norm) === -1) {
+        out.push(norm);
+      }
+    }
+  }
+  return out;
+}
+
+function validateBatchImportZeroPii(rawRecords) {
+  if (!Array.isArray(rawRecords)) {
+    return {
+      accepted: Object.freeze([]),
+      rejectedCount: 0,
+      reasons: Object.freeze(['expected rawRecords to be an array'])
+    };
+  }
+
+  const accepted = [];
+  let rejectedCount = 0;
+  const reasons = [];
+
+  for (let i = 0; i < rawRecords.length; i += 1) {
+    const rec = rawRecords[i];
+    if (rec === null || typeof rec !== 'object' || Array.isArray(rec)) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: not an object`);
+      continue;
+    }
+
+    if (checkDeepPii(rec)) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: contains PII`);
+      continue;
+    }
+
+    const role = typeof rec.role === 'string' ? rec.role.trim().toLowerCase() : '';
+    if (PILOT_ROLES.indexOf(role) === -1) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: invalid role`);
+      continue;
+    }
+
+    const rawArea = rec.area !== undefined ? rec.area : rec.region;
+    const area = typeof rawArea === 'string' ? rawArea.trim().toUpperCase() : '';
+    if (PILOT_REGIONS.indexOf(area) === -1) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: invalid area`);
+      continue;
+    }
+
+    const rawTopics = rec.target_ai_topics !== undefined ? rec.target_ai_topics : rec.aiTopics;
+    const cleanedTopics = cleanBatchAiTopics(rawTopics);
+
+    const validRec = {
+      role: role,
+      area: area,
+      region: area,
+      target_ai_topics: Object.freeze(cleanedTopics)
+    };
+
+    if (Array.isArray(rec.availability) && rec.availability.length > 0) {
+      validRec.availability = rec.availability.slice();
+    } else {
+      validRec.availability = ['SUN_16'];
+    }
+
+    if (Array.isArray(rec.subjects) && rec.subjects.length > 0) {
+      validRec.subjects = rec.subjects.slice();
+    } else {
+      validRec.subjects = ['MATH'];
+    }
+
+    if (role === 'pupil') {
+      validRec.parentConsent = rec.parentConsent !== undefined ? Boolean(rec.parentConsent) : true;
+    }
+
+    if (rec.aiLevel === 'beginner' || rec.aiLevel === 'advanced') {
+      validRec.aiLevel = rec.aiLevel;
+    }
+
+    accepted.push(Object.freeze(validRec));
+  }
+
+  return {
+    accepted: Object.freeze(accepted),
+    rejectedCount: rejectedCount,
+    reasons: Object.freeze(reasons)
+  };
+}
+
 module.exports = {
   PATTERNS: PATTERNS,
   PROFANITY: PROFANITY,
@@ -350,5 +496,6 @@ module.exports = {
   makeReportEvent: makeReportEvent,
   RESPONSE_TO_REPORT_FIELDS: RESPONSE_TO_REPORT_FIELDS,
   RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH,
-  makeResponseToReport: makeResponseToReport
+  makeResponseToReport: makeResponseToReport,
+  validateBatchImportZeroPii: validateBatchImportZeroPii
 };

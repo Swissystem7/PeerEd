@@ -220,6 +220,17 @@
         <button type="button" class="ghost" id="demoBtn" aria-label="טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
     </div>
+    <div class="card" id="pilotBatchCard">
+      <h2 id="pilotBatchHeading">ייבוא אצווה לפיילוט</h2>
+      <p class="hint" id="pilotBatchHint">ייבוא רשומות אנונימיות בתאימות מלאה ל-Zero-PII. רשומות עם פרטים מזהים (שמות, מיילים, טלפונים) יידחו אוטומטית.</p>
+      <label for="pilotBatchInput" id="pilotBatchInputLabel">נתוני אצווה (JSON)</label>
+      <textarea id="pilotBatchInput" rows="5" aria-describedby="pilotBatchStatus" style="width: 100%; font-family: monospace; direction: ltr; box-sizing: border-box;"></textarea>
+      <div class="actions">
+        <button type="button" class="act" id="validatePilotBatchBtn" aria-describedby="pilotBatchStatus">אימות אצווה</button>
+        <button type="button" class="act" id="confirmPilotBatchBtn" aria-describedby="pilotBatchStatus">ייבוא מאושר</button>
+      </div>
+      <p class="status" id="pilotBatchStatus" role="status"></p>
+    </div>
     <div class="card">
       <h2>המשתתפים</h2>
       <!-- The pairs file is the result of a match by list number, not the list: a person's hours outside the
@@ -3986,6 +3997,152 @@ function makeResponseToReport(input) {
   return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
+const PILOT_ROLES = Object.freeze(['student', 'pupil']);
+const PILOT_REGIONS = Object.freeze(['NORTH', 'HAIFA', 'CENTER', 'TEL_AVIV', 'JERUSALEM', 'SOUTH']);
+const PILOT_AI_TOPICS = Object.freeze(['AI_LIT_PROMPT', 'AI_CREATIVE', 'AI_STEM_CODE', 'AI_ETHICS_SEC']);
+
+const PII_KEY_RE = /(?:name|email|mail|phone|tel|mobile|id_?number|tz|zehut|address)/i;
+const EMAIL_CHECK_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/i;
+const PHONE_CHECK_RE = /(?:(?:\+|00)?972[-\s.]?\(?0?|\(?0)(?:5\d|7[2-9]|[23489])\)?[-\s.–—]?(?:\d{3}[-\s.–—]?\d{4}|\d{3}[-\s.–—]?\d{2}[-\s.–—]?\d{2}|\d{2}[-\s.–—]?\d{2}[-\s.–—]?\d{3})/i;
+const ID_CHECK_RE = /(?<!\d)(?:\d{9}|\d{8}[-–]\d|\d{3}-\d{3}-\d{3})(?!\d)/i;
+
+function hasPiiKey(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  const keys = Object.keys(obj);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (PII_KEY_RE.test(keys[i])) return true;
+  }
+  return false;
+}
+
+function hasPiiString(val) {
+  if (typeof val !== 'string') return false;
+  const hits = findPersonalData(val);
+  for (let i = 0; i < hits.length; i += 1) {
+    if (hits[i].kind !== 'profanity') return true;
+  }
+  if (EMAIL_CHECK_RE.test(val)) return true;
+  if (PHONE_CHECK_RE.test(val)) return true;
+  if (ID_CHECK_RE.test(val)) return true;
+  return false;
+}
+
+function checkDeepPii(val) {
+  if (val === null || val === undefined) return false;
+  if (typeof val === 'string') return hasPiiString(val);
+  if (Array.isArray(val)) {
+    for (let i = 0; i < val.length; i += 1) {
+      if (checkDeepPii(val[i])) return true;
+    }
+    return false;
+  }
+  if (typeof val === 'object') {
+    if (hasPiiKey(val)) return true;
+    const keys = Object.keys(val);
+    for (let j = 0; j < keys.length; j += 1) {
+      if (checkDeepPii(val[keys[j]])) return true;
+    }
+  }
+  return false;
+}
+
+function cleanBatchAiTopics(rawTopics) {
+  const topics = Array.isArray(rawTopics) ? rawTopics : [];
+  const out = [];
+  for (let i = 0; i < topics.length; i += 1) {
+    const t = topics[i];
+    if (typeof t === 'string') {
+      const norm = t.trim().toUpperCase();
+      if (PILOT_AI_TOPICS.indexOf(norm) !== -1 && out.indexOf(norm) === -1) {
+        out.push(norm);
+      }
+    }
+  }
+  return out;
+}
+
+function validateBatchImportZeroPii(rawRecords) {
+  if (!Array.isArray(rawRecords)) {
+    return {
+      accepted: Object.freeze([]),
+      rejectedCount: 0,
+      reasons: Object.freeze(['expected rawRecords to be an array'])
+    };
+  }
+
+  const accepted = [];
+  let rejectedCount = 0;
+  const reasons = [];
+
+  for (let i = 0; i < rawRecords.length; i += 1) {
+    const rec = rawRecords[i];
+    if (rec === null || typeof rec !== 'object' || Array.isArray(rec)) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: not an object`);
+      continue;
+    }
+
+    if (checkDeepPii(rec)) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: contains PII`);
+      continue;
+    }
+
+    const role = typeof rec.role === 'string' ? rec.role.trim().toLowerCase() : '';
+    if (PILOT_ROLES.indexOf(role) === -1) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: invalid role`);
+      continue;
+    }
+
+    const rawArea = rec.area !== undefined ? rec.area : rec.region;
+    const area = typeof rawArea === 'string' ? rawArea.trim().toUpperCase() : '';
+    if (PILOT_REGIONS.indexOf(area) === -1) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: invalid area`);
+      continue;
+    }
+
+    const rawTopics = rec.target_ai_topics !== undefined ? rec.target_ai_topics : rec.aiTopics;
+    const cleanedTopics = cleanBatchAiTopics(rawTopics);
+
+    const validRec = {
+      role: role,
+      area: area,
+      region: area,
+      target_ai_topics: Object.freeze(cleanedTopics)
+    };
+
+    if (Array.isArray(rec.availability) && rec.availability.length > 0) {
+      validRec.availability = rec.availability.slice();
+    } else {
+      validRec.availability = ['SUN_16'];
+    }
+
+    if (Array.isArray(rec.subjects) && rec.subjects.length > 0) {
+      validRec.subjects = rec.subjects.slice();
+    } else {
+      validRec.subjects = ['MATH'];
+    }
+
+    if (role === 'pupil') {
+      validRec.parentConsent = rec.parentConsent !== undefined ? Boolean(rec.parentConsent) : true;
+    }
+
+    if (rec.aiLevel === 'beginner' || rec.aiLevel === 'advanced') {
+      validRec.aiLevel = rec.aiLevel;
+    }
+
+    accepted.push(Object.freeze(validRec));
+  }
+
+  return {
+    accepted: Object.freeze(accepted),
+    rejectedCount: rejectedCount,
+    reasons: Object.freeze(reasons)
+  };
+}
+
 module.exports = {
   PATTERNS: PATTERNS,
   PROFANITY: PROFANITY,
@@ -4005,7 +4162,8 @@ module.exports = {
   makeReportEvent: makeReportEvent,
   RESPONSE_TO_REPORT_FIELDS: RESPONSE_TO_REPORT_FIELDS,
   RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH,
-  makeResponseToReport: makeResponseToReport
+  makeResponseToReport: makeResponseToReport,
+  validateBatchImportZeroPii: validateBatchImportZeroPii
 };
   __registry["validator"] = module.exports;
 })();
@@ -5943,7 +6101,7 @@ const {
 	withoutRetentionStamp,
 	PERSONAL_DATA_ERROR,
 } = require("./profile.js");
-const { PROFANITY_ERROR } = require("./validator.js");
+const { PROFANITY_ERROR, validateBatchImportZeroPii } = require("./validator.js");
 const { emptyQueue, loadQueue } = require("./approval.js");
 const { emptyLog, loadLog } = require("./session.js");
 const {
@@ -6072,29 +6230,44 @@ function storedPerson(person, at) {
 	let input = person;
 	let hasTopics = false;
 	let rawTopics;
+	let rawArea;
 	if (
 		person !== null &&
 		typeof person === "object" &&
-		!Array.isArray(person) &&
-		Object.hasOwn(person, "target_ai_topics")
+		!Array.isArray(person)
 	) {
-		hasTopics = true;
-		rawTopics = person.target_ai_topics;
-		input = { ...person };
-		delete input.target_ai_topics;
+		if (Object.hasOwn(person, "target_ai_topics")) {
+			hasTopics = true;
+			rawTopics = person.target_ai_topics;
+			input = { ...person };
+			delete input.target_ai_topics;
+		}
+		if (Object.hasOwn(input, "area")) {
+			rawArea = input.area;
+			input = { ...input };
+			if (!input.region) input.region = input.area;
+			delete input.area;
+		}
 	}
 	try {
 		const profile = makeProfile(storedProfileInput(input));
+		let res = profile;
 		if (hasTopics) {
 			const cleaned = cleanAITopics(rawTopics);
 			if (cleaned.length > 0) {
-				return Object.freeze({
-					...profile,
+				res = Object.freeze({
+					...res,
 					target_ai_topics: Object.freeze(cleaned),
 				});
 			}
 		}
-		return profile;
+		if (rawArea) {
+			res = Object.freeze({
+				...res,
+				area: rawArea,
+			});
+		}
+		return res;
 	} catch (err) {
 		if (
 			err.message === PERSONAL_DATA_ERROR ||
@@ -6350,6 +6523,7 @@ module.exports = {
 	createStore,
 	isQuotaExceededError,
 	isQuotaExceeded,
+	validateBatchImportZeroPii,
 	filterParticipantsByAITopic
 };
   __registry["store"] = module.exports;
@@ -7481,6 +7655,142 @@ module.exports = {
     renderPeople();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה, אחד מהתלמידים בלי אישור הורה. עבור למסך "שידוך".');
     save('addStatus');
+  });
+
+  var lastBatchResult = null;
+  var lastBatchValidated = false;
+
+  function renderPilotBatchStatus() {
+    if (!lastBatchResult) return;
+    var acc = lastBatchResult.acceptedCount;
+    var rej = lastBatchResult.rejectedCount;
+    var msg = '';
+    if (currentLang === 'ar') {
+      msg = 'تم قبول: ' + acc + '، تم رفض: ' + rej;
+    } else if (currentLang === 'ru') {
+      msg = 'Одобрено: ' + acc + ', отклонено: ' + rej;
+    } else {
+      msg = 'אושרו: ' + acc + ', נדחו: ' + rej;
+    }
+    var st = $('pilotBatchStatus');
+    if (st) {
+      st.textContent = msg;
+      st.className = 'status' + (rej > 0 && acc === 0 ? ' bad' : ' ok');
+    }
+  }
+
+  $('validatePilotBatchBtn').addEventListener('click', function () {
+    var rawText = ($('pilotBatchInput') && $('pilotBatchInput').value) || '';
+    if (!rawText.trim()) {
+      var emptyMsg = currentLang === 'ar' ? 'يرجى إدخال بيانات JSON للاستيراد' : (currentLang === 'ru' ? 'Пожалуйста, введите данные JSON для импорта' : 'נא להזין נתוני JSON לייבוא');
+      say('pilotBatchStatus', emptyMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    var parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (_e) {
+      var parseMsg = currentLang === 'ar' ? 'خطأ في تنسيق JSON' : (currentLang === 'ru' ? 'Неверный формат JSON' : 'שגיאת תחביר ב-JSON');
+      say('pilotBatchStatus', parseMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    if (!Array.isArray(parsed)) {
+      var arrMsg = currentLang === 'ar' ? 'إدخال غير صالح: المتوقع مصفوفة سجلات JSON' : (currentLang === 'ru' ? 'Неверный ввод: ожидается массив записей JSON' : 'קלט לא תקין: מצופה מערך רשומות JSON');
+      say('pilotBatchStatus', arrMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    var batchFn = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+    var res = batchFn(parsed);
+    lastBatchResult = {
+      accepted: res.accepted,
+      acceptedCount: res.accepted.length,
+      rejectedCount: res.rejectedCount,
+      reasons: res.reasons
+    };
+    lastBatchValidated = true;
+    renderPilotBatchStatus();
+  });
+
+  $('confirmPilotBatchBtn').addEventListener('click', function () {
+    if (!lastBatchValidated || !lastBatchResult) {
+      var rawText = ($('pilotBatchInput') && $('pilotBatchInput').value) || '';
+      if (!rawText.trim()) {
+        var emptyMsg = currentLang === 'ar' ? 'يرجى إدخال بيانات JSON للاستيراد' : (currentLang === 'ru' ? 'Пожалуйста, введите данные JSON для импорта' : 'נא להזין נתוני JSON לייבוא');
+        say('pilotBatchStatus', emptyMsg, true);
+        return;
+      }
+      var parsed;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (_e) {
+        var parseMsg = currentLang === 'ar' ? 'خطأ في تنسيق JSON' : (currentLang === 'ru' ? 'Неверный формат JSON' : 'שגיאת תחביר ב-JSON');
+        say('pilotBatchStatus', parseMsg, true);
+        return;
+      }
+      if (!Array.isArray(parsed)) {
+        var arrMsg = currentLang === 'ar' ? 'إدخال غير صالح: المتوقع مصفوفة سجلات JSON' : (currentLang === 'ru' ? 'Неверный ввод: ожидается массив записей JSON' : 'קלט לא תקין: מצופה מערך רשומות JSON');
+        say('pilotBatchStatus', arrMsg, true);
+        return;
+      }
+      var batchFn = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+      var res = batchFn(parsed);
+      lastBatchResult = {
+        accepted: res.accepted,
+        acceptedCount: res.accepted.length,
+        rejectedCount: res.rejectedCount,
+        reasons: res.reasons
+      };
+      lastBatchValidated = true;
+    }
+
+    var accepted = lastBatchResult.accepted || [];
+    if (accepted.length === 0) {
+      renderPilotBatchStatus();
+      return;
+    }
+
+    for (var i = 0; i < accepted.length; i += 1) {
+      var rec = accepted[i];
+      var candidate = {
+        role: rec.role,
+        region: rec.region || rec.area,
+        availability: Array.isArray(rec.availability) && rec.availability.length ? rec.availability.slice() : ['SUN_16'],
+        subjects: Array.isArray(rec.subjects) && rec.subjects.length ? rec.subjects.slice() : ['MATH']
+      };
+      if (rec.role === 'pupil') {
+        candidate['parentConsent'] = rec.parentConsent !== undefined ? Boolean(rec.parentConsent) : true;
+      }
+      if (rec.aiLevel === 'beginner' || rec.aiLevel === 'advanced') {
+        candidate.aiLevel = rec.aiLevel;
+      }
+      var profileObj;
+      try {
+        profileObj = profile.makeProfile(candidate);
+      } catch (_e) {
+        profileObj = candidate;
+      }
+      var person = Object.assign({}, profileObj);
+      if (Array.isArray(rec.target_ai_topics) && rec.target_ai_topics.length) {
+        person.target_ai_topics = rec.target_ai_topics.slice();
+      }
+      if (rec.area) {
+        person.area = rec.area;
+      }
+      state.people.push(person);
+    }
+
+    resetMatchView();
+    renderPeople();
+    save('pilotBatchStatus');
+    renderPilotBatchStatus();
+    if ($('pilotBatchInput')) $('pilotBatchInput').value = '';
+    lastBatchValidated = false;
   });
 
   // ---------- match ----------
@@ -9835,6 +10145,27 @@ module.exports = {
     if (lastScholarshipReportText) {
       generateScholarshipReport();
     }
+    if ($('pilotBatchHeading')) {
+      var headingTxt = currentLang === 'ar' ? 'استيراد دفعة للبرنامج التجريبي' : (currentLang === 'ru' ? 'Пакетный импорт для пилота' : 'ייבוא אצווה לפיילוט');
+      $('pilotBatchHeading').textContent = headingTxt;
+    }
+    if ($('pilotBatchInputLabel')) {
+      var labelTxt = currentLang === 'ar' ? 'بيانات الدفعة (JSON)' : (currentLang === 'ru' ? 'Данные пакета (JSON)' : 'נתוני אצווה (JSON)');
+      $('pilotBatchInputLabel').textContent = labelTxt;
+    }
+    if ($('validatePilotBatchBtn')) {
+      var vBtnTxt = currentLang === 'ar' ? 'التحقق من الدفعة' : (currentLang === 'ru' ? 'Проверить пакет' : 'אימות אצווה');
+      $('validatePilotBatchBtn').textContent = vBtnTxt;
+      $('validatePilotBatchBtn').setAttribute('aria-label', vBtnTxt);
+    }
+    if ($('confirmPilotBatchBtn')) {
+      var cBtnTxt = currentLang === 'ar' ? 'استيراد معتمد' : (currentLang === 'ru' ? 'Подтвердить импорт' : 'ייבוא מאושר');
+      $('confirmPilotBatchBtn').textContent = cBtnTxt;
+      $('confirmPilotBatchBtn').setAttribute('aria-label', cBtnTxt);
+    }
+    if (typeof renderPilotBatchStatus === 'function') {
+      renderPilotBatchStatus();
+    }
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
@@ -9845,6 +10176,8 @@ module.exports = {
     window.renderScholarshipReport = renderScholarshipReport;
     window.renderChallengeForm = renderChallengeForm;
     window.renderChallengeLeaderboard = renderChallengeLeaderboard;
+    window.validateBatchImportZeroPii = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+    window.renderPilotBatchStatus = renderPilotBatchStatus;
   }
 })();
 </script>
