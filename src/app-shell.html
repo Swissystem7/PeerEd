@@ -416,6 +416,41 @@
 
   <!-- ============ שיעורים ============ -->
   <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
+    <div class="card session-history-filter-card">
+      <h2>סינון היסטוריית מפגשים</h2>
+      <div class="row">
+        <div>
+          <label for="sessionHistoryStatusFilter" id="labelSessionHistoryStatusFilter">סטטוס:</label>
+          <select id="sessionHistoryStatusFilter" aria-describedby="labelSessionHistoryStatusFilter">
+            <option value="all">הכל</option>
+            <option value="held">התקיים</option>
+            <option value="missed">הוחמץ</option>
+            <option value="postponed">נדחה</option>
+            <option value="cancelled">בוטל</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionHistoryPairFilter" id="labelSessionHistoryPairFilter">זוג:</label>
+          <select id="sessionHistoryPairFilter" aria-describedby="labelSessionHistoryPairFilter">
+            <option value="all">כל הזוגות</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionHistoryAiTopicFilter" id="labelSessionHistoryAiTopicFilter">נושא AI:</label>
+          <select id="sessionHistoryAiTopicFilter" aria-describedby="labelSessionHistoryAiTopicFilter">
+            <option value="all">כל הנושאים</option>
+            <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+            <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+            <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+            <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <span id="sessionHistoryCount" class="pill" aria-live="polite">0 מפגשים</span>
+      </div>
+      <div id="sessionHistoryEmpty" class="empty-state" style="display:none;" aria-live="polite">אין מפגשים להצגה</div>
+    </div>
     <!-- A row is a lesson set for a matched pair, whatever became of it: "איך הסתיים" offers "לא התקיים"
          and "נקטע באמצע" beside "התקיים", and the summary counts each. Until this the banner said the log
          records "שהתקיים שיעור" with "היחידה המאושרת שנלמדה", over a form that logs a lesson that did not
