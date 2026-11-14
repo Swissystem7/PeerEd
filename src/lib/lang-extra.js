@@ -23,4 +23,4 @@ function verifyExtraParity() {
   return { ok, missingKeys: missing, extraKeys: extra };
 }
 
-module.exports = { DICTS, LANGS, getExtraKeys, tExtra, verifyExtraParity };
+module.exports = { getExtraKeys, tExtra, verifyExtraParity };

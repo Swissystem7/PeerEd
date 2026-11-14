@@ -93,4 +93,4 @@ function printableHtml(report) {
     '<table><caption>לפי סטטוס</caption>' + rows + '</table>' + bars + '<p>זוגות שלא נפגשו שבועיים: ' + report.stale.length + '</p></section>';
 }
 
-module.exports = { buildReport, weeklyReport, monthlyReport, semesterReport, reportToCsv, reportToIcs, svgBarChart, printableHtml };
+module.exports = { weeklyReport, monthlyReport, semesterReport, reportToCsv, reportToIcs, svgBarChart, printableHtml };

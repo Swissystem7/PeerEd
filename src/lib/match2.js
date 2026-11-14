@@ -237,4 +237,4 @@ function rematchPartial(students, pupils, existingPairs, opts) {
   return match2(students, pupils, Object.assign({}, o, { locked }));
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS };
+module.exports = { match2, rematchPartial, scorePair, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS };

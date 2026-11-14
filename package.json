@@ -8,6 +8,8 @@
     "build:check": "node scripts/build-app.js --check",
     "check:deadcode": "npx --yes knip@6.45.1",
     "check:size": "npx --yes -p size-limit@14.3.0 -p @size-limit/file@14.3.0 -c \"node scripts/check-size.js\"",
-    "check:build": "node scripts/build-app.js && git diff --exit-code -- app.html"
+    "check:build": "node scripts/build-app.js && git diff --exit-code -- app.html",
+    "check:html": "node scripts/check-html.js",
+    "doctor": "node scripts/doctor.js"
   }
 }

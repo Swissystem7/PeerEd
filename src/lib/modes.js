@@ -224,8 +224,8 @@ function groupReportCsv(report) {
 }
 
 module.exports = {
-  MODES, GROUP_MAX, SHORT_MIN, SHORT_MAX, AGE_BANDS, PERIODS, PERIOD_NAMES,
-  assertMode, periodSlots, chipsToSlots, slotsToChips, toggleChip,
+  PERIODS, PERIOD_NAMES,
+  periodSlots, chipsToSlots, slotsToChips, toggleChip,
   makeGroupAggregate, formGroups, formGroupsWithRegion, assignStudents,
   shortLesson, lessonForGroup, switchMode, emptyModeState, groupReport, groupReportCsv
 };

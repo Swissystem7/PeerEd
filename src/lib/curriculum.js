@@ -326,7 +326,7 @@ function progressToCsv(progress) {
 }
 
 module.exports = {
-  TRACKS, TRACK_GRADES, LESSON_MINUTES, ALL_LESSONS,
+  TRACKS, TRACK_GRADES, ALL_LESSONS,
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
-  assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv
+  assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, lessonProgress, progressToCsv
 };
