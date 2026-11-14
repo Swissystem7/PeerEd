@@ -14,13 +14,18 @@ const {
 	withoutRetentionStamp,
 	PERSONAL_DATA_ERROR,
 } = require("./profile.js");
-const { PROFANITY_ERROR, validateBatchImportZeroPii } = require("./validator.js");
+const {
+	PROFANITY_ERROR,
+	validateBatchImportZeroPii,
+} = require("./validator.js");
 const { emptyQueue, loadQueue } = require("./approval.js");
 const { emptyLog, loadLog } = require("./session.js");
 const {
 	AI_TOPIC_KEYS,
 	serializeAttendance,
 	deserializeAttendance,
+	computeRegionalSupplyDemand,
+	detectInactivePairs,
 } = require("./attendance.js");
 
 const SCHEMA = "peered/1";
@@ -144,11 +149,7 @@ function storedPerson(person, at) {
 	let hasTopics = false;
 	let rawTopics;
 	let rawArea;
-	if (
-		person !== null &&
-		typeof person === "object" &&
-		!Array.isArray(person)
-	) {
+	if (person !== null && typeof person === "object" && !Array.isArray(person)) {
 		if (Object.hasOwn(person, "target_ai_topics")) {
 			hasTopics = true;
 			rawTopics = person.target_ai_topics;
@@ -423,6 +424,190 @@ function filterParticipantsByAITopic(participants, topicId) {
 	);
 }
 
+function buildImpactOverviewReport(state, lang) {
+	const s = state || emptyState();
+	const l = lang === "ar" || lang === "ru" || lang === "he" ? lang : "he";
+
+	const people = Array.isArray(s.people) ? s.people : [];
+	const records = attendanceRecords(s.attendance);
+
+	let totalHeldSessions = 0;
+	let totalHours = 0.0;
+	for (const r of records) {
+		if (r && r.status === "held") {
+			totalHeldSessions += 1;
+			const dur =
+				typeof r.durationHours === "number" &&
+				Number.isFinite(r.durationHours) &&
+				r.durationHours > 0
+					? r.durationHours
+					: 1.0;
+			totalHours += dur;
+		}
+	}
+	totalHours = Math.round(totalHours * 10) / 10;
+
+	const pairSet = new Set();
+	if (Array.isArray(s.pairs)) {
+		s.pairs.forEach((p, idx) => {
+			const pIdx =
+				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
+					? p.pairIndex
+					: idx;
+			pairSet.add(pIdx);
+		});
+	}
+	for (const r of records) {
+		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+			pairSet.add(r.pairIndex);
+		}
+	}
+	const totalPairs =
+		Array.isArray(s.pairs) && s.pairs.length > pairSet.size
+			? s.pairs.length
+			: pairSet.size;
+
+	const regionalBalance = computeRegionalSupplyDemand(people);
+
+	const pairsList =
+		Array.isArray(s.pairs) && s.pairs.length > 0
+			? s.pairs
+			: Array.from(pairSet)
+					.sort((a, b) => a - b)
+					.map((idx) => ({ pairIndex: idx }));
+
+	const atRiskPairs =
+		typeof detectInactivePairs === "function"
+			? detectInactivePairs(records, pairsList, { minHeldCount: 2, lang: l })
+			: Object.freeze([]);
+
+	const titles = {
+		he: {
+			header: "=== דוח אימפקט ומאזן אזורי ===",
+			pairs: "סך זוגות:",
+			held: "מפגשים שהתקיימו:",
+			hours: "סך שעות חונכות:",
+			atRisk: "זוגות בסיכון נשירה:",
+			regional: "מאזן אזורי:",
+			noRegions: "  אין נתוני אזורים",
+			regionRow: (a, st, pu, gp) =>
+				`  ${a}: סטודנטים: ${st}, תלמידים: ${pu}, פער: ${gp}`,
+			riskDetails: "פרטי סיכון:",
+			riskRow: (idx, reason, h, m) =>
+				`  - זוג ${idx + 1}: ${reason} (התקיימו: ${h}, ביטולים/החמצות: ${m})`,
+		},
+		ar: {
+			header: "=== تقرير الأثر والتوازن الإقليمي ===",
+			pairs: "إجمالي الأزواج:",
+			held: "اللقاءات المنعقدة:",
+			hours: "إجمالي ساعات الإرشاد:",
+			atRisk: "الأزواج المعرضون لخطر التسرب:",
+			regional: "التوازن الإقليمي:",
+			noRegions: "  لا توجد بيانات للمناطق",
+			regionRow: (a, st, pu, gp) =>
+				`  ${a}: طلاب مرشدون: ${st}, تلاميذ: ${pu}, الفجوة: ${gp}`,
+			riskDetails: "تفاصيل الخطر:",
+			riskRow: (idx, reason, h, m) =>
+				`  - الزوج ${idx + 1}: ${reason} (المنعقدة: ${h}, إلغاءات/غياب: ${m})`,
+		},
+		ru: {
+			header: "=== Отчет о воздействии и региональном балансе ===",
+			pairs: "Всего пар:",
+			held: "Состоявшихся занятий:",
+			hours: "Всего часов наставничества:",
+			atRisk: "Пары в группе риска отсева:",
+			regional: "Региональный баланс:",
+			noRegions: "  Нет данных по регионам",
+			regionRow: (a, st, pu, gp) =>
+				`  ${a}: наставники: ${st}, ученики: ${pu}, разрыв: ${gp}`,
+			riskDetails: "Детали риска:",
+			riskRow: (idx, reason, h, m) =>
+				`  - Пара ${idx + 1}: ${reason} (проведено: ${h}, отмен/пропусков: ${m})`,
+		},
+	};
+
+	const t = titles[l];
+	const lines = [
+		t.header,
+		`${t.pairs} ${totalPairs}`,
+		`${t.held} ${totalHeldSessions}`,
+		`${t.hours} ${totalHours}`,
+		`${t.atRisk} ${atRiskPairs.length}`,
+		t.regional,
+	];
+
+	const regionKeys = Object.keys(regionalBalance);
+	if (regionKeys.length === 0) {
+		lines.push(t.noRegions);
+	} else {
+		for (const key of regionKeys) {
+			const item = regionalBalance[key];
+			lines.push(t.regionRow(key, item.students, item.pupils, item.gap));
+		}
+	}
+
+	if (atRiskPairs.length > 0) {
+		lines.push(t.riskDetails);
+		for (const item of atRiskPairs) {
+			lines.push(
+				t.riskRow(
+					item.pairIndex,
+					item.riskReason,
+					item.heldCount,
+					item.missedOrCancelledCount,
+				),
+			);
+		}
+	}
+
+	const reportText = lines.join("\n");
+
+	const report = {
+		totalPairs,
+		pairsCount: totalPairs,
+		heldSessions: totalHeldSessions,
+		totalHeldSessions,
+		heldCount: totalHeldSessions,
+		totalHours,
+		hours: totalHours,
+		regionalBalance,
+		atRiskPairs,
+		atRiskCount: atRiskPairs.length,
+		lang: l,
+		text: reportText,
+		summary: Object.freeze({
+			totalPairs,
+			totalHeldSessions,
+			totalHours,
+			atRiskCount: atRiskPairs.length,
+		}),
+	};
+
+	report.toString = function () {
+		return this.text;
+	};
+	report.valueOf = function () {
+		return this.text;
+	};
+	report[Symbol.toPrimitive] = function () {
+		return this.text;
+	};
+	report.includes = function (s) {
+		return this.text.includes(s);
+	};
+	report.indexOf = function (s) {
+		return this.text.indexOf(s);
+	};
+	report.startsWith = function (s) {
+		return this.text.startsWith(s);
+	};
+	report.endsWith = function (s) {
+		return this.text.endsWith(s);
+	};
+
+	return Object.freeze(report);
+}
+
 module.exports = {
 	SCHEMA,
 	DEFAULT_KEY,
@@ -436,5 +621,7 @@ module.exports = {
 	isQuotaExceededError,
 	isQuotaExceeded,
 	validateBatchImportZeroPii,
+	computeRegionalSupplyDemand,
+	buildImpactOverviewReport,
 	filterParticipantsByAITopic
 };

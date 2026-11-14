@@ -669,6 +669,16 @@
       <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
     </div>
   </div>
+    <div class="card" id="regionalImpactCard">
+      <h2 id="regionalImpactHeading">מאזן אזורי ודוח אימפקט</h2>
+      <p class="hint" id="regionalImpactHint">מאזן היצע וביקוש אזורי ודוח אימפקט פעילות ללא פרטים מזהים.</p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic regional balance -->
+      <div id="regionalBalanceOut" role="region" aria-live="polite" aria-label="מאזן אזורי ודוח אימפקט"></div>
+      <div class="actions" style="margin-top: 12px;">
+        <button type="button" class="act" id="copyImpactReportBtn" aria-describedby="impactReportStatus">העתק דוח אימפקט</button>
+      </div>
+      <p class="status" id="impactReportStatus" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
   <!-- ============ דוחות ============ -->
@@ -1073,6 +1083,10 @@
       window.serializeAttendance = attendance.serializeAttendance;
       window.deserializeAttendance = attendance.deserializeAttendance;
       window.detectInactivePairs = attendance.detectInactivePairs;
+      window.computeRegionalSupplyDemand = attendance.computeRegionalSupplyDemand;
+    }
+    if (storeLib) {
+      window.buildImpactOverviewReport = storeLib.buildImpactOverviewReport;
     }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -1464,6 +1478,7 @@
       setAiFilterEmptyMessage(false);
       updateAiFilterCount(0, 0);
       renderAITopicsSummary();
+      if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
       return;
     }
     const missingAiActive = $('btn-filter-missing-ai')?.getAttribute('aria-pressed') === 'true';
@@ -1486,6 +1501,7 @@
       setAiFilterEmptyMessage(true);
       updateAiFilterCount(0, state.people.length);
       renderAITopicsSummary();
+      if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
       return;
     }
     setAiFilterEmptyMessage(false);
@@ -1510,6 +1526,7 @@
     $('peopleList').innerHTML = rows.join('');
     updateAiFilterCount(rows.length, state.people.length);
     renderAITopicsSummary();
+    if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
   }
 
   const peopleAiFilterEl = $('peopleAiFilter');
@@ -2864,6 +2881,7 @@
     var er = $('exportReport');
     if (er) er.setAttribute('aria-expanded', $('reportBox').hidden ? 'false' : 'true');
     if (typeof renderDropoutRiskList === 'function') renderDropoutRiskList();
+    if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
@@ -3480,6 +3498,7 @@
     renderAITopicsSummary();
     renderScholarshipHoursSummary();
     renderDropoutRiskList();
+    if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
   }
 
   function renderScholarshipHoursSummary(customAttendance, customPairs) {
@@ -3996,6 +4015,142 @@
     });
   }
 
+  // ---------- Regional Balance & Impact Report Module (#tab-guide) ----------
+  var S_REGIONAL_IMPACT_HEADING = {
+    he: 'מאזן אזורי ודוח אימפקט',
+    ar: 'التوازن الإقليمي وتقرير الأثر',
+    ru: 'Региональный баланс и отчет о воздействии'
+  };
+  var S_COPY_IMPACT_REPORT = {
+    he: 'העתק דוח אימפקט',
+    ar: 'نسخ تقرير الأثر',
+    ru: 'Копировать отчет о воздействии'
+  };
+  var S_REGIONAL_TABLE_AREA = {
+    he: 'אזור',
+    ar: 'المنطقة',
+    ru: 'Регион'
+  };
+  var S_REGIONAL_TABLE_STUDENTS = {
+    he: 'סטודנטים (היצע)',
+    ar: 'طلاب مرشدون (العرض)',
+    ru: 'Студенты (предложение)'
+  };
+  var S_REGIONAL_TABLE_PUPILS = {
+    he: 'תלמידים (ביקוש)',
+    ar: 'تلاميذ (الطلب)',
+    ru: 'Ученики (спрос)'
+  };
+  var S_REGIONAL_TABLE_GAP = {
+    he: 'פער (ביקוש - היצע)',
+    ar: 'الفجوة (الطلب - العرض)',
+    ru: 'Разрыв (спрос - предложение)'
+  };
+  var S_REGIONAL_EMPTY = {
+    he: 'אין נתוני אזורים עדיין.',
+    ar: 'لا توجد بيانات مناطق حالياً.',
+    ru: 'На данный момент нет данных по регионам.'
+  };
+
+  function renderRegionalBalance(customPeople) {
+    var out = $('regionalBalanceOut');
+    if (!out) return;
+    var s = (typeof window !== 'undefined' && window.state) ? window.state : state;
+    var cardEl = $('regionalImpactCard');
+    var sourceState = cardEl?.state || s;
+    var people = customPeople !== undefined
+      ? customPeople
+      : (sourceState && Array.isArray(sourceState.people) ? sourceState.people : []);
+
+    var lang = currentLang || 'he';
+    var balance = {};
+    if (attendance && typeof attendance.computeRegionalSupplyDemand === 'function') {
+      balance = attendance.computeRegionalSupplyDemand(people);
+    } else if (storeLib && typeof storeLib.computeRegionalSupplyDemand === 'function') {
+      balance = storeLib.computeRegionalSupplyDemand(people);
+    }
+
+    out.setAttribute('aria-label', S_REGIONAL_IMPACT_HEADING[lang] || S_REGIONAL_IMPACT_HEADING.he);
+
+    var thArea = S_REGIONAL_TABLE_AREA[lang] || S_REGIONAL_TABLE_AREA.he;
+    var thStudents = S_REGIONAL_TABLE_STUDENTS[lang] || S_REGIONAL_TABLE_STUDENTS.he;
+    var thPupils = S_REGIONAL_TABLE_PUPILS[lang] || S_REGIONAL_TABLE_PUPILS.he;
+    var thGap = S_REGIONAL_TABLE_GAP[lang] || S_REGIONAL_TABLE_GAP.he;
+    var emptyText = S_REGIONAL_EMPTY[lang] || S_REGIONAL_EMPTY.he;
+
+    var keys = Object.keys(balance);
+    var rowsHtml = '';
+    if (keys.length === 0) {
+      rowsHtml = '<tr class="empty-row"><td colspan="4" class="empty" style="text-align:center; padding:12px;">' + esc(emptyText) + '</td></tr>';
+    } else {
+      var sortedKeys = keys.slice().sort(function (a, b) {
+        var valid = (regions && typeof regions.getValidRegions === 'function') ? regions.getValidRegions() : [];
+        var idxA = valid.indexOf(a);
+        var idxB = valid.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b);
+      });
+
+      rowsHtml = sortedKeys.map(function (k) {
+        var d = balance[k];
+        var areaLabel = (REGION_HE && REGION_HE[k]) ? REGION_HE[k] : k;
+        var gapColor = d.gap > 0 ? '#b91c1c' : (d.gap < 0 ? '#15803d' : 'inherit');
+        return '<tr data-area="' + esc(k) + '" data-gap="' + esc(String(d.gap)) + '">' +
+          '<td><b>' + esc(areaLabel) + '</b></td>' +
+          '<td>' + esc(String(d.students)) + '</td>' +
+          '<td>' + esc(String(d.pupils)) + '</td>' +
+          '<td style="font-weight:600; color:' + gapColor + ';">' + esc(String(d.gap)) + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    out.innerHTML = '<table class="regional-balance-table" style="width:100%; border-collapse:collapse; margin-top:8px;">' +
+      '<thead><tr>' +
+      '<th style="text-align:start;">' + esc(thArea) + '</th>' +
+      '<th style="text-align:start;">' + esc(thStudents) + '</th>' +
+      '<th style="text-align:start;">' + esc(thPupils) + '</th>' +
+      '<th style="text-align:start;">' + esc(thGap) + '</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>';
+
+    if (cardEl) {
+      cardEl.state = sourceState;
+      cardEl.renderRegionalBalance = renderRegionalBalance;
+    }
+  }
+
+  if ($('copyImpactReportBtn')) {
+    $('copyImpactReportBtn').addEventListener('click', function () {
+      var s = (typeof window !== 'undefined' && window.state) ? window.state : state;
+      var lang = currentLang || 'he';
+      var report = (storeLib && typeof storeLib.buildImpactOverviewReport === 'function')
+        ? storeLib.buildImpactOverviewReport(s, lang)
+        : null;
+      var reportText = (report && typeof report.text === 'string')
+        ? report.text
+        : (report ? String(report) : '');
+      var copiedMsg = lang === 'ar'
+        ? 'تم نسخ تقرير الأثر إلى الحافظة.'
+        : (lang === 'ru' ? 'Отчет о воздействии скопирован в буфер обмена.' : 'דוח האימפקט הועתק ללוח.');
+      var readyMsg = lang === 'ar'
+        ? 'تقرير الأثر جاهز للنسخ.'
+        : (lang === 'ru' ? 'Отчет о воздействии готов к копированию.' : 'דוח האימפקט מוכן להעתקה.');
+
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(reportText).then(function () {
+          say('impactReportStatus', copiedMsg);
+        }, function () {
+          say('impactReportStatus', readyMsg);
+        });
+      } else {
+        say('impactReportStatus', readyMsg);
+      }
+    });
+  }
+
   var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
   var lockedKeys = {};
   function rosterSplit() {
@@ -4310,7 +4465,7 @@
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
-    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); }
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); renderRegionalBalance(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
@@ -4370,6 +4525,7 @@
   renderAITopicsSummary();
   renderScholarshipHoursSummary();
   renderDropoutRiskList();
+  renderRegionalBalance();
   renderChallengeForm();
   renderChallengeLeaderboard();
   function applyLanguage(lang) {
@@ -4392,8 +4548,15 @@
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList();
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderRegionalBalance();
     renderChallengeForm(); renderChallengeLeaderboard();
+
+    if ($('regionalImpactHeading')) $('regionalImpactHeading').textContent = S_REGIONAL_IMPACT_HEADING[currentLang] || S_REGIONAL_IMPACT_HEADING.he;
+    if ($('copyImpactReportBtn')) {
+      var copyImpactBtnText = S_COPY_IMPACT_REPORT[currentLang] || S_COPY_IMPACT_REPORT.he;
+      $('copyImpactReportBtn').textContent = copyImpactBtnText;
+      $('copyImpactReportBtn').setAttribute('aria-label', copyImpactBtnText);
+    }
 
     if ($('dropoutRiskHeading')) $('dropoutRiskHeading').textContent = S_DROPOUT_HEADING[currentLang] || S_DROPOUT_HEADING.he;
     if ($('dropoutThresholdLabel')) $('dropoutThresholdLabel').textContent = S_DROPOUT_THRESHOLD_LABEL[currentLang] || S_DROPOUT_THRESHOLD_LABEL.he;
@@ -4524,6 +4687,9 @@
     window.detectInactivePairs = (attendance && attendance.detectInactivePairs) || detectInactivePairs;
     window.validateBatchImportZeroPii = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
     window.renderPilotBatchStatus = renderPilotBatchStatus;
+    window.renderRegionalBalance = renderRegionalBalance;
+    window.computeRegionalSupplyDemand = (attendance && attendance.computeRegionalSupplyDemand) || (storeLib && storeLib.computeRegionalSupplyDemand);
+    window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
   }
 })();
 </script>

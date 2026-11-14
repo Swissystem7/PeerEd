@@ -324,23 +324,33 @@ function findPairObject(pairs, pairIndex) {
 	if (!pairs) return null;
 	if (Array.isArray(pairs)) {
 		const candidate = pairs[pairIndex];
-		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+		if (
+			candidate &&
+			typeof candidate === "object" &&
+			!Array.isArray(candidate)
+		) {
 			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
 			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
 				return candidate;
 			}
 		}
-		return pairs.find(
-			(p) =>
-				p &&
-				typeof p === "object" &&
-				!Array.isArray(p) &&
-				p.pairIndex === pairIndex,
-		) || null;
+		return (
+			pairs.find(
+				(p) =>
+					p &&
+					typeof p === "object" &&
+					!Array.isArray(p) &&
+					p.pairIndex === pairIndex,
+			) || null
+		);
 	}
 	if (typeof pairs === "object") {
 		const candidate = pairs[pairIndex];
-		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+		if (
+			candidate &&
+			typeof candidate === "object" &&
+			!Array.isArray(candidate)
+		) {
 			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
 			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
 				return candidate;
@@ -370,8 +380,7 @@ function accumulateScholarshipRecord(r, pairs, result) {
 			participants.add(pair.pupilIndex);
 		}
 		for (const pIdx of participants) {
-			result.byParticipant[pIdx] =
-				(result.byParticipant[pIdx] || 0) + duration;
+			result.byParticipant[pIdx] = (result.byParticipant[pIdx] || 0) + duration;
 		}
 	}
 }
@@ -509,7 +518,11 @@ function buildScholarshipReport(records, pairs, targetHours) {
 	const overallAiTopics = new Set();
 
 	for (const pIdx of sortedPairIndexes) {
-		const { pairReport, metrics } = computePairReport(pIdx, cleanRecords, target);
+		const { pairReport, metrics } = computePairReport(
+			pIdx,
+			cleanRecords,
+			target,
+		);
 		pairReports.push(pairReport);
 		byPair[pIdx] = pairReport;
 
@@ -1223,6 +1236,61 @@ function detectInactivePairs(records, pairs, options) {
 	return Object.freeze(result);
 }
 
+function computeRegionalSupplyDemand(people) {
+	const summary = {};
+	if (!Array.isArray(people)) {
+		return Object.freeze(summary);
+	}
+	for (const p of people) {
+		if (!p || typeof p !== "object" || Array.isArray(p)) continue;
+		if (typeof p.role !== "string") continue;
+		const role = p.role.trim().toLowerCase();
+		if (role !== "student" && role !== "pupil") continue;
+
+		const rawArea = p.area !== undefined ? p.area : p.region;
+		if (typeof rawArea !== "string") continue;
+		const area = rawArea.trim();
+		if (area === "") continue;
+
+		if (!Object.hasOwn(summary, area)) {
+			summary[area] = {
+				area: area,
+				students: 0,
+				offered: 0,
+				pupils: 0,
+				requested: 0,
+				gap: 0,
+				total: 0,
+			};
+		}
+		if (role === "student") {
+			summary[area].students += 1;
+			summary[area].offered += 1;
+		} else if (role === "pupil") {
+			summary[area].pupils += 1;
+			summary[area].requested += 1;
+		}
+		summary[area].gap = summary[area].requested - summary[area].offered;
+		summary[area].total = summary[area].students + summary[area].pupils;
+	}
+
+	for (const key of Object.keys(summary)) {
+		Object.freeze(summary[key]);
+	}
+
+	Object.defineProperty(summary, Symbol.iterator, {
+		value: function* () {
+			for (const key of Object.keys(summary)) {
+				yield summary[key];
+			}
+		},
+		enumerable: false,
+		configurable: true,
+	});
+
+	return Object.freeze(summary);
+}
+
 module.exports = {
 	filterAttendanceRecords,
 	getPairSessionTimeline,
@@ -1264,39 +1332,52 @@ module.exports = {
 	loadFocusReaderConfig,
 	focusReaderConfig,
 	detectInactivePairs,
+	computeRegionalSupplyDemand,
 };
 
 function filterAttendanceRecords(records, filters) {
 	const clean = getCleanAttendanceRecords(records);
 	const f = filters || {};
-	return Object.freeze(clean.filter((r) => {
-		if (!r || typeof r !== 'object') return false;
-		if (f.status && f.status !== 'all' && r.status !== f.status) return false;
-		if (f.pairIndex !== undefined && f.pairIndex !== null && r.pairIndex !== f.pairIndex) return false;
-		if (f.aiTopic && r.aiTopic !== f.aiTopic) return false;
-		return true;
-	}));
+	return Object.freeze(
+		clean.filter((r) => {
+			if (!r || typeof r !== "object") return false;
+			if (f.status && f.status !== "all" && r.status !== f.status) return false;
+			if (
+				f.pairIndex !== undefined &&
+				f.pairIndex !== null &&
+				r.pairIndex !== f.pairIndex
+			)
+				return false;
+			if (f.aiTopic && r.aiTopic !== f.aiTopic) return false;
+			return true;
+		}),
+	);
 }
 
 function getPairSessionTimeline(records, pairIndex) {
 	const clean = getCleanAttendanceRecords(records);
 	const filtered = clean.filter((r) => r && r.pairIndex === pairIndex);
-	filtered.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+	filtered.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 	return Object.freeze(filtered);
 }
 
 function updateSessionOutcome(records, pairIndex, date, patch) {
 	const clean = getCleanAttendanceRecords(records);
-	const idx = clean.findIndex((r) => r && r.pairIndex === pairIndex && r.date === date);
+	const idx = clean.findIndex(
+		(r) => r && r.pairIndex === pairIndex && r.date === date,
+	);
 	if (idx === -1) {
-		throw new Error('session record not found');
+		throw new Error("session record not found");
 	}
 	const target = clean[idx];
 	const updatedRow = {
 		pairIndex: target.pairIndex,
 		date: target.date,
 		status: patch && patch.status !== undefined ? patch.status : target.status,
-		durationHours: patch && patch.durationHours !== undefined ? patch.durationHours : target.durationHours,
+		durationHours:
+			patch && patch.durationHours !== undefined
+				? patch.durationHours
+				: target.durationHours,
 	};
 	if (patch && patch.aiTopic !== undefined) {
 		updatedRow.aiTopic = patch.aiTopic;
@@ -1305,7 +1386,7 @@ function updateSessionOutcome(records, pairIndex, date, patch) {
 	}
 	const validated = sanitizeAttendanceRow(updatedRow, parseDate);
 	if (!validated) {
-		throw new Error('invalid attendance patch');
+		throw new Error("invalid attendance patch");
 	}
 	const updatedList = clean.slice();
 	updatedList[idx] = validated;
