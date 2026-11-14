@@ -457,6 +457,8 @@
         <span id="sessionHistoryCount" class="pill" aria-live="polite">0 מפגשים</span>
       </div>
       <div id="sessionHistoryEmpty" class="empty-state" style="display:none;" aria-live="polite">אין מפגשים להצגה</div>
+      <div id="sessionHistoryList" role="region" aria-live="polite" aria-label="היסטוריית מפגשים"></div>
+      <p class="status" id="sessionHistoryStatus" role="status"></p>
     </div>
     <!-- A row is a lesson set for a matched pair, whatever became of it: "איך הסתיים" offers "לא התקיים"
          and "נקטע באמצע" beside "התקיים", and the summary counts each. Until this the banner said the log
@@ -2757,7 +2759,70 @@
       return esc(label(k)) + ': ' + counts[k];
     }).join(' · ') + '</span></div>';
   }
+  // Session history (#tab-sessions): the attendance records the lesson form writes (state.attendance),
+  // filtered by status / pair / AI topic through attendance.filterAttendanceRecords, newest first. A row's
+  // status and hours can be corrected in place (attendance.updateSessionOutcome), then saved like a lesson.
+  var HISTORY_STATUS_HE = { held: 'התקיים', missed: 'הוחמץ', postponed: 'נדחה', cancelled: 'בוטל' };
+  function renderSessionHistory() {
+    var list = $('sessionHistoryList');
+    if (!list || !attendance || typeof attendance.filterAttendanceRecords !== 'function') return;
+    var records = Array.isArray(state.attendance) ? state.attendance : [];
+    var pairSel = $('sessionHistoryPairFilter');
+    var curPair = pairSel.value || 'all';
+    var pairIdxs = [];
+    records.forEach(function (r) { if (r && pairIdxs.indexOf(r.pairIndex) === -1) pairIdxs.push(r.pairIndex); });
+    pairIdxs.sort(function (a, b) { return a - b; });
+    pairSel.innerHTML = '<option value="all">כל הזוגות</option>' + pairIdxs.map(function (i) {
+      return '<option value="' + i + '">זוג ' + (i + 1) + '</option>';
+    }).join('');
+    pairSel.value = pairIdxs.indexOf(Number(curPair)) !== -1 ? curPair : 'all';
+    var topic = $('sessionHistoryAiTopicFilter').value;
+    var filters = { status: $('sessionHistoryStatusFilter').value || 'all', aiTopic: topic && topic !== 'all' ? topic : null };
+    if (pairSel.value !== 'all') filters.pairIndex = Number(pairSel.value);
+    var shown = attendance.filterAttendanceRecords(records, filters).slice().sort(function (a, b) {
+      return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+    });
+    $('sessionHistoryCount').textContent = shown.length === 1 ? 'מפגש אחד' : shown.length + ' מפגשים';
+    var emptyEl = $('sessionHistoryEmpty');
+    if (emptyEl.style) emptyEl.style.display = shown.length ? 'none' : '';
+    list.innerHTML = shown.map(function (r) {
+      var key = ' data-pair="' + esc(String(r.pairIndex)) + '" data-date="' + esc(String(r.date)) + '"';
+      var label = 'זוג ' + (r.pairIndex + 1) + ', ' + r.date;
+      var topicName = r.aiTopic ? ((AI_TOPICS && AI_TOPICS[r.aiTopic] && AI_TOPICS[r.aiTopic].he) || r.aiTopic) : 'ללא נושא AI';
+      return '<div class="item"><b>' + esc(label) + '</b> · ' + esc(topicName) +
+        ' <select class="history-status"' + key + ' aria-label="' + esc('סטטוס, ' + label) + '">' +
+        Object.keys(HISTORY_STATUS_HE).map(function (k) {
+          return '<option value="' + k + '"' + (r.status === k ? ' selected' : '') + '>' + HISTORY_STATUS_HE[k] + '</option>';
+        }).join('') + '</select>' +
+        ' <input class="history-hours" type="number" min="0.5" max="8" step="0.5" value="' + esc(String(r.durationHours)) + '"' + key +
+        ' aria-label="' + esc('שעות, ' + label) + '"></div>';
+    }).join('');
+  }
+  function editSessionHistory(ev) {
+    var el = ev && ev.target;
+    if (!el || !el.getAttribute || el.getAttribute('data-pair') === null) return;
+    var pairIndex = Number(el.getAttribute('data-pair'));
+    var date = el.getAttribute('data-date');
+    var patch = /history-hours/.test(el.className) ? { durationHours: Number(el.value) } : { status: el.value };
+    try {
+      state.attendance = attendance.updateSessionOutcome(state.attendance, pairIndex, date, patch).entries.slice();
+    } catch (err) {
+      say('sessionHistoryStatus', 'לא עודכן: ' + errorHe(err) + '.', true);
+      renderSessionHistory();
+      return;
+    }
+    say('sessionHistoryStatus', 'עודכן: זוג ' + (pairIndex + 1) + ', ' + date + '.');
+    updatePairTotalHoursBadge();
+    renderSessionHistory();
+    save('sessionHistoryStatus');
+  }
+  ['sessionHistoryStatusFilter', 'sessionHistoryPairFilter', 'sessionHistoryAiTopicFilter'].forEach(function (id) {
+    if ($(id)) $(id).addEventListener('change', renderSessionHistory);
+  });
+  if ($('sessionHistoryList')) $('sessionHistoryList').addEventListener('change', editSessionHistory);
+
   function renderSessions() {
+    renderSessionHistory();
     var s = session.summarize(state.log);
     $('sessionSummary').innerHTML = s.sessions
       ? '<div class="item pair"><b>' + countHe(s.sessions, 'שיעור', 'שיעורים') + '</b></div>' +
