@@ -1772,7 +1772,6 @@ function responseToReport(profile, input) {
 }
 
 module.exports = {
-  ROLES,
   DAYS,
   SUBJECTS,
   ACCEPTED_FIELDS,
@@ -2140,7 +2139,6 @@ module.exports = {
   explainUnmatched,
   matchAcrossRegions,
   shared,
-  compareCandidates,
   hasOverlap,
   hasParentConsent,
   makeMatchRecord,
@@ -2692,7 +2690,7 @@ function planMakeup(cancelled, semester, opts) {
   return out;
 }
 
-module.exports = { HOLIDAYS_IL, makeSemester, isTeachingDay, holidayOn, expandSessions, cancelSession, planMakeup, addDays, diffDays, parseDate };
+module.exports = { makeSemester, isTeachingDay, expandSessions, cancelSession, planMakeup, addDays, diffDays, parseDate };
   __registry["semester"] = module.exports;
 })();
 
@@ -4115,7 +4113,7 @@ function printableHtml(report) {
     '<table><caption>לפי סטטוס</caption>' + rows + '</table>' + bars + '<p>זוגות שלא נפגשו שבועיים: ' + report.stale.length + '</p></section>';
 }
 
-module.exports = { buildReport, weeklyReport, monthlyReport, semesterReport, reportToCsv, reportToIcs, svgBarChart, printableHtml };
+module.exports = { weeklyReport, monthlyReport, semesterReport, reportToCsv, reportToIcs, svgBarChart, printableHtml };
   __registry["reports"] = module.exports;
 })();
 
@@ -5124,7 +5122,7 @@ function buildChallengeWinnersSummary(entries, lang) {
 }
 
 module.exports = {
-  TRACKS, TRACK_GRADES, LESSON_MINUTES, ALL_LESSONS,
+  TRACKS, TRACK_GRADES, ALL_LESSONS,
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
   VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary
@@ -5242,7 +5240,6 @@ function makeUnit(input) {
 }
 
 module.exports = {
-  ACCEPTED_FIELDS,
   TITLE_MAX_LENGTH,
   BODY_MAX_LENGTH,
   DURATION_MIN,
@@ -5513,7 +5510,6 @@ function loadQueue(data) {
 }
 
 module.exports = {
-  STATUSES,
   APPROVER_ROLE,
   REASON_MAX_LENGTH,
   NOT_PENDING_ERROR,
@@ -6198,8 +6194,8 @@ function groupReportCsv(report) {
 }
 
 module.exports = {
-  MODES, GROUP_MAX, SHORT_MIN, SHORT_MAX, AGE_BANDS, PERIODS, PERIOD_NAMES,
-  assertMode, periodSlots, chipsToSlots, slotsToChips, toggleChip,
+  PERIODS, PERIOD_NAMES,
+  periodSlots, chipsToSlots, slotsToChips, toggleChip,
   makeGroupAggregate, formGroups, formGroupsWithRegion, assignStudents,
   shortLesson, lessonForGroup, switchMode, emptyModeState, groupReport, groupReportCsv
 };
@@ -6458,7 +6454,7 @@ function verifyExtraParity() {
   return { ok, missingKeys: missing, extraKeys: extra };
 }
 
-module.exports = { DICTS, LANGS, getExtraKeys, tExtra, verifyExtraParity };
+module.exports = { getExtraKeys, tExtra, verifyExtraParity };
   __registry["lang-extra"] = module.exports;
 })();
 
@@ -7013,7 +7009,6 @@ function filterParticipantsByAITopic(participants, topicId) {
 module.exports = {
 	SCHEMA,
 	DEFAULT_KEY,
-	ACCEPTED_FIELDS,
 	INVALID_STATE_ERROR,
 	REJECTED_SUFFIX,
 	emptyState,

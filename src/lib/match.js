@@ -336,7 +336,6 @@ module.exports = {
   explainUnmatched,
   matchAcrossRegions,
   shared,
-  compareCandidates,
   hasOverlap,
   hasParentConsent,
   makeMatchRecord,

@@ -90,4 +90,4 @@ function planMakeup(cancelled, semester, opts) {
   return out;
 }
 
-module.exports = { HOLIDAYS_IL, makeSemester, isTeachingDay, holidayOn, expandSessions, cancelSession, planMakeup, addDays, diffDays, parseDate };
+module.exports = { makeSemester, isTeachingDay, expandSessions, cancelSession, planMakeup, addDays, diffDays, parseDate };

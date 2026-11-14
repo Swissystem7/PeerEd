@@ -289,7 +289,6 @@ function responseToReport(profile, input) {
 }
 
 module.exports = {
-  ROLES,
   DAYS,
   SUBJECTS,
   ACCEPTED_FIELDS,

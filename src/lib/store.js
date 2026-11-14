@@ -426,7 +426,6 @@ function filterParticipantsByAITopic(participants, topicId) {
 module.exports = {
 	SCHEMA,
 	DEFAULT_KEY,
-	ACCEPTED_FIELDS,
 	INVALID_STATE_ERROR,
 	REJECTED_SUFFIX,
 	emptyState,
