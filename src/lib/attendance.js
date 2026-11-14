@@ -1224,6 +1224,9 @@ function detectInactivePairs(records, pairs, options) {
 }
 
 module.exports = {
+	filterAttendanceRecords,
+	getPairSessionTimeline,
+	updateSessionOutcome,
 	ATTENDANCE_STATUSES,
 	makeAttendanceLog,
 	recordAttendance,
@@ -1262,3 +1265,49 @@ module.exports = {
 	focusReaderConfig,
 	detectInactivePairs,
 };
+
+function filterAttendanceRecords(records, filters) {
+	const clean = getCleanAttendanceRecords(records);
+	const f = filters || {};
+	return Object.freeze(clean.filter((r) => {
+		if (!r || typeof r !== 'object') return false;
+		if (f.status && f.status !== 'all' && r.status !== f.status) return false;
+		if (f.pairIndex !== undefined && f.pairIndex !== null && r.pairIndex !== f.pairIndex) return false;
+		if (f.aiTopic && r.aiTopic !== f.aiTopic) return false;
+		return true;
+	}));
+}
+
+function getPairSessionTimeline(records, pairIndex) {
+	const clean = getCleanAttendanceRecords(records);
+	const filtered = clean.filter((r) => r && r.pairIndex === pairIndex);
+	filtered.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+	return Object.freeze(filtered);
+}
+
+function updateSessionOutcome(records, pairIndex, date, patch) {
+	const clean = getCleanAttendanceRecords(records);
+	const idx = clean.findIndex((r) => r && r.pairIndex === pairIndex && r.date === date);
+	if (idx === -1) {
+		throw new Error('session record not found');
+	}
+	const target = clean[idx];
+	const updatedRow = {
+		pairIndex: target.pairIndex,
+		date: target.date,
+		status: patch && patch.status !== undefined ? patch.status : target.status,
+		durationHours: patch && patch.durationHours !== undefined ? patch.durationHours : target.durationHours,
+	};
+	if (patch && patch.aiTopic !== undefined) {
+		updatedRow.aiTopic = patch.aiTopic;
+	} else if (target.aiTopic !== undefined) {
+		updatedRow.aiTopic = target.aiTopic;
+	}
+	const validated = sanitizeAttendanceRow(updatedRow, parseDate);
+	if (!validated) {
+		throw new Error('invalid attendance patch');
+	}
+	const updatedList = clean.slice();
+	updatedList[idx] = validated;
+	return Object.freeze({ entries: Object.freeze(updatedList) });
+}

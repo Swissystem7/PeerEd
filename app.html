@@ -416,6 +416,41 @@
 
   <!-- ============ שיעורים ============ -->
   <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
+    <div class="card session-history-filter-card">
+      <h2>סינון היסטוריית מפגשים</h2>
+      <div class="row">
+        <div>
+          <label for="sessionHistoryStatusFilter" id="labelSessionHistoryStatusFilter">סטטוס:</label>
+          <select id="sessionHistoryStatusFilter" aria-describedby="labelSessionHistoryStatusFilter">
+            <option value="all">הכל</option>
+            <option value="held">התקיים</option>
+            <option value="missed">הוחמץ</option>
+            <option value="postponed">נדחה</option>
+            <option value="cancelled">בוטל</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionHistoryPairFilter" id="labelSessionHistoryPairFilter">זוג:</label>
+          <select id="sessionHistoryPairFilter" aria-describedby="labelSessionHistoryPairFilter">
+            <option value="all">כל הזוגות</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionHistoryAiTopicFilter" id="labelSessionHistoryAiTopicFilter">נושא AI:</label>
+          <select id="sessionHistoryAiTopicFilter" aria-describedby="labelSessionHistoryAiTopicFilter">
+            <option value="all">כל הנושאים</option>
+            <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+            <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+            <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+            <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <span id="sessionHistoryCount" class="pill" aria-live="polite">0 מפגשים</span>
+      </div>
+      <div id="sessionHistoryEmpty" class="empty-state" style="display:none;" aria-live="polite">אין מפגשים להצגה</div>
+    </div>
     <!-- A row is a lesson set for a matched pair, whatever became of it: "איך הסתיים" offers "לא התקיים"
          and "נקטע באמצע" beside "התקיים", and the summary counts each. Until this the banner said the log
          records "שהתקיים שיעור" with "היחידה המאושרת שנלמדה", over a form that logs a lesson that did not
@@ -3724,6 +3759,9 @@ function detectInactivePairs(records, pairs, options) {
 }
 
 module.exports = {
+	filterAttendanceRecords,
+	getPairSessionTimeline,
+	updateSessionOutcome,
 	ATTENDANCE_STATUSES,
 	makeAttendanceLog,
 	recordAttendance,
@@ -3762,6 +3800,52 @@ module.exports = {
 	focusReaderConfig,
 	detectInactivePairs,
 };
+
+function filterAttendanceRecords(records, filters) {
+	const clean = getCleanAttendanceRecords(records);
+	const f = filters || {};
+	return Object.freeze(clean.filter((r) => {
+		if (!r || typeof r !== 'object') return false;
+		if (f.status && f.status !== 'all' && r.status !== f.status) return false;
+		if (f.pairIndex !== undefined && f.pairIndex !== null && r.pairIndex !== f.pairIndex) return false;
+		if (f.aiTopic && r.aiTopic !== f.aiTopic) return false;
+		return true;
+	}));
+}
+
+function getPairSessionTimeline(records, pairIndex) {
+	const clean = getCleanAttendanceRecords(records);
+	const filtered = clean.filter((r) => r && r.pairIndex === pairIndex);
+	filtered.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+	return Object.freeze(filtered);
+}
+
+function updateSessionOutcome(records, pairIndex, date, patch) {
+	const clean = getCleanAttendanceRecords(records);
+	const idx = clean.findIndex((r) => r && r.pairIndex === pairIndex && r.date === date);
+	if (idx === -1) {
+		throw new Error('session record not found');
+	}
+	const target = clean[idx];
+	const updatedRow = {
+		pairIndex: target.pairIndex,
+		date: target.date,
+		status: patch && patch.status !== undefined ? patch.status : target.status,
+		durationHours: patch && patch.durationHours !== undefined ? patch.durationHours : target.durationHours,
+	};
+	if (patch && patch.aiTopic !== undefined) {
+		updatedRow.aiTopic = patch.aiTopic;
+	} else if (target.aiTopic !== undefined) {
+		updatedRow.aiTopic = target.aiTopic;
+	}
+	const validated = sanitizeAttendanceRow(updatedRow, parseDate);
+	if (!validated) {
+		throw new Error('invalid attendance patch');
+	}
+	const updatedList = clean.slice();
+	updatedList[idx] = validated;
+	return Object.freeze({ entries: Object.freeze(updatedList) });
+}
   __registry["attendance"] = module.exports;
 })();
 
