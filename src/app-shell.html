@@ -79,6 +79,9 @@
   .scholarship-progress { margin-top:8px; max-width:280px; }
   .scholarship-progress-track { height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
   .scholarship-progress-fill { height:100%; background:var(--key); width:0%; transition:width .2s ease; }
+  table.leaderboard-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:.85rem; }
+  table.leaderboard-table th, table.leaderboard-table td { padding:8px 6px; text-align:start; border-bottom:1px solid var(--line); }
+  table.leaderboard-table th { color:var(--muted); font-size:.78rem; font-weight:700; }
 
   .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
@@ -514,6 +517,61 @@
       <div id="scholarshipHoursSummaryMeta" class="hint" aria-live="polite"></div>
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for scholarship hours summary -->
       <div id="scholarshipHoursSummaryList" role="region" aria-live="polite" aria-label="סיכום שעות מלגה ומעורבות"></div>
+    </div>
+    <div class="card" id="aiChallengeCard">
+      <h2 id="challengeHeading">תחרות כלי AI</h2>
+      <div class="row">
+        <div>
+          <label for="challengePairSelect" id="challengePairLabel">זוג</label>
+          <select id="challengePairSelect" aria-describedby="challengeStatus"></select>
+        </div>
+        <div>
+          <label for="challengeTopicSelect" id="challengeTopicLabel">נושא AI</label>
+          <select id="challengeTopicSelect" aria-describedby="challengeStatus"></select>
+        </div>
+      </div>
+      <div>
+        <label for="challengeTitleInput" id="challengeTitleLabel">שם הכלי</label>
+        <input id="challengeTitleInput" type="text" maxlength="80" aria-describedby="challengeStatus">
+      </div>
+      <div class="row">
+        <div>
+          <label for="challengeScoreInnovation" id="challengeInnovationLabel">חדשנות (1-5)</label>
+          <select id="challengeScoreInnovation" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+        <div>
+          <label for="challengeScoreUsefulness" id="challengeUsefulnessLabel">תועלת (1-5)</label>
+          <select id="challengeScoreUsefulness" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+        <div>
+          <label for="challengeScoreSafety" id="challengeSafetyLabel">בטיחות (1-5)</label>
+          <select id="challengeScoreSafety" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="act" id="submitChallengeBtn" aria-describedby="challengeStatus">הגש אתגר</button>
+      </div>
+      <p class="status" id="challengeStatus" role="status"></p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic challenge leaderboard -->
+      <div id="challengeLeaderboard" role="region" aria-live="polite" aria-label="טבלת דירוג אתגר כלי AI"></div>
     </div>
   </section>
 
@@ -2824,9 +2882,12 @@
     $('unitDuration').value = '20';
     if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
     revising = null;
-    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
+    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus'].forEach(function (id) {
       say(id, '');
     });
+    challengeEntries = [];
+    if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
+    renderChallengeLeaderboard();
     renderPeople(); renderUnits(); renderSessionForm();
     updatePairTotalHoursBadge(); renderSessions();
     setWipeArmed(false);
@@ -3160,6 +3221,190 @@
   });
   $('guideAllBtn').addEventListener('click', function () { renderGuide(); say('guideStatus', 'כל המדריך מוצג.'); });
 
+  // ---------- AI Challenge Module (#tab-guide) ----------
+  var challengeEntries = [];
+
+  var S_CHALLENGE_HEADING = {
+    he: 'תחרות כלי AI',
+    ar: 'تحدي أدوات الذكاء الاصطناعي',
+    ru: 'Конкурс инструментов ИИ'
+  };
+  var S_CHALLENGE_PAIR = {
+    he: 'זוג',
+    ar: 'الزوج',
+    ru: 'Пара'
+  };
+  var S_CHALLENGE_TOPIC = {
+    he: 'נושא AI',
+    ar: 'موضوع الذكاء الاصطناعي',
+    ru: 'Тема ИИ'
+  };
+  var S_CHALLENGE_TITLE = {
+    he: 'שם הכלי',
+    ar: 'اسم الأداة',
+    ru: 'Название инструмента'
+  };
+  var S_CHALLENGE_INNOVATION = {
+    he: 'חדשנות (1-5)',
+    ar: 'الابتكار (1-5)',
+    ru: 'Инновации (1-5)'
+  };
+  var S_CHALLENGE_USEFULNESS = {
+    he: 'תועלת (1-5)',
+    ar: 'الفائدة (1-5)',
+    ru: 'Полезность (1-5)'
+  };
+  var S_CHALLENGE_SAFETY = {
+    he: 'בטיחות (1-5)',
+    ar: 'الأمان (1-5)',
+    ru: 'Безопасность (1-5)'
+  };
+  var S_CHALLENGE_SUBMIT_BTN = {
+    he: 'הגש אתגר',
+    ar: 'إرسال التحدي',
+    ru: 'Отправить работу'
+  };
+  var S_CHALLENGE_STATUS_SUCCESS = {
+    he: 'ההגשה נשמרה בהצלחה.',
+    ar: 'تم حفظ المشاركة بنجاح.',
+    ru: 'Заявка успешно сохранена.'
+  };
+
+  function renderChallengeForm() {
+    var pairSel = $('challengePairSelect');
+    if (pairSel) {
+      var pairs = typeof currentPairs === 'function' ? currentPairs() : [];
+      var curPair = pairSel.value;
+      var pairWord = currentLang === 'ar' ? 'زوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+      if (pairs.length === 0) {
+        var opt0 = pairWord + ' 1';
+        pairSel.innerHTML = '<option value="0">' + esc(opt0) + '</option>';
+        if (curPair) pairSel.value = curPair;
+        else pairSel.value = '0';
+      } else {
+        pairSel.innerHTML = pairs.map(function (p, i) {
+          return '<option value="' + i + '"' + (curPair === String(i) ? ' selected' : '') + '>' + esc(pairWord + ' ' + (i + 1)) + '</option>';
+        }).join('');
+        if (curPair && Number(curPair) < pairs.length) {
+          pairSel.value = curPair;
+        } else {
+          pairSel.value = '0';
+        }
+      }
+    }
+
+    var topicSel = $('challengeTopicSelect');
+    if (topicSel) {
+      var curTopic = topicSel.value;
+      var chooseTopic = currentLang === 'ar' ? 'اختر موضوع الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Выберите тему ИИ' : 'בחר נושא AI');
+      var html = '<option value="">' + esc(chooseTopic) + '</option>';
+      if (AI_TOPICS) {
+        Object.keys(AI_TOPICS).forEach(function (k) {
+          var label = (AI_TOPICS[k] && (AI_TOPICS[k][currentLang] || AI_TOPICS[k].he)) || k;
+          html += '<option value="' + esc(k) + '"' + (curTopic === k ? ' selected' : '') + '>' + esc(label) + '</option>';
+        });
+      }
+      topicSel.innerHTML = html;
+      topicSel.value = curTopic;
+    }
+  }
+
+  function renderChallengeLeaderboard() {
+    var board = $('challengeLeaderboard');
+    if (!board) return;
+    var heading = currentLang === 'ar' ? 'لوحة متصدري تحدي أدوات الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Таблица лидеров конкурса ИИ' : 'טבלת דירוג אתגר כלי AI');
+    board.setAttribute('aria-label', heading);
+
+    var ranked = [];
+    if (curriculumLib && typeof curriculumLib.rankChallengeLeaderboard === 'function') {
+      ranked = curriculumLib.rankChallengeLeaderboard(challengeEntries);
+    }
+    if (!ranked || ranked.length === 0) {
+      var emptyMsg = currentLang === 'ar' ? 'لا توجد مشاركات في تحدي أدوات الذكاء الاصطناعي بعد' : (currentLang === 'ru' ? 'Пока нет заявок на конкурс инструментов ИИ' : 'אין עדיין הגשות לתחרות כלי AI');
+      board.innerHTML = '<div class="empty-state"><p class="empty">' + esc(emptyMsg) + '</p></div>';
+      return;
+    }
+
+    var thRank = currentLang === 'ar' ? 'المرتبة' : (currentLang === 'ru' ? 'Место' : 'מקום');
+    var thPair = currentLang === 'ar' ? 'الزوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+    var thTopic = currentLang === 'ar' ? 'الموضوع' : (currentLang === 'ru' ? 'Тема' : 'נושא');
+    var thTitle = currentLang === 'ar' ? 'اسم الأداة' : (currentLang === 'ru' ? 'Инструмент' : 'שם הכלי');
+    var thInno = currentLang === 'ar' ? 'الابتكار' : (currentLang === 'ru' ? 'Инновации' : 'חדשנות');
+    var thUse = currentLang === 'ar' ? 'الفائدة' : (currentLang === 'ru' ? 'Полезность' : 'תועלת');
+    var thSafe = currentLang === 'ar' ? 'الأمان' : (currentLang === 'ru' ? 'Безопасность' : 'בטיחות');
+    var thTotal = currentLang === 'ar' ? 'الدرجة الكلية' : (currentLang === 'ru' ? 'Итого' : 'ציון כולל');
+    var pairWord = currentLang === 'ar' ? 'زوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+
+    var rowsHtml = ranked.map(function (item) {
+      var topicName = (AI_TOPICS && AI_TOPICS[item.aiTopic] && (AI_TOPICS[item.aiTopic][currentLang] || AI_TOPICS[item.aiTopic].he)) || item.aiTopic;
+      var pairLabel = pairWord + ' ' + (item.pairIndex + 1);
+      return '<tr data-pair="' + esc(String(item.pairIndex)) + '" data-rank="' + esc(String(item.rank)) + '">' +
+        '<td>' + esc(String(item.rank)) + '</td>' +
+        '<td>' + esc(pairLabel) + '</td>' +
+        '<td>' + esc(topicName) + '</td>' +
+        '<td>' + esc(item.toolTitle) + '</td>' +
+        '<td>' + esc(String(item.innovation)) + '</td>' +
+        '<td>' + esc(String(item.usefulness)) + '</td>' +
+        '<td>' + esc(String(item.safety)) + '</td>' +
+        '<td><b>' + esc(String(item.totalScore)) + '</b></td>' +
+        '</tr>';
+    }).join('');
+
+    board.innerHTML = '<table class="leaderboard-table">' +
+      '<thead><tr>' +
+      '<th>' + esc(thRank) + '</th>' +
+      '<th>' + esc(thPair) + '</th>' +
+      '<th>' + esc(thTopic) + '</th>' +
+      '<th>' + esc(thTitle) + '</th>' +
+      '<th>' + esc(thInno) + '</th>' +
+      '<th>' + esc(thUse) + '</th>' +
+      '<th>' + esc(thSafe) + '</th>' +
+      '<th>' + esc(thTotal) + '</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>';
+  }
+
+  if ($('submitChallengeBtn')) {
+    $('submitChallengeBtn').addEventListener('click', function () {
+      try {
+        var pairVal = $('challengePairSelect') ? $('challengePairSelect').value : '';
+        if (pairVal === '' || pairVal == null || isNaN(Number(pairVal))) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى اختيار زوج' : (currentLang === 'ru' ? 'Пожалуйста, выберите пару' : 'יש לבחור זוג'), true);
+          return;
+        }
+        var pairIndex = Number(pairVal);
+        var topic = $('challengeTopicSelect') ? $('challengeTopicSelect').value : '';
+        if (!topic) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى اختيار موضوع الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Пожалуйста, выберите тему ИИ' : 'יש לבחור נושא AI'), true);
+          return;
+        }
+        var title = $('challengeTitleInput') ? $('challengeTitleInput').value : '';
+        if (!title || !title.trim()) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى إدخال اسم الأداة' : (currentLang === 'ru' ? 'Пожалуйста, введите название инструмента' : 'יש להזין שם כלי'), true);
+          return;
+        }
+        var inno = Number($('challengeScoreInnovation') ? $('challengeScoreInnovation').value : 5);
+        var use = Number($('challengeScoreUsefulness') ? $('challengeScoreUsefulness').value : 5);
+        var safe = Number($('challengeScoreSafety') ? $('challengeScoreSafety').value : 5);
+
+        challengeEntries = curriculumLib.submitChallengeEntry(challengeEntries, {
+          pairIndex: pairIndex,
+          aiTopic: topic,
+          toolTitle: title,
+          innovation: inno,
+          usefulness: use,
+          safety: safe
+        });
+        say('challengeStatus', S_CHALLENGE_STATUS_SUCCESS[currentLang] || S_CHALLENGE_STATUS_SUCCESS.he);
+        if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
+        renderChallengeLeaderboard();
+      } catch (err) {
+        say('challengeStatus', (errorHe ? errorHe(err) : err.message) || err.message, true);
+      }
+    });
+  }
+
   var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
   var lockedKeys = {};
   function rosterSplit() {
@@ -3469,7 +3714,7 @@
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
-    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); }
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderChallengeForm(); renderChallengeLeaderboard(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
@@ -3528,6 +3773,8 @@
   renderGuide();
   renderAITopicsSummary();
   renderScholarshipHoursSummary();
+  renderChallengeForm();
+  renderChallengeLeaderboard();
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
@@ -3549,6 +3796,20 @@
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
     renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary();
+    renderChallengeForm(); renderChallengeLeaderboard();
+
+    if ($('challengeHeading')) $('challengeHeading').textContent = S_CHALLENGE_HEADING[currentLang] || S_CHALLENGE_HEADING.he;
+    if ($('challengePairLabel')) $('challengePairLabel').textContent = S_CHALLENGE_PAIR[currentLang] || S_CHALLENGE_PAIR.he;
+    if ($('challengeTopicLabel')) $('challengeTopicLabel').textContent = S_CHALLENGE_TOPIC[currentLang] || S_CHALLENGE_TOPIC.he;
+    if ($('challengeTitleLabel')) $('challengeTitleLabel').textContent = S_CHALLENGE_TITLE[currentLang] || S_CHALLENGE_TITLE.he;
+    if ($('challengeInnovationLabel')) $('challengeInnovationLabel').textContent = S_CHALLENGE_INNOVATION[currentLang] || S_CHALLENGE_INNOVATION.he;
+    if ($('challengeUsefulnessLabel')) $('challengeUsefulnessLabel').textContent = S_CHALLENGE_USEFULNESS[currentLang] || S_CHALLENGE_USEFULNESS.he;
+    if ($('challengeSafetyLabel')) $('challengeSafetyLabel').textContent = S_CHALLENGE_SAFETY[currentLang] || S_CHALLENGE_SAFETY.he;
+    if ($('submitChallengeBtn')) {
+      var challengeBtnText = S_CHALLENGE_SUBMIT_BTN[currentLang] || S_CHALLENGE_SUBMIT_BTN.he;
+      $('submitChallengeBtn').textContent = challengeBtnText;
+      $('submitChallengeBtn').setAttribute('aria-label', challengeBtnText);
+    }
 
     if ($('sessionDurationLabel')) $('sessionDurationLabel').textContent = S_SESSION_DURATION[currentLang] || S_SESSION_DURATION.he;
     if ($('sessionAiTopicLabel')) $('sessionAiTopicLabel').textContent = S_SESSION_AI_TOPIC[currentLang] || S_SESSION_AI_TOPIC.he;
@@ -3599,6 +3860,8 @@
     window.applyLanguage = applyLanguage;
     window.generateScholarshipReport = generateScholarshipReport;
     window.renderScholarshipReport = renderScholarshipReport;
+    window.renderChallengeForm = renderChallengeForm;
+    window.renderChallengeLeaderboard = renderChallengeLeaderboard;
   }
 })();
 </script>
