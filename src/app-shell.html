@@ -79,6 +79,9 @@
   .scholarship-progress { margin-top:8px; max-width:280px; }
   .scholarship-progress-track { height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
   .scholarship-progress-fill { height:100%; background:var(--key); width:0%; transition:width .2s ease; }
+  table.leaderboard-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:.85rem; }
+  table.leaderboard-table th, table.leaderboard-table td { padding:8px 6px; text-align:start; border-bottom:1px solid var(--line); }
+  table.leaderboard-table th { color:var(--muted); font-size:.78rem; font-weight:700; }
 
   .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
@@ -186,6 +189,12 @@
         <div><label for="role">תפקיד</label><select id="role" aria-required="true" aria-describedby="addStatus">
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region" aria-required="true" aria-describedby="addStatus"></select></div>
+        <div><label for="participantAiLevelSelect" id="participantAiLevelLabel">רמת למידה</label>
+          <select id="participantAiLevelSelect" aria-describedby="addStatus">
+            <option value="">ללא הגדרה</option>
+            <option value="beginner">מתחיל</option>
+            <option value="advanced">מתקדם</option>
+          </select></div>
       </div>
       <div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">
         <label class="check"><input type="checkbox" id="consent" aria-describedby="consentHint"> התקבל אישור הורה לשידוך</label>
@@ -210,6 +219,17 @@
       <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
         <button type="button" class="ghost" id="demoBtn" aria-label="טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
+    </div>
+    <div class="card" id="pilotBatchCard">
+      <h2 id="pilotBatchHeading">ייבוא אצווה לפיילוט</h2>
+      <p class="hint" id="pilotBatchHint">ייבוא רשומות אנונימיות בתאימות מלאה ל-Zero-PII. רשומות עם פרטים מזהים (שמות, מיילים, טלפונים) יידחו אוטומטית.</p>
+      <label for="pilotBatchInput" id="pilotBatchInputLabel">נתוני אצווה (JSON)</label>
+      <textarea id="pilotBatchInput" rows="5" aria-describedby="pilotBatchStatus" style="width: 100%; font-family: monospace; direction: ltr; box-sizing: border-box;"></textarea>
+      <div class="actions">
+        <button type="button" class="act" id="validatePilotBatchBtn" aria-describedby="pilotBatchStatus">אימות אצווה</button>
+        <button type="button" class="act" id="confirmPilotBatchBtn" aria-describedby="pilotBatchStatus">ייבוא מאושר</button>
+      </div>
+      <p class="status" id="pilotBatchStatus" role="status"></p>
     </div>
     <div class="card">
       <h2>המשתתפים</h2>
@@ -246,10 +266,35 @@
         <button type="button" class="ghost" id="wipeCancel" aria-label="בטל מחיקה מהמכשיר" aria-describedby="wipeStatus" hidden>ביטול</button></div>
       <p class="status" id="wipeStatus" role="status"></p>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ שידוך ============ -->
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
+    <div class="match-conflict-badge" style="display:none;" data-i18n="matchConflictDetected"></div>
+    <label><input type="checkbox" class="match-compare-chk" data-i18n="matchCompareCheckbox" /> Compare</label>
+    <div id="matchComparePanel" class="card match-compare-panel" style="display:none;" aria-live="polite">
+      <h2>השוואת מועמדים</h2>
+      <div id="matchCompareContent"></div>
+      <button id="clearMatchCompareBtn" type="button" class="ghost" aria-describedby="match2Status">נקה השוואה</button>
+    </div>
     <div class="card">
       <h2>קבוצות לפי מצב</h2>
       <p class="hint" id="groupModeHint">בשגרה: קבוצה לכל בית ספר וכיתה. בחירום: קבוצות של עד 12 ילדים שנמצאים באותו מקום, לפי ספירה וקבוצת גיל בלבד.</p>
@@ -327,7 +372,25 @@
         לא נרשם ביומן ולא נספר בסיכום לרשות.</p>
       <div id="across" role="region" aria-live="polite" aria-label="שידוך בין אזורים (חירום)"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ טקסט ============ -->
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" tabindex="-1" hidden>
@@ -352,7 +415,25 @@
       <div class="actions"><button type="button" class="ghost" id="gateBtn" aria-label="נסה לשמור משתתף עם שדה טלפון אסור" aria-describedby="gateStatus">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ יחידות ============ -->
   <section role="tabpanel" id="tab-units" aria-labelledby="nav-units" tabindex="-1" hidden>
@@ -392,10 +473,63 @@
       <h2>נדחו</h2>
       <div id="rejectedList" role="region" aria-live="polite" aria-label="יחידות שנדחו"></div>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ שיעורים ============ -->
   <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
+    <div class="card session-history-filter-card">
+      <h2>סינון היסטוריית מפגשים</h2>
+      <div class="row">
+        <div>
+          <label for="sessionHistoryStatusFilter" id="labelSessionHistoryStatusFilter">סטטוס:</label>
+          <select id="sessionHistoryStatusFilter" aria-describedby="labelSessionHistoryStatusFilter">
+            <option value="all">הכל</option>
+            <option value="held">התקיים</option>
+            <option value="missed">הוחמץ</option>
+            <option value="postponed">נדחה</option>
+            <option value="cancelled">בוטל</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionHistoryPairFilter" id="labelSessionHistoryPairFilter">זוג:</label>
+          <select id="sessionHistoryPairFilter" aria-describedby="labelSessionHistoryPairFilter">
+            <option value="all">כל הזוגות</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionHistoryAiTopicFilter" id="labelSessionHistoryAiTopicFilter">נושא AI:</label>
+          <select id="sessionHistoryAiTopicFilter" aria-describedby="labelSessionHistoryAiTopicFilter">
+            <option value="all">כל הנושאים</option>
+            <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+            <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+            <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+            <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <span id="sessionHistoryCount" class="pill" aria-live="polite">0 מפגשים</span>
+      </div>
+      <div id="sessionHistoryEmpty" class="empty-state" style="display:none;" aria-live="polite">אין מפגשים להצגה</div>
+    </div>
     <!-- A row is a lesson set for a matched pair, whatever became of it: "איך הסתיים" offers "לא התקיים"
          and "נקטע באמצע" beside "התקיים", and the summary counts each. Until this the banner said the log
          records "שהתקיים שיעור" with "היחידה המאושרת שנלמדה", over a form that logs a lesson that did not
@@ -427,8 +561,48 @@
       <select id="sessionUnit" aria-required="true" aria-describedby="sessionStatus"></select>
       <label for="sessionOutcome">איך הסתיים</label>
       <select id="sessionOutcome" aria-required="true" aria-describedby="sessionStatus"></select>
+      <div class="row">
+        <div>
+          <label for="sessionDurationSelect" id="sessionDurationLabel">משך שיעור (שעות)</label>
+          <select id="sessionDurationSelect" aria-describedby="sessionStatus">
+            <option value="0.5">0.5</option>
+            <option value="1" selected>1</option>
+            <option value="1.5">1.5</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionAiTopicSelect" id="sessionAiTopicLabel">נושא בינה מלאכותית</label>
+          <select id="sessionAiTopicSelect" aria-describedby="sessionStatus">
+            <option value="">ללא נושא AI</option>
+            <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+            <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+            <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+            <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+          </select>
+        </div>
+      </div>
       <div class="actions"><button type="button" class="act" id="logSession" aria-describedby="sessionStatus">רשום שיעור</button></div>
       <p class="status" id="sessionStatus" role="status"></p>
+    </div>
+    <div class="card" id="scholarshipReportCard">
+      <h2 id="scholarshipReportHeading">דוח שעות מלגה</h2>
+      <p class="hint" id="scholarshipReportHint">דוח אנונימי לפי זוגות וסיכום שעות מלגה ומפגשי AI, ללא פרטים מזהים (PII).</p>
+      <div class="row">
+        <div>
+          <label for="scholarshipTargetSelect" id="scholarshipTargetLabel">יעד שעות מלגה</label>
+          <select id="scholarshipTargetSelect" aria-describedby="scholarshipReportStatus">
+            <option value="30" selected>30 שעות (בסיסי)</option>
+            <option value="130">130 שעות (מלגת IMPACT!)</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
+        <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
+      </div>
+      <p class="status" id="scholarshipReportStatus" role="status"></p>
+      <div id="scholarshipReportOut" role="region" aria-live="polite" aria-label="דוח שעות מלגה"></div>
     </div>
     <div class="card">
       <h2>סיכום לרשות — ספירות בלבד</h2>
@@ -450,7 +624,25 @@
       <h2>היומן</h2>
       <div id="sessionList" role="region" aria-live="polite" aria-label="יומן השיעורים"></div>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ מדריך ============ -->
   <section role="tabpanel" id="tab-guide" aria-labelledby="nav-guide" tabindex="-1" hidden>
@@ -475,7 +667,99 @@
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for scholarship hours summary -->
       <div id="scholarshipHoursSummaryList" role="region" aria-live="polite" aria-label="סיכום שעות מלגה ומעורבות"></div>
     </div>
-  </section>
+    <div class="card" id="dropoutRiskCard">
+      <h2 id="dropoutRiskHeading">זוגות בסיכון נשירה</h2>
+      <div class="row">
+        <div>
+          <label for="dropoutThresholdSelect" id="dropoutThresholdLabel">סף מינימום מפגשים</label>
+          <select id="dropoutThresholdSelect" aria-describedby="dropoutRiskCount">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div>
+          <span id="dropoutRiskCountLabel" class="hint">התראות פעילות</span>
+          <p id="dropoutRiskCount" class="badge" aria-live="polite">0</p>
+        </div>
+      </div>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic dropout risk list -->
+      <div id="dropoutRiskList" role="region" aria-live="polite" aria-label="זוגות בסיכון נשירה"></div>
+    </div>
+    <div class="card" id="aiChallengeCard">
+      <h2 id="challengeHeading">תחרות כלי AI</h2>
+      <div class="row">
+        <div>
+          <label for="challengePairSelect" id="challengePairLabel">זוג</label>
+          <select id="challengePairSelect" aria-describedby="challengeStatus"></select>
+        </div>
+        <div>
+          <label for="challengeTopicSelect" id="challengeTopicLabel">נושא AI</label>
+          <select id="challengeTopicSelect" aria-describedby="challengeStatus"></select>
+        </div>
+      </div>
+      <div>
+        <label for="challengeTitleInput" id="challengeTitleLabel">שם הכלי</label>
+        <input id="challengeTitleInput" type="text" maxlength="80" aria-describedby="challengeStatus">
+      </div>
+      <div class="row">
+        <div>
+          <label for="challengeScoreInnovation" id="challengeInnovationLabel">חדשנות (1-5)</label>
+          <select id="challengeScoreInnovation" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+        <div>
+          <label for="challengeScoreUsefulness" id="challengeUsefulnessLabel">תועלת (1-5)</label>
+          <select id="challengeScoreUsefulness" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+        <div>
+          <label for="challengeScoreSafety" id="challengeSafetyLabel">בטיחות (1-5)</label>
+          <select id="challengeScoreSafety" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="act" id="submitChallengeBtn" aria-describedby="challengeStatus">הגש אתגר</button>
+      </div>
+      <p class="status" id="challengeStatus" role="status"></p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic challenge leaderboard -->
+      <div id="challengeLeaderboard" role="region" aria-live="polite" aria-label="טבלת דירוג אתגר כלי AI"></div>
+    </div>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ דוחות ============ -->
   <section role="tabpanel" id="tab-reports" aria-labelledby="nav-reports" tabindex="-1" hidden>
@@ -494,7 +778,25 @@
       <p class="status" id="report2Status" role="status"></p>
       <div id="reportOut" role="region" aria-live="polite" aria-label="תוצאת הדוח"></div>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ קשר (src/lib/contact.js) ============ -->
   <div class="card" id="contactBox" hidden role="region" aria-labelledby="contactTitle">
@@ -659,6 +961,42 @@
     ru: 'Совпадение тем ИИ'
   });
 
+  const S_SESSION_DURATION = Object.freeze({
+    he: 'משך שיעור (שעות)',
+    ar: 'مدة الجلسة (ساعات)',
+    ru: 'Длительность занятия (часы)'
+  });
+  const S_SESSION_AI_TOPIC = Object.freeze({
+    he: 'נושא בינה מלאכותית',
+    ar: 'موضوع الذكاء الاصطناعي',
+    ru: 'Тема искусственного интеллекта'
+  });
+  const S_SCHOLARSHIP_REPORT_HEADING = Object.freeze({
+    he: 'דוח שעות מלגה',
+    ar: 'تقرير ساعات المنحة',
+    ru: 'Отчет о часах стипендии'
+  });
+  const S_SCHOLARSHIP_REPORT_HINT = Object.freeze({
+    he: 'דוח אנונימי לפי זוגות וסיכום שעות מלגה ומפגשי AI, ללא פרטים מזהים (PII).',
+    ar: 'تقرير مجهول الهوية حسب الأزواج وملخص لساعات المنحة وجلسات الذكاء الاصطناعي، بدون بيانات شخصية.',
+    ru: 'Анонимный отчет по парам и сводка часов стипендии и занятий по ИИ, без персональных данных.'
+  });
+  const S_SCHOLARSHIP_TARGET_LABEL = Object.freeze({
+    he: 'יעד שעות מלגה',
+    ar: 'هدف ساعات المنحة',
+    ru: 'Цель часов стипендии'
+  });
+  const S_GENERATE_SCHOLARSHIP_REPORT = Object.freeze({
+    he: 'הפק דוח שעות מלגה',
+    ar: 'إنشاء تقرير ساعات المنحة',
+    ru: 'Сформировать отчет о стипендии'
+  });
+  const S_COPY_SCHOLARSHIP_REPORT = Object.freeze({
+    he: 'העתק דוח',
+    ar: 'نسخ التقرير',
+    ru: 'Копировать отчет'
+  });
+
   function validateAITopics(topics) {
     if (!Array.isArray(topics) || topics.length === 0) return false;
     return topics.every(function (t) {
@@ -683,6 +1021,109 @@
     value = Math.max(0, Math.min(1, value));
     var label = AI_TOPIC_BADGE_LABELS[lang] || AI_TOPIC_BADGE_LABELS.he;
     return [label, ': ', Math.round(value * 100), '%'].join('');
+  }
+
+  var OVERLAP_SLOTS_LABELS = Object.freeze({
+    he: 'חפיפת שעות שבועיות',
+    ar: 'تداخل الساعات الأسبوعية',
+    ru: 'Еженедельные пересекающиеся часы'
+  });
+
+  function getWeeklyOverlapSlots(personA, personB) {
+    if (profile && typeof profile.getWeeklyOverlapSlots === 'function') {
+      return profile.getWeeklyOverlapSlots(personA, personB);
+    }
+    var a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
+    var b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
+    var right = new Set();
+    for (var i = 0; i < b.length; i++) {
+      var s = profile && typeof profile.normalizeSlot === 'function' ? profile.normalizeSlot(b[i]) : b[i];
+      if (s) right.add(s);
+    }
+    var seen = new Set();
+    var out = [];
+    for (var j = 0; j < a.length; j++) {
+      var slot = profile && typeof profile.normalizeSlot === 'function' ? profile.normalizeSlot(a[j]) : a[j];
+      if (slot && right.has(slot) && !seen.has(slot)) {
+        seen.add(slot);
+        out.push(slot);
+      }
+    }
+    return out.sort();
+  }
+
+  function weeklyOverlapBadgeText(slots, lang) {
+    lang = lang || currentLang || 'he';
+    var label = OVERLAP_SLOTS_LABELS[lang] || OVERLAP_SLOTS_LABELS.he;
+    var list = Array.isArray(slots) ? slots : [];
+    if (!list.length) {
+      if (lang === 'ar') return label + ': لا يوجد تداخل';
+      if (lang === 'ru') return label + ': нет пересечений';
+      return label + ': אין חפיפה';
+    }
+    return label + ' (' + list.length + '): ' + list.join(', ');
+  }
+
+  var AI_LEVEL_LABELS = Object.freeze({
+    beginner: Object.freeze({
+      he: 'מתחיל',
+      ar: 'مبتدئ',
+      ru: 'начинающий'
+    }),
+    advanced: Object.freeze({
+      he: 'מתקדם',
+      ar: 'متقدم',
+      ru: 'продвинутый'
+    })
+  });
+  var AI_LEVEL_FIELD_LABELS = Object.freeze({
+    label: Object.freeze({
+      he: 'רמת למידה',
+      ar: 'مستوى التعلم',
+      ru: 'Уровень обучения'
+    }),
+    none: Object.freeze({
+      he: 'ללא הגדרה',
+      ar: 'بدון تحديد',
+      ru: 'Не указано'
+    })
+  });
+  var AI_LEVEL_FIT_LABELS = Object.freeze({
+    match: Object.freeze({
+      he: 'התאמת רמת למידה: התאמה',
+      ar: 'تطابق مستوى التعلم: متطابق',
+      ru: 'Соответствие уровня обучения: совпадает'
+    }),
+    diff: Object.freeze({
+      he: 'התאמת רמת למידה: שונה',
+      ar: 'تطابق مستوى التعلم: مختلف',
+      ru: 'Соответствие уровня обучения: не совпадает'
+    }),
+    none: Object.freeze({
+      he: 'התאמת רמת למידה: לא הוגדרה רמה',
+      ar: 'تطابق مستوى التعلم: غير محدد',
+      ru: 'Соответствие уровня обучения: не указано'
+    })
+  });
+
+  function aiLevelBadgeText(studentLevel, pupilLevel, lang) {
+    lang = lang || currentLang || 'he';
+    var sValid = studentLevel === 'beginner' || studentLevel === 'advanced';
+    var pValid = pupilLevel === 'beginner' || pupilLevel === 'advanced';
+    if (!sValid || !pValid) {
+      return AI_LEVEL_FIT_LABELS.none[lang] || AI_LEVEL_FIT_LABELS.none.he;
+    }
+    if (studentLevel === pupilLevel) {
+      var matchPrefix = AI_LEVEL_FIT_LABELS.match[lang] || AI_LEVEL_FIT_LABELS.match.he;
+      var levelName = (AI_LEVEL_LABELS[studentLevel] && AI_LEVEL_LABELS[studentLevel][lang]) || studentLevel;
+      return matchPrefix + ' (' + levelName + ')';
+    }
+    var diffPrefix = AI_LEVEL_FIT_LABELS.diff[lang] || AI_LEVEL_FIT_LABELS.diff.he;
+    var sName = (AI_LEVEL_LABELS[studentLevel] && AI_LEVEL_LABELS[studentLevel][lang]) || studentLevel;
+    var pName = (AI_LEVEL_LABELS[pupilLevel] && AI_LEVEL_LABELS[pupilLevel][lang]) || pupilLevel;
+    if (lang === 'ar') return diffPrefix + ' (' + sName + ' مقابل ' + pName + ')';
+    if (lang === 'ru') return diffPrefix + ' (' + sName + ' против ' + pName + ')';
+    return diffPrefix + ' (' + sName + ' מול ' + pName + ')';
   }
 
   if (typeof window !== 'undefined') {
@@ -710,6 +1151,13 @@
     window.renderPeople = renderPeople;
     window.renderPeopleAiFilter = renderPeopleAiFilter;
     window.refreshFilterMissingAiLabel = refreshFilterMissingAiLabel;
+    window.getWeeklyOverlapSlots = getWeeklyOverlapSlots;
+    window.weeklyOverlapBadgeText = weeklyOverlapBadgeText;
+    window.aiLevelBadgeText = aiLevelBadgeText;
+    window.AI_LEVEL_LABELS = AI_LEVEL_LABELS;
+    window.AI_LEVEL_FIELD_LABELS = AI_LEVEL_FIELD_LABELS;
+    window.AI_LEVEL_FIT_LABELS = AI_LEVEL_FIT_LABELS;
+    window.OVERLAP_SLOTS_LABELS = OVERLAP_SLOTS_LABELS;
     if (attendance) {
       window.estimateReadingTimeHebrew = attendance.estimateReadingTimeHebrew;
       window.getTopicTagColor = attendance.getTopicTagColor;
@@ -728,6 +1176,11 @@
       window.formatInlineFormulas = attendance.formatInlineFormulas;
       window.saveFocusReaderConfig = attendance.saveFocusReaderConfig;
       window.loadFocusReaderConfig = attendance.loadFocusReaderConfig;
+      window.buildScholarshipReport = attendance.buildScholarshipReport;
+      window.recordAttendance = attendance.recordAttendance;
+      window.serializeAttendance = attendance.serializeAttendance;
+      window.deserializeAttendance = attendance.deserializeAttendance;
+      window.detectInactivePairs = attendance.detectInactivePairs;
     }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -830,6 +1283,7 @@
     ['invalid availability slot:', 'שעה שאינה בלוח'],
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    ['invalid aiLevel:', 'רמת למידה לא מוכרת'],
     // the retention stamp of a stored person (profile.js withoutRetentionStamp, reached through load())
     ['invalid retention:', 'חותמת השמירה ברשומה לא תקינה'],
     // The enrichment-unit record (units screen). One module builds a unit: unit.js, which names the fields
@@ -1239,6 +1693,7 @@
     draft = { subjects: [], availability: [] };
     renderPeriodChips();
     $('consent').checked = false;
+    if ($('participantAiLevelSelect')) $('participantAiLevelSelect').value = '';
     Array.prototype.forEach.call(document.querySelectorAll?.('#aiTopics input[type="checkbox"]') || [], (input) => {
       input.checked = false;
     });
@@ -1254,12 +1709,14 @@
       .filter((input) => input.checked)
       .map((input) => input.getAttribute('data-ai-topic') || input.value)
       .filter((key) => validateAITopics([key]));
+    var aiLevel = $('participantAiLevelSelect') ? $('participantAiLevelSelect').value : '';
     var candidate = {
       role: $('role').value,
       region: $('region').value,
       availability: draft.availability.slice(),
       subjects: draft.subjects.slice()
     };
+    if (aiLevel === 'beginner' || aiLevel === 'advanced') candidate.aiLevel = aiLevel;
     if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
@@ -1286,6 +1743,7 @@
     }
     made = Object.assign({}, made);
     if (targetAITopics.length) made.target_ai_topics = targetAITopics;
+    if (aiLevel === 'beginner' || aiLevel === 'advanced') made.aiLevel = aiLevel;
     state.people.push(made);
     resetMatchView();
     clearDraft();
@@ -1307,6 +1765,7 @@
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
       flipped = Object.assign({}, flipped);
       if (who.target_ai_topics && who.target_ai_topics.length) flipped.target_ai_topics = who.target_ai_topics;
+      if (who.aiLevel) flipped.aiLevel = who.aiLevel;
       state.people[Number(c)] = flipped;
       // A pairs file already down still pairs this pupil if they were in it: "לא ישודך" alone left the
       // coordinator crossing names against a file that pairs a pupil whose parent consent is withdrawn.
@@ -1414,6 +1873,142 @@
     renderPeople();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה, אחד מהתלמידים בלי אישור הורה. עבור למסך "שידוך".');
     save('addStatus');
+  });
+
+  var lastBatchResult = null;
+  var lastBatchValidated = false;
+
+  function renderPilotBatchStatus() {
+    if (!lastBatchResult) return;
+    var acc = lastBatchResult.acceptedCount;
+    var rej = lastBatchResult.rejectedCount;
+    var msg = '';
+    if (currentLang === 'ar') {
+      msg = 'تم قبول: ' + acc + '، تم رفض: ' + rej;
+    } else if (currentLang === 'ru') {
+      msg = 'Одобрено: ' + acc + ', отклонено: ' + rej;
+    } else {
+      msg = 'אושרו: ' + acc + ', נדחו: ' + rej;
+    }
+    var st = $('pilotBatchStatus');
+    if (st) {
+      st.textContent = msg;
+      st.className = 'status' + (rej > 0 && acc === 0 ? ' bad' : ' ok');
+    }
+  }
+
+  $('validatePilotBatchBtn').addEventListener('click', function () {
+    var rawText = ($('pilotBatchInput') && $('pilotBatchInput').value) || '';
+    if (!rawText.trim()) {
+      var emptyMsg = currentLang === 'ar' ? 'يرجى إدخال بيانات JSON للاستيراد' : (currentLang === 'ru' ? 'Пожалуйста, введите данные JSON для импорта' : 'נא להזין נתוני JSON לייבוא');
+      say('pilotBatchStatus', emptyMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    var parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (_e) {
+      var parseMsg = currentLang === 'ar' ? 'خطأ في تنسيق JSON' : (currentLang === 'ru' ? 'Неверный формат JSON' : 'שגיאת תחביר ב-JSON');
+      say('pilotBatchStatus', parseMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    if (!Array.isArray(parsed)) {
+      var arrMsg = currentLang === 'ar' ? 'إدخال غير صالح: المتوقع مصفوفة سجلات JSON' : (currentLang === 'ru' ? 'Неверный ввод: ожидается массив записей JSON' : 'קלט לא תקין: מצופה מערך רשומות JSON');
+      say('pilotBatchStatus', arrMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    var batchFn = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+    var res = batchFn(parsed);
+    lastBatchResult = {
+      accepted: res.accepted,
+      acceptedCount: res.accepted.length,
+      rejectedCount: res.rejectedCount,
+      reasons: res.reasons
+    };
+    lastBatchValidated = true;
+    renderPilotBatchStatus();
+  });
+
+  $('confirmPilotBatchBtn').addEventListener('click', function () {
+    if (!lastBatchValidated || !lastBatchResult) {
+      var rawText = ($('pilotBatchInput') && $('pilotBatchInput').value) || '';
+      if (!rawText.trim()) {
+        var emptyMsg = currentLang === 'ar' ? 'يرجى إدخال بيانات JSON للاستيراد' : (currentLang === 'ru' ? 'Пожалуйста, введите данные JSON для импорта' : 'נא להזין נתוני JSON לייבוא');
+        say('pilotBatchStatus', emptyMsg, true);
+        return;
+      }
+      var parsed;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (_e) {
+        var parseMsg = currentLang === 'ar' ? 'خطأ في تنسيق JSON' : (currentLang === 'ru' ? 'Неверный формат JSON' : 'שגיאת תחביר ב-JSON');
+        say('pilotBatchStatus', parseMsg, true);
+        return;
+      }
+      if (!Array.isArray(parsed)) {
+        var arrMsg = currentLang === 'ar' ? 'إدخال غير صالح: المتوقع مصفوفة سجلات JSON' : (currentLang === 'ru' ? 'Неверный ввод: ожидается массив записей JSON' : 'קלט לא תקין: מצופה מערך רשומות JSON');
+        say('pilotBatchStatus', arrMsg, true);
+        return;
+      }
+      var batchFn = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+      var res = batchFn(parsed);
+      lastBatchResult = {
+        accepted: res.accepted,
+        acceptedCount: res.accepted.length,
+        rejectedCount: res.rejectedCount,
+        reasons: res.reasons
+      };
+      lastBatchValidated = true;
+    }
+
+    var accepted = lastBatchResult.accepted || [];
+    if (accepted.length === 0) {
+      renderPilotBatchStatus();
+      return;
+    }
+
+    for (var i = 0; i < accepted.length; i += 1) {
+      var rec = accepted[i];
+      var candidate = {
+        role: rec.role,
+        region: rec.region || rec.area,
+        availability: Array.isArray(rec.availability) && rec.availability.length ? rec.availability.slice() : ['SUN_16'],
+        subjects: Array.isArray(rec.subjects) && rec.subjects.length ? rec.subjects.slice() : ['MATH']
+      };
+      if (rec.role === 'pupil') {
+        candidate['parentConsent'] = rec.parentConsent !== undefined ? Boolean(rec.parentConsent) : true;
+      }
+      if (rec.aiLevel === 'beginner' || rec.aiLevel === 'advanced') {
+        candidate.aiLevel = rec.aiLevel;
+      }
+      var profileObj;
+      try {
+        profileObj = profile.makeProfile(candidate);
+      } catch (_e) {
+        profileObj = candidate;
+      }
+      var person = Object.assign({}, profileObj);
+      if (Array.isArray(rec.target_ai_topics) && rec.target_ai_topics.length) {
+        person.target_ai_topics = rec.target_ai_topics.slice();
+      }
+      if (rec.area) {
+        person.area = rec.area;
+      }
+      state.people.push(person);
+    }
+
+    resetMatchView();
+    renderPeople();
+    save('pilotBatchStatus');
+    renderPilotBatchStatus();
+    if ($('pilotBatchInput')) $('pilotBatchInput').value = '';
+    lastBatchValidated = false;
   });
 
   // ---------- match ----------
@@ -1659,10 +2254,15 @@
       var pupil = state.people[p.pupil - 1] || {};
       var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length) ||
         (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length);
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
         '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+        '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
         (topics ? ['<br>', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang))].join('') : '') +
         '</span></div>';
     }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
@@ -1673,10 +2273,18 @@
         '<br>' + reasonHe(x.reason, x.role, x) + '</span></div>';
     }).join('') : '<p class="empty">' + S('allMatched') + '</p>';
     $('across').innerHTML = m.across.length ? m.across.map(function (p) {
+      var student = state.people[p.student - 1] || {};
+      var pupil = state.people[p.pupil - 1] || {};
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       return '<div class="item pair"><b>' + ROLE_HE.pupil + ' #' + p.pupil + ' (' + esc(REGION_HE[p.pupilRegion] || p.pupilRegion) +
         ') עם ' + ROLE_HE.student + ' #' + p.student + ' (' + esc(REGION_HE[p.studentRegion] || p.studentRegion) + ')</b>' +
         '<span class="meta">מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') + '</span></div>';
+        '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+        '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
+        '</span></div>';
     }).join('') : '<p class="empty">אין הצעה: ' + (m.barredByConsent
       ? (m.barredByConsent === 1 ? 'תלמיד אחד שנשאר בלי זוג חולק' : m.barredByConsent + ' תלמידים שנשארו בלי זוג חולקים') +
         ' שעה ומקצוע עם סטודנט פנוי מאזור אחר, אבל בלי אישור הורה תלמיד לא נכנס לשידוך בכלל, גם לא בין אזורים. ' +
@@ -2239,7 +2847,11 @@
         ROLE_HE.pupil + ' #' + r.pupils[p.pupilIndex].number + ' · ' +
         p.sharedSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ');
     }, NO_PAIR_HE);
+    if (pairs.length && ($('sessionPair').value === '' || $('sessionPair').value == null || Number($('sessionPair').value) >= pairs.length)) {
+      $('sessionPair').value = '0';
+    }
     renderSessionChoices(pairs);
+    updatePairTotalHoursBadge();
   }
 
   function sessionRow(e) {
@@ -2296,6 +2908,7 @@
     }
     var er = $('exportReport');
     if (er) er.setAttribute('aria-expanded', $('reportBox').hidden ? 'false' : 'true');
+    if (typeof renderDropoutRiskList === 'function') renderDropoutRiskList();
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
@@ -2371,7 +2984,7 @@
   }
   function activeSessionPairIndex() {
     var sel = $('sessionPair');
-    if (!sel || !sel.value) return null;
+    if (!sel || sel.value === '' || sel.value == null) return null;
     var n = Number(sel.value);
     return Number.isInteger(n) && n >= 0 ? n : null;
   }
@@ -2458,6 +3071,35 @@
         unitId: $('sessionUnit').value,
         outcome: $('sessionOutcome').value
       });
+      if (attendance && typeof attendance.recordAttendance === 'function') {
+        var pairIdx = Number($('sessionPair').value);
+        var durationVal = Number($('sessionDurationSelect') ? $('sessionDurationSelect').value : 1) || 1;
+        var topicVal = $('sessionAiTopicSelect') ? $('sessionAiTopicSelect').value : null;
+        var aiTopic = (topicVal && topicVal !== 'none' && topicVal !== '') ? topicVal : null;
+        var attOutcome = $('sessionOutcome').value;
+        var attStatus = attOutcome === 'missed' ? 'missed' : (attOutcome === 'cut_short' ? 'cancelled' : 'held');
+
+        var now = new Date();
+        var y = now.getFullYear();
+        var m = String(now.getMonth() + 1).padStart(2, '0');
+        var d = String(now.getDate()).padStart(2, '0');
+        var today = y + '-' + m + '-' + d;
+
+        var currentLog = { entries: Array.isArray(state.attendance) ? state.attendance : [] };
+        var recInput = {
+          pairIndex: pairIdx,
+          date: today,
+          status: attStatus,
+          durationHours: durationVal
+        };
+        if (aiTopic !== null) {
+          recInput.aiTopic = aiTopic;
+        } else {
+          recInput.aiTopic = null;
+        }
+        var updatedLog = attendance.recordAttendance(currentLog, recInput);
+        state.attendance = updatedLog.entries.slice();
+      }
       updatePairTotalHoursBadge();
     } catch (err) {
       if (/unit/i.test(err.message)) {
@@ -2483,6 +3125,112 @@
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
     save('sessionStatus');
   });
+
+  var lastScholarshipReportText = '';
+  function renderScholarshipReport(report, targetHours) {
+    var out = $('scholarshipReportOut');
+    if (!out) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var isAr = lang === 'ar';
+    var isRu = lang === 'ru';
+    var pairs = Array.isArray(report.pairs) ? report.pairs : [];
+    var summary = report.summary || {};
+
+    var target = report.targetHours || targetHours || 30;
+    var totalHours = summary.totalHours != null ? summary.totalHours : 0;
+    var totalHeld = summary.totalHeldSessions != null ? summary.totalHeldSessions : 0;
+    var totalPairs = pairs.length;
+    var avgPct = summary.completionPercent != null ? summary.completionPercent : (totalPairs > 0 ? Math.round((totalHours / (totalPairs * target)) * 100) : 0);
+
+    var txtLines = [];
+    txtLines.push('--- ' + (isAr ? 'تقرير ساعات المنحة' : (isRu ? 'Отчет о часах стипендии' : 'דוח שעות מלגה')) + ' (' + (isAr ? 'الهدف: ' : (isRu ? 'Цель: ' : 'יעד: ')) + target + ') ---');
+    txtLines.push((isAr ? 'إجمالي الأزواج: ' : (isRu ? 'Всего пар: ' : 'סך כל הזוגות: ')) + totalPairs);
+    txtLines.push((isAr ? 'اللقاءات المنعقدة: ' : (isRu ? 'Состоявшихся занятий: ' : 'מפגשים שהתקיימו: ')) + totalHeld);
+    txtLines.push((isAr ? 'إجمالي الساعات: ' : (isRu ? 'Всего часов: ' : 'סך כל השעות: ')) + totalHours);
+    txtLines.push((isAr ? 'نسبة الإنجاز: ' : (isRu ? 'Процент выполнения: ' : 'אחוז השלמה כולל: ')) + avgPct + '%');
+
+    var coveredTopics = Array.isArray(summary.coveredAiTopics) ? summary.coveredAiTopics : [];
+    if (coveredTopics.length) {
+      txtLines.push((isAr ? 'مواضيع الذكاء الاصطناعي: ' : (isRu ? 'Темы ИИ: ' : 'נושאי בינה מלאכותית: ')) + coveredTopics.join(', '));
+    }
+    txtLines.push('');
+    txtLines.push(isAr ? 'التفاصيل حسب الأزواج:' : (isRu ? 'Разбивка по парам:' : 'פירוט לפי זוגות:'));
+
+    var pairsHtml = [];
+    pairs.forEach(function (p) {
+      var pTopics = Array.isArray(p.coveredAiTopics) ? p.coveredAiTopics : [];
+      var topicLabels = pTopics.map(function (k) {
+        return (AI_TOPICS && AI_TOPICS[k] && (AI_TOPICS[k][lang] || AI_TOPICS[k].he)) || k;
+      }).join(', ');
+
+      var pairLine = (isAr ? 'زوج #' : (isRu ? 'Пара #' : 'זוג #')) + p.pairIndex + ': ' +
+        p.totalHours + '/' + p.targetHours + ' ' + (isAr ? 'ساعات' : (isRu ? 'ч' : 'שעות')) + ' (' +
+        p.completionPercent + '%) · ' +
+        (isAr ? 'لقاءات: ' : (isRu ? 'Занятий: ' : 'מפגשים: ')) + p.heldSessions +
+        (pTopics.length ? ' · AI: ' + pTopics.join(', ') : '');
+      txtLines.push(pairLine);
+
+      pairsHtml.push(
+        '<div class="item scholarship-pair-item" data-pair-index="' + p.pairIndex + '">' +
+        '<b>' + esc(isAr ? 'زوج #' : (isRu ? 'Пара #' : 'זוג #')) + p.pairIndex + '</b> · ' +
+        '<span>' + p.totalHours + ' / ' + p.targetHours + ' ' + (isAr ? 'ساعة' : (isRu ? 'ч' : 'שעות')) + ' (' + p.completionPercent + '%)</span> · ' +
+        '<span>' + esc(isAr ? 'اللقاءات: ' : (isRu ? 'Занятий: ' : 'מפגשים: ')) + p.heldSessions + '</span>' +
+        (topicLabels ? '<br><span class="meta">' + esc(isAr ? 'المواضيع: ' : (isRu ? 'Темы: ' : 'נושאי AI: ')) + esc(topicLabels) + '</span>' : '') +
+        '</div>'
+      );
+    });
+
+    lastScholarshipReportText = txtLines.join('\n');
+    out.innerHTML =
+      '<div class="scholarship-report-summary">' +
+      '<p><b>' + (isAr ? 'إجمالي الساعات:' : (isRu ? 'Всего часов:' : 'סך שעות כולל:')) + '</b> ' + totalHours + ' / ' + (totalPairs * target) + ' (' + avgPct + '%)</p>' +
+      '<p><b>' + (isAr ? 'اللقاءات المنعقدة:' : (isRu ? 'Состоявшихся занятий:' : 'מפגשים שהתקיימו:')) + '</b> ' + totalHeld + '</p>' +
+      (coveredTopics.length ? '<p><b>' + (isAr ? 'مواضيع الذكاء الاصطناعي:' : (isRu ? 'Темы ИИ:' : 'נושאי AI שכוסו:')) + '</b> ' + esc(coveredTopics.join(', ')) + '</p>' : '') +
+      '</div>' +
+      '<div class="scholarship-report-pairs">' +
+      (pairsHtml.length ? pairsHtml.join('') : '<p class="hint empty">' + (isAr ? 'لا توجد بيانات للأزواج' : (isRu ? 'Нет данных по парам' : 'אין נתוני שעות לזוגות')) + '</p>') +
+      '</div>';
+  }
+
+  function generateScholarshipReport() {
+    var targetSelect = $('scholarshipTargetSelect');
+    var targetHours = Number(targetSelect ? targetSelect.value : 30) || 30;
+    var records = Array.isArray(state.attendance) ? state.attendance : [];
+    var pairs = currentPairs();
+    var report = attendance && typeof attendance.buildScholarshipReport === 'function'
+      ? attendance.buildScholarshipReport(records, pairs, targetHours)
+      : { pairs: [], summary: { totalHours: 0, totalHeldSessions: 0, completionPercent: 0 } };
+    renderScholarshipReport(report, targetHours);
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var msg = lang === 'ar' ? 'تم إنشاء تقرير ساعات المنحة.' : (lang === 'ru' ? 'Отчет о часах стипендии сформирован.' : 'דוח שעות המלגה הופק בהצלחה.');
+    say('scholarshipReportStatus', msg);
+    return report;
+  }
+
+  if ($('generateScholarshipReportBtn')) {
+    $('generateScholarshipReportBtn').addEventListener('click', generateScholarshipReport);
+  }
+
+  if ($('copyScholarshipReportBtn')) {
+    $('copyScholarshipReportBtn').addEventListener('click', function () {
+      if (!lastScholarshipReportText) {
+        generateScholarshipReport();
+      }
+      var textToCopy = lastScholarshipReportText;
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      var copiedMsg = lang === 'ar' ? 'تم نسخ تقرير ساعات المنحة إلى الحافظة.' : (lang === 'ru' ? 'Отчет о часах стипендии скопирован в буфер обмена.' : 'דוח שעות המלגה הועתק ללוח.');
+      var readyMsg = lang === 'ar' ? 'تقرير ساعات المنحة جاهز للنسخ.' : (lang === 'ru' ? 'Отчет о часах стипендии готов к копированию.' : 'דוח שעות המלגה מוכן להעתקה.');
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(function () {
+          say('scholarshipReportStatus', copiedMsg);
+        }, function () {
+          say('scholarshipReportStatus', readyMsg);
+        });
+      } else {
+        say('scholarshipReportStatus', readyMsg);
+      }
+    });
+  }
 
   // ---------- wipe this device ----------
   // Everything the app holds sits under one key of this browser's storage (store.js), so ending a pilot
@@ -2605,9 +3353,12 @@
     $('unitDuration').value = '20';
     if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
     revising = null;
-    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
+    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus'].forEach(function (id) {
       say(id, '');
     });
+    challengeEntries = [];
+    if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
+    renderChallengeLeaderboard();
     renderPeople(); renderUnits(); renderSessionForm();
     updatePairTotalHoursBadge(); renderSessions();
     setWipeArmed(false);
@@ -2774,6 +3525,7 @@
     }).join('') : '<p class="empty">לא נמצא פרק מתאים.</p>';
     renderAITopicsSummary();
     renderScholarshipHoursSummary();
+    renderDropoutRiskList();
   }
 
   function renderScholarshipHoursSummary(customAttendance, customPairs) {
@@ -2941,6 +3693,321 @@
   });
   $('guideAllBtn').addEventListener('click', function () { renderGuide(); say('guideStatus', 'כל המדריך מוצג.'); });
 
+  // ---------- Dropout Risk Module (#tab-guide) ----------
+  var S_DROPOUT_HEADING = {
+    he: 'זוגות בסיכון נשירה',
+    ar: 'الأزواج المعرضون لخطر التسرب',
+    ru: 'Пары в группе риска отсева'
+  };
+  var S_DROPOUT_THRESHOLD_LABEL = {
+    he: 'סף מינימום מפגשים',
+    ar: 'الحد الأدنى للجلسات',
+    ru: 'Минимальный порог занятий'
+  };
+  var S_DROPOUT_COUNT_LABEL = {
+    he: 'התראות פעילות',
+    ar: 'التنبيهات النشطة',
+    ru: 'Активные оповещения'
+  };
+  var S_DROPOUT_EMPTY = {
+    he: 'אין כרגע זוגות בסיכון נשירה.',
+    ar: 'لا يوجد أزواج معرضون لخطر التسرب حالياً.',
+    ru: 'На данный момент нет пар в группе риска.'
+  };
+  var S_DROPOUT_PAIR = {
+    he: 'זוג',
+    ar: 'الزوج',
+    ru: 'Пара'
+  };
+  var S_DROPOUT_HELD = {
+    he: 'מפגשים שהתקיימו',
+    ar: 'اللقاءات المنعقدة',
+    ru: 'Проведено занятий'
+  };
+  var S_DROPOUT_MISSED = {
+    he: 'החמצות וביטולים',
+    ar: 'إلغاءات وغياب',
+    ru: 'Отмен и пропусков'
+  };
+  var S_DROPOUT_REASON = {
+    he: 'סיבת סיכון',
+    ar: 'سبب الخطر',
+    ru: 'Причина риска'
+  };
+
+  function renderDropoutRiskList(customAttendance, customPairs) {
+    var listEl = $('dropoutRiskList');
+    if (!listEl) return;
+    var countEl = $('dropoutRiskCount');
+    var thresholdEl = $('dropoutThresholdSelect');
+    if (thresholdEl && !thresholdEl.value) {
+      thresholdEl.value = '2';
+    }
+    var threshold = thresholdEl ? (parseInt(thresholdEl.value, 10) || 2) : 2;
+
+    var s = (typeof window !== 'undefined' && window.state) ? window.state : state;
+    var cardEl = $('dropoutRiskCard');
+    var sourceState = cardEl?.state || s;
+
+    var records = [];
+    if (customAttendance !== undefined) {
+      records = customAttendance;
+    } else if (sourceState?.attendance && Array.isArray(sourceState.attendance.entries)) {
+      records = sourceState.attendance.entries;
+    } else if (Array.isArray(sourceState?.attendance)) {
+      records = sourceState.attendance;
+    } else if (Array.isArray(sourceState?.attendanceEntries)) {
+      records = sourceState.attendanceEntries;
+    } else if (Array.isArray(sourceState?.heldRecords)) {
+      records = sourceState.heldRecords;
+    }
+
+    var pairs = [];
+    if (customPairs !== undefined) {
+      pairs = customPairs;
+    } else if (Array.isArray(sourceState?.pairs) && sourceState.pairs.length) {
+      pairs = sourceState.pairs;
+    } else if (typeof currentPairs === 'function') {
+      pairs = currentPairs();
+    } else if (Array.isArray(lastMatch2?.pairs)) {
+      pairs = lastMatch2.pairs;
+    } else if (last && Array.isArray(last.pairs)) {
+      pairs = last.pairs;
+    }
+
+    var lang = currentLang || 'he';
+    var atRisk = [];
+    if (attendance && typeof attendance.detectInactivePairs === 'function') {
+      atRisk = attendance.detectInactivePairs(records, pairs, { minHeldCount: threshold, lang: lang });
+    }
+
+    if (countEl) {
+      countEl.textContent = String(atRisk.length);
+    }
+
+    listEl.setAttribute('aria-label', S_DROPOUT_HEADING[lang] || S_DROPOUT_HEADING.he);
+    if (!atRisk || atRisk.length === 0) {
+      var emptyMsg = S_DROPOUT_EMPTY[lang] || S_DROPOUT_EMPTY.he;
+      listEl.innerHTML = '<div class="empty-state"><p class="empty" id="dropoutRiskEmpty">' + esc(emptyMsg) + '</p></div>';
+    } else {
+      var pairWord = S_DROPOUT_PAIR[lang] || S_DROPOUT_PAIR.he;
+      var heldWord = S_DROPOUT_HELD[lang] || S_DROPOUT_HELD.he;
+      var missedWord = S_DROPOUT_MISSED[lang] || S_DROPOUT_MISSED.he;
+      var reasonWord = S_DROPOUT_REASON[lang] || S_DROPOUT_REASON.he;
+
+      var html = atRisk.map(function (item) {
+        var pNum = item.pairIndex + 1;
+        return '<div class="item dropout-risk-item" data-pair="' + esc(String(item.pairIndex)) + '">' +
+          '<b>' + esc(pairWord + ' ' + pNum) + '</b>' +
+          '<span class="meta">' +
+          esc(heldWord) + ': ' + esc(String(item.heldCount)) + ' · ' +
+          esc(missedWord) + ': ' + esc(String(item.missedOrCancelledCount)) + '<br>' +
+          '<b>' + esc(reasonWord) + ':</b> <span class="risk-reason">' + esc(item.riskReason) + '</span>' +
+          '</span>' +
+          '</div>';
+      }).join('');
+      listEl.innerHTML = html;
+    }
+
+    if (cardEl) {
+      cardEl.state = sourceState;
+      cardEl.renderDropoutRiskList = renderDropoutRiskList;
+    }
+  }
+
+  if ($('dropoutThresholdSelect')) {
+    if (!$('dropoutThresholdSelect').value) {
+      $('dropoutThresholdSelect').value = '2';
+    }
+    $('dropoutThresholdSelect').addEventListener('change', function () {
+      renderDropoutRiskList();
+    });
+  }
+
+  // ---------- AI Challenge Module (#tab-guide) ----------
+  var challengeEntries = [];
+
+  var S_CHALLENGE_HEADING = {
+    he: 'תחרות כלי AI',
+    ar: 'تحدي أدوات الذكاء الاصطناعي',
+    ru: 'Конкурс инструментов ИИ'
+  };
+  var S_CHALLENGE_PAIR = {
+    he: 'זוג',
+    ar: 'الزوج',
+    ru: 'Пара'
+  };
+  var S_CHALLENGE_TOPIC = {
+    he: 'נושא AI',
+    ar: 'موضوع الذكاء الاصطناعي',
+    ru: 'Тема ИИ'
+  };
+  var S_CHALLENGE_TITLE = {
+    he: 'שם הכלי',
+    ar: 'اسم الأداة',
+    ru: 'Название инструмента'
+  };
+  var S_CHALLENGE_INNOVATION = {
+    he: 'חדשנות (1-5)',
+    ar: 'الابتكار (1-5)',
+    ru: 'Инновации (1-5)'
+  };
+  var S_CHALLENGE_USEFULNESS = {
+    he: 'תועלת (1-5)',
+    ar: 'الفائدة (1-5)',
+    ru: 'Полезность (1-5)'
+  };
+  var S_CHALLENGE_SAFETY = {
+    he: 'בטיחות (1-5)',
+    ar: 'الأمان (1-5)',
+    ru: 'Безопасность (1-5)'
+  };
+  var S_CHALLENGE_SUBMIT_BTN = {
+    he: 'הגש אתגר',
+    ar: 'إرسال التحدي',
+    ru: 'Отправить работу'
+  };
+  var S_CHALLENGE_STATUS_SUCCESS = {
+    he: 'ההגשה נשמרה בהצלחה.',
+    ar: 'تم حفظ المشاركة بنجاح.',
+    ru: 'Заявка успешно сохранена.'
+  };
+
+  function renderChallengeForm() {
+    var pairSel = $('challengePairSelect');
+    if (pairSel) {
+      var pairs = typeof currentPairs === 'function' ? currentPairs() : [];
+      var curPair = pairSel.value;
+      var pairWord = currentLang === 'ar' ? 'زوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+      if (pairs.length === 0) {
+        var opt0 = pairWord + ' 1';
+        pairSel.innerHTML = '<option value="0">' + esc(opt0) + '</option>';
+        if (curPair) pairSel.value = curPair;
+        else pairSel.value = '0';
+      } else {
+        pairSel.innerHTML = pairs.map(function (p, i) {
+          return '<option value="' + i + '"' + (curPair === String(i) ? ' selected' : '') + '>' + esc(pairWord + ' ' + (i + 1)) + '</option>';
+        }).join('');
+        if (curPair && Number(curPair) < pairs.length) {
+          pairSel.value = curPair;
+        } else {
+          pairSel.value = '0';
+        }
+      }
+    }
+
+    var topicSel = $('challengeTopicSelect');
+    if (topicSel) {
+      var curTopic = topicSel.value;
+      var chooseTopic = currentLang === 'ar' ? 'اختر موضوع الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Выберите тему ИИ' : 'בחר נושא AI');
+      var html = '<option value="">' + esc(chooseTopic) + '</option>';
+      if (AI_TOPICS) {
+        Object.keys(AI_TOPICS).forEach(function (k) {
+          var label = (AI_TOPICS[k] && (AI_TOPICS[k][currentLang] || AI_TOPICS[k].he)) || k;
+          html += '<option value="' + esc(k) + '"' + (curTopic === k ? ' selected' : '') + '>' + esc(label) + '</option>';
+        });
+      }
+      topicSel.innerHTML = html;
+      topicSel.value = curTopic;
+    }
+  }
+
+  function renderChallengeLeaderboard() {
+    var board = $('challengeLeaderboard');
+    if (!board) return;
+    var heading = currentLang === 'ar' ? 'لوحة متصدري تحدي أدوات الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Таблица лидеров конкурса ИИ' : 'טבלת דירוג אתגר כלי AI');
+    board.setAttribute('aria-label', heading);
+
+    var ranked = [];
+    if (curriculumLib && typeof curriculumLib.rankChallengeLeaderboard === 'function') {
+      ranked = curriculumLib.rankChallengeLeaderboard(challengeEntries);
+    }
+    if (!ranked || ranked.length === 0) {
+      var emptyMsg = currentLang === 'ar' ? 'لا توجد مشاركات في تحدي أدوات الذكاء الاصطناعي بعد' : (currentLang === 'ru' ? 'Пока нет заявок на конкурс инструментов ИИ' : 'אין עדיין הגשות לתחרות כלי AI');
+      board.innerHTML = '<div class="empty-state"><p class="empty">' + esc(emptyMsg) + '</p></div>';
+      return;
+    }
+
+    var thRank = currentLang === 'ar' ? 'المرتبة' : (currentLang === 'ru' ? 'Место' : 'מקום');
+    var thPair = currentLang === 'ar' ? 'الزوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+    var thTopic = currentLang === 'ar' ? 'الموضوع' : (currentLang === 'ru' ? 'Тема' : 'נושא');
+    var thTitle = currentLang === 'ar' ? 'اسم الأداة' : (currentLang === 'ru' ? 'Инструмент' : 'שם הכלי');
+    var thInno = currentLang === 'ar' ? 'الابتكار' : (currentLang === 'ru' ? 'Инновации' : 'חדשנות');
+    var thUse = currentLang === 'ar' ? 'الفائدة' : (currentLang === 'ru' ? 'Полезность' : 'תועלת');
+    var thSafe = currentLang === 'ar' ? 'الأمان' : (currentLang === 'ru' ? 'Безопасность' : 'בטיחות');
+    var thTotal = currentLang === 'ar' ? 'الدرجة الكلية' : (currentLang === 'ru' ? 'Итого' : 'ציון כולל');
+    var pairWord = currentLang === 'ar' ? 'زوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+
+    var rowsHtml = ranked.map(function (item) {
+      var topicName = (AI_TOPICS && AI_TOPICS[item.aiTopic] && (AI_TOPICS[item.aiTopic][currentLang] || AI_TOPICS[item.aiTopic].he)) || item.aiTopic;
+      var pairLabel = pairWord + ' ' + (item.pairIndex + 1);
+      return '<tr data-pair="' + esc(String(item.pairIndex)) + '" data-rank="' + esc(String(item.rank)) + '">' +
+        '<td>' + esc(String(item.rank)) + '</td>' +
+        '<td>' + esc(pairLabel) + '</td>' +
+        '<td>' + esc(topicName) + '</td>' +
+        '<td>' + esc(item.toolTitle) + '</td>' +
+        '<td>' + esc(String(item.innovation)) + '</td>' +
+        '<td>' + esc(String(item.usefulness)) + '</td>' +
+        '<td>' + esc(String(item.safety)) + '</td>' +
+        '<td><b>' + esc(String(item.totalScore)) + '</b></td>' +
+        '</tr>';
+    }).join('');
+
+    board.innerHTML = '<table class="leaderboard-table">' +
+      '<thead><tr>' +
+      '<th>' + esc(thRank) + '</th>' +
+      '<th>' + esc(thPair) + '</th>' +
+      '<th>' + esc(thTopic) + '</th>' +
+      '<th>' + esc(thTitle) + '</th>' +
+      '<th>' + esc(thInno) + '</th>' +
+      '<th>' + esc(thUse) + '</th>' +
+      '<th>' + esc(thSafe) + '</th>' +
+      '<th>' + esc(thTotal) + '</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>';
+  }
+
+  if ($('submitChallengeBtn')) {
+    $('submitChallengeBtn').addEventListener('click', function () {
+      try {
+        var pairVal = $('challengePairSelect') ? $('challengePairSelect').value : '';
+        if (pairVal === '' || pairVal == null || isNaN(Number(pairVal))) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى اختيار زوج' : (currentLang === 'ru' ? 'Пожалуйста, выберите пару' : 'יש לבחור זוג'), true);
+          return;
+        }
+        var pairIndex = Number(pairVal);
+        var topic = $('challengeTopicSelect') ? $('challengeTopicSelect').value : '';
+        if (!topic) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى اختيار موضوع الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Пожалуйста, выберите тему ИИ' : 'יש לבחור נושא AI'), true);
+          return;
+        }
+        var title = $('challengeTitleInput') ? $('challengeTitleInput').value : '';
+        if (!title || !title.trim()) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى إدخال اسم الأداة' : (currentLang === 'ru' ? 'Пожалуйста, введите название инструмента' : 'יש להזין שם כלי'), true);
+          return;
+        }
+        var inno = Number($('challengeScoreInnovation') ? $('challengeScoreInnovation').value : 5);
+        var use = Number($('challengeScoreUsefulness') ? $('challengeScoreUsefulness').value : 5);
+        var safe = Number($('challengeScoreSafety') ? $('challengeScoreSafety').value : 5);
+
+        challengeEntries = curriculumLib.submitChallengeEntry(challengeEntries, {
+          pairIndex: pairIndex,
+          aiTopic: topic,
+          toolTitle: title,
+          innovation: inno,
+          usefulness: use,
+          safety: safe
+        });
+        say('challengeStatus', S_CHALLENGE_STATUS_SUCCESS[currentLang] || S_CHALLENGE_STATUS_SUCCESS.he);
+        if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
+        renderChallengeLeaderboard();
+      } catch (err) {
+        say('challengeStatus', (errorHe ? errorHe(err) : err.message) || err.message, true);
+      }
+    });
+  }
+
   var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
   var lockedKeys = {};
   function rosterSplit() {
@@ -3073,6 +4140,9 @@
     $('match2Out').innerHTML = displayPairs.map(function (p) {
       var student = r.students[p.studentIndex] || {};
       var pupil = r.pupils[p.pupilIndex] || {};
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length > 0) ||
         (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length > 0);
       var key = p.studentIndex + '-' + p.pupilIndex;
@@ -3094,6 +4164,8 @@
       var scoreVal = typeof p.score === 'number' ? p.score : 0;
       return '<div class="item pair" data-ai-overlap="' + aiVal + '" data-score="' + scoreVal + '"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
         '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
+        '<span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span><br>' +
         (topics ? ['<span class="meta">', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang)), '</span><br>'].join('') : '') +
         aiExplHtml +
         '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
@@ -3250,7 +4322,7 @@
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
-    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); }
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
@@ -3309,11 +4381,16 @@
   renderGuide();
   renderAITopicsSummary();
   renderScholarshipHoursSummary();
+  renderDropoutRiskList();
+  renderChallengeForm();
+  renderChallengeLeaderboard();
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
-    document.documentElement.lang = currentLang;
-    document.documentElement.dir = i18n.dirFor(currentLang);
+    if (document.documentElement) {
+      document.documentElement.lang = currentLang;
+      document.documentElement.dir = i18n.dirFor(currentLang);
+    }
     if (typeof refreshSortAiMatchLabel === 'function') refreshSortAiMatchLabel();
     if (typeof refreshFilterAiOnlyLabel === 'function') refreshFilterAiOnlyLabel();
     if (typeof refreshFilterMissingAiLabel === 'function') refreshFilterMissingAiLabel();
@@ -3327,12 +4404,139 @@
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary();
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList();
+    renderChallengeForm(); renderChallengeLeaderboard();
+
+    if ($('dropoutRiskHeading')) $('dropoutRiskHeading').textContent = S_DROPOUT_HEADING[currentLang] || S_DROPOUT_HEADING.he;
+    if ($('dropoutThresholdLabel')) $('dropoutThresholdLabel').textContent = S_DROPOUT_THRESHOLD_LABEL[currentLang] || S_DROPOUT_THRESHOLD_LABEL.he;
+    if ($('dropoutRiskCountLabel')) $('dropoutRiskCountLabel').textContent = S_DROPOUT_COUNT_LABEL[currentLang] || S_DROPOUT_COUNT_LABEL.he;
+
+    if ($('challengeHeading')) $('challengeHeading').textContent = S_CHALLENGE_HEADING[currentLang] || S_CHALLENGE_HEADING.he;
+    if ($('challengePairLabel')) $('challengePairLabel').textContent = S_CHALLENGE_PAIR[currentLang] || S_CHALLENGE_PAIR.he;
+    if ($('challengeTopicLabel')) $('challengeTopicLabel').textContent = S_CHALLENGE_TOPIC[currentLang] || S_CHALLENGE_TOPIC.he;
+    if ($('challengeTitleLabel')) $('challengeTitleLabel').textContent = S_CHALLENGE_TITLE[currentLang] || S_CHALLENGE_TITLE.he;
+    if ($('challengeInnovationLabel')) $('challengeInnovationLabel').textContent = S_CHALLENGE_INNOVATION[currentLang] || S_CHALLENGE_INNOVATION.he;
+    if ($('challengeUsefulnessLabel')) $('challengeUsefulnessLabel').textContent = S_CHALLENGE_USEFULNESS[currentLang] || S_CHALLENGE_USEFULNESS.he;
+    if ($('challengeSafetyLabel')) $('challengeSafetyLabel').textContent = S_CHALLENGE_SAFETY[currentLang] || S_CHALLENGE_SAFETY.he;
+    if ($('submitChallengeBtn')) {
+      var challengeBtnText = S_CHALLENGE_SUBMIT_BTN[currentLang] || S_CHALLENGE_SUBMIT_BTN.he;
+      $('submitChallengeBtn').textContent = challengeBtnText;
+      $('submitChallengeBtn').setAttribute('aria-label', challengeBtnText);
+    }
+
+    if ($('sessionDurationLabel')) $('sessionDurationLabel').textContent = S_SESSION_DURATION[currentLang] || S_SESSION_DURATION.he;
+    if ($('sessionAiTopicLabel')) $('sessionAiTopicLabel').textContent = S_SESSION_AI_TOPIC[currentLang] || S_SESSION_AI_TOPIC.he;
+    if ($('scholarshipReportHeading')) $('scholarshipReportHeading').textContent = S_SCHOLARSHIP_REPORT_HEADING[currentLang] || S_SCHOLARSHIP_REPORT_HEADING.he;
+    if ($('scholarshipReportHint')) $('scholarshipReportHint').textContent = S_SCHOLARSHIP_REPORT_HINT[currentLang] || S_SCHOLARSHIP_REPORT_HINT.he;
+    if ($('scholarshipTargetLabel')) $('scholarshipTargetLabel').textContent = S_SCHOLARSHIP_TARGET_LABEL[currentLang] || S_SCHOLARSHIP_TARGET_LABEL.he;
+    if ($('generateScholarshipReportBtn')) {
+      var genText = S_GENERATE_SCHOLARSHIP_REPORT[currentLang] || S_GENERATE_SCHOLARSHIP_REPORT.he;
+      $('generateScholarshipReportBtn').textContent = genText;
+      $('generateScholarshipReportBtn').setAttribute('aria-label', genText);
+    }
+    if ($('copyScholarshipReportBtn')) {
+      var copyText = S_COPY_SCHOLARSHIP_REPORT[currentLang] || S_COPY_SCHOLARSHIP_REPORT.he;
+      $('copyScholarshipReportBtn').textContent = copyText;
+      $('copyScholarshipReportBtn').setAttribute('aria-label', copyText);
+    }
+    var aiLevelSel = $('participantAiLevelSelect');
+    if (aiLevelSel) {
+      var noneTxt = AI_LEVEL_FIELD_LABELS.none[currentLang] || AI_LEVEL_FIELD_LABELS.none.he;
+      var begTxt = AI_LEVEL_LABELS.beginner[currentLang] || AI_LEVEL_LABELS.beginner.he;
+      var advTxt = AI_LEVEL_LABELS.advanced[currentLang] || AI_LEVEL_LABELS.advanced.he;
+      var currentAiVal = aiLevelSel.value || '';
+      aiLevelSel.innerHTML = '<option value="">' + esc(noneTxt) + '</option>' +
+        '<option value="beginner"' + (currentAiVal === 'beginner' ? ' selected' : '') + '>' + esc(begTxt) + '</option>' +
+        '<option value="advanced"' + (currentAiVal === 'advanced' ? ' selected' : '') + '>' + esc(advTxt) + '</option>';
+      aiLevelSel.value = currentAiVal;
+    }
+    if ($('participantAiLevelLabel')) {
+      $('participantAiLevelLabel').textContent = AI_LEVEL_FIELD_LABELS.label[currentLang] || AI_LEVEL_FIELD_LABELS.label.he;
+    }
+    if (last) {
+      $('pairs').innerHTML = last.pairs.length ? last.pairs.map(function (p, i) {
+        var student = state.people[p.student - 1] || {};
+        var pupil = state.people[p.pupil - 1] || {};
+        var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length) ||
+          (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length);
+        var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+        var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+        var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
+        return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
+          '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
+          'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
+          '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+          '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+          ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
+          (topics ? ['<br>', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang))].join('') : '') +
+          '</span></div>';
+      }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
+    }
+    if (lastMatch2 && typeof renderMatch2 === 'function') {
+      renderMatch2(lastMatch2);
+    }
+    var aiTopicSel = $('sessionAiTopicSelect');
+    if (aiTopicSel) {
+      var currentTopicVal = aiTopicSel.value;
+      var emptyText = currentLang === 'ar' ? 'بدون موضوع ذكاء اصطناعي' : (currentLang === 'ru' ? 'Без темы ИИ' : 'ללא נושא AI');
+      var optsHtml = '<option value="">' + esc(emptyText) + '</option>';
+      if (AI_TOPICS) {
+        Object.keys(AI_TOPICS).forEach(function (k) {
+          var label = (AI_TOPICS[k] && (AI_TOPICS[k][currentLang] || AI_TOPICS[k].he)) || k;
+          optsHtml += '<option value="' + esc(k) + '"' + (currentTopicVal === k ? ' selected' : '') + '>' + esc(label) + '</option>';
+        });
+      }
+      aiTopicSel.innerHTML = optsHtml;
+      aiTopicSel.value = currentTopicVal;
+    }
+    var targetSel = $('scholarshipTargetSelect');
+    if (targetSel) {
+      var currentTargetVal = targetSel.value;
+      var t30 = currentLang === 'ar' ? '30 ساعة (أساسي)' : (currentLang === 'ru' ? '30 часов (базовый)' : '30 שעות (בסיסי)');
+      var t130 = currentLang === 'ar' ? '130 ساعة (منحة IMPACT!)' : (currentLang === 'ru' ? '130 часов (стипендия IMPACT!)' : '130 שעות (מלגת IMPACT!)');
+      targetSel.innerHTML = '<option value="30"' + (currentTargetVal === '30' ? ' selected' : '') + '>' + esc(t30) + '</option>' +
+        '<option value="130"' + (currentTargetVal === '130' ? ' selected' : '') + '>' + esc(t130) + '</option>';
+      targetSel.value = currentTargetVal || '30';
+    }
+    if (lastScholarshipReportText) {
+      generateScholarshipReport();
+    }
+    if ($('pilotBatchHeading')) {
+      var headingTxt = currentLang === 'ar' ? 'استيراد دفعة للبرنامج التجريبي' : (currentLang === 'ru' ? 'Пакетный импорт для пилота' : 'ייבוא אצווה לפיילוט');
+      $('pilotBatchHeading').textContent = headingTxt;
+    }
+    if ($('pilotBatchInputLabel')) {
+      var labelTxt = currentLang === 'ar' ? 'بيانات الدفعة (JSON)' : (currentLang === 'ru' ? 'Данные пакета (JSON)' : 'נתוני אצווה (JSON)');
+      $('pilotBatchInputLabel').textContent = labelTxt;
+    }
+    if ($('validatePilotBatchBtn')) {
+      var vBtnTxt = currentLang === 'ar' ? 'التحقق من الدفعة' : (currentLang === 'ru' ? 'Проверить пакет' : 'אימות אצווה');
+      $('validatePilotBatchBtn').textContent = vBtnTxt;
+      $('validatePilotBatchBtn').setAttribute('aria-label', vBtnTxt);
+    }
+    if ($('confirmPilotBatchBtn')) {
+      var cBtnTxt = currentLang === 'ar' ? 'استيراد معتمد' : (currentLang === 'ru' ? 'Подтвердить импорт' : 'ייבוא מאושר');
+      $('confirmPilotBatchBtn').textContent = cBtnTxt;
+      $('confirmPilotBatchBtn').setAttribute('aria-label', cBtnTxt);
+    }
+    if (typeof renderPilotBatchStatus === 'function') {
+      renderPilotBatchStatus();
+    }
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
-  if (currentLang !== 'he') applyLanguage(currentLang);
-  if (typeof window !== 'undefined') window.applyLanguage = applyLanguage;
+  applyLanguage(currentLang);
+  if (typeof window !== 'undefined') {
+    window.applyLanguage = applyLanguage;
+    window.generateScholarshipReport = generateScholarshipReport;
+    window.renderScholarshipReport = renderScholarshipReport;
+    window.renderChallengeForm = renderChallengeForm;
+    window.renderChallengeLeaderboard = renderChallengeLeaderboard;
+    window.renderDropoutRiskList = renderDropoutRiskList;
+    window.detectInactivePairs = (attendance && attendance.detectInactivePairs) || detectInactivePairs;
+    window.validateBatchImportZeroPii = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+    window.renderPilotBatchStatus = renderPilotBatchStatus;
+  }
 })();
 </script>
 </body>

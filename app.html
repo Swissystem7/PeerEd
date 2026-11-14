@@ -79,6 +79,9 @@
   .scholarship-progress { margin-top:8px; max-width:280px; }
   .scholarship-progress-track { height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
   .scholarship-progress-fill { height:100%; background:var(--key); width:0%; transition:width .2s ease; }
+  table.leaderboard-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:.85rem; }
+  table.leaderboard-table th, table.leaderboard-table td { padding:8px 6px; text-align:start; border-bottom:1px solid var(--line); }
+  table.leaderboard-table th { color:var(--muted); font-size:.78rem; font-weight:700; }
 
   .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
@@ -186,6 +189,12 @@
         <div><label for="role">תפקיד</label><select id="role" aria-required="true" aria-describedby="addStatus">
           <option value="student">סטודנט מלמד</option><option value="pupil">תלמיד</option></select></div>
         <div><label for="region">אזור</label><select id="region" aria-required="true" aria-describedby="addStatus"></select></div>
+        <div><label for="participantAiLevelSelect" id="participantAiLevelLabel">רמת למידה</label>
+          <select id="participantAiLevelSelect" aria-describedby="addStatus">
+            <option value="">ללא הגדרה</option>
+            <option value="beginner">מתחיל</option>
+            <option value="advanced">מתקדם</option>
+          </select></div>
       </div>
       <div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">
         <label class="check"><input type="checkbox" id="consent" aria-describedby="consentHint"> התקבל אישור הורה לשידוך</label>
@@ -210,6 +219,17 @@
       <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
         <button type="button" class="ghost" id="demoBtn" aria-label="טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
       <p class="status" id="addStatus" role="status"></p>
+    </div>
+    <div class="card" id="pilotBatchCard">
+      <h2 id="pilotBatchHeading">ייבוא אצווה לפיילוט</h2>
+      <p class="hint" id="pilotBatchHint">ייבוא רשומות אנונימיות בתאימות מלאה ל-Zero-PII. רשומות עם פרטים מזהים (שמות, מיילים, טלפונים) יידחו אוטומטית.</p>
+      <label for="pilotBatchInput" id="pilotBatchInputLabel">נתוני אצווה (JSON)</label>
+      <textarea id="pilotBatchInput" rows="5" aria-describedby="pilotBatchStatus" style="width: 100%; font-family: monospace; direction: ltr; box-sizing: border-box;"></textarea>
+      <div class="actions">
+        <button type="button" class="act" id="validatePilotBatchBtn" aria-describedby="pilotBatchStatus">אימות אצווה</button>
+        <button type="button" class="act" id="confirmPilotBatchBtn" aria-describedby="pilotBatchStatus">ייבוא מאושר</button>
+      </div>
+      <p class="status" id="pilotBatchStatus" role="status"></p>
     </div>
     <div class="card">
       <h2>המשתתפים</h2>
@@ -246,10 +266,35 @@
         <button type="button" class="ghost" id="wipeCancel" aria-label="בטל מחיקה מהמכשיר" aria-describedby="wipeStatus" hidden>ביטול</button></div>
       <p class="status" id="wipeStatus" role="status"></p>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ שידוך ============ -->
   <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
+    <div class="match-conflict-badge" style="display:none;" data-i18n="matchConflictDetected"></div>
+    <label><input type="checkbox" class="match-compare-chk" data-i18n="matchCompareCheckbox" /> Compare</label>
+    <div id="matchComparePanel" class="card match-compare-panel" style="display:none;" aria-live="polite">
+      <h2>השוואת מועמדים</h2>
+      <div id="matchCompareContent"></div>
+      <button id="clearMatchCompareBtn" type="button" class="ghost" aria-describedby="match2Status">נקה השוואה</button>
+    </div>
     <div class="card">
       <h2>קבוצות לפי מצב</h2>
       <p class="hint" id="groupModeHint">בשגרה: קבוצה לכל בית ספר וכיתה. בחירום: קבוצות של עד 12 ילדים שנמצאים באותו מקום, לפי ספירה וקבוצת גיל בלבד.</p>
@@ -327,7 +372,25 @@
         לא נרשם ביומן ולא נספר בסיכום לרשות.</p>
       <div id="across" role="region" aria-live="polite" aria-label="שידוך בין אזורים (חירום)"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ טקסט ============ -->
   <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" tabindex="-1" hidden>
@@ -352,7 +415,25 @@
       <div class="actions"><button type="button" class="ghost" id="gateBtn" aria-label="נסה לשמור משתתף עם שדה טלפון אסור" aria-describedby="gateStatus">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ יחידות ============ -->
   <section role="tabpanel" id="tab-units" aria-labelledby="nav-units" tabindex="-1" hidden>
@@ -392,10 +473,63 @@
       <h2>נדחו</h2>
       <div id="rejectedList" role="region" aria-live="polite" aria-label="יחידות שנדחו"></div>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ שיעורים ============ -->
   <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
+    <div class="card session-history-filter-card">
+      <h2>סינון היסטוריית מפגשים</h2>
+      <div class="row">
+        <div>
+          <label for="sessionHistoryStatusFilter" id="labelSessionHistoryStatusFilter">סטטוס:</label>
+          <select id="sessionHistoryStatusFilter" aria-describedby="labelSessionHistoryStatusFilter">
+            <option value="all">הכל</option>
+            <option value="held">התקיים</option>
+            <option value="missed">הוחמץ</option>
+            <option value="postponed">נדחה</option>
+            <option value="cancelled">בוטל</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionHistoryPairFilter" id="labelSessionHistoryPairFilter">זוג:</label>
+          <select id="sessionHistoryPairFilter" aria-describedby="labelSessionHistoryPairFilter">
+            <option value="all">כל הזוגות</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionHistoryAiTopicFilter" id="labelSessionHistoryAiTopicFilter">נושא AI:</label>
+          <select id="sessionHistoryAiTopicFilter" aria-describedby="labelSessionHistoryAiTopicFilter">
+            <option value="all">כל הנושאים</option>
+            <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+            <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+            <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+            <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <span id="sessionHistoryCount" class="pill" aria-live="polite">0 מפגשים</span>
+      </div>
+      <div id="sessionHistoryEmpty" class="empty-state" style="display:none;" aria-live="polite">אין מפגשים להצגה</div>
+    </div>
     <!-- A row is a lesson set for a matched pair, whatever became of it: "איך הסתיים" offers "לא התקיים"
          and "נקטע באמצע" beside "התקיים", and the summary counts each. Until this the banner said the log
          records "שהתקיים שיעור" with "היחידה המאושרת שנלמדה", over a form that logs a lesson that did not
@@ -427,8 +561,48 @@
       <select id="sessionUnit" aria-required="true" aria-describedby="sessionStatus"></select>
       <label for="sessionOutcome">איך הסתיים</label>
       <select id="sessionOutcome" aria-required="true" aria-describedby="sessionStatus"></select>
+      <div class="row">
+        <div>
+          <label for="sessionDurationSelect" id="sessionDurationLabel">משך שיעור (שעות)</label>
+          <select id="sessionDurationSelect" aria-describedby="sessionStatus">
+            <option value="0.5">0.5</option>
+            <option value="1" selected>1</option>
+            <option value="1.5">1.5</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <div>
+          <label for="sessionAiTopicSelect" id="sessionAiTopicLabel">נושא בינה מלאכותית</label>
+          <select id="sessionAiTopicSelect" aria-describedby="sessionStatus">
+            <option value="">ללא נושא AI</option>
+            <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+            <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+            <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+            <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+          </select>
+        </div>
+      </div>
       <div class="actions"><button type="button" class="act" id="logSession" aria-describedby="sessionStatus">רשום שיעור</button></div>
       <p class="status" id="sessionStatus" role="status"></p>
+    </div>
+    <div class="card" id="scholarshipReportCard">
+      <h2 id="scholarshipReportHeading">דוח שעות מלגה</h2>
+      <p class="hint" id="scholarshipReportHint">דוח אנונימי לפי זוגות וסיכום שעות מלגה ומפגשי AI, ללא פרטים מזהים (PII).</p>
+      <div class="row">
+        <div>
+          <label for="scholarshipTargetSelect" id="scholarshipTargetLabel">יעד שעות מלגה</label>
+          <select id="scholarshipTargetSelect" aria-describedby="scholarshipReportStatus">
+            <option value="30" selected>30 שעות (בסיסי)</option>
+            <option value="130">130 שעות (מלגת IMPACT!)</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
+        <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
+      </div>
+      <p class="status" id="scholarshipReportStatus" role="status"></p>
+      <div id="scholarshipReportOut" role="region" aria-live="polite" aria-label="דוח שעות מלגה"></div>
     </div>
     <div class="card">
       <h2>סיכום לרשות — ספירות בלבד</h2>
@@ -450,7 +624,25 @@
       <h2>היומן</h2>
       <div id="sessionList" role="region" aria-live="polite" aria-label="יומן השיעורים"></div>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ מדריך ============ -->
   <section role="tabpanel" id="tab-guide" aria-labelledby="nav-guide" tabindex="-1" hidden>
@@ -475,7 +667,99 @@
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for scholarship hours summary -->
       <div id="scholarshipHoursSummaryList" role="region" aria-live="polite" aria-label="סיכום שעות מלגה ומעורבות"></div>
     </div>
-  </section>
+    <div class="card" id="dropoutRiskCard">
+      <h2 id="dropoutRiskHeading">זוגות בסיכון נשירה</h2>
+      <div class="row">
+        <div>
+          <label for="dropoutThresholdSelect" id="dropoutThresholdLabel">סף מינימום מפגשים</label>
+          <select id="dropoutThresholdSelect" aria-describedby="dropoutRiskCount">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div>
+          <span id="dropoutRiskCountLabel" class="hint">התראות פעילות</span>
+          <p id="dropoutRiskCount" class="badge" aria-live="polite">0</p>
+        </div>
+      </div>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic dropout risk list -->
+      <div id="dropoutRiskList" role="region" aria-live="polite" aria-label="זוגות בסיכון נשירה"></div>
+    </div>
+    <div class="card" id="aiChallengeCard">
+      <h2 id="challengeHeading">תחרות כלי AI</h2>
+      <div class="row">
+        <div>
+          <label for="challengePairSelect" id="challengePairLabel">זוג</label>
+          <select id="challengePairSelect" aria-describedby="challengeStatus"></select>
+        </div>
+        <div>
+          <label for="challengeTopicSelect" id="challengeTopicLabel">נושא AI</label>
+          <select id="challengeTopicSelect" aria-describedby="challengeStatus"></select>
+        </div>
+      </div>
+      <div>
+        <label for="challengeTitleInput" id="challengeTitleLabel">שם הכלי</label>
+        <input id="challengeTitleInput" type="text" maxlength="80" aria-describedby="challengeStatus">
+      </div>
+      <div class="row">
+        <div>
+          <label for="challengeScoreInnovation" id="challengeInnovationLabel">חדשנות (1-5)</label>
+          <select id="challengeScoreInnovation" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+        <div>
+          <label for="challengeScoreUsefulness" id="challengeUsefulnessLabel">תועלת (1-5)</label>
+          <select id="challengeScoreUsefulness" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+        <div>
+          <label for="challengeScoreSafety" id="challengeSafetyLabel">בטיחות (1-5)</label>
+          <select id="challengeScoreSafety" aria-describedby="challengeStatus">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="act" id="submitChallengeBtn" aria-describedby="challengeStatus">הגש אתגר</button>
+      </div>
+      <p class="status" id="challengeStatus" role="status"></p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic challenge leaderboard -->
+      <div id="challengeLeaderboard" role="region" aria-live="polite" aria-label="טבלת דירוג אתגר כלי AI"></div>
+    </div>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ דוחות ============ -->
   <section role="tabpanel" id="tab-reports" aria-labelledby="nav-reports" tabindex="-1" hidden>
@@ -494,7 +778,25 @@
       <p class="status" id="report2Status" role="status"></p>
       <div id="reportOut" role="region" aria-live="polite" aria-label="תוצאת הדוח"></div>
     </div>
-  </section>
+    <div class="card" style="margin-top: 1rem;">
+    <h3>אתגרי כלי AI – סינון וזוכים אנונימיים</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+      <label for="challengeTopicFilter">סינון לפי נושא:</label>
+      <select id="challengeTopicFilter" class="form-control" style="width: auto;">
+        <option value="all">כל הנושאים</option>
+        <option value="AI_LIT_PROMPT">AI_LIT_PROMPT</option>
+        <option value="AI_CREATIVE">AI_CREATIVE</option>
+        <option value="AI_STEM_CODE">AI_STEM_CODE</option>
+        <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
+      </select>
+      <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
+    </div>
+    <div id="challengeLeaderboard" style="overflow-x: auto;">
+      <!-- Leaderboard content populated by app runtime -->
+    </div>
+  </div>
+</section>
 
   <!-- ============ קשר (src/lib/contact.js) ============ -->
   <div class="card" id="contactBox" hidden role="region" aria-labelledby="contactTitle">
@@ -1190,6 +1492,7 @@ const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
 const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent', 'responseToReport']);
+const AI_LEVELS = Object.freeze(['beginner', 'advanced']);
 // the stamp makeProfile derives and writes next to those fields is only ever these two keys
 const RETENTION_FIELDS = Object.freeze(['dataCategory', 'maxAgeDays']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
@@ -1225,6 +1528,30 @@ function isSlot(slot) {
   return normalizeSlot(slot) !== null;
 }
 
+function isAiLevel(level) {
+  return typeof level === 'string' && AI_LEVELS.indexOf(level) !== -1;
+}
+
+function getWeeklyOverlapSlots(personA, personB) {
+  const a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
+  const b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
+  const right = new Set();
+  for (let i = 0; i < b.length; i += 1) {
+    const s = normalizeSlot(b[i]);
+    if (s !== null) right.add(s);
+  }
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < a.length; i += 1) {
+    const s = normalizeSlot(a[i]);
+    if (s !== null && right.has(s) && !seen.has(s)) {
+      seen.add(s);
+      out.push(s);
+    }
+  }
+  return out.sort();
+}
+
 // Order kept, repeats dropped: the people screen counts availability.length as free hours and the
 // match screen counts shared subjects, so a slot ticked twice (or stored twice) must not count twice.
 function unique(list) {
@@ -1250,7 +1577,10 @@ function makeProfile(input) {
   // Privacy gate first: an unknown key is rejected before anything else is looked at.
   const keys = Object.keys(input);
   for (let i = 0; i < keys.length; i += 1) {
-    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1 && keys[i] !== 'aiLevel') throw new Error(PERSONAL_DATA_ERROR);
+  }
+  if (input.aiLevel !== undefined && !isAiLevel(input.aiLevel)) {
+    throw new Error('invalid aiLevel: expected beginner or advanced');
   }
   const role = input.role;
   const region = input.region;
@@ -1329,6 +1659,10 @@ function makeProfile(input) {
 
   if (input.responseToReport !== undefined) {
     profile.responseToReport = Object.freeze(responseToReports.slice());
+  }
+
+  if (input.aiLevel !== undefined) {
+    profile.aiLevel = input.aiLevel;
   }
 
   const policy = getRetentionPolicy();
@@ -1441,11 +1775,14 @@ module.exports = {
   DAYS,
   SUBJECTS,
   ACCEPTED_FIELDS,
+  AI_LEVELS,
   PERSONAL_DATA_ERROR,
   HOUR_MIN,
   HOUR_MAX,
   isSlot,
   normalizeSlot,
+  isAiLevel,
+  getWeeklyOverlapSlots,
   makeProfile,
   withoutRetentionStamp,
   getSlotHour,
@@ -1824,18 +2161,19 @@ module.exports = {
 
 const { shared, hasParentConsent } = require('./match.js');
 const { isRegion } = require('./regions.js');
-const { SUBJECTS, normalizeSlot } = require('./profile.js');
+const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
 const AI_TOPIC_KEY_RE = /^[A-Z0-9_]+$/;
 const AI_TOPIC_WEIGHT = 20;
+const AI_LEVEL_WEIGHT = 10;
 const AI_TOPIC_LABELS = Object.freeze({
   AI_LIT_PROMPT: Object.freeze({ he: 'אוריינות בינה מלאכותית והנחיה', ar: 'معرفة الذكاء الاصطناعي والتوجيه', ru: 'ИИ-грамотность и промпты' }),
-  AI_CREATIVE: Object.freeze({ he: 'יצירתיות ובינה יוצרת', ar: 'الإبداع والذكاء التوليدي', ru: 'Креативность и генеративный ИИ' }),
+  AI_CREATIVE: Object.freeze({ he: 'יצירתיות ובינה יוצרת', ar: 'الإبداع والذكاء التולيدي', ru: 'Креативность и генеративный ИИ' }),
   AI_STEM_CODE: Object.freeze({ he: 'מדעים, טכנולוגיה ותכנות', ar: 'العلوم والتكنولوجيا والبرمجة', ru: 'Наука, технологии и программирование' }),
   AI_ETHICS_SEC: Object.freeze({ he: 'אתיקה, פרטיות ובטיחות', ar: 'الأخلاق والخصوصية والأمان', ru: 'Этика, конфиденциальность и безопасность' }),
 });
 
-const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10, aiTopics: AI_TOPIC_WEIGHT });
+const DEFAULT_WEIGHTS = Object.freeze({ region: 25, hours: 20, subject: 20, level: 15, language: 10, preference: 10, aiTopics: AI_TOPIC_WEIGHT, aiLevel: AI_LEVEL_WEIGHT });
 const PAIR_BONUS = 1000; // > max score of one pair (100), so one more pair always beats a better score
 
 function cleanTopics(x) {
@@ -1872,7 +2210,7 @@ function scorePair(student, pupil, weights) {
   const w = weightsOf({ weights: weights });
   const s = student || {}; const p = pupil || {};
   // only canonical codes are ever scored or printed: slots, subjects, languages, region
-  const sharedSlots = shared(s.availability, p.availability).filter((x) => normalizeSlot(x) === x);
+  const sharedSlots = getWeeklyOverlapSlots(s, p);
   const sharedSubjects = shared(s.subjects, p.subjects).filter((x) => SUBJECTS.indexOf(x) !== -1);
   const sharedLanguages = shared(langs(s), langs(p));
   const regionSame = isRegion(s.region) && s.region === p.region;
@@ -1882,6 +2220,10 @@ function scorePair(student, pupil, weights) {
   const sTopics = cleanTopics(s?.target_ai_topics);
   const pTopics = cleanTopics(p?.target_ai_topics);
   const aiIn = sTopics.length > 0 && pTopics.length > 0;
+  const sAi = s && (s.aiLevel === 'beginner' || s.aiLevel === 'advanced') ? s.aiLevel : null;
+  const pAi = p && (p.aiLevel === 'beginner' || p.aiLevel === 'advanced') ? p.aiLevel : null;
+  const aiLevelIn = sAi !== null && pAi !== null;
+  const aiLevelFit = aiLevelIn && sAi === pAi ? 1 : 0;
   const overlap = aiIn ? aiTopicOverlap(sTopics, pTopics) : 0;
   const levelFit = levelIn ? 1 - Math.abs(sl - pl) / 4 : 0;
   const langFit = langIn && sharedLanguages.length > 0 ? 1 : 0;
@@ -1895,16 +2237,21 @@ function scorePair(student, pupil, weights) {
     level: levelIn ? Math.round(w.level * levelFit) : 0,
     language: langIn ? Math.round(w.language * langFit) : 0,
     preference: Math.round(w.preference * prefFit),
-    aiTopics: aiIn ? Math.round(w.aiTopics * overlap) : 0
+    aiTopics: aiIn ? Math.round(w.aiTopics * overlap) : 0,
+    aiLevel: aiLevelIn ? Math.round(w.aiLevel * aiLevelFit) : 0
   };
+  b.aiLevelBonus = b.aiLevel;
   // criteria with no data on either side are excluded, not credited: the total is renormalised to 100
   let included = w.region + w.hours + w.subject + w.preference;
   if (levelIn) included += w.level;
   if (langIn) included += w.language;
   if (aiIn) included += w.aiTopics;
-  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference + b.aiTopics;
+  if (aiLevelIn) included += w.aiLevel;
+  const earned = b.region + b.hours + b.subject + b.level + b.language + b.preference + b.aiTopics + b.aiLevel;
   b.total = included > 0 ? Math.round((earned / included) * 100) : 0;
   b.levelCounted = levelIn; b.languageCounted = langIn; b.aiTopicsCounted = aiIn;
+  b.aiLevelCounted = aiLevelIn;
+  b.aiLevelMatch = aiLevelIn && sAi === pAi;
   const sharedAiTopics = aiIn
     ? cleanTopics(pTopics).filter((t) => sTopics.includes(t))
     : [];
@@ -1924,6 +2271,8 @@ function scorePair(student, pupil, weights) {
     aiExplanation,
     regionSame,
     levelFit,
+    aiLevelMatch: b.aiLevelMatch,
+    aiLevelCounted: b.aiLevelCounted,
   };
 }
 
@@ -1973,6 +2322,11 @@ function explainHe(scored, student, pupil) {
   if (normLevel(student) !== null && normLevel(pupil) !== null) parts.push('\u05d4\u05ea\u05d0\u05de\u05ea \u05e8\u05de\u05d4 ' + student.level + ' \u05de\u05d5\u05dc ' + pupil.level);
   if (scored.sharedLanguages.length) parts.push('\u05e9\u05e4\u05d4 \u05de\u05e9\u05d5\u05ea\u05e4\u05ea: ' + scored.sharedLanguages.join(', '));
   if (scored.aiExplanation && scored.aiExplanation.he) parts.push(scored.aiExplanation.he);
+  if (b.aiLevelCounted) {
+    parts.push(b.aiLevelMatch
+      ? '\u05d4\u05ea\u05d0\u05de\u05ea \u05e8\u05de\u05ea \u05dc\u05de\u05d9\u05d3\u05d4 (' + (student.aiLevel === 'beginner' ? '\u05de\u05ea\u05d7\u05d9\u05dc' : '\u05de\u05ea\u05e7\u05d3\u05dd') + ')'
+      : '\u05e8\u05de\u05ea \u05dc\u05de\u05d9\u05d3\u05d4 \u05e9\u05d5\u05e0\u05d4');
+  }
   return '\u05e6\u05d9\u05d5\u05df ' + b.total + '/100 \u2014 ' + parts.join('; ') + ' [\u05d0\u05d6\u05d5\u05e8 ' + b.region + ', \u05e9\u05e2\u05d5\u05ea ' + b.hours + ', \u05de\u05e7\u05e6\u05d5\u05e2 ' + b.subject + ', \u05e8\u05de\u05d4 ' + b.level + ', \u05e9\u05e4\u05d4 ' + b.language + ', \u05d4\u05e2\u05d3\u05e4\u05d5\u05ea ' + b.preference + ']';
 }
 
@@ -2055,7 +2409,41 @@ function rematchPartial(students, pupils, existingPairs, opts) {
   return match2(students, pupils, Object.assign({}, o, { locked }));
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS };
+function compareMatchCandidates(candidateA, candidateB) {
+  const a = candidateA || {};
+  const b = candidateB || {};
+  const scoreDiff = (Number(a.score) || 0) - (Number(b.score) || 0);
+  const slotsA = Array.isArray(a.sharedSlots) ? a.sharedSlots.length : 0;
+  const slotsB = Array.isArray(b.sharedSlots) ? b.sharedSlots.length : 0;
+  const sharedSlotsDiff = slotsA - slotsB;
+  const topicsA = Array.isArray(a.sharedAiTopics) ? a.sharedAiTopics.length : 0;
+  const topicsB = Array.isArray(b.sharedAiTopics) ? b.sharedAiTopics.length : 0;
+  const aiTopicsOverlapDiff = topicsA - topicsB;
+  const levelA = a.breakdown && a.breakdown.levelCounted ? 1 : 0;
+  const levelB = b.breakdown && b.breakdown.levelCounted ? 1 : 0;
+  const levelMatchDiff = levelA - levelB;
+  return Object.freeze({
+    scoreDiff,
+    sharedSlotsDiff,
+    aiTopicsOverlapDiff,
+    levelMatchDiff,
+  });
+}
+
+function detectScheduleConflicts(lockedPairs, candidatePair) {
+  const locked = Array.isArray(lockedPairs) ? lockedPairs : [];
+  const cp = candidatePair || {};
+  const cpSlots = Array.isArray(cp.sharedSlots) ? cp.sharedSlots : [];
+  if (cpSlots.length === 0) return false;
+  return locked.some((lk) => {
+    if (!lk) return false;
+    if (lk.studentIndex !== cp.studentIndex && lk.pupilIndex !== cp.pupilIndex) return false;
+    const lkSlots = Array.isArray(lk.sharedSlots) ? lk.sharedSlots : [];
+    return lkSlots.some((slot) => cpSlots.includes(slot));
+  });
+}
+
+module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts };
   __registry["match2"] = module.exports;
 })();
 
@@ -2350,8 +2738,7 @@ function assertLog(log) {
 		throw new Error("invalid attendance log");
 }
 
-function recordAttendance(log, input) {
-	assertLog(log);
+function validateAttendanceInput(input) {
 	const o = input || {};
 	if (!Number.isInteger(o.pairIndex) || o.pairIndex < 0)
 		throw new Error("invalid attendance: pairIndex");
@@ -2360,6 +2747,10 @@ function recordAttendance(log, input) {
 		throw new Error("invalid attendance: future or invalid date");
 	if (ATTENDANCE_STATUSES.indexOf(o.status) === -1)
 		throw new Error("invalid attendance status");
+	return o;
+}
+
+function resolveAttendanceDuration(o) {
 	let durationHours = 0.0;
 	if (o.status === "held") {
 		durationHours = 1.0;
@@ -2371,12 +2762,34 @@ function recordAttendance(log, input) {
 			durationHours = o.durationHours;
 		}
 	}
-	const entry = Object.freeze({
+	return durationHours;
+}
+
+function resolveAttendanceAiTopic(o) {
+	if (o.aiTopic === undefined) return undefined;
+	if (o.aiTopic === null) return null;
+	if (typeof o.aiTopic === "string" && AI_TOPIC_KEYS.includes(o.aiTopic)) {
+		return o.aiTopic;
+	}
+	throw new Error("invalid attendance: aiTopic");
+}
+
+function recordAttendance(log, input) {
+	assertLog(log);
+	const o = validateAttendanceInput(input);
+	const durationHours = resolveAttendanceDuration(o);
+	const aiTopic = resolveAttendanceAiTopic(o);
+
+	const entryObj = {
 		pairIndex: o.pairIndex,
 		date: o.date,
 		status: o.status,
 		durationHours: durationHours,
-	});
+	};
+	if (aiTopic !== undefined) {
+		entryObj.aiTopic = aiTopic;
+	}
+	const entry = Object.freeze(entryObj);
 	const existingIdx = log.entries.findIndex(
 		(e) => e.pairIndex === o.pairIndex && e.date === o.date,
 	);
@@ -2392,30 +2805,49 @@ function recordAttendance(log, input) {
 	return Object.freeze({ entries: Object.freeze(prior.concat([entry])) });
 }
 
+function sanitizeAttendanceRow(r, validateDateFn) {
+	if (!r || typeof r !== "object" || Array.isArray(r)) return null;
+	if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) return null;
+	if (typeof r.date !== "string") return null;
+	if (validateDateFn) {
+		try {
+			validateDateFn(r.date);
+		} catch {
+			return null;
+		}
+	}
+	if (ATTENDANCE_STATUSES.indexOf(r.status) === -1) return null;
+	let durationHours = 1.0;
+	if (
+		typeof r.durationHours === "number" &&
+		Number.isFinite(r.durationHours) &&
+		r.durationHours >= 0
+	) {
+		durationHours = r.durationHours;
+	}
+	const row = {
+		pairIndex: r.pairIndex,
+		date: r.date,
+		status: r.status,
+		durationHours: durationHours,
+	};
+	if (r.aiTopic !== undefined) {
+		if (
+			r.aiTopic === null ||
+			(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
+		) {
+			row.aiTopic = r.aiTopic;
+		}
+	}
+	return Object.freeze(row);
+}
+
 function serializeAttendance(records) {
 	if (!Array.isArray(records)) return [];
 	const out = [];
 	for (const r of records) {
-		if (!r || typeof r !== "object") continue;
-		if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) continue;
-		if (typeof r.date !== "string") continue;
-		if (ATTENDANCE_STATUSES.indexOf(r.status) === -1) continue;
-		let durationHours = 1.0;
-		if (
-			typeof r.durationHours === "number" &&
-			Number.isFinite(r.durationHours) &&
-			r.durationHours >= 0
-		) {
-			durationHours = r.durationHours;
-		}
-		out.push(
-			Object.freeze({
-				pairIndex: r.pairIndex,
-				date: r.date,
-				status: r.status,
-				durationHours: durationHours,
-			}),
-		);
+		const row = sanitizeAttendanceRow(r, null);
+		if (row) out.push(row);
 	}
 	return out;
 }
@@ -2424,30 +2856,8 @@ function deserializeAttendance(raw) {
 	if (!Array.isArray(raw)) return Object.freeze([]);
 	const out = [];
 	for (const r of raw) {
-		if (!r || typeof r !== "object" || Array.isArray(r)) continue;
-		if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) continue;
-		try {
-			parseDate(r.date);
-		} catch {
-			continue;
-		}
-		if (ATTENDANCE_STATUSES.indexOf(r.status) === -1) continue;
-		let durationHours = 1.0;
-		if (
-			typeof r.durationHours === "number" &&
-			Number.isFinite(r.durationHours) &&
-			r.durationHours >= 0
-		) {
-			durationHours = r.durationHours;
-		}
-		out.push(
-			Object.freeze({
-				pairIndex: r.pairIndex,
-				date: r.date,
-				status: r.status,
-				durationHours: durationHours,
-			}),
-		);
+		const row = sanitizeAttendanceRow(r, parseDate);
+		if (row) out.push(row);
 	}
 	return Object.freeze(out);
 }
@@ -2481,6 +2891,29 @@ function attendanceSummary(log, opts) {
 }
 
 // Mirrors AI_TOPICS in src/app-shell.html
+const AI_TOPICS = Object.freeze({
+	AI_LIT_PROMPT: Object.freeze({
+		he: "אוריינות בינה מלאכותית והנחיה",
+		ar: "محو الأمية في التوجيهات",
+		ru: "Грамотность в ИИ и промптинг",
+	}),
+	AI_CREATIVE: Object.freeze({
+		he: "יצירתיות ובינה יוצרת",
+		ar: "إنشاء المحتوى والوسائط",
+		ru: "Творчество и генеративный ИИ",
+	}),
+	AI_STEM_CODE: Object.freeze({
+		he: "מדעים, טכנולוגיה ותכנות",
+		ar: "كفاءة الذكاء الاصطناعي والبرمجة",
+		ru: "STEM и программирование",
+	}),
+	AI_ETHICS_SEC: Object.freeze({
+		he: "אתיקה, פרטיות ובטיחות",
+		ar: "الأخلاق والأمان",
+		ru: "Этика и безопасность ИИ",
+	}),
+});
+
 const AI_TOPIC_KEYS = Object.freeze([
 	"AI_LIT_PROMPT",
 	"AI_CREATIVE",
@@ -2587,12 +3020,62 @@ function calculatePairHours(attendanceRecords, pairIndex) {
 	return total;
 }
 
-// Scholarship hours summary aggregated by pair and participant.
-// Only records with status === 'held' count; duration defaults to 1.0 unless record.durationHours is a positive finite number.
-// byPair includes only pairs with held hours (pairs with 0 held hours are omitted).
-// Each held hour of pair p counts for pairs[p].studentIndex and pairs[p].pupilIndex.
-// Missing pairs entries or omitted pairs table contribute to byPair and totalHours, but not byParticipant.
-// Returns zeroed totals and empty collections for invalid/empty inputs without throwing. Zero PII.
+function findPairObject(pairs, pairIndex) {
+	if (!pairs) return null;
+	if (Array.isArray(pairs)) {
+		const candidate = pairs[pairIndex];
+		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
+			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
+				return candidate;
+			}
+		}
+		return pairs.find(
+			(p) =>
+				p &&
+				typeof p === "object" &&
+				!Array.isArray(p) &&
+				p.pairIndex === pairIndex,
+		) || null;
+	}
+	if (typeof pairs === "object") {
+		const candidate = pairs[pairIndex];
+		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
+			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
+				return candidate;
+			}
+		}
+	}
+	return null;
+}
+
+function accumulateScholarshipRecord(r, pairs, result) {
+	if (!r || typeof r !== "object") return;
+	if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) return;
+	if (r.status !== "held") return;
+
+	const duration = getRecordDurationHours(r);
+	result.totalHeldSessions += 1;
+	result.totalHours += duration;
+	result.byPair[r.pairIndex] = (result.byPair[r.pairIndex] || 0) + duration;
+
+	const pair = findPairObject(pairs, r.pairIndex);
+	if (pair && typeof pair === "object" && !Array.isArray(pair)) {
+		const participants = new Set();
+		if (Number.isInteger(pair.studentIndex) && pair.studentIndex >= 0) {
+			participants.add(pair.studentIndex);
+		}
+		if (Number.isInteger(pair.pupilIndex) && pair.pupilIndex >= 0) {
+			participants.add(pair.pupilIndex);
+		}
+		for (const pIdx of participants) {
+			result.byParticipant[pIdx] =
+				(result.byParticipant[pIdx] || 0) + duration;
+		}
+	}
+}
+
 function getScholarshipHoursSummary(attendanceRecords, pairs) {
 	const result = {
 		byPair: {},
@@ -2605,65 +3088,7 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 		return result;
 	}
 	for (const r of attendanceRecords) {
-		if (!r || typeof r !== "object") continue;
-		if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) continue;
-		if (r.status !== "held") continue;
-
-		const duration = getRecordDurationHours(r);
-		result.totalHeldSessions += 1;
-		result.totalHours += duration;
-		result.byPair[r.pairIndex] = (result.byPair[r.pairIndex] || 0) + duration;
-
-		let pair = null;
-		if (Array.isArray(pairs)) {
-			const candidate = pairs[r.pairIndex];
-			if (
-				candidate &&
-				typeof candidate === "object" &&
-				!Array.isArray(candidate)
-			) {
-				const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
-				if (!hasExplicitIndex || candidate.pairIndex === r.pairIndex) {
-					pair = candidate;
-				}
-			}
-			if (!pair && pairs.length > 0) {
-				pair =
-					pairs.find(
-						(p) =>
-							p &&
-							typeof p === "object" &&
-							!Array.isArray(p) &&
-							p.pairIndex === r.pairIndex,
-					) || null;
-			}
-		} else if (pairs && typeof pairs === "object" && !Array.isArray(pairs)) {
-			const candidate = pairs[r.pairIndex];
-			if (
-				candidate &&
-				typeof candidate === "object" &&
-				!Array.isArray(candidate)
-			) {
-				const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
-				if (!hasExplicitIndex || candidate.pairIndex === r.pairIndex) {
-					pair = candidate;
-				}
-			}
-		}
-
-		if (pair && typeof pair === "object" && !Array.isArray(pair)) {
-			const participants = new Set();
-			if (Number.isInteger(pair.studentIndex) && pair.studentIndex >= 0) {
-				participants.add(pair.studentIndex);
-			}
-			if (Number.isInteger(pair.pupilIndex) && pair.pupilIndex >= 0) {
-				participants.add(pair.pupilIndex);
-			}
-			for (const pIdx of participants) {
-				result.byParticipant[pIdx] =
-					(result.byParticipant[pIdx] || 0) + duration;
-			}
-		}
+		accumulateScholarshipRecord(r, pairs, result);
 	}
 	result.sortedParticipants = Object.keys(result.byParticipant)
 		.map((k) => {
@@ -2675,6 +3100,158 @@ function getScholarshipHoursSummary(attendanceRecords, pairs) {
 		})
 		.sort((a, b) => b.totalHours - a.totalHours || a.index - b.index);
 	return result;
+}
+
+function getCleanAttendanceRecords(records) {
+	return Array.isArray(records)
+		? records
+		: records && Array.isArray(records.entries)
+			? records.entries
+			: [];
+}
+
+function collectPairIndexes(cleanRecords, pairs) {
+	const pairIndexes = new Set();
+	if (Array.isArray(pairs)) {
+		pairs.forEach((p, idx) => {
+			const pIdx =
+				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
+					? p.pairIndex
+					: idx;
+			pairIndexes.add(pIdx);
+		});
+	}
+	for (const r of cleanRecords) {
+		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+			pairIndexes.add(r.pairIndex);
+		}
+	}
+	return Array.from(pairIndexes).sort((a, b) => a - b);
+}
+
+function computePairReport(pIdx, cleanRecords, target) {
+	let heldSessions = 0;
+	let totalHours = 0;
+	const statusCounts = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
+	const coveredAiTopicsSet = new Set();
+
+	for (const r of cleanRecords) {
+		if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
+		if (Object.hasOwn(statusCounts, r.status)) {
+			statusCounts[r.status] += 1;
+		}
+		if (r.status === "held") {
+			heldSessions += 1;
+			const duration = getRecordDurationHours(r);
+			totalHours += duration;
+			if (
+				r.aiTopic &&
+				typeof r.aiTopic === "string" &&
+				AI_TOPIC_KEYS.includes(r.aiTopic)
+			) {
+				coveredAiTopicsSet.add(r.aiTopic);
+			}
+		}
+	}
+
+	const completionPercent =
+		target > 0 ? Math.round((totalHours / target) * 100) : 0;
+
+	return {
+		pairReport: Object.freeze({
+			pairIndex: pIdx,
+			heldSessions,
+			totalHours,
+			targetHours: target,
+			completionPercent,
+			coveredAiTopics: Object.freeze(Array.from(coveredAiTopicsSet).sort()),
+			statusCounts: Object.freeze(statusCounts),
+		}),
+		metrics: {
+			heldSessions,
+			totalHours,
+			statusCounts,
+			coveredAiTopics: coveredAiTopicsSet,
+		},
+	};
+}
+
+/**
+ * Builds an anonymous scholarship report by pairs and overall summary.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} records Attendance records or log
+ * @param {Array<Object>} pairs Matched pairs list
+ * @param {number} targetHours Target scholarship hours (default 30)
+ * @returns {Object} Report containing pairs list, byPair lookup, and summary
+ */
+function buildScholarshipReport(records, pairs, targetHours) {
+	const target =
+		typeof targetHours === "number" &&
+		Number.isFinite(targetHours) &&
+		targetHours > 0
+			? targetHours
+			: 30;
+
+	const cleanRecords = getCleanAttendanceRecords(records);
+	const sortedPairIndexes = collectPairIndexes(cleanRecords, pairs);
+
+	const pairReports = [];
+	const byPair = {};
+	let overallHeldSessions = 0;
+	let overallTotalHours = 0;
+	const overallStatusCounts = {
+		held: 0,
+		missed: 0,
+		postponed: 0,
+		cancelled: 0,
+	};
+	const overallAiTopics = new Set();
+
+	for (const pIdx of sortedPairIndexes) {
+		const { pairReport, metrics } = computePairReport(pIdx, cleanRecords, target);
+		pairReports.push(pairReport);
+		byPair[pIdx] = pairReport;
+
+		overallHeldSessions += metrics.heldSessions;
+		overallTotalHours += metrics.totalHours;
+		for (const st of Object.keys(overallStatusCounts)) {
+			overallStatusCounts[st] += metrics.statusCounts[st];
+		}
+		for (const top of metrics.coveredAiTopics) {
+			overallAiTopics.add(top);
+		}
+	}
+
+	const totalPairs = sortedPairIndexes.length;
+	const expectedTotalHours = totalPairs * target;
+	const overallCompletionPercent =
+		expectedTotalHours > 0
+			? Math.round((overallTotalHours / expectedTotalHours) * 100)
+			: 0;
+
+	const summary = Object.freeze({
+		totalPairs,
+		totalHeldSessions: overallHeldSessions,
+		totalHours: overallTotalHours,
+		targetHours: target,
+		completionPercent: overallCompletionPercent,
+		coveredAiTopics: Object.freeze(Array.from(overallAiTopics).sort()),
+		statusCounts: Object.freeze(overallStatusCounts),
+	});
+
+	return Object.freeze({
+		pairs: Object.freeze(pairReports),
+		byPair: Object.freeze(byPair),
+		summary,
+		totalPairs,
+		totalHeldSessions: overallHeldSessions,
+		totalHours: overallTotalHours,
+		targetHours: target,
+		completionPercent: overallCompletionPercent,
+		coveredAiTopics: summary.coveredAiTopics,
+		statusCounts: summary.statusCounts,
+	});
 }
 
 const TOPIC_PASTEL_PALETTE = Object.freeze([
@@ -2748,6 +3325,92 @@ function getTopicTagStyle(topicKey) {
 	};
 }
 
+function scoreAiSummary(summary, keys) {
+	let totalCount = 0;
+	let activeTopics = 0;
+	let balancedTopics = 0;
+	const topicKeys = keys.filter(
+		(k) => summary[k] && typeof summary[k] === "object",
+	);
+	if (topicKeys.length === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	for (const k of topicKeys) {
+		const item = summary[k];
+		const tot = typeof item.total === "number" ? item.total : 0;
+		const req = typeof item.requested === "number" ? item.requested : 0;
+		const off = typeof item.offered === "number" ? item.offered : 0;
+		totalCount += tot;
+		if (tot > 0) activeTopics += 1;
+		if (req > 0 && off > 0) balancedTopics += 1;
+	}
+	if (totalCount === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	const diversityScore = (activeTopics / Math.max(1, topicKeys.length)) * 40;
+	const volumeScore = Math.min(35, totalCount * 7);
+	const balanceScore = (balancedTopics / Math.max(1, activeTopics)) * 25;
+	return Math.round(diversityScore + volumeScore + balanceScore);
+}
+
+function scoreScholarshipSummary(summary) {
+	const totalHours =
+		typeof summary.totalHours === "number" ? summary.totalHours : 0;
+	const totalHeld =
+		typeof summary.totalHeldSessions === "number"
+			? summary.totalHeldSessions
+			: 0;
+	const participantCount =
+		summary.byParticipant && typeof summary.byParticipant === "object"
+			? Object.keys(summary.byParticipant).length
+			: 0;
+	if (totalHours === 0 && totalHeld === 0 && participantCount === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	const hoursScore = Math.min(45, totalHours * 5);
+	const sessionsScore = Math.min(35, totalHeld * 7);
+	const participantScore = Math.min(20, participantCount * 10);
+	return Math.round(hoursScore + sessionsScore + participantScore);
+}
+
+function scoreAttendanceSummary(summary) {
+	const st = summary.byStatus;
+	const held = typeof st.held === "number" ? st.held : 0;
+	const missed = typeof st.missed === "number" ? st.missed : 0;
+	const postponed = typeof st.postponed === "number" ? st.postponed : 0;
+	const cancelled = typeof st.cancelled === "number" ? st.cancelled : 0;
+	const total = held + missed + postponed + cancelled;
+	if (total === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	const heldRate =
+		typeof summary.heldRate === "number"
+			? summary.heldRate
+			: held / Math.max(1, held + missed);
+	const volumeScore = Math.min(50, total * 5);
+	const rateScore = heldRate * 50;
+	return Math.round(volumeScore + rateScore);
+}
+
+function scoreGenericSummary(summary, keys) {
+	let sumNumbers = 0;
+	let nonZeroCount = 0;
+	for (const k of keys) {
+		const val = summary[k];
+		if (typeof val === "number" && Number.isFinite(val)) {
+			sumNumbers += Math.abs(val);
+			if (val > 0) nonZeroCount += 1;
+		}
+	}
+	if (sumNumbers === 0 && nonZeroCount === 0) {
+		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
+	}
+	return Math.min(
+		100,
+		Math.max(10, Math.round(nonZeroCount * 25 + sumNumbers * 2)),
+	);
+}
+
 function getSummaryQualityScore(summary) {
 	if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
 		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
@@ -2776,83 +3439,21 @@ function getSummaryQualityScore(summary) {
 	let rawScore = 0;
 
 	if (isAiSummary) {
-		let totalCount = 0;
-		let activeTopics = 0;
-		let balancedTopics = 0;
-		const topicKeys = keys.filter(
-			(k) => summary[k] && typeof summary[k] === "object",
-		);
-		if (topicKeys.length === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		for (const k of topicKeys) {
-			const item = summary[k];
-			const tot = typeof item.total === "number" ? item.total : 0;
-			const req = typeof item.requested === "number" ? item.requested : 0;
-			const off = typeof item.offered === "number" ? item.offered : 0;
-			totalCount += tot;
-			if (tot > 0) activeTopics += 1;
-			if (req > 0 && off > 0) balancedTopics += 1;
-		}
-		if (totalCount === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		const diversityScore = (activeTopics / Math.max(1, topicKeys.length)) * 40;
-		const volumeScore = Math.min(35, totalCount * 7);
-		const balanceScore = (balancedTopics / Math.max(1, activeTopics)) * 25;
-		rawScore = Math.round(diversityScore + volumeScore + balanceScore);
+		const res = scoreAiSummary(summary, keys);
+		if (typeof res === "object") return res;
+		rawScore = res;
 	} else if (isScholarshipSummary) {
-		const totalHours =
-			typeof summary.totalHours === "number" ? summary.totalHours : 0;
-		const totalHeld =
-			typeof summary.totalHeldSessions === "number"
-				? summary.totalHeldSessions
-				: 0;
-		const participantCount =
-			summary.byParticipant && typeof summary.byParticipant === "object"
-				? Object.keys(summary.byParticipant).length
-				: 0;
-		if (totalHours === 0 && totalHeld === 0 && participantCount === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		const hoursScore = Math.min(45, totalHours * 5);
-		const sessionsScore = Math.min(35, totalHeld * 7);
-		const participantScore = Math.min(20, participantCount * 10);
-		rawScore = Math.round(hoursScore + sessionsScore + participantScore);
+		const res = scoreScholarshipSummary(summary);
+		if (typeof res === "object") return res;
+		rawScore = res;
 	} else if (isAttendanceSummary) {
-		const st = summary.byStatus;
-		const held = typeof st.held === "number" ? st.held : 0;
-		const missed = typeof st.missed === "number" ? st.missed : 0;
-		const postponed = typeof st.postponed === "number" ? st.postponed : 0;
-		const cancelled = typeof st.cancelled === "number" ? st.cancelled : 0;
-		const total = held + missed + postponed + cancelled;
-		if (total === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		const heldRate =
-			typeof summary.heldRate === "number"
-				? summary.heldRate
-				: held / Math.max(1, held + missed);
-		const volumeScore = Math.min(50, total * 5);
-		const rateScore = heldRate * 50;
-		rawScore = Math.round(volumeScore + rateScore);
+		const res = scoreAttendanceSummary(summary);
+		if (typeof res === "object") return res;
+		rawScore = res;
 	} else {
-		let sumNumbers = 0;
-		let nonZeroCount = 0;
-		for (const k of keys) {
-			const val = summary[k];
-			if (typeof val === "number" && Number.isFinite(val)) {
-				sumNumbers += Math.abs(val);
-				if (val > 0) nonZeroCount += 1;
-			}
-		}
-		if (sumNumbers === 0 && nonZeroCount === 0) {
-			return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
-		}
-		rawScore = Math.min(
-			100,
-			Math.max(10, Math.round(nonZeroCount * 25 + sumNumbers * 2)),
-		);
+		const res = scoreGenericSummary(summary, keys);
+		if (typeof res === "object") return res;
+		rawScore = res;
 	}
 
 	const score = Math.max(1, Math.min(100, rawScore));
@@ -2939,8 +3540,12 @@ function matchesCriterion(itemVal, filterVal, isArrayTarget = false) {
 	const normalize = (v) => String(v).toLowerCase();
 
 	if (isArrayTarget) {
-		const itemTopics = Array.isArray(itemVal) ? itemVal.map(normalize) : [normalize(itemVal)];
-		const targetTopics = Array.isArray(filterVal) ? filterVal.map(normalize) : [normalize(filterVal)];
+		const itemTopics = Array.isArray(itemVal)
+			? itemVal.map(normalize)
+			: [normalize(itemVal)];
+		const targetTopics = Array.isArray(filterVal)
+			? filterVal.map(normalize)
+			: [normalize(filterVal)];
 		return itemTopics.some((t) => targetTopics.includes(t));
 	}
 
@@ -3161,15 +3766,178 @@ const focusReaderConfig = Object.freeze({
 	loadFocusReaderConfig,
 });
 
+function getDropoutRiskReason(
+	heldCount,
+	minHeld,
+	consecutiveStreak,
+	_missedCount,
+	lang = "he",
+) {
+	const belowThreshold = heldCount < minHeld;
+	const hasStreak = consecutiveStreak >= 2;
+
+	if (lang === "ar") {
+		if (belowThreshold && hasStreak) {
+			return `أقل من الحد الأدنى للجلسات (${heldCount}/${minHeld}) وتتالي الإلغاءات/الغياب (${consecutiveStreak})`;
+		}
+		if (belowThreshold) {
+			return `أقل من الحد الأدنى للجلسات (${heldCount} من ${minHeld})`;
+		}
+		return `تتالي الإلغاءات أو الغياب (${consecutiveStreak} متتالية)`;
+	}
+
+	if (lang === "ru") {
+		if (belowThreshold && hasStreak) {
+			return `Ниже порога занятий (${heldCount}/${minHeld}) и серия отмен/пропусков (${consecutiveStreak})`;
+		}
+		if (belowThreshold) {
+			return `Ниже порога проведенных занятий (${heldCount} из ${minHeld})`;
+		}
+		return `Серия отмен или пропусков (${consecutiveStreak} подряд)`;
+	}
+
+	// Hebrew (default)
+	if (belowThreshold && hasStreak) {
+		return `מתחת לסף מפגשים (${heldCount}/${minHeld}) ורצף ביטולים/החמצות (${consecutiveStreak})`;
+	}
+	if (belowThreshold) {
+		return `מתחת לסף מפגשים שהתקיימו (${heldCount} מתוך ${minHeld})`;
+	}
+	return `רצף ביטולים או החמצות (${consecutiveStreak} ברצף)`;
+}
+
+function detectInactivePairs(records, pairs, options) {
+	const rawMin =
+		typeof options === "number"
+			? options
+			: options && typeof options.minHeldCount === "number"
+				? options.minHeldCount
+				: 2;
+	const minHeld = Number.isFinite(rawMin) ? rawMin : 2;
+	const lang =
+		options && (options.lang === "ar" || options.lang === "ru")
+			? options.lang
+			: "he";
+	const consecutiveThreshold = 2;
+
+	const cleanRecords = Array.isArray(records)
+		? records
+		: records && Array.isArray(records.entries)
+			? records.entries
+			: [];
+
+	const pairIndexes = new Set();
+	if (Array.isArray(pairs)) {
+		pairs.forEach((p, idx) => {
+			const pIdx =
+				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
+					? p.pairIndex
+					: idx;
+			pairIndexes.add(pIdx);
+		});
+	}
+	for (const r of cleanRecords) {
+		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+			pairIndexes.add(r.pairIndex);
+		}
+	}
+
+	if (pairIndexes.size === 0) {
+		return Object.freeze([]);
+	}
+
+	const sortedPairIndexes = Array.from(pairIndexes).sort((a, b) => a - b);
+	const atRiskPairs = [];
+
+	for (const pIdx of sortedPairIndexes) {
+		const pairRecords = [];
+		for (const r of cleanRecords) {
+			if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
+			pairRecords.push(r);
+		}
+
+		pairRecords.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+		let heldCount = 0;
+		let missedOrCancelledCount = 0;
+		let currentStreak = 0;
+		let maxStreak = 0;
+
+		for (const r of pairRecords) {
+			if (r.status === "held") {
+				heldCount += 1;
+				currentStreak = 0;
+			} else if (r.status === "missed" || r.status === "cancelled") {
+				missedOrCancelledCount += 1;
+				currentStreak += 1;
+				if (currentStreak > maxStreak) {
+					maxStreak = currentStreak;
+				}
+			}
+		}
+
+		const isBelowThreshold = heldCount < minHeld;
+		const hasStreak = maxStreak >= consecutiveThreshold;
+
+		if (isBelowThreshold || hasStreak) {
+			const riskReason = getDropoutRiskReason(
+				heldCount,
+				minHeld,
+				maxStreak,
+				missedOrCancelledCount,
+				lang,
+			);
+			const belowGap = Math.max(0, minHeld - heldCount);
+			const riskScore =
+				belowGap * 1000 +
+				maxStreak * 100 +
+				missedOrCancelledCount * 10 -
+				heldCount;
+
+			atRiskPairs.push({
+				pairIndex: pIdx,
+				heldCount,
+				missedOrCancelledCount,
+				riskReason,
+				_riskScore: riskScore,
+			});
+		}
+	}
+
+	atRiskPairs.sort((a, b) => {
+		if (b._riskScore !== a._riskScore) {
+			return b._riskScore - a._riskScore;
+		}
+		return a.pairIndex - b.pairIndex;
+	});
+
+	const result = atRiskPairs.map((p) =>
+		Object.freeze({
+			pairIndex: p.pairIndex,
+			heldCount: p.heldCount,
+			missedOrCancelledCount: p.missedOrCancelledCount,
+			riskReason: p.riskReason,
+		}),
+	);
+
+	return Object.freeze(result);
+}
+
 module.exports = {
+	filterAttendanceRecords,
+	getPairSessionTimeline,
+	updateSessionOutcome,
+	ATTENDANCE_STATUSES,
 	makeAttendanceLog,
 	recordAttendance,
 	attendanceSummary,
 	stalePairs,
+	AI_TOPICS,
 	AI_TOPIC_KEYS,
 	getAITopicsSummary,
 	calculatePairHours,
 	getScholarshipHoursSummary,
+	buildScholarshipReport,
 	serializeAttendance,
 	deserializeAttendance,
 	MAX_ATTENDANCE_RECORDS,
@@ -3195,7 +3963,54 @@ module.exports = {
 	saveFocusReaderConfig,
 	loadFocusReaderConfig,
 	focusReaderConfig,
+	detectInactivePairs,
 };
+
+function filterAttendanceRecords(records, filters) {
+	const clean = getCleanAttendanceRecords(records);
+	const f = filters || {};
+	return Object.freeze(clean.filter((r) => {
+		if (!r || typeof r !== 'object') return false;
+		if (f.status && f.status !== 'all' && r.status !== f.status) return false;
+		if (f.pairIndex !== undefined && f.pairIndex !== null && r.pairIndex !== f.pairIndex) return false;
+		if (f.aiTopic && r.aiTopic !== f.aiTopic) return false;
+		return true;
+	}));
+}
+
+function getPairSessionTimeline(records, pairIndex) {
+	const clean = getCleanAttendanceRecords(records);
+	const filtered = clean.filter((r) => r && r.pairIndex === pairIndex);
+	filtered.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+	return Object.freeze(filtered);
+}
+
+function updateSessionOutcome(records, pairIndex, date, patch) {
+	const clean = getCleanAttendanceRecords(records);
+	const idx = clean.findIndex((r) => r && r.pairIndex === pairIndex && r.date === date);
+	if (idx === -1) {
+		throw new Error('session record not found');
+	}
+	const target = clean[idx];
+	const updatedRow = {
+		pairIndex: target.pairIndex,
+		date: target.date,
+		status: patch && patch.status !== undefined ? patch.status : target.status,
+		durationHours: patch && patch.durationHours !== undefined ? patch.durationHours : target.durationHours,
+	};
+	if (patch && patch.aiTopic !== undefined) {
+		updatedRow.aiTopic = patch.aiTopic;
+	} else if (target.aiTopic !== undefined) {
+		updatedRow.aiTopic = target.aiTopic;
+	}
+	const validated = sanitizeAttendanceRow(updatedRow, parseDate);
+	if (!validated) {
+		throw new Error('invalid attendance patch');
+	}
+	const updatedList = clean.slice();
+	updatedList[idx] = validated;
+	return Object.freeze({ entries: Object.freeze(updatedList) });
+}
   __registry["attendance"] = module.exports;
 })();
 
@@ -3300,345 +4115,6 @@ function printableHtml(report) {
 
 module.exports = { weeklyReport, monthlyReport, semesterReport, reportToCsv, reportToIcs, svgBarChart, printableHtml };
   __registry["reports"] = module.exports;
-})();
-
-/* ===== src/lib/curriculum.js ===== */
-(function () {
-  var module = { exports: {} };
-  var exports = module.exports;
-'use strict';
-// PeerEd - lesson content: engineering students (mentors) teach children AI (stage 10).
-// Two tracks, about 12 lessons each, 45 minutes a lesson. Hebrew first; every lesson title
-// also has an i18n key (cur.*) translated in lang-he/lang-ar/lang-ru for ar/ru. Content only:
-// no child personal data, no network, no clock, no randomness. A group's track is passed in
-// by the caller (trackByPair); the module never invents a track for a group it does not know.
-
-const TRACKS = Object.freeze(['elementary', 'middle']);
-const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
-const LESSON_MINUTES = 45;
-
-function lesson(track, index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe) {
-  return Object.freeze({
-    id: track + '-' + slug, track, index,
-    titleKey: 'cur.' + track + '.' + slug, titleHe,
-    goalsHe: Object.freeze(goalsHe.slice()),
-    flowHe: Object.freeze(flowHe.map((f) => Object.freeze({ minutes: f[0], stepHe: f[1] }))),
-    activityHe, unpluggedHe,
-    materialsHe: Object.freeze(materialsHe.slice()),
-    wrapUpHe: Object.freeze(wrapUpHe.slice())
-  });
-}
-
-const ELEMENTARY = Object.freeze([
-  lesson('elementary', 0, 'what-is-ai', 'מה זו בינה מלאכותית?',
-    ['להבחין בין מכונה רגילה למכונה שלומדת', 'לתת דוגמה אחת של בינה מלאכותית מהבית'],
-    [[5, 'פתיחה: מציגים שני חפצים ושואלים מה ההבדל בין מנורה למצלמה שמזהה פנים'], [10, 'הסבר קצר עם כרטיסיות: מכונה פועלת לפי הוראות, מכונה לומדת מדוגמאות'], [20, 'פעילות: משחק מיון - התלמידים ממיינים כרטיסיות למשימה שמכונה יודעת ולמשימה שלא'], [10, 'סיכום ושאלות הבנה בזוגות']],
-    'משחק מיון כרטיסיות: כל זוג ממיין משימות ומנמק בקול.',
-    'בלי מחשב: התלמידים הם המכונה - אחד נותן הוראות מדויקות והשני מבצע בדיוק, ומגלים למה הוראות מעורפלות נכשלות.',
-    ['כרטיסיות משימות', 'לוח וטוש'],
-    ['מה ההבדל בין הוראה לדוגמה?', 'איזו משימה הייתם מלמדים מכונה קודם?']),
-  lesson('elementary', 1, 'learn-examples', 'למידה מדוגמאות',
-    ['להבין שמכונה לומדת מהרבה דוגמאות', 'להבחין בין דוגמה טובה לרועשת'],
-    [[5, 'פתיחה: מראים תמונה אחת של חתול ושואלים אם מספיקה דוגמה אחת'], [10, 'הסבר: מלמדים מכונה עם עשר דוגמאות ומסבירים למה צריך הרבה'], [20, 'פעילות: מאמנים בן זוג - מראים כרטיסי צורות והוא מנחש את הכלל'], [10, 'סיכום: מה קורה כשכל הדוגמאות דומות מדי']],
-    'אימון בזוגות: מדריך כרטיסים מלמד כלל סודי ובן הזוג מנחש, ואז מחליפים תפקידים.',
-    'אותה פעילות בכרטיסי נייר בלבד, בלי מסך: הכלל הסודי כתוב על פתק מקופל.',
-    ['כרטיסי צורות', 'פתקי כלל'],
-    ['למה דוגמה אחת לא מספיקה?', 'מהי דוגמה שמבלבלת מכונה?']),
-  lesson('elementary', 2, 'image-recognition', 'זיהוי תמונות ודפוסים',
-    ['להבין איך מכונה מזהה תמונה לפי חלקים ודפוסים', 'להסביר למה זיהוי לפעמים טועה'],
-    [[5, 'פתיחה: מנחשים חפץ מתמונה חתוכה לחלקים'], [10, 'הסבר: מכונה מחפשת קצוות, צורות וצבעים ואז מנחשת'], [20, 'פעילות: מציירים אותה חיה בסגנונות שונים ובודקים אם הכיתה מזהה'], [10, 'סיכום: מתי הזיהוי נכשל - חושך, הסתרה, זווית מוזרה']],
-    'ציור ובדיקה: כל תלמיד מצייר חיה והכיתה מנחשת, עם רמזים מהחלקים.',
-    'בלי מחשב: משחק עשרים שאלות על תמונה מוסתרת - שואלים רק על חלקים ודפוסים.',
-    ['דפי ציור', 'תמונות חתוכות מודפסות'],
-    ['איך מכונה יודעת שזה חתול?', 'מתי גם אנחנו טועים בזיהוי?']),
-  lesson('elementary', 3, 'chatbots', 'צ׳אטבוטים ושיחה עם מכונה',
-    ['להבין שצ׳אטבוט בונה תשובה ממילים ולא חושב כמו אדם', 'לנסח שאלה ברורה למכונה'],
-    [[5, 'פתיחה: קוראים שיחה מצחיקה עם מכונה ושואלים מה חסר בה'], [10, 'הסבר: המכונה משלימה את המילה הבאה הסבירה, בלי להבין באמת'], [20, 'פעילות: משחק השלמת משפטים שרשרת - בונים סיפור מילה אחרי מילה כמו מכונה'], [10, 'סיכום: למה תשובת מכונה יכולה להישמע בטוחה וגם לטעות']],
-    'סיפור שרשרת: כל תלמיד מוסיף מילה אחת סבירה, ומקבלים סיפור מפתיע.',
-    'בלי מחשב: אחד משחק מכונה ועונה רק מהשלמת המילה הסבירה, והשאר מנסים לבלבל אותו בנימוס.',
-    ['כרטיסי משפט פתיחה'],
-    ['האם המכונה מבינה את הסיפור?', 'איך נשאל שאלה שהמכונה תענה עליה טוב?']),
-  lesson('elementary', 4, 'data-bias', 'נתונים והוגנות',
-    ['להבין שמכונה לומדת ממה שמראים לה', 'לזהות אימון לא הוגן שמפספס קבוצה שלמה'],
-    [[5, 'פתיחה: מלמדים כלל רק מדוגמאות של ילדים ושואלים מה עם מבוגרים'], [10, 'הסבר: אם הדוגמאות חד-צדדיות, המכונה תטעה על מי שלא הראה לה'], [20, 'פעילות: בונים ערכת אימון הוגנת ולא הוגנת לציור דמויות ומשווים תוצאות ניחוש'], [10, 'סיכום: הוגנות מתחילה במי שמראים למכונה']],
-    'בניית ערכות: שתי קבוצות בונות דוגמאות שונות ובודקות זו את זו.',
-    'בלי מחשב: קופסת דוגמאות מנייר - מוציאים דוגמאות חד-צדדיות ורואים את הניחוש מוטה.',
-    ['כרטיסי דמויות', 'שתי קופסאות'],
-    ['למי המכונה תטעה אם לא הראו לה אותו?', 'איך עושים אימון הוגן יותר?']),
-  lesson('elementary', 5, 'safety-privacy', 'בטיחות ופרטיות',
-    ['לזהות מה לא משתפים עם מכונה או ברשת', 'לנסח כלל בטיחות אחד למשפחה'],
-    [[5, 'פתיחה: ממיינים כרטיסי מידע למה שמותר ומה שאסור לשתף'], [10, 'הסבר: מכונה שומרת מה שכותבים לה, ולכן לא כותבים פרטים אישיים'], [20, 'פעילות: בונים שלט כללי בטיחות לכיתה עם ציורים'], [10, 'סיכום ובחירת הכלל החשוב ביותר בהצבעה']],
-    'מיון כרטיסים ובניית שלט כיתתי משותף.',
-    'בלי מחשב: משחק תפקידים - מה עונים למכונה ששואלת שאלה אישית מדי.',
-    ['כרטיסי מידע', 'דף גדול וטושים'],
-    ['מה לעולם לא נכתוב למכונה?', 'למי מספרים אם משהו מרגיש לא בטוח?']),
-  lesson('elementary', 6, 'creative-ai', 'יצירה עם בינה מלאכותית',
-    ['להבין שמכונה יכולה לעזור ליצור אבל הרעיון שלנו', 'לבנות יצירה משותפת אדם ומכונה בדמיון'],
-    [[5, 'פתיחה: משלימים ציור חצי גמור של חבר ושואלים מי היוצר'], [10, 'הסבר: מכונה מציעה המשכים, והאדם בוחר ועורך'], [20, 'פעילות: סיפור מאויר בזוגות - אחד מציע שלושה המשכים והשני בוחר וממשיך'], [10, 'סיכום: למה הבחירה האנושית היא היצירה']],
-    'סיפור מאויר בזוגות עם בחירת המשכים.',
-    'בלי מחשב: קוביית רעיונות - מטילים ובונים המשך לסיפור לפי הפאה שיצאה.',
-    ['דפים', 'צבעים', 'קובייה'],
-    ['מי יצר את הסיפור, המציע או הבוחר?', 'מתי עזרת מכונה היא כבר לא היצירה שלי?']),
-  lesson('elementary', 7, 'good-questions', 'שאלות טובות למכונה',
-    ['לנסח בקשה ברורה עם פרטים חשובים', 'לשפר בקשה מעורפלת בשני צעדים'],
-    [[5, 'פתיחה: מבצעים הוראה מעורפלת וצוחקים מהתוצאה'], [10, 'הסבר: בקשה טובה אומרת מה, למי, באיזה אורך ובאיזה סגנון'], [20, 'פעילות: מתקנים בקשות מעורפלות על כרטיסים עד שהכיתה מבינה בדיוק'], [10, 'סיכום: בודקים בקשה מתוקנת על בן זוג אנושי']],
-    'תיקון בקשות על כרטיסים בזוגות.',
-    'בלי מחשב: משחק ההוראות המדויקות - מציירים לפי הוראות של חבר בלי לראות את המקור.',
-    ['כרטיסי בקשות מעורפלות'],
-    ['מה הופך שאלה לברורה?', 'איזה פרט הכי חשוב להוסיף ראשון?']),
-  lesson('elementary', 8, 'ai-at-home', 'בינה מלאכותית בבית ובבית הספר',
-    ['לזהות בינה מלאכותית במכשירים יומיומיים', 'להחליט מתי עזרת מכונה מתאימה ומתי לא'],
-    [[5, 'פתיחה: סופרים כמה מכונות חכמות פגשנו מהבוקר'], [10, 'הסבר: המלצות, ניווט, תרגום ועוזרות קוליות - כולן מנחשות מדוגמאות'], [20, 'פעילות: מצביעים בכרטיסים על מצבים - מכונה עוזרת או עדיף לבד, ומנמקים'], [10, 'סיכום: שיעורי בית ולמידה - מה נשאר שלנו']],
-    'הצבעת מצבים עם כרטיסי כן ולא ונימוקים.',
-    'בלי מחשב: ציד חפצים חכמים בציור של בית - מסמנים ומסבירים מה כל אחד מנחש.',
-    ['כרטיסי הצבעה', 'ציור בית'],
-    ['איפה מכונה עוזרת לכם הכי הרבה?', 'מה תמיד תעשו בעצמכם?']),
-  lesson('elementary', 9, 'robots-sensors', 'חיישנים ורובוטים חכמים',
-    ['להבין שרובוט חש בעזרת חיישנים ומחליט לפי כללים ולמידה', 'לתאר מסלול החלטה של רובוט'],
-    [[5, 'פתיחה: צועדים בעיניים עצומות לפי הוראות ושואלים מה חסר'], [10, 'הסבר: חיישן הוא העין והאוזן של הרובוט, והמוח מחליט מה לעשות'], [20, 'פעילות: מנווטים חבר רובוט במסלול מכשולים בהוראות צעד וסיבוב'], [10, 'סיכום: מה רובוט עדיין לא יודע לעשות']],
-    'ניווט רובוט אנושי במסלול מכשולים בכיתה.',
-    'בלי מחשב: אותה פעילות היא הלא-מחוברת - רובוט הוא תלמיד, בלי שום מסך.',
-    ['כיסאות כמכשולים', 'סרט סימון'],
-    ['מהו חיישן?', 'איזו החלטה קשה לרובוט?']),
-  lesson('elementary', 10, 'truth-check', 'בודקים אם זה אמיתי',
-    ['לזהות תמונה או סיפור שמכונה המציאה', 'להשתמש בשתי בדיקות לפני שמאמינים'],
-    [[5, 'פתיחה: שתי תמונות, אחת מצוירת ואחת מומצאת, מנחשים איזו'], [10, 'הסבר: מכונות יכולות להמציא תמונות וסיפורים שנשמעים אמיתיים'], [20, 'פעילות: בלשי אמת - מחפשים שלושה רמזים חשודים בתמונות ובסיפורים קצרים'], [10, 'סיכום: שואלים מבוגר ובודקים במקום נוסף לפני שמשתפים']],
-    'בלשי אמת בקבוצות: מוצאים רמזים חשודים ומציגים לכיתה.',
-    'בלי מחשב: סיפורים מודפסים, אחד אמיתי ואחד מומצא, מחפשים רמזים בטקסט בלבד.',
-    ['תמונות מודפסות', 'סיפורים קצרים מודפסים'],
-    ['מהו רמז שמשהו מומצא?', 'מה עושים לפני שמשתפים תמונה מפתיעה?']),
-  lesson('elementary', 11, 'mini-project', 'מיני-פרויקט סיום: ממציאים עוזר חכם',
-    ['לתכנן עוזר חכם שפותר בעיה אמיתית', 'להציג מה העוזר לומד ומה הוא לא ישתף לעולם'],
-    [[5, 'פתיחה: נזכרים בכל השיעורים ובוחרים בעיה אחת מהכיתה'], [15, 'תכנון בזוגות: מציירים את העוזר, מה הוא חש, ומאילו דוגמאות ילמד'], [15, 'בניית כרזה: שם, ציור, שלושה כללי הוגנות ובטיחות'], [10, 'הצגות קצרות ושאלה אחת מכל זוג למציגים']],
-    'בניית כרזת עוזר חכם והצגה לכיתה.',
-    'בלי מחשב: כל הפרויקט על נייר - כרזה, ציור וכללים, בלי מסכים בכלל.',
-    ['דפים גדולים', 'טושים וצבעים'],
-    ['איזו בעיה העוזר שלכם פותר?', 'מאילו דוגמאות הוא ילמד כדי להיות הוגן?'])
-]);
-
-const MIDDLE = Object.freeze([
-  lesson('middle', 0, 'what-is-ai', 'מה זו בינה מלאכותית ולמידת מכונה',
-    ['להבחין בין תוכנה מבוססת כללים למודל שלמד מנתונים', 'לתאר מחזור אימון: נתונים, אימון, בדיקה'],
-    [[5, 'פתיחה: שני פתרונות לאותה בעיה - כללים ידניים מול למידה מדוגמאות'], [12, 'הסבר: מודל, נתוני אימון וטעות - איך מודל משתפר מהרבה ניסיונות'], [18, 'פעילות: ממיינים מערכות מוכרות לכללים או ללמידה ומנמקים'], [10, 'סיכום: מתי כללים עדיפים ומתי למידה']],
-    'מיון מערכות ונימוק בקבוצות, עם הגנה על בחירה אחת מול הכיתה.',
-    'בלי מחשב: בניית מסווג אנושי - כללים כתובים על לוח מול ניחוש מדוגמאות בכרטיסים.',
-    ['כרטיסי מערכות', 'לוח'],
-    ['מה ההבדל בין כלל למודל?', 'מתי לא הייתם סומכים על למידה?']),
-  lesson('middle', 1, 'training-data', 'למידה מדוגמאות ונתוני אימון',
-    ['להסביר אימון, אימות ובדיקה ומהי התאמת-יתר בפשטות', 'לבנות ערכת דוגמאות מאוזנת למשימה'],
-    [[5, 'פתיחה: מודל שנבחן על אותן שאלות שלמד - למה זה לא הוגן'], [12, 'הסבר: חלוקת נתונים לאימון ובדיקה, וטעויות משני הסוגים'], [18, 'פעילות: בונים ערכת אימון למסווג ציורים ומחליפים ערכות לבדיקה צולבת'], [10, 'סיכום: מה ערכת בדיקה טובה חייבת להכיל']],
-    'בניית ערכות אימון ובדיקה צולבת בין קבוצות.',
-    'בלי מחשב: כרטיסי ציור וטבלת רישום ניחושים על נייר, עם ספירת טעויות ידנית.',
-    ['כרטיסי ציור', 'טבלאות רישום'],
-    ['למה בודקים על דוגמאות חדשות?', 'איך נראית ערכת אימון גרועה?']),
-  lesson('middle', 2, 'image-recognition', 'זיהוי תמונות ורשתות עצביות',
-    ['לתאר בשכבות איך רשת מזהה תמונה מקצוות לצורות לאובייקט', 'להסביר טעות זיהוי אחת ולתקן בדוגמאות'],
-    [[5, 'פתיחה: מזהים תמונה שמתגלה שכבה אחרי שכבה'], [12, 'הסבר: שכבות של מאפיינים - קווים, צורות, חלקים, וציון ביטחון'], [18, 'פעילות: צוות אחד בונה רמזי שכבות והשני מנחש, ואז מנתחים טעות'], [10, 'סיכום: ביטחון גבוה הוא לא הוכחה לנכונות']],
-    'משחק שכבות רמזים וניתוח טעויות בזוגות צוותים.',
-    'בלי מחשב: תמונות מודפסות בחיתוכים הולכים וגדלים, ורישום שלב הניחוש הנכון.',
-    ['תמונות מודפסות בשכבות'],
-    ['מה רואה השכבה הראשונה של רשת?', 'למה ביטחון גבוה עדיין יכול לטעות?']),
-  lesson('middle', 3, 'llm-chatbots', 'מודלי שפה וצ׳אטבוטים',
-    ['להסביר חיזוי המילה הבאה והקשרה בשפה פשוטה', 'לזהות הזיה של מודל ולהצליב עם מקור נוסף'],
-    [[5, 'פתיחה: מנחשים את המילה הבאה במשפטים ורואים כמה אפשרויות סבירות יש'], [12, 'הסבר: אימון על המון טקסט, חיזוי הסתברותי, ולמה נוצרות הזיות'], [18, 'פעילות: מחבר שרשרת - ממשיכים טקסט כמו מודל, ואז בודקים עובדה אחת שהמציא'], [10, 'סיכום: כלל אצבע - מודל הוא מקור ראשון, לא מקור אחרון']],
-    'המשכת טקסט כמו מודל ובדיקת עובדות מומצאות.',
-    'בלי מחשב: משחק חיזוי מילה הבאה על לוח, עם הצבעה על ההמשך הסביר ביותר.',
-    ['לוח', 'דפי טקסט קצרים'],
-    ['מה המודל באמת עושה כשהוא עונה?', 'איך תפסנו הזיה אחת היום?']),
-  lesson('middle', 4, 'prompting-verify', 'הנחיות יעילות ובדיקת תשובות',
-    ['לנסח הנחיה עם מטרה, הקשר, פורמט ודוגמה', 'לאמת תשובת מודל בשני מקורות בלתי תלויים'],
-    [[5, 'פתיחה: אותה שאלה בשתי ניסוחים ותוצאות שונות לגמרי'], [12, 'הסבר: מבנה הנחיה טובה - תפקיד, משימה, אילוצים, פורמט פלט'], [18, 'פעילות: משפרים הנחיות חלשות על כרטיסים ומשווים תשובות אנושיות לתשובות מודל בדמיון'], [10, 'סיכום: רשימת בדיקת אימות לפני שמשתמשים בתשובה']],
-    'סדנת שיפור הנחיות על כרטיסים בזוגות.',
-    'בלי מחשב: בן זוג משחק מודל צייתן ופשוטו כמשמעו - הנחיה מעורפלת נכשלת מיד.',
-    ['כרטיסי הנחיות'],
-    ['איזה חלק בהנחיה שינה הכי הרבה?', 'מהי בדיקת האימות הראשונה שלכם?']),
-  lesson('middle', 5, 'data-bias', 'נתונים, הטיה והוגנות',
-    ['להסביר הטיית נתונים, הטיית תוויות ומדידת פער בין קבוצות', 'להציע תיקון אחד לנתונים ואחד לבדיקה'],
-    [[5, 'פתיחה: מודל שלמד רק מקבוצה אחת נבחן על אחרת - צופים בפער'], [12, 'הסבר: מאיפה הטיה נכנסת - איסוף, תיוג, ומי חסר בנתונים'], [18, 'פעילות: חוקרים טבלת תוצאות קטנה, מוצאים פער ומציעים תיקון'], [10, 'סיכום: הוגנות נמדדת בתוצאות לפי קבוצות, לא בכוונות']],
-    'חקירת טבלת תוצאות וכתיבת המלצת תיקון.',
-    'בלי מחשב: טבלה מודפסת וספירת תאים ידנית בשני צבעים.',
-    ['טבלאות מודפסות', 'טושים בשני צבעים'],
-    ['איפה נכנסה ההטיה בדוגמה?', 'איך הייתם מודדים שהתיקון עבד?']),
-  lesson('middle', 6, 'deepfakes-verify', 'זיופים עמוקים ואימות מידע',
-    ['לזהות סימני זיוף בתמונה, בקול ובסרטון', 'ליישם בדיקת מקור, הקשר ואישוש צולב'],
-    [[5, 'פתיחה: שתי כותרות מפתיעות - מה בודקים לפני שמשתפים'], [12, 'הסבר: איך נוצר זיוף עמוק ולמה העין כבר לא מספיקה'], [18, 'פעילות: תחנות אימות - כל קבוצה מאמתת פריט אחר ומדווחת ודאות ורמזים'], [10, 'סיכום: שיתוף הוא פעולה - עוצרים כשלא בטוחים']],
-    'תחנות אימות בקבוצות עם דיווח ודאות מנומק.',
-    'בלי מחשב: פריטים מודפסים בלבד - בודקים מקור, תאריך והקשר על הנייר.',
-    ['פריטים מודפסים לאימות'],
-    ['מהו סימן הזיוף הכי אמין שמצאתם?', 'מתי נכון לא לשתף גם אם זה נראה אמיתי?']),
-  lesson('middle', 7, 'privacy-safety', 'פרטיות ובטיחות בעידן הבינה המלאכותית',
-    ['למפות אילו נתונים שירות אוסף ולמה', 'לנסח מדיניות אישית: מה לא מזינים למודל לעולם'],
-    [[5, 'פתיחה: מה מודל יכול לזכור משיחה אחת תמימה'], [12, 'הסבר: הזנת נתונים לאימון, הרשאות, ומחיקה - מה בשליטתנו ומה לא'], [18, 'פעילות: בונים תווית פרטיות לשירות דמיוני - אוסף, שומר, משתף, מוחק'], [10, 'סיכום: שלושה קווים אדומים אישיים שכל אחד כותב לעצמו']],
-    'בניית תווית פרטיות לשירות דמיוני בקבוצות.',
-    'בלי מחשב: כרטיסי תרחישים - ממיינים מה מזינים ומה לא, ומנמקים.',
-    ['כרטיסי תרחישים', 'דפי תווית'],
-    ['מה לא תזינו למודל לעולם?', 'איך יודעים אם שירות מוחק באמת?']),
-  lesson('middle', 8, 'ai-creativity', 'בינה מלאכותית ויצירה',
-    ['להבחין בין יצירה, עריכה וייצור המוני בעזרת מודל', 'להפיק יצירה עם קרדיט הוגן לתהליך'],
-    [[5, 'פתיחה: מי חתום על יצירה שהמודל הציע ואדם ערך'], [12, 'הסבר: מודלים יוצרים מהמשכים סטטיסטיים של יצירות קודמות - וזכויות וקרדיט'], [18, 'פעילות: יוצרים סיפור או כרזה עם שלבי הצעה, בחירה ועריכה מתועדים'], [10, 'סיכום: מתי שימוש במודל פוגע בלמידה שלנו']],
-    'יצירה מתועדת-שלבים בזוגות: הצעה, בחירה, עריכה.',
-    'בלי מחשב: מגזין גזירי משפטים - מרכיבים סיפור מגזרים כמו מודל ובוחרים עריכה.',
-    ['גזירי משפטים מודפסים', 'דפים וצבעים'],
-    ['מי היוצר כשמודל מציע ואדם בוחר?', 'איך נותנים קרדיט הוגן?']),
-  lesson('middle', 9, 'ai-society-work', 'בינה מלאכותית, עבודה וחברה',
-    ['למפות מטלות במקצוע שמודל משנה ומטלות שנשארות אנושיות', 'לטעון בעד ונגד אוטומציה של מטלה אחת'],
-    [[5, 'פתיחה: מקצוע אחד על הלוח - אילו מטלות שלו משתנות'], [12, 'הסבר: אוטומציה של מטלות, לא של מקצועות שלמים, ומקצועות חדשים שנוצרים'], [18, 'פעילות: דיבייט קצר - כל קבוצה טוענת צד אחר על מטלה שבחרה'], [10, 'סיכום: מיומנות אנושית אחת להשקיע בה']],
-    'דיבייט מטלות בקבוצות עם שופטי כיתה.',
-    'בלי מחשב: כרטיסי מטלות מקצוע על נייר - ממיינים למשתנה, נשאר, וחדש.',
-    ['כרטיסי מטלות'],
-    ['מטלה שהשתנתה, או מקצוע שלם?', 'באיזו מיומנות אנושית תשקיעו?']),
-  lesson('middle', 10, 'ethics-responsibility', 'אתיקה: מי אחראי כשהמכונה טועה',
-    ['לנתח תרחיש נזק: מפתח, מפעיל, משתמש ונתונים', 'לנסח כלל אחריות אחד למערכת בית-ספרית'],
-    [[5, 'פתיחה: תרחיש קצר - מודל טעה ומישהו נפגע, מי אשם'], [12, 'הסבר: אחריות מבוזרת, פיקוח אנושי, וזכות ערעור על החלטת מכונה'], [18, 'פעילות: בית דין כיתתי - טוענים תפקידים שונים על אותו תרחיש'], [10, 'סיכום: כלל זהב - החלטה חשובה תמיד עם אדם אחראי וערעור']],
-    'בית דין כיתתי על תרחיש נזק.',
-    'בלי מחשב: כרטיסי תפקידים ותרחיש מודפס, בלי מסכים.',
-    ['כרטיסי תפקידים', 'תרחיש מודפס'],
-    ['מי אחראי כשהמודל טועה?', 'מהו כלל האחריות שלכם?']),
-  lesson('middle', 11, 'mini-project', 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית',
-    ['להגדיר בעיה, קהל ונתונים לפרויקט צוותי', 'להציג סיכונים, הוגנות ובדיקת אימות בתוכנית'],
-    [[5, 'פתיחה: בוחרים בעיה אמיתית מבית הספר או מהשכונה'], [15, 'תכנון: בעיה, קהל, אילו נתונים צריך, ואיך נאמן ונבדוק'], [15, 'בניית מצגת או כרזה: פתרון, סיכוני הוגנות ופרטיות, ותוכנית אימות'], [10, 'הצגות ושאלות - כל צוות מקבל שאלת אתיקה אחת']],
-    'תכנון ובניית מצגת פרויקט בצוותים.',
-    'בלי מחשב: כל הפרויקט ככרזה על נייר, כולל תוכנית הנתונים והאימות.',
-    ['דפים גדולים', 'טושים'],
-    ['איזו בעיה הפרויקט פותר ולמי?', 'מהו הסיכון הכי גדול בתוכנית שלכם?'])
-]);
-
-const BY_TRACK = Object.freeze({ elementary: ELEMENTARY, middle: MIDDLE });
-const ALL_LESSONS = Object.freeze(ELEMENTARY.concat(MIDDLE));
-
-function assertTrack(track) {
-  if (TRACKS.indexOf(track) === -1) throw new Error('invalid track: expected elementary or middle');
-  return track;
-}
-function trackForGrade(grade) {
-  if (!Number.isInteger(grade)) throw new Error('invalid grade: expected an integer 3..9');
-  if (grade >= 3 && grade <= 6) return 'elementary';
-  if (grade >= 7 && grade <= 9) return 'middle';
-  throw new Error('invalid grade: expected an integer 3..9');
-}
-function lessonsForTrack(track) { return BY_TRACK[assertTrack(track)]; }
-function getLesson(track, index) {
-  const list = lessonsForTrack(track);
-  if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error('invalid lesson index for track ' + track);
-  return list[index];
-}
-function lessonById(id) {
-  const found = ALL_LESSONS.find((l) => l.id === id);
-  if (!found) throw new Error('unknown lesson id');
-  return found;
-}
-function flowMinutes(lesson) { return lesson.flowHe.reduce((sum, f) => sum + f.minutes, 0); }
-
-// The 45-minute flow as timeline steps for the lesson screen: a short title, the
-// duration and the body of each step. Steps are written "title: body"; a step
-// without that prefix keeps its whole text as the body under a numbered title.
-function flowTimeline(lesson) {
-  if (!lesson || !Array.isArray(lesson.flowHe) || lesson.flowHe.length === 0) {
-    throw new Error('invalid lesson: flowHe');
-  }
-  return Object.freeze(lesson.flowHe.map((f, i) => {
-    if (!f || !Number.isInteger(f.minutes) || f.minutes <= 0 || typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
-      throw new Error('invalid lesson: flowHe');
-    }
-    const cut = f.stepHe.indexOf(': ');
-    const hasTitle = cut > 0 && cut <= 28;
-    return Object.freeze({
-      minutes: f.minutes,
-      titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
-      bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
-    });
-  }));
-}
-
-function resolveTrack(trackByPair, pairIndex) {
-  let track;
-  if (typeof trackByPair === 'function') track = trackByPair(pairIndex);
-  else if (trackByPair && typeof trackByPair === 'object') track = trackByPair[pairIndex];
-  if (track === undefined || track === null) throw new Error('missing track for pair ' + pairIndex);
-  return assertTrack(track);
-}
-function sessionOrderKey(s) {
-  return [Number.isInteger(s.week) ? s.week : 0, typeof s.slot === 'string' ? s.slot : '', typeof s.date === 'string' ? s.date : ''];
-}
-// Each session gets the next lesson of its group's track, in session order within the group.
-// More sessions than lessons start a new cycle (cycle 2 repeats the track from lesson 1).
-function assignLessons(sessions, trackByPair) {
-  const list = Array.isArray(sessions) ? sessions : [];
-  list.forEach((s) => { if (!s || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) throw new Error('invalid session: pairIndex'); });
-  const byPair = new Map();
-  list.forEach((s, i) => { if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, []); byPair.get(s.pairIndex).push(i); });
-  const out = new Array(list.length);
-  byPair.forEach((indexes, pairIndex) => {
-    const track = resolveTrack(trackByPair, pairIndex);
-    const lessons = lessonsForTrack(track);
-    const ordered = indexes.slice().sort((a, b) => {
-      const ka = sessionOrderKey(list[a]); const kb = sessionOrderKey(list[b]);
-      for (let k = 0; k < ka.length; k += 1) { if (ka[k] < kb[k]) return -1; if (ka[k] > kb[k]) return 1; }
-      return a - b;
-    });
-    ordered.forEach((sessionIdx, pos) => {
-      const lessonIndex = pos % lessons.length;
-      out[sessionIdx] = Object.freeze(Object.assign({}, list[sessionIdx], {
-        track, sessionIndex: pos, cycle: Math.floor(pos / lessons.length) + 1,
-        lessonIndex, lessonId: lessons[lessonIndex].id, titleKey: lessons[lessonIndex].titleKey
-      }));
-    });
-  });
-  return Object.freeze(out);
-}
-function todayLesson(assigned, pairIndex, delivered) {
-  const rows = (Array.isArray(assigned) ? assigned : []).filter((s) => s && s.pairIndex === pairIndex);
-  if (rows.length === 0) return null;
-  const done = delivered instanceof Set ? delivered : new Set(Array.isArray(delivered) ? delivered : []);
-  const next = rows.find((s) => !done.has(deliveryKey(s)));
-  const pick = next || rows[rows.length - 1];
-  return Object.freeze({ pairIndex, lesson: lessonById(pick.lessonId), assigned: pick, delivered: !next });
-}
-function makeDeliveryLog() { return Object.freeze({ delivered: Object.freeze([]) }); }
-function deliveryKeyOf(pairIndex, lessonId, cycle) { return pairIndex + '|' + lessonId + '|' + (Number.isInteger(cycle) ? cycle : 1); }
-function deliveryKey(session) { return deliveryKeyOf(session.pairIndex, session.lessonId, session.cycle); }
-function assertLog(log) { if (!log || !Array.isArray(log.delivered)) throw new Error('invalid delivery log'); }
-function setDelivered(log, input, delivered) {
-  assertLog(log); const o = input || {};
-  if (!Number.isInteger(o.pairIndex) || o.pairIndex < 0) throw new Error('invalid delivery: pairIndex');
-  lessonById(o.lessonId);
-  const key = deliveryKeyOf(o.pairIndex, o.lessonId, o.cycle);
-  const has = log.delivered.indexOf(key) !== -1;
-  const want = delivered !== false;
-  if (has === want) return log;
-  const next = want ? log.delivered.concat([key]).sort() : log.delivered.filter((k) => k !== key);
-  return Object.freeze({ delivered: Object.freeze(next) });
-}
-function isDelivered(log, input) { assertLog(log); const o = input || {}; return log.delivered.indexOf(deliveryKeyOf(o.pairIndex, o.lessonId, o.cycle)) !== -1; }
-function lessonProgress(assigned, log) {
-  assertLog(log);
-  const byPair = new Map();
-  (Array.isArray(assigned) ? assigned : []).forEach((s) => {
-    if (!s) return;
-    if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, { pairIndex: s.pairIndex, track: s.track, total: 0, delivered: 0, nextLessonId: null });
-    const row = byPair.get(s.pairIndex); row.total += 1;
-    if (log.delivered.indexOf(deliveryKey(s)) !== -1) row.delivered += 1;
-    else if (row.nextLessonId === null) row.nextLessonId = s.lessonId;
-  });
-  const rows = Array.from(byPair.values()).sort((a, b) => a.pairIndex - b.pairIndex)
-    .map((r) => Object.freeze(Object.assign({}, r, { percent: r.total === 0 ? null : Math.round((r.delivered / r.total) * 1000) / 1000 })));
-  const total = rows.reduce((n, r) => n + r.total, 0); const delivered = rows.reduce((n, r) => n + r.delivered, 0);
-  return Object.freeze({ byPair: Object.freeze(rows), total, delivered, percent: total === 0 ? null : Math.round((delivered / total) * 1000) / 1000 });
-}
-function progressToCsv(progress) {
-  const lines = ['pair,track,total,delivered,percent,next_lesson'];
-  (progress && Array.isArray(progress.byPair) ? progress.byPair : []).forEach((r) => {
-    lines.push(r.pairIndex + ',' + r.track + ',' + r.total + ',' + r.delivered + ',' + (r.percent === null ? '' : r.percent) + ',' + (r.nextLessonId || ''));
-  });
-  return lines.join('\n') + '\n';
-}
-
-module.exports = {
-  TRACKS, TRACK_GRADES, ALL_LESSONS,
-  lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
-  assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, lessonProgress, progressToCsv
-};
-  __registry["curriculum"] = module.exports;
 })();
 
 /* ===== src/lib/validator.js ===== */
@@ -3978,6 +4454,152 @@ function makeResponseToReport(input) {
   return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
+const PILOT_ROLES = Object.freeze(['student', 'pupil']);
+const PILOT_REGIONS = Object.freeze(['NORTH', 'HAIFA', 'CENTER', 'TEL_AVIV', 'JERUSALEM', 'SOUTH']);
+const PILOT_AI_TOPICS = Object.freeze(['AI_LIT_PROMPT', 'AI_CREATIVE', 'AI_STEM_CODE', 'AI_ETHICS_SEC']);
+
+const PII_KEY_RE = /(?:name|email|mail|phone|tel|mobile|id_?number|tz|zehut|address)/i;
+const EMAIL_CHECK_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/i;
+const PHONE_CHECK_RE = /(?:(?:\+|00)?972[-\s.]?\(?0?|\(?0)(?:5\d|7[2-9]|[23489])\)?[-\s.–—]?(?:\d{3}[-\s.–—]?\d{4}|\d{3}[-\s.–—]?\d{2}[-\s.–—]?\d{2}|\d{2}[-\s.–—]?\d{2}[-\s.–—]?\d{3})/i;
+const ID_CHECK_RE = /(?<!\d)(?:\d{9}|\d{8}[-–]\d|\d{3}-\d{3}-\d{3})(?!\d)/i;
+
+function hasPiiKey(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  const keys = Object.keys(obj);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (PII_KEY_RE.test(keys[i])) return true;
+  }
+  return false;
+}
+
+function hasPiiString(val) {
+  if (typeof val !== 'string') return false;
+  const hits = findPersonalData(val);
+  for (let i = 0; i < hits.length; i += 1) {
+    if (hits[i].kind !== 'profanity') return true;
+  }
+  if (EMAIL_CHECK_RE.test(val)) return true;
+  if (PHONE_CHECK_RE.test(val)) return true;
+  if (ID_CHECK_RE.test(val)) return true;
+  return false;
+}
+
+function checkDeepPii(val) {
+  if (val === null || val === undefined) return false;
+  if (typeof val === 'string') return hasPiiString(val);
+  if (Array.isArray(val)) {
+    for (let i = 0; i < val.length; i += 1) {
+      if (checkDeepPii(val[i])) return true;
+    }
+    return false;
+  }
+  if (typeof val === 'object') {
+    if (hasPiiKey(val)) return true;
+    const keys = Object.keys(val);
+    for (let j = 0; j < keys.length; j += 1) {
+      if (checkDeepPii(val[keys[j]])) return true;
+    }
+  }
+  return false;
+}
+
+function cleanBatchAiTopics(rawTopics) {
+  const topics = Array.isArray(rawTopics) ? rawTopics : [];
+  const out = [];
+  for (let i = 0; i < topics.length; i += 1) {
+    const t = topics[i];
+    if (typeof t === 'string') {
+      const norm = t.trim().toUpperCase();
+      if (PILOT_AI_TOPICS.indexOf(norm) !== -1 && out.indexOf(norm) === -1) {
+        out.push(norm);
+      }
+    }
+  }
+  return out;
+}
+
+function validateBatchImportZeroPii(rawRecords) {
+  if (!Array.isArray(rawRecords)) {
+    return {
+      accepted: Object.freeze([]),
+      rejectedCount: 0,
+      reasons: Object.freeze(['expected rawRecords to be an array'])
+    };
+  }
+
+  const accepted = [];
+  let rejectedCount = 0;
+  const reasons = [];
+
+  for (let i = 0; i < rawRecords.length; i += 1) {
+    const rec = rawRecords[i];
+    if (rec === null || typeof rec !== 'object' || Array.isArray(rec)) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: not an object`);
+      continue;
+    }
+
+    if (checkDeepPii(rec)) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: contains PII`);
+      continue;
+    }
+
+    const role = typeof rec.role === 'string' ? rec.role.trim().toLowerCase() : '';
+    if (PILOT_ROLES.indexOf(role) === -1) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: invalid role`);
+      continue;
+    }
+
+    const rawArea = rec.area !== undefined ? rec.area : rec.region;
+    const area = typeof rawArea === 'string' ? rawArea.trim().toUpperCase() : '';
+    if (PILOT_REGIONS.indexOf(area) === -1) {
+      rejectedCount += 1;
+      reasons.push(`record at index ${i} rejected: invalid area`);
+      continue;
+    }
+
+    const rawTopics = rec.target_ai_topics !== undefined ? rec.target_ai_topics : rec.aiTopics;
+    const cleanedTopics = cleanBatchAiTopics(rawTopics);
+
+    const validRec = {
+      role: role,
+      area: area,
+      region: area,
+      target_ai_topics: Object.freeze(cleanedTopics)
+    };
+
+    if (Array.isArray(rec.availability) && rec.availability.length > 0) {
+      validRec.availability = rec.availability.slice();
+    } else {
+      validRec.availability = ['SUN_16'];
+    }
+
+    if (Array.isArray(rec.subjects) && rec.subjects.length > 0) {
+      validRec.subjects = rec.subjects.slice();
+    } else {
+      validRec.subjects = ['MATH'];
+    }
+
+    if (role === 'pupil') {
+      validRec.parentConsent = rec.parentConsent !== undefined ? Boolean(rec.parentConsent) : true;
+    }
+
+    if (rec.aiLevel === 'beginner' || rec.aiLevel === 'advanced') {
+      validRec.aiLevel = rec.aiLevel;
+    }
+
+    accepted.push(Object.freeze(validRec));
+  }
+
+  return {
+    accepted: Object.freeze(accepted),
+    rejectedCount: rejectedCount,
+    reasons: Object.freeze(reasons)
+  };
+}
+
 module.exports = {
   PATTERNS: PATTERNS,
   PROFANITY: PROFANITY,
@@ -3997,9 +4619,515 @@ module.exports = {
   makeReportEvent: makeReportEvent,
   RESPONSE_TO_REPORT_FIELDS: RESPONSE_TO_REPORT_FIELDS,
   RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH,
-  makeResponseToReport: makeResponseToReport
+  makeResponseToReport: makeResponseToReport,
+  validateBatchImportZeroPii: validateBatchImportZeroPii
 };
   __registry["validator"] = module.exports;
+})();
+
+/* ===== src/lib/curriculum.js ===== */
+(function () {
+  var module = { exports: {} };
+  var exports = module.exports;
+'use strict';
+// PeerEd - lesson content: engineering students (mentors) teach children AI (stage 10).
+// Two tracks, about 12 lessons each, 45 minutes a lesson. Hebrew first; every lesson title
+// also has an i18n key (cur.*) translated in lang-he/lang-ar/lang-ru for ar/ru. Content only:
+// no child personal data, no network, no clock, no randomness. A group's track is passed in
+// by the caller (trackByPair); the module never invents a track for a group it does not know.
+
+const { assertCleanText } = require('./validator.js');
+const { AI_TOPIC_KEYS } = require('./attendance.js');
+
+const TRACKS = Object.freeze(['elementary', 'middle']);
+const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
+const LESSON_MINUTES = 45;
+
+function lesson(track, index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe) {
+  return Object.freeze({
+    id: track + '-' + slug, track, index,
+    titleKey: 'cur.' + track + '.' + slug, titleHe,
+    goalsHe: Object.freeze(goalsHe.slice()),
+    flowHe: Object.freeze(flowHe.map((f) => Object.freeze({ minutes: f[0], stepHe: f[1] }))),
+    activityHe, unpluggedHe,
+    materialsHe: Object.freeze(materialsHe.slice()),
+    wrapUpHe: Object.freeze(wrapUpHe.slice())
+  });
+}
+
+const ELEMENTARY = Object.freeze([
+  lesson('elementary', 0, 'what-is-ai', 'מה זו בינה מלאכותית?',
+    ['להבחין בין מכונה רגילה למכונה שלומדת', 'לתת דוגמה אחת של בינה מלאכותית מהבית'],
+    [[5, 'פתיחה: מציגים שני חפצים ושואלים מה ההבדל בין מנורה למצלמה שמזהה פנים'], [10, 'הסבר קצר עם כרטיסיות: מכונה פועלת לפי הוראות, מכונה לומדת מדוגמאות'], [20, 'פעילות: משחק מיון - התלמידים ממיינים כרטיסיות למשימה שמכונה יודעת ולמשימה שלא'], [10, 'סיכום ושאלות הבנה בזוגות']],
+    'משחק מיון כרטיסיות: כל זוג ממיין משימות ומנמק בקול.',
+    'בלי מחשב: התלמידים הם המכונה - אחד נותן הוראות מדויקות והשני מבצע בדיוק, ומגלים למה הוראות מעורפלות נכשלות.',
+    ['כרטיסיות משימות', 'לוח וטוש'],
+    ['מה ההבדל בין הוראה לדוגמה?', 'איזו משימה הייתם מלמדים מכונה קודם?']),
+  lesson('elementary', 1, 'learn-examples', 'למידה מדוגמאות',
+    ['להבין שמכונה לומדת מהרבה דוגמאות', 'להבחין בין דוגמה טובה לרועשת'],
+    [[5, 'פתיחה: מראים תמונה אחת של חתול ושואלים אם מספיקה דוגמה אחת'], [10, 'הסבר: מלמדים מכונה עם עשר דוגמאות ומסבירים למה צריך הרבה'], [20, 'פעילות: מאמנים בן זוג - מראים כרטיסי צורות והוא מנחש את הכלל'], [10, 'סיכום: מה קורה כשכל הדוגמאות דומות מדי']],
+    'אימון בזוגות: מדריך כרטיסים מלמד כלל סודי ובן הזוג מנחש, ואז מחליפים תפקידים.',
+    'אותה פעילות בכרטיסי נייר בלבד, בלי מסך: הכלל הסודי כתוב על פתק מקופל.',
+    ['כרטיסי צורות', 'פתקי כלל'],
+    ['למה דוגמה אחת לא מספיקה?', 'מהי דוגמה שמבלבלת מכונה?']),
+  lesson('elementary', 2, 'image-recognition', 'זיהוי תמונות ודפוסים',
+    ['להבין איך מכונה מזהה תמונה לפי חלקים ודפוסים', 'להסביר למה זיהוי לפעמים טועה'],
+    [[5, 'פתיחה: מנחשים חפץ מתמונה חתוכה לחלקים'], [10, 'הסבר: מכונה מחפשת קצוות, צורות וצבעים ואז מנחשת'], [20, 'פעילות: מציירים אותה חיה בסגנונות שונים ובודקים אם הכיתה מזהה'], [10, 'סיכום: מתי הזיהוי נכשל - חושך, הסתרה, זווית מוזרה']],
+    'ציור ובדיקה: כל תלמיד מצייר חיה והכיתה מנחשת, עם רמזים מהחלקים.',
+    'בלי מחשב: משחק עשרים שאלות על תמונה מוסתרת - שואלים רק על חלקים ודפוסים.',
+    ['דפי ציור', 'תמונות חתוכות מודפסות'],
+    ['איך מכונה יודעת שזה חתול?', 'מתי גם אנחנו טועים בזיהוי?']),
+  lesson('elementary', 3, 'chatbots', 'צ׳אטבוטים ושיחה עם מכונה',
+    ['להבין שצ׳אטבוט בונה תשובה ממילים ולא חושב כמו אדם', 'לנסח שאלה ברורה למכונה'],
+    [[5, 'פתיחה: קוראים שיחה מצחיקה עם מכונה ושואלים מה חסר בה'], [10, 'הסבר: המכונה משלימה את המילה הבאה הסבירה, בלי להבין באמת'], [20, 'פעילות: משחק השלמת משפטים שרשרת - בונים סיפור מילה אחרי מילה כמו מכונה'], [10, 'סיכום: למה תשובת מכונה יכולה להישמע בטוחה וגם לטעות']],
+    'סיפור שרשרת: כל תלמיד מוסיף מילה אחת סבירה, ומקבלים סיפור מפתיע.',
+    'בלי מחשב: אחד משחק מכונה ועונה רק מהשלמת המילה הסבירה, והשאר מנסים לבלבל אותו בנימוס.',
+    ['כרטיסי משפט פתיחה'],
+    ['האם המכונה מבינה את הסיפור?', 'איך נשאל שאלה שהמכונה תענה עליה טוב?']),
+  lesson('elementary', 4, 'data-bias', 'נתונים והוגנות',
+    ['להבין שמכונה לומדת ממה שמראים לה', 'לזהות אימון לא הוגן שמפספס קבוצה שלמה'],
+    [[5, 'פתיחה: מלמדים כלל רק מדוגמאות של ילדים ושואלים מה עם מבוגרים'], [10, 'הסבר: אם הדוגמאות חד-צדדיות, המכונה תטעה על מי שלא הראה לה'], [20, 'פעילות: בונים ערכת אימון הוגנת ולא הוגנת לציור דמויות ומשווים תוצאות ניחוש'], [10, 'סיכום: הוגנות מתחילה במי שמראים למכונה']],
+    'בניית ערכות: שתי קבוצות בונות דוגמאות שונות ובודקות זו את זו.',
+    'בלי מחשב: קופסת דוגמאות מנייר - מוציאים דוגמאות חד-צדדיות ורואים את הניחוש מוטה.',
+    ['כרטיסי דמויות', 'שתי קופסאות'],
+    ['למי המכונה תטעה אם לא הראו לה אותו?', 'איך עושים אימון הוגן יותר?']),
+  lesson('elementary', 5, 'safety-privacy', 'בטיחות ופרטיות',
+    ['לזהות מה לא משתפים עם מכונה או ברשת', 'לנסח כלל בטיחות אחד למשפחה'],
+    [[5, 'פתיחה: ממיינים כרטיסי מידע למה שמותר ומה שאסור לשתף'], [10, 'הסבר: מכונה שומרת מה שכותבים לה, ולכן לא כותבים פרטים אישיים'], [20, 'פעילות: בונים שלט כללי בטיחות לכיתה עם ציורים'], [10, 'סיכום ובחירת הכלל החשוב ביותר בהצבעה']],
+    'מיון כרטיסים ובניית שלט כיתתי משותף.',
+    'בלי מחשב: משחק תפקידים - מה עונים למכונה ששואלת שאלה אישית מדי.',
+    ['כרטיסי מידע', 'דף גדול וטושים'],
+    ['מה לעולם לא נכתוב למכונה?', 'למי מספרים אם משהו מרגיש לא בטוח?']),
+  lesson('elementary', 6, 'creative-ai', 'יצירה עם בינה מלאכותית',
+    ['להבין שמכונה יכולה לעזור ליצור אבל הרעיון שלנו', 'לבנות יצירה משותפת אדם ומכונה בדמיון'],
+    [[5, 'פתיחה: משלימים ציור חצי גמור של חבר ושואלים מי היוצר'], [10, 'הסבר: מכונה מציעה המשכים, והאדם בוחר ועורך'], [20, 'פעילות: סיפור מאויר בזוגות - אחד מציע שלושה המשכים והשני בוחר וממשיך'], [10, 'סיכום: למה הבחירה האנושית היא היצירה']],
+    'סיפור מאויר בזוגות עם בחירת המשכים.',
+    'בלי מחשב: קוביית רעיונות - מטילים ובונים המשך לסיפור לפי הפאה שיצאה.',
+    ['דפים', 'צבעים', 'קובייה'],
+    ['מי יצר את הסיפור, המציע או הבוחר?', 'מתי עזרת מכונה היא כבר לא היצירה שלי?']),
+  lesson('elementary', 7, 'good-questions', 'שאלות טובות למכונה',
+    ['לנסח בקשה ברורה עם פרטים חשובים', 'לשפר בקשה מעורפלת בשני צעדים'],
+    [[5, 'פתיחה: מבצעים הוראה מעורפלת וצוחקים מהתוצאה'], [10, 'הסבר: בקשה טובה אומרת מה, למי, באיזה אורך ובאיזה סגנון'], [20, 'פעילות: מתקנים בקשות מעורפלות על כרטיסים עד שהכיתה מבינה בדיוק'], [10, 'סיכום: בודקים בקשה מתוקנת על בן זוג אנושי']],
+    'תיקון בקשות על כרטיסים בזוגות.',
+    'בלי מחשב: משחק ההוראות המדויקות - מציירים לפי הוראות של חבר בלי לראות את המקור.',
+    ['כרטיסי בקשות מעורפלות'],
+    ['מה הופך שאלה לברורה?', 'איזה פרט הכי חשוב להוסיף ראשון?']),
+  lesson('elementary', 8, 'ai-at-home', 'בינה מלאכותית בבית ובבית הספר',
+    ['לזהות בינה מלאכותית במכשירים יומיומיים', 'להחליט מתי עזרת מכונה מתאימה ומתי לא'],
+    [[5, 'פתיחה: סופרים כמה מכונות חכמות פגשנו מהבוקר'], [10, 'הסבר: המלצות, ניווט, תרגום ועוזרות קוליות - כולן מנחשות מדוגמאות'], [20, 'פעילות: מצביעים בכרטיסים על מצבים - מכונה עוזרת או עדיף לבד, ומנמקים'], [10, 'סיכום: שיעורי בית ולמידה - מה נשאר שלנו']],
+    'הצבעת מצבים עם כרטיסי כן ולא ונימוקים.',
+    'בלי מחשב: ציד חפצים חכמים בציור של בית - מסמנים ומסבירים מה כל אחד מנחש.',
+    ['כרטיסי הצבעה', 'ציור בית'],
+    ['איפה מכונה עוזרת לכם הכי הרבה?', 'מה תמיד תעשו בעצמכם?']),
+  lesson('elementary', 9, 'robots-sensors', 'חיישנים ורובוטים חכמים',
+    ['להבין שרובוט חש בעזרת חיישנים ומחליט לפי כללים ולמידה', 'לתאר מסלול החלטה של רובוט'],
+    [[5, 'פתיחה: צועדים בעיניים עצומות לפי הוראות ושואלים מה חסר'], [10, 'הסבר: חיישן הוא העין והאוזן של הרובוט, והמוח מחליט מה לעשות'], [20, 'פעילות: מנווטים חבר רובוט במסלול מכשולים בהוראות צעד וסיבוב'], [10, 'סיכום: מה רובוט עדיין לא יודע לעשות']],
+    'ניווט רובוט אנושי במסלול מכשולים בכיתה.',
+    'בלי מחשב: אותה פעילות היא הלא-מחוברת - רובוט הוא תלמיד, בלי שום מסך.',
+    ['כיסאות כמכשולים', 'סרט סימון'],
+    ['מהו חיישן?', 'איזו החלטה קשה לרובוט?']),
+  lesson('elementary', 10, 'truth-check', 'בודקים אם זה אמיתי',
+    ['לזהות תמונה או סיפור שמכונה המציאה', 'להשתמש בשתי בדיקות לפני שמאמינים'],
+    [[5, 'פתיחה: שתי תמונות, אחת מצוירת ואחת מומצאת, מנחשים איזו'], [10, 'הסבר: מכונות יכולות להמציא תמונות וסיפורים שנשמעים אמיתיים'], [20, 'פעילות: בלשי אמת - מחפשים שלושה רמזים חשודים בתמונות ובסיפורים קצרים'], [10, 'סיכום: שואלים מבוגר ובודקים במקום נוסף לפני שמשתפים']],
+    'בלשי אמת בקבוצות: מוצאים רמזים חשודים ומציגים לכיתה.',
+    'בלי מחשב: סיפורים מודפסים, אחד אמיתי ואחד מומצא, מחפשים רמזים בטקסט בלבד.',
+    ['תמונות מודפסות', 'סיפורים קצרים מודפסים'],
+    ['מהו רמז שמשהו מומצא?', 'מה עושים לפני שמשתפים תמונה מפתיעה?']),
+  lesson('elementary', 11, 'mini-project', 'מיני-פרויקט סיום: ממציאים עוזר חכם',
+    ['לתכנן עוזר חכם שפותר בעיה אמיתית', 'להציג מה העוזר לומד ומה הוא לא ישתף לעולם'],
+    [[5, 'פתיחה: נזכרים בכל השיעורים ובוחרים בעיה אחת מהכיתה'], [15, 'תכנון בזוגות: מציירים את העוזר, מה הוא חש, ומאילו דוגמאות ילמד'], [15, 'בניית כרזה: שם, ציור, שלושה כללי הוגנות ובטיחות'], [10, 'הצגות קצרות ושאלה אחת מכל זוג למציגים']],
+    'בניית כרזת עוזר חכם והצגה לכיתה.',
+    'בלי מחשב: כל הפרויקט על נייר - כרזה, ציור וכללים, בלי מסכים בכלל.',
+    ['דפים גדולים', 'טושים וצבעים'],
+    ['איזו בעיה העוזר שלכם פותר?', 'מאילו דוגמאות הוא ילמד כדי להיות הוגן?'])
+]);
+
+const MIDDLE = Object.freeze([
+  lesson('middle', 0, 'what-is-ai', 'מה זו בינה מלאכותית ולמידת מכונה',
+    ['להבחין בין תוכנה מבוססת כללים למודל שלמד מנתונים', 'לתאר מחזור אימון: נתונים, אימון, בדיקה'],
+    [[5, 'פתיחה: שני פתרונות לאותה בעיה - כללים ידניים מול למידה מדוגמאות'], [12, 'הסבר: מודל, נתוני אימון וטעות - איך מודל משתפר מהרבה ניסיונות'], [18, 'פעילות: ממיינים מערכות מוכרות לכללים או ללמידה ומנמקים'], [10, 'סיכום: מתי כללים עדיפים ומתי למידה']],
+    'מיון מערכות ונימוק בקבוצות, עם הגנה על בחירה אחת מול הכיתה.',
+    'בלי מחשב: בניית מסווג אנושי - כללים כתובים על לוח מול ניחוש מדוגמאות בכרטיסים.',
+    ['כרטיסי מערכות', 'לוח'],
+    ['מה ההבדל בין כלל למודל?', 'מתי לא הייתם סומכים על למידה?']),
+  lesson('middle', 1, 'training-data', 'למידה מדוגמאות ונתוני אימון',
+    ['להסביר אימון, אימות ובדיקה ומהי התאמת-יתר בפשטות', 'לבנות ערכת דוגמאות מאוזנת למשימה'],
+    [[5, 'פתיחה: מודל שנבחן על אותן שאלות שלמד - למה זה לא הוגן'], [12, 'הסבר: חלוקת נתונים לאימון ובדיקה, וטעויות משני הסוגים'], [18, 'פעילות: בונים ערכת אימון למסווג ציורים ומחליפים ערכות לבדיקה צולבת'], [10, 'סיכום: מה ערכת בדיקה טובה חייבת להכיל']],
+    'בניית ערכות אימון ובדיקה צולבת בין קבוצות.',
+    'בלי מחשב: כרטיסי ציור וטבלת רישום ניחושים על נייר, עם ספירת טעויות ידנית.',
+    ['כרטיסי ציור', 'טבלאות רישום'],
+    ['למה בודקים על דוגמאות חדשות?', 'איך נראית ערכת אימון גרועה?']),
+  lesson('middle', 2, 'image-recognition', 'זיהוי תמונות ורשתות עצביות',
+    ['לתאר בשכבות איך רשת מזהה תמונה מקצוות לצורות לאובייקט', 'להסביר טעות זיהוי אחת ולתקן בדוגמאות'],
+    [[5, 'פתיחה: מזהים תמונה שמתגלה שכבה אחרי שכבה'], [12, 'הסבר: שכבות של מאפיינים - קווים, צורות, חלקים, וציון ביטחון'], [18, 'פעילות: צוות אחד בונה רמזי שכבות והשני מנחש, ואז מנתחים טעות'], [10, 'סיכום: ביטחון גבוה הוא לא הוכחה לנכונות']],
+    'משחק שכבות רמזים וניתוח טעויות בזוגות צוותים.',
+    'בלי מחשב: תמונות מודפסות בחיתוכים הולכים וגדלים, ורישום שלב הניחוש הנכון.',
+    ['תמונות מודפסות בשכבות'],
+    ['מה רואה השכבה הראשונה של רשת?', 'למה ביטחון גבוה עדיין יכול לטעות?']),
+  lesson('middle', 3, 'llm-chatbots', 'מודלי שפה וצ׳אטבוטים',
+    ['להסביר חיזוי המילה הבאה והקשרה בשפה פשוטה', 'לזהות הזיה של מודל ולהצליב עם מקור נוסף'],
+    [[5, 'פתיחה: מנחשים את המילה הבאה במשפטים ורואים כמה אפשרויות סבירות יש'], [12, 'הסבר: אימון על המון טקסט, חיזוי הסתברותי, ולמה נוצרות הזיות'], [18, 'פעילות: מחבר שרשרת - ממשיכים טקסט כמו מודל, ואז בודקים עובדה אחת שהמציא'], [10, 'סיכום: כלל אצבע - מודל הוא מקור ראשון, לא מקור אחרון']],
+    'המשכת טקסט כמו מודל ובדיקת עובדות מומצאות.',
+    'בלי מחשב: משחק חיזוי מילה הבאה על לוח, עם הצבעה על ההמשך הסביר ביותר.',
+    ['לוח', 'דפי טקסט קצרים'],
+    ['מה המודל באמת עושה כשהוא עונה?', 'איך תפסנו הזיה אחת היום?']),
+  lesson('middle', 4, 'prompting-verify', 'הנחיות יעילות ובדיקת תשובות',
+    ['לנסח הנחיה עם מטרה, הקשר, פורמט ודוגמה', 'לאמת תשובת מודל בשני מקורות בלתי תלויים'],
+    [[5, 'פתיחה: אותה שאלה בשתי ניסוחים ותוצאות שונות לגמרי'], [12, 'הסבר: מבנה הנחיה טובה - תפקיד, משימה, אילוצים, פורמט פלט'], [18, 'פעילות: משפרים הנחיות חלשות על כרטיסים ומשווים תשובות אנושיות לתשובות מודל בדמיון'], [10, 'סיכום: רשימת בדיקת אימות לפני שמשתמשים בתשובה']],
+    'סדנת שיפור הנחיות על כרטיסים בזוגות.',
+    'בלי מחשב: בן זוג משחק מודל צייתן ופשוטו כמשמעו - הנחיה מעורפלת נכשלת מיד.',
+    ['כרטיסי הנחיות'],
+    ['איזה חלק בהנחיה שינה הכי הרבה?', 'מהי בדיקת האימות הראשונה שלכם?']),
+  lesson('middle', 5, 'data-bias', 'נתונים, הטיה והוגנות',
+    ['להסביר הטיית נתונים, הטיית תוויות ומדידת פער בין קבוצות', 'להציע תיקון אחד לנתונים ואחד לבדיקה'],
+    [[5, 'פתיחה: מודל שלמד רק מקבוצה אחת נבחן על אחרת - צופים בפער'], [12, 'הסבר: מאיפה הטיה נכנסת - איסוף, תיוג, ומי חסר בנתונים'], [18, 'פעילות: חוקרים טבלת תוצאות קטנה, מוצאים פער ומציעים תיקון'], [10, 'סיכום: הוגנות נמדדת בתוצאות לפי קבוצות, לא בכוונות']],
+    'חקירת טבלת תוצאות וכתיבת המלצת תיקון.',
+    'בלי מחשב: טבלה מודפסת וספירת תאים ידנית בשני צבעים.',
+    ['טבלאות מודפסות', 'טושים בשני צבעים'],
+    ['איפה נכנסה ההטיה בדוגמה?', 'איך הייתם מודדים שהתיקון עבד?']),
+  lesson('middle', 6, 'deepfakes-verify', 'זיופים עמוקים ואימות מידע',
+    ['לזהות סימני זיוף בתמונה, בקול ובסרטון', 'ליישם בדיקת מקור, הקשר ואישוש צולב'],
+    [[5, 'פתיחה: שתי כותרות מפתיעות - מה בודקים לפני שמשתפים'], [12, 'הסבר: איך נוצר זיוף עמוק ולמה העין כבר לא מספיקה'], [18, 'פעילות: תחנות אימות - כל קבוצה מאמתת פריט אחר ומדווחת ודאות ורמזים'], [10, 'סיכום: שיתוף הוא פעולה - עוצרים כשלא בטוחים']],
+    'תחנות אימות בקבוצות עם דיווח ודאות מנומק.',
+    'בלי מחשב: פריטים מודפסים בלבד - בודקים מקור, תאריך והקשר על הנייר.',
+    ['פריטים מודפסים לאימות'],
+    ['מהו סימן הזיוף הכי אמין שמצאתם?', 'מתי נכון לא לשתף גם אם זה נראה אמיתי?']),
+  lesson('middle', 7, 'privacy-safety', 'פרטיות ובטיחות בעידן הבינה המלאכותית',
+    ['למפות אילו נתונים שירות אוסף ולמה', 'לנסח מדיניות אישית: מה לא מזינים למודל לעולם'],
+    [[5, 'פתיחה: מה מודל יכול לזכור משיחה אחת תמימה'], [12, 'הסבר: הזנת נתונים לאימון, הרשאות, ומחיקה - מה בשליטתנו ומה לא'], [18, 'פעילות: בונים תווית פרטיות לשירות דמיוני - אוסף, שומר, משתף, מוחק'], [10, 'סיכום: שלושה קווים אדומים אישיים שכל אחד כותב לעצמו']],
+    'בניית תווית פרטיות לשירות דמיוני בקבוצות.',
+    'בלי מחשב: כרטיסי תרחישים - ממיינים מה מזינים ומה לא, ומנמקים.',
+    ['כרטיסי תרחישים', 'דפי תווית'],
+    ['מה לא תזינו למודל לעולם?', 'איך יודעים אם שירות מוחק באמת?']),
+  lesson('middle', 8, 'ai-creativity', 'בינה מלאכותית ויצירה',
+    ['להבחין בין יצירה, עריכה וייצור המוני בעזרת מודל', 'להפיק יצירה עם קרדיט הוגן לתהליך'],
+    [[5, 'פתיחה: מי חתום על יצירה שהמודל הציע ואדם ערך'], [12, 'הסבר: מודלים יוצרים מהמשכים סטטיסטיים של יצירות קודמות - וזכויות וקרדיט'], [18, 'פעילות: יוצרים סיפור או כרזה עם שלבי הצעה, בחירה ועריכה מתועדים'], [10, 'סיכום: מתי שימוש במודל פוגע בלמידה שלנו']],
+    'יצירה מתועדת-שלבים בזוגות: הצעה, בחירה, עריכה.',
+    'בלי מחשב: מגזין גזירי משפטים - מרכיבים סיפור מגזרים כמו מודל ובוחרים עריכה.',
+    ['גזירי משפטים מודפסים', 'דפים וצבעים'],
+    ['מי היוצר כשמודל מציע ואדם בוחר?', 'איך נותנים קרדיט הוגן?']),
+  lesson('middle', 9, 'ai-society-work', 'בינה מלאכותית, עבודה וחברה',
+    ['למפות מטלות במקצוע שמודל משנה ומטלות שנשארות אנושיות', 'לטעון בעד ונגד אוטומציה של מטלה אחת'],
+    [[5, 'פתיחה: מקצוע אחד על הלוח - אילו מטלות שלו משתנות'], [12, 'הסבר: אוטומציה של מטלות, לא של מקצועות שלמים, ומקצועות חדשים שנוצרים'], [18, 'פעילות: דיבייט קצר - כל קבוצה טוענת צד אחר על מטלה שבחרה'], [10, 'סיכום: מיומנות אנושית אחת להשקיע בה']],
+    'דיבייט מטלות בקבוצות עם שופטי כיתה.',
+    'בלי מחשב: כרטיסי מטלות מקצוע על נייר - ממיינים למשתנה, נשאר, וחדש.',
+    ['כרטיסי מטלות'],
+    ['מטלה שהשתנתה, או מקצוע שלם?', 'באיזו מיומנות אנושית תשקיעו?']),
+  lesson('middle', 10, 'ethics-responsibility', 'אתיקה: מי אחראי כשהמכונה טועה',
+    ['לנתח תרחיש נזק: מפתח, מפעיל, משתמש ונתונים', 'לנסח כלל אחריות אחד למערכת בית-ספרית'],
+    [[5, 'פתיחה: תרחיש קצר - מודל טעה ומישהו נפגע, מי אשם'], [12, 'הסבר: אחריות מבוזרת, פיקוח אנושי, וזכות ערעור על החלטת מכונה'], [18, 'פעילות: בית דין כיתתי - טוענים תפקידים שונים על אותו תרחיש'], [10, 'סיכום: כלל זהב - החלטה חשובה תמיד עם אדם אחראי וערעור']],
+    'בית דין כיתתי על תרחיש נזק.',
+    'בלי מחשב: כרטיסי תפקידים ותרחיש מודפס, בלי מסכים.',
+    ['כרטיסי תפקידים', 'תרחיש מודפס'],
+    ['מי אחראי כשהמודל טועה?', 'מהו כלל האחריות שלכם?']),
+  lesson('middle', 11, 'mini-project', 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית',
+    ['להגדיר בעיה, קהל ונתונים לפרויקט צוותי', 'להציג סיכונים, הוגנות ובדיקת אימות בתוכנית'],
+    [[5, 'פתיחה: בוחרים בעיה אמיתית מבית הספר או מהשכונה'], [15, 'תכנון: בעיה, קהל, אילו נתונים צריך, ואיך נאמן ונבדוק'], [15, 'בניית מצגת או כרזה: פתרון, סיכוני הוגנות ופרטיות, ותוכנית אימות'], [10, 'הצגות ושאלות - כל צוות מקבל שאלת אתיקה אחת']],
+    'תכנון ובניית מצגת פרויקט בצוותים.',
+    'בלי מחשב: כל הפרויקט ככרזה על נייר, כולל תוכנית הנתונים והאימות.',
+    ['דפים גדולים', 'טושים'],
+    ['איזו בעיה הפרויקט פותר ולמי?', 'מהו הסיכון הכי גדול בתוכנית שלכם?'])
+]);
+
+const BY_TRACK = Object.freeze({ elementary: ELEMENTARY, middle: MIDDLE });
+const ALL_LESSONS = Object.freeze(ELEMENTARY.concat(MIDDLE));
+
+function assertTrack(track) {
+  if (TRACKS.indexOf(track) === -1) throw new Error('invalid track: expected elementary or middle');
+  return track;
+}
+function trackForGrade(grade) {
+  if (!Number.isInteger(grade)) throw new Error('invalid grade: expected an integer 3..9');
+  if (grade >= 3 && grade <= 6) return 'elementary';
+  if (grade >= 7 && grade <= 9) return 'middle';
+  throw new Error('invalid grade: expected an integer 3..9');
+}
+function lessonsForTrack(track) { return BY_TRACK[assertTrack(track)]; }
+function getLesson(track, index) {
+  const list = lessonsForTrack(track);
+  if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error('invalid lesson index for track ' + track);
+  return list[index];
+}
+function lessonById(id) {
+  const found = ALL_LESSONS.find((l) => l.id === id);
+  if (!found) throw new Error('unknown lesson id');
+  return found;
+}
+function flowMinutes(lesson) { return lesson.flowHe.reduce((sum, f) => sum + f.minutes, 0); }
+
+// The 45-minute flow as timeline steps for the lesson screen: a short title, the
+// duration and the body of each step. Steps are written "title: body"; a step
+// without that prefix keeps its whole text as the body under a numbered title.
+function flowTimeline(lesson) {
+  if (!lesson || !Array.isArray(lesson.flowHe) || lesson.flowHe.length === 0) {
+    throw new Error('invalid lesson: flowHe');
+  }
+  return Object.freeze(lesson.flowHe.map((f, i) => {
+    if (!f || !Number.isInteger(f.minutes) || f.minutes <= 0 || typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
+      throw new Error('invalid lesson: flowHe');
+    }
+    const cut = f.stepHe.indexOf(': ');
+    const hasTitle = cut > 0 && cut <= 28;
+    return Object.freeze({
+      minutes: f.minutes,
+      titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
+      bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
+    });
+  }));
+}
+
+function resolveTrack(trackByPair, pairIndex) {
+  let track;
+  if (typeof trackByPair === 'function') track = trackByPair(pairIndex);
+  else if (trackByPair && typeof trackByPair === 'object') track = trackByPair[pairIndex];
+  if (track === undefined || track === null) throw new Error('missing track for pair ' + pairIndex);
+  return assertTrack(track);
+}
+function sessionOrderKey(s) {
+  return [Number.isInteger(s.week) ? s.week : 0, typeof s.slot === 'string' ? s.slot : '', typeof s.date === 'string' ? s.date : ''];
+}
+// Each session gets the next lesson of its group's track, in session order within the group.
+// More sessions than lessons start a new cycle (cycle 2 repeats the track from lesson 1).
+function assignLessons(sessions, trackByPair) {
+  const list = Array.isArray(sessions) ? sessions : [];
+  list.forEach((s) => { if (!s || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) throw new Error('invalid session: pairIndex'); });
+  const byPair = new Map();
+  list.forEach((s, i) => { if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, []); byPair.get(s.pairIndex).push(i); });
+  const out = new Array(list.length);
+  byPair.forEach((indexes, pairIndex) => {
+    const track = resolveTrack(trackByPair, pairIndex);
+    const lessons = lessonsForTrack(track);
+    const ordered = indexes.slice().sort((a, b) => {
+      const ka = sessionOrderKey(list[a]); const kb = sessionOrderKey(list[b]);
+      for (let k = 0; k < ka.length; k += 1) { if (ka[k] < kb[k]) return -1; if (ka[k] > kb[k]) return 1; }
+      return a - b;
+    });
+    ordered.forEach((sessionIdx, pos) => {
+      const lessonIndex = pos % lessons.length;
+      out[sessionIdx] = Object.freeze(Object.assign({}, list[sessionIdx], {
+        track, sessionIndex: pos, cycle: Math.floor(pos / lessons.length) + 1,
+        lessonIndex, lessonId: lessons[lessonIndex].id, titleKey: lessons[lessonIndex].titleKey
+      }));
+    });
+  });
+  return Object.freeze(out);
+}
+function todayLesson(assigned, pairIndex, delivered) {
+  const rows = (Array.isArray(assigned) ? assigned : []).filter((s) => s && s.pairIndex === pairIndex);
+  if (rows.length === 0) return null;
+  const done = delivered instanceof Set ? delivered : new Set(Array.isArray(delivered) ? delivered : []);
+  const next = rows.find((s) => !done.has(deliveryKey(s)));
+  const pick = next || rows[rows.length - 1];
+  return Object.freeze({ pairIndex, lesson: lessonById(pick.lessonId), assigned: pick, delivered: !next });
+}
+function makeDeliveryLog() { return Object.freeze({ delivered: Object.freeze([]) }); }
+function deliveryKeyOf(pairIndex, lessonId, cycle) { return pairIndex + '|' + lessonId + '|' + (Number.isInteger(cycle) ? cycle : 1); }
+function deliveryKey(session) { return deliveryKeyOf(session.pairIndex, session.lessonId, session.cycle); }
+function assertLog(log) { if (!log || !Array.isArray(log.delivered)) throw new Error('invalid delivery log'); }
+function setDelivered(log, input, delivered) {
+  assertLog(log); const o = input || {};
+  if (!Number.isInteger(o.pairIndex) || o.pairIndex < 0) throw new Error('invalid delivery: pairIndex');
+  lessonById(o.lessonId);
+  const key = deliveryKeyOf(o.pairIndex, o.lessonId, o.cycle);
+  const has = log.delivered.indexOf(key) !== -1;
+  const want = delivered !== false;
+  if (has === want) return log;
+  const next = want ? log.delivered.concat([key]).sort() : log.delivered.filter((k) => k !== key);
+  return Object.freeze({ delivered: Object.freeze(next) });
+}
+function isDelivered(log, input) { assertLog(log); const o = input || {}; return log.delivered.indexOf(deliveryKeyOf(o.pairIndex, o.lessonId, o.cycle)) !== -1; }
+function lessonProgress(assigned, log) {
+  assertLog(log);
+  const byPair = new Map();
+  (Array.isArray(assigned) ? assigned : []).forEach((s) => {
+    if (!s) return;
+    if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, { pairIndex: s.pairIndex, track: s.track, total: 0, delivered: 0, nextLessonId: null });
+    const row = byPair.get(s.pairIndex); row.total += 1;
+    if (log.delivered.indexOf(deliveryKey(s)) !== -1) row.delivered += 1;
+    else if (row.nextLessonId === null) row.nextLessonId = s.lessonId;
+  });
+  const rows = Array.from(byPair.values()).sort((a, b) => a.pairIndex - b.pairIndex)
+    .map((r) => Object.freeze(Object.assign({}, r, { percent: r.total === 0 ? null : Math.round((r.delivered / r.total) * 1000) / 1000 })));
+  const total = rows.reduce((n, r) => n + r.total, 0); const delivered = rows.reduce((n, r) => n + r.delivered, 0);
+  return Object.freeze({ byPair: Object.freeze(rows), total, delivered, percent: total === 0 ? null : Math.round((delivered / total) * 1000) / 1000 });
+}
+function progressToCsv(progress) {
+  const lines = ['pair,track,total,delivered,percent,next_lesson'];
+  (progress && Array.isArray(progress.byPair) ? progress.byPair : []).forEach((r) => {
+    lines.push(r.pairIndex + ',' + r.track + ',' + r.total + ',' + r.delivered + ',' + (r.percent === null ? '' : r.percent) + ',' + (r.nextLessonId || ''));
+  });
+  return lines.join('\n') + '\n';
+}
+
+const VALID_AI_TOPICS = Object.freeze(AI_TOPIC_KEYS ? AI_TOPIC_KEYS.slice() : [
+  'AI_LIT_PROMPT',
+  'AI_CREATIVE',
+  'AI_STEM_CODE',
+  'AI_ETHICS_SEC'
+]);
+
+const ALLOWED_CHALLENGE_KEYS = Object.freeze([
+  'pairIndex',
+  'aiTopic',
+  'toolTitle',
+  'innovation',
+  'usefulness',
+  'safety'
+]);
+
+function submitChallengeEntry(entries, entry) {
+  if (entries !== undefined && entries !== null && !Array.isArray(entries)) {
+    throw new Error('invalid entries: expected array');
+  }
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    throw new Error('invalid challenge entry: expected an object');
+  }
+  const keys = Object.keys(entry);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (ALLOWED_CHALLENGE_KEYS.indexOf(keys[i]) === -1) {
+      throw new Error('personal data is not accepted');
+    }
+  }
+  if (!Number.isInteger(entry.pairIndex) || entry.pairIndex < 0) {
+    throw new Error('invalid pairIndex: expected non-negative integer');
+  }
+  if (typeof entry.aiTopic !== 'string' || VALID_AI_TOPICS.indexOf(entry.aiTopic) === -1) {
+    throw new Error('invalid aiTopic: expected valid AI topic key');
+  }
+  if (typeof entry.toolTitle !== 'string') {
+    throw new Error('invalid toolTitle: expected string');
+  }
+  const cleanTitle = assertCleanText(entry.toolTitle, { minLength: 1, maxLength: 80 });
+
+  for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
+    const val = entry[scoreKey];
+    if (!Number.isInteger(val) || val < 1 || val > 5) {
+      throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
+    }
+  }
+
+  const totalScore = entry.innovation + entry.usefulness + entry.safety;
+  const averageScore = Math.round((totalScore / 3) * 100) / 100;
+  const record = Object.freeze({
+    pairIndex: entry.pairIndex,
+    aiTopic: entry.aiTopic,
+    toolTitle: cleanTitle,
+    innovation: entry.innovation,
+    usefulness: entry.usefulness,
+    safety: entry.safety,
+    totalScore: totalScore,
+    averageScore: averageScore,
+    score: totalScore
+  });
+
+  const prev = Array.isArray(entries) ? entries : [];
+  const idx = prev.findIndex((e) => e && e.pairIndex === record.pairIndex);
+  let next;
+  if (idx >= 0) {
+    next = prev.slice();
+    next[idx] = record;
+  } else {
+    next = prev.concat([record]);
+  }
+  return Object.freeze(next);
+}
+
+function rankChallengeLeaderboard(entries) {
+  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+    return Object.freeze([]);
+  }
+  const items = entries.map((e) => {
+    if (!e || typeof e !== 'object' || Array.isArray(e)) {
+      throw new Error('invalid challenge entry in leaderboard');
+    }
+    const pairIndex = Number(e.pairIndex);
+    const innovation = Number(e.innovation);
+    const usefulness = Number(e.usefulness);
+    const safety = Number(e.safety);
+    const totalScore = innovation + usefulness + safety;
+    const averageScore = Math.round((totalScore / 3) * 100) / 100;
+    return {
+      pairIndex: pairIndex,
+      aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
+      toolTitle: typeof e.toolTitle === 'string' ? e.toolTitle : '',
+      innovation: innovation,
+      usefulness: usefulness,
+      safety: safety,
+      totalScore: totalScore,
+      averageScore: averageScore,
+      score: totalScore
+    };
+  });
+
+  items.sort((a, b) => {
+    if (b.totalScore !== a.totalScore) {
+      return b.totalScore - a.totalScore;
+    }
+    return a.pairIndex - b.pairIndex;
+  });
+
+  return Object.freeze(items.map((item, index) => Object.freeze({
+    rank: index + 1,
+    pairIndex: item.pairIndex,
+    aiTopic: item.aiTopic,
+    toolTitle: item.toolTitle,
+    innovation: item.innovation,
+    usefulness: item.usefulness,
+    safety: item.safety,
+    totalScore: item.totalScore,
+    averageScore: item.averageScore,
+    score: item.score
+  })));
+}
+
+function filterChallengeEntriesByTopic(entries, aiTopic) {
+  const list = Array.isArray(entries) ? entries : [];
+  if (!aiTopic || aiTopic === 'all') {
+    return Object.freeze(list.slice());
+  }
+  return Object.freeze(list.filter((e) => e && e.aiTopic === aiTopic));
+}
+
+function buildChallengeWinnersSummary(entries, lang) {
+  const list = Array.isArray(entries) ? entries : [];
+  const ranked = rankChallengeLeaderboard(list);
+  const top3 = ranked.slice(0, 3);
+  const l = (lang === 'ar' || lang === 'ru' || lang === 'he') ? lang : 'he';
+
+  const titles = {
+    he: { header: 'סיכום זוכים אנונימי - Top 3', empty: 'אין הגשות זמינות', format: (r) => `#${r.rank} זוג ${r.pairIndex} | ${r.toolTitle} (${r.aiTopic}) - ציון: ${r.totalScore}` },
+    ar: { header: 'ملخص الفائزين - Top 3', empty: 'لا توجد مشاركات', format: (r) => `#${r.rank} الثنائي ${r.pairIndex} | ${r.toolTitle} (${r.aiTopic}) - المجموع: ${r.totalScore}` },
+    ru: { header: 'Сводка победителей - Top 3', empty: 'Нет заявок', format: (r) => `#${r.rank} Пара ${r.pairIndex} | ${r.toolTitle} (${r.aiTopic}) - Счёт: ${r.totalScore}` }
+  };
+
+  const t = titles[l];
+  if (top3.length === 0) {
+    return Object.freeze({ text: t.empty, top3: Object.freeze([]) });
+  }
+
+  const lines = [t.header];
+  top3.forEach((r) => {
+    lines.push(t.format(r));
+  });
+
+  return Object.freeze({
+    text: lines.join('\n'),
+    top3: Object.freeze(top3.map((r) => Object.freeze({
+      pairIndex: r.pairIndex,
+      toolTitle: r.toolTitle,
+      aiTopic: r.aiTopic,
+      totalScore: r.totalScore
+    })))
+  });
+}
+
+module.exports = {
+  TRACKS, TRACK_GRADES, ALL_LESSONS,
+  lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
+  assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
+  VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary
+};
+  __registry["curriculum"] = module.exports;
 })();
 
 /* ===== src/lib/unit.js ===== */
@@ -5469,7 +6597,7 @@ const {
 	withoutRetentionStamp,
 	PERSONAL_DATA_ERROR,
 } = require("./profile.js");
-const { PROFANITY_ERROR } = require("./validator.js");
+const { PROFANITY_ERROR, validateBatchImportZeroPii } = require("./validator.js");
 const { emptyQueue, loadQueue } = require("./approval.js");
 const { emptyLog, loadLog } = require("./session.js");
 const {
@@ -5598,29 +6726,44 @@ function storedPerson(person, at) {
 	let input = person;
 	let hasTopics = false;
 	let rawTopics;
+	let rawArea;
 	if (
 		person !== null &&
 		typeof person === "object" &&
-		!Array.isArray(person) &&
-		Object.hasOwn(person, "target_ai_topics")
+		!Array.isArray(person)
 	) {
-		hasTopics = true;
-		rawTopics = person.target_ai_topics;
-		input = { ...person };
-		delete input.target_ai_topics;
+		if (Object.hasOwn(person, "target_ai_topics")) {
+			hasTopics = true;
+			rawTopics = person.target_ai_topics;
+			input = { ...person };
+			delete input.target_ai_topics;
+		}
+		if (Object.hasOwn(input, "area")) {
+			rawArea = input.area;
+			input = { ...input };
+			if (!input.region) input.region = input.area;
+			delete input.area;
+		}
 	}
 	try {
 		const profile = makeProfile(storedProfileInput(input));
+		let res = profile;
 		if (hasTopics) {
 			const cleaned = cleanAITopics(rawTopics);
 			if (cleaned.length > 0) {
-				return Object.freeze({
-					...profile,
+				res = Object.freeze({
+					...res,
 					target_ai_topics: Object.freeze(cleaned),
 				});
 			}
 		}
-		return profile;
+		if (rawArea) {
+			res = Object.freeze({
+				...res,
+				area: rawArea,
+			});
+		}
+		return res;
 	} catch (err) {
 		if (
 			err.message === PERSONAL_DATA_ERROR ||
@@ -5875,6 +7018,7 @@ module.exports = {
 	createStore,
 	isQuotaExceededError,
 	isQuotaExceeded,
+	validateBatchImportZeroPii,
 	filterParticipantsByAITopic
 };
   __registry["store"] = module.exports;
@@ -6095,6 +7239,42 @@ module.exports = {
     ru: 'Совпадение тем ИИ'
   });
 
+  const S_SESSION_DURATION = Object.freeze({
+    he: 'משך שיעור (שעות)',
+    ar: 'مدة الجلسة (ساعات)',
+    ru: 'Длительность занятия (часы)'
+  });
+  const S_SESSION_AI_TOPIC = Object.freeze({
+    he: 'נושא בינה מלאכותית',
+    ar: 'موضوع الذكاء الاصطناعي',
+    ru: 'Тема искусственного интеллекта'
+  });
+  const S_SCHOLARSHIP_REPORT_HEADING = Object.freeze({
+    he: 'דוח שעות מלגה',
+    ar: 'تقرير ساعات المنحة',
+    ru: 'Отчет о часах стипендии'
+  });
+  const S_SCHOLARSHIP_REPORT_HINT = Object.freeze({
+    he: 'דוח אנונימי לפי זוגות וסיכום שעות מלגה ומפגשי AI, ללא פרטים מזהים (PII).',
+    ar: 'تقرير مجهول الهوية حسب الأزواج وملخص لساعات المنحة وجلسات الذكاء الاصطناعي، بدون بيانات شخصية.',
+    ru: 'Анонимный отчет по парам и сводка часов стипендии и занятий по ИИ, без персональных данных.'
+  });
+  const S_SCHOLARSHIP_TARGET_LABEL = Object.freeze({
+    he: 'יעד שעות מלגה',
+    ar: 'هدف ساعات المنحة',
+    ru: 'Цель часов стипендии'
+  });
+  const S_GENERATE_SCHOLARSHIP_REPORT = Object.freeze({
+    he: 'הפק דוח שעות מלגה',
+    ar: 'إنشاء تقرير ساعات المنحة',
+    ru: 'Сформировать отчет о стипендии'
+  });
+  const S_COPY_SCHOLARSHIP_REPORT = Object.freeze({
+    he: 'העתק דוח',
+    ar: 'نسخ التقرير',
+    ru: 'Копировать отчет'
+  });
+
   function validateAITopics(topics) {
     if (!Array.isArray(topics) || topics.length === 0) return false;
     return topics.every(function (t) {
@@ -6119,6 +7299,109 @@ module.exports = {
     value = Math.max(0, Math.min(1, value));
     var label = AI_TOPIC_BADGE_LABELS[lang] || AI_TOPIC_BADGE_LABELS.he;
     return [label, ': ', Math.round(value * 100), '%'].join('');
+  }
+
+  var OVERLAP_SLOTS_LABELS = Object.freeze({
+    he: 'חפיפת שעות שבועיות',
+    ar: 'تداخل الساعات الأسبوعية',
+    ru: 'Еженедельные пересекающиеся часы'
+  });
+
+  function getWeeklyOverlapSlots(personA, personB) {
+    if (profile && typeof profile.getWeeklyOverlapSlots === 'function') {
+      return profile.getWeeklyOverlapSlots(personA, personB);
+    }
+    var a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
+    var b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
+    var right = new Set();
+    for (var i = 0; i < b.length; i++) {
+      var s = profile && typeof profile.normalizeSlot === 'function' ? profile.normalizeSlot(b[i]) : b[i];
+      if (s) right.add(s);
+    }
+    var seen = new Set();
+    var out = [];
+    for (var j = 0; j < a.length; j++) {
+      var slot = profile && typeof profile.normalizeSlot === 'function' ? profile.normalizeSlot(a[j]) : a[j];
+      if (slot && right.has(slot) && !seen.has(slot)) {
+        seen.add(slot);
+        out.push(slot);
+      }
+    }
+    return out.sort();
+  }
+
+  function weeklyOverlapBadgeText(slots, lang) {
+    lang = lang || currentLang || 'he';
+    var label = OVERLAP_SLOTS_LABELS[lang] || OVERLAP_SLOTS_LABELS.he;
+    var list = Array.isArray(slots) ? slots : [];
+    if (!list.length) {
+      if (lang === 'ar') return label + ': لا يوجد تداخل';
+      if (lang === 'ru') return label + ': нет пересечений';
+      return label + ': אין חפיפה';
+    }
+    return label + ' (' + list.length + '): ' + list.join(', ');
+  }
+
+  var AI_LEVEL_LABELS = Object.freeze({
+    beginner: Object.freeze({
+      he: 'מתחיל',
+      ar: 'مبتدئ',
+      ru: 'начинающий'
+    }),
+    advanced: Object.freeze({
+      he: 'מתקדם',
+      ar: 'متقدم',
+      ru: 'продвинутый'
+    })
+  });
+  var AI_LEVEL_FIELD_LABELS = Object.freeze({
+    label: Object.freeze({
+      he: 'רמת למידה',
+      ar: 'مستوى التعلم',
+      ru: 'Уровень обучения'
+    }),
+    none: Object.freeze({
+      he: 'ללא הגדרה',
+      ar: 'بدון تحديد',
+      ru: 'Не указано'
+    })
+  });
+  var AI_LEVEL_FIT_LABELS = Object.freeze({
+    match: Object.freeze({
+      he: 'התאמת רמת למידה: התאמה',
+      ar: 'تطابق مستوى التعلم: متطابق',
+      ru: 'Соответствие уровня обучения: совпадает'
+    }),
+    diff: Object.freeze({
+      he: 'התאמת רמת למידה: שונה',
+      ar: 'تطابق مستوى التعلم: مختلف',
+      ru: 'Соответствие уровня обучения: не совпадает'
+    }),
+    none: Object.freeze({
+      he: 'התאמת רמת למידה: לא הוגדרה רמה',
+      ar: 'تطابق مستوى التعلم: غير محدد',
+      ru: 'Соответствие уровня обучения: не указано'
+    })
+  });
+
+  function aiLevelBadgeText(studentLevel, pupilLevel, lang) {
+    lang = lang || currentLang || 'he';
+    var sValid = studentLevel === 'beginner' || studentLevel === 'advanced';
+    var pValid = pupilLevel === 'beginner' || pupilLevel === 'advanced';
+    if (!sValid || !pValid) {
+      return AI_LEVEL_FIT_LABELS.none[lang] || AI_LEVEL_FIT_LABELS.none.he;
+    }
+    if (studentLevel === pupilLevel) {
+      var matchPrefix = AI_LEVEL_FIT_LABELS.match[lang] || AI_LEVEL_FIT_LABELS.match.he;
+      var levelName = (AI_LEVEL_LABELS[studentLevel] && AI_LEVEL_LABELS[studentLevel][lang]) || studentLevel;
+      return matchPrefix + ' (' + levelName + ')';
+    }
+    var diffPrefix = AI_LEVEL_FIT_LABELS.diff[lang] || AI_LEVEL_FIT_LABELS.diff.he;
+    var sName = (AI_LEVEL_LABELS[studentLevel] && AI_LEVEL_LABELS[studentLevel][lang]) || studentLevel;
+    var pName = (AI_LEVEL_LABELS[pupilLevel] && AI_LEVEL_LABELS[pupilLevel][lang]) || pupilLevel;
+    if (lang === 'ar') return diffPrefix + ' (' + sName + ' مقابل ' + pName + ')';
+    if (lang === 'ru') return diffPrefix + ' (' + sName + ' против ' + pName + ')';
+    return diffPrefix + ' (' + sName + ' מול ' + pName + ')';
   }
 
   if (typeof window !== 'undefined') {
@@ -6146,6 +7429,13 @@ module.exports = {
     window.renderPeople = renderPeople;
     window.renderPeopleAiFilter = renderPeopleAiFilter;
     window.refreshFilterMissingAiLabel = refreshFilterMissingAiLabel;
+    window.getWeeklyOverlapSlots = getWeeklyOverlapSlots;
+    window.weeklyOverlapBadgeText = weeklyOverlapBadgeText;
+    window.aiLevelBadgeText = aiLevelBadgeText;
+    window.AI_LEVEL_LABELS = AI_LEVEL_LABELS;
+    window.AI_LEVEL_FIELD_LABELS = AI_LEVEL_FIELD_LABELS;
+    window.AI_LEVEL_FIT_LABELS = AI_LEVEL_FIT_LABELS;
+    window.OVERLAP_SLOTS_LABELS = OVERLAP_SLOTS_LABELS;
     if (attendance) {
       window.estimateReadingTimeHebrew = attendance.estimateReadingTimeHebrew;
       window.getTopicTagColor = attendance.getTopicTagColor;
@@ -6164,6 +7454,11 @@ module.exports = {
       window.formatInlineFormulas = attendance.formatInlineFormulas;
       window.saveFocusReaderConfig = attendance.saveFocusReaderConfig;
       window.loadFocusReaderConfig = attendance.loadFocusReaderConfig;
+      window.buildScholarshipReport = attendance.buildScholarshipReport;
+      window.recordAttendance = attendance.recordAttendance;
+      window.serializeAttendance = attendance.serializeAttendance;
+      window.deserializeAttendance = attendance.deserializeAttendance;
+      window.detectInactivePairs = attendance.detectInactivePairs;
     }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -6266,6 +7561,7 @@ module.exports = {
     ['invalid availability slot:', 'שעה שאינה בלוח'],
     ['invalid subjects:', 'צריך לבחור לפחות מקצוע אחד'],
     ['invalid subjects entry:', 'מקצוע שאינו ברשימה'],
+    ['invalid aiLevel:', 'רמת למידה לא מוכרת'],
     // the retention stamp of a stored person (profile.js withoutRetentionStamp, reached through load())
     ['invalid retention:', 'חותמת השמירה ברשומה לא תקינה'],
     // The enrichment-unit record (units screen). One module builds a unit: unit.js, which names the fields
@@ -6675,6 +7971,7 @@ module.exports = {
     draft = { subjects: [], availability: [] };
     renderPeriodChips();
     $('consent').checked = false;
+    if ($('participantAiLevelSelect')) $('participantAiLevelSelect').value = '';
     Array.prototype.forEach.call(document.querySelectorAll?.('#aiTopics input[type="checkbox"]') || [], (input) => {
       input.checked = false;
     });
@@ -6690,12 +7987,14 @@ module.exports = {
       .filter((input) => input.checked)
       .map((input) => input.getAttribute('data-ai-topic') || input.value)
       .filter((key) => validateAITopics([key]));
+    var aiLevel = $('participantAiLevelSelect') ? $('participantAiLevelSelect').value : '';
     var candidate = {
       role: $('role').value,
       region: $('region').value,
       availability: draft.availability.slice(),
       subjects: draft.subjects.slice()
     };
+    if (aiLevel === 'beginner' || aiLevel === 'advanced') candidate.aiLevel = aiLevel;
     if (candidate.role === 'pupil') candidate.parentConsent = $('consent').checked;
     var made;
     try { made = profile.makeProfile(candidate); }
@@ -6722,6 +8021,7 @@ module.exports = {
     }
     made = Object.assign({}, made);
     if (targetAITopics.length) made.target_ai_topics = targetAITopics;
+    if (aiLevel === 'beginner' || aiLevel === 'advanced') made.aiLevel = aiLevel;
     state.people.push(made);
     resetMatchView();
     clearDraft();
@@ -6743,6 +8043,7 @@ module.exports = {
       } catch (err) { say('addStatus', 'לא בוצע: ' + errorHe(err) + '.', true); return; }
       flipped = Object.assign({}, flipped);
       if (who.target_ai_topics && who.target_ai_topics.length) flipped.target_ai_topics = who.target_ai_topics;
+      if (who.aiLevel) flipped.aiLevel = who.aiLevel;
       state.people[Number(c)] = flipped;
       // A pairs file already down still pairs this pupil if they were in it: "לא ישודך" alone left the
       // coordinator crossing names against a file that pairs a pupil whose parent consent is withdrawn.
@@ -6850,6 +8151,142 @@ module.exports = {
     renderPeople();
     say('addStatus', 'נטענו ' + state.people.length + ' משתתפים לדוגמה, אחד מהתלמידים בלי אישור הורה. עבור למסך "שידוך".');
     save('addStatus');
+  });
+
+  var lastBatchResult = null;
+  var lastBatchValidated = false;
+
+  function renderPilotBatchStatus() {
+    if (!lastBatchResult) return;
+    var acc = lastBatchResult.acceptedCount;
+    var rej = lastBatchResult.rejectedCount;
+    var msg = '';
+    if (currentLang === 'ar') {
+      msg = 'تم قبول: ' + acc + '، تم رفض: ' + rej;
+    } else if (currentLang === 'ru') {
+      msg = 'Одобрено: ' + acc + ', отклонено: ' + rej;
+    } else {
+      msg = 'אושרו: ' + acc + ', נדחו: ' + rej;
+    }
+    var st = $('pilotBatchStatus');
+    if (st) {
+      st.textContent = msg;
+      st.className = 'status' + (rej > 0 && acc === 0 ? ' bad' : ' ok');
+    }
+  }
+
+  $('validatePilotBatchBtn').addEventListener('click', function () {
+    var rawText = ($('pilotBatchInput') && $('pilotBatchInput').value) || '';
+    if (!rawText.trim()) {
+      var emptyMsg = currentLang === 'ar' ? 'يرجى إدخال بيانات JSON للاستيراد' : (currentLang === 'ru' ? 'Пожалуйста, введите данные JSON для импорта' : 'נא להזין נתוני JSON לייבוא');
+      say('pilotBatchStatus', emptyMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    var parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (_e) {
+      var parseMsg = currentLang === 'ar' ? 'خطأ في تنسيق JSON' : (currentLang === 'ru' ? 'Неверный формат JSON' : 'שגיאת תחביר ב-JSON');
+      say('pilotBatchStatus', parseMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    if (!Array.isArray(parsed)) {
+      var arrMsg = currentLang === 'ar' ? 'إدخال غير صالح: المتوقع مصفوفة سجلات JSON' : (currentLang === 'ru' ? 'Неверный ввод: ожидается массив записей JSON' : 'קלט לא תקין: מצופה מערך רשומות JSON');
+      say('pilotBatchStatus', arrMsg, true);
+      lastBatchResult = null;
+      lastBatchValidated = false;
+      return;
+    }
+    var batchFn = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+    var res = batchFn(parsed);
+    lastBatchResult = {
+      accepted: res.accepted,
+      acceptedCount: res.accepted.length,
+      rejectedCount: res.rejectedCount,
+      reasons: res.reasons
+    };
+    lastBatchValidated = true;
+    renderPilotBatchStatus();
+  });
+
+  $('confirmPilotBatchBtn').addEventListener('click', function () {
+    if (!lastBatchValidated || !lastBatchResult) {
+      var rawText = ($('pilotBatchInput') && $('pilotBatchInput').value) || '';
+      if (!rawText.trim()) {
+        var emptyMsg = currentLang === 'ar' ? 'يرجى إدخال بيانات JSON للاستيراد' : (currentLang === 'ru' ? 'Пожалуйста, введите данные JSON для импорта' : 'נא להזין נתוני JSON לייבוא');
+        say('pilotBatchStatus', emptyMsg, true);
+        return;
+      }
+      var parsed;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch (_e) {
+        var parseMsg = currentLang === 'ar' ? 'خطأ في تنسيق JSON' : (currentLang === 'ru' ? 'Неверный формат JSON' : 'שגיאת תחביר ב-JSON');
+        say('pilotBatchStatus', parseMsg, true);
+        return;
+      }
+      if (!Array.isArray(parsed)) {
+        var arrMsg = currentLang === 'ar' ? 'إدخال غير صالح: المتوقع مصفوفة سجلات JSON' : (currentLang === 'ru' ? 'Неверный ввод: ожидается массив записей JSON' : 'קלט לא תקין: מצופה מערך רשומות JSON');
+        say('pilotBatchStatus', arrMsg, true);
+        return;
+      }
+      var batchFn = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+      var res = batchFn(parsed);
+      lastBatchResult = {
+        accepted: res.accepted,
+        acceptedCount: res.accepted.length,
+        rejectedCount: res.rejectedCount,
+        reasons: res.reasons
+      };
+      lastBatchValidated = true;
+    }
+
+    var accepted = lastBatchResult.accepted || [];
+    if (accepted.length === 0) {
+      renderPilotBatchStatus();
+      return;
+    }
+
+    for (var i = 0; i < accepted.length; i += 1) {
+      var rec = accepted[i];
+      var candidate = {
+        role: rec.role,
+        region: rec.region || rec.area,
+        availability: Array.isArray(rec.availability) && rec.availability.length ? rec.availability.slice() : ['SUN_16'],
+        subjects: Array.isArray(rec.subjects) && rec.subjects.length ? rec.subjects.slice() : ['MATH']
+      };
+      if (rec.role === 'pupil') {
+        candidate['parentConsent'] = rec.parentConsent !== undefined ? Boolean(rec.parentConsent) : true;
+      }
+      if (rec.aiLevel === 'beginner' || rec.aiLevel === 'advanced') {
+        candidate.aiLevel = rec.aiLevel;
+      }
+      var profileObj;
+      try {
+        profileObj = profile.makeProfile(candidate);
+      } catch (_e) {
+        profileObj = candidate;
+      }
+      var person = Object.assign({}, profileObj);
+      if (Array.isArray(rec.target_ai_topics) && rec.target_ai_topics.length) {
+        person.target_ai_topics = rec.target_ai_topics.slice();
+      }
+      if (rec.area) {
+        person.area = rec.area;
+      }
+      state.people.push(person);
+    }
+
+    resetMatchView();
+    renderPeople();
+    save('pilotBatchStatus');
+    renderPilotBatchStatus();
+    if ($('pilotBatchInput')) $('pilotBatchInput').value = '';
+    lastBatchValidated = false;
   });
 
   // ---------- match ----------
@@ -7095,10 +8532,15 @@ module.exports = {
       var pupil = state.people[p.pupil - 1] || {};
       var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length) ||
         (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length);
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
         '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
         'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
         '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+        '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
         (topics ? ['<br>', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang))].join('') : '') +
         '</span></div>';
     }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
@@ -7109,10 +8551,18 @@ module.exports = {
         '<br>' + reasonHe(x.reason, x.role, x) + '</span></div>';
     }).join('') : '<p class="empty">' + S('allMatched') + '</p>';
     $('across').innerHTML = m.across.length ? m.across.map(function (p) {
+      var student = state.people[p.student - 1] || {};
+      var pupil = state.people[p.pupil - 1] || {};
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       return '<div class="item pair"><b>' + ROLE_HE.pupil + ' #' + p.pupil + ' (' + esc(REGION_HE[p.pupilRegion] || p.pupilRegion) +
         ') עם ' + ROLE_HE.student + ' #' + p.student + ' (' + esc(REGION_HE[p.studentRegion] || p.studentRegion) + ')</b>' +
         '<span class="meta">מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
-        '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') + '</span></div>';
+        '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+        '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
+        '</span></div>';
     }).join('') : '<p class="empty">אין הצעה: ' + (m.barredByConsent
       ? (m.barredByConsent === 1 ? 'תלמיד אחד שנשאר בלי זוג חולק' : m.barredByConsent + ' תלמידים שנשארו בלי זוג חולקים') +
         ' שעה ומקצוע עם סטודנט פנוי מאזור אחר, אבל בלי אישור הורה תלמיד לא נכנס לשידוך בכלל, גם לא בין אזורים. ' +
@@ -7675,7 +9125,11 @@ module.exports = {
         ROLE_HE.pupil + ' #' + r.pupils[p.pupilIndex].number + ' · ' +
         p.sharedSubjects.map(function (s) { return SUBJECT_HE[s] || s; }).join(', ');
     }, NO_PAIR_HE);
+    if (pairs.length && ($('sessionPair').value === '' || $('sessionPair').value == null || Number($('sessionPair').value) >= pairs.length)) {
+      $('sessionPair').value = '0';
+    }
     renderSessionChoices(pairs);
+    updatePairTotalHoursBadge();
   }
 
   function sessionRow(e) {
@@ -7732,6 +9186,7 @@ module.exports = {
     }
     var er = $('exportReport');
     if (er) er.setAttribute('aria-expanded', $('reportBox').hidden ? 'false' : 'true');
+    if (typeof renderDropoutRiskList === 'function') renderDropoutRiskList();
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
@@ -7807,7 +9262,7 @@ module.exports = {
   }
   function activeSessionPairIndex() {
     var sel = $('sessionPair');
-    if (!sel || !sel.value) return null;
+    if (!sel || sel.value === '' || sel.value == null) return null;
     var n = Number(sel.value);
     return Number.isInteger(n) && n >= 0 ? n : null;
   }
@@ -7894,6 +9349,35 @@ module.exports = {
         unitId: $('sessionUnit').value,
         outcome: $('sessionOutcome').value
       });
+      if (attendance && typeof attendance.recordAttendance === 'function') {
+        var pairIdx = Number($('sessionPair').value);
+        var durationVal = Number($('sessionDurationSelect') ? $('sessionDurationSelect').value : 1) || 1;
+        var topicVal = $('sessionAiTopicSelect') ? $('sessionAiTopicSelect').value : null;
+        var aiTopic = (topicVal && topicVal !== 'none' && topicVal !== '') ? topicVal : null;
+        var attOutcome = $('sessionOutcome').value;
+        var attStatus = attOutcome === 'missed' ? 'missed' : (attOutcome === 'cut_short' ? 'cancelled' : 'held');
+
+        var now = new Date();
+        var y = now.getFullYear();
+        var m = String(now.getMonth() + 1).padStart(2, '0');
+        var d = String(now.getDate()).padStart(2, '0');
+        var today = y + '-' + m + '-' + d;
+
+        var currentLog = { entries: Array.isArray(state.attendance) ? state.attendance : [] };
+        var recInput = {
+          pairIndex: pairIdx,
+          date: today,
+          status: attStatus,
+          durationHours: durationVal
+        };
+        if (aiTopic !== null) {
+          recInput.aiTopic = aiTopic;
+        } else {
+          recInput.aiTopic = null;
+        }
+        var updatedLog = attendance.recordAttendance(currentLog, recInput);
+        state.attendance = updatedLog.entries.slice();
+      }
       updatePairTotalHoursBadge();
     } catch (err) {
       if (/unit/i.test(err.message)) {
@@ -7919,6 +9403,112 @@ module.exports = {
       '. ביומן אין מי לימד את מי - רק אזור, שעה, מקצוע, יחידה ותוצאה.');
     save('sessionStatus');
   });
+
+  var lastScholarshipReportText = '';
+  function renderScholarshipReport(report, targetHours) {
+    var out = $('scholarshipReportOut');
+    if (!out) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var isAr = lang === 'ar';
+    var isRu = lang === 'ru';
+    var pairs = Array.isArray(report.pairs) ? report.pairs : [];
+    var summary = report.summary || {};
+
+    var target = report.targetHours || targetHours || 30;
+    var totalHours = summary.totalHours != null ? summary.totalHours : 0;
+    var totalHeld = summary.totalHeldSessions != null ? summary.totalHeldSessions : 0;
+    var totalPairs = pairs.length;
+    var avgPct = summary.completionPercent != null ? summary.completionPercent : (totalPairs > 0 ? Math.round((totalHours / (totalPairs * target)) * 100) : 0);
+
+    var txtLines = [];
+    txtLines.push('--- ' + (isAr ? 'تقرير ساعات المنحة' : (isRu ? 'Отчет о часах стипендии' : 'דוח שעות מלגה')) + ' (' + (isAr ? 'الهدف: ' : (isRu ? 'Цель: ' : 'יעד: ')) + target + ') ---');
+    txtLines.push((isAr ? 'إجمالي الأزواج: ' : (isRu ? 'Всего пар: ' : 'סך כל הזוגות: ')) + totalPairs);
+    txtLines.push((isAr ? 'اللقاءات المنعقدة: ' : (isRu ? 'Состоявшихся занятий: ' : 'מפגשים שהתקיימו: ')) + totalHeld);
+    txtLines.push((isAr ? 'إجمالي الساعات: ' : (isRu ? 'Всего часов: ' : 'סך כל השעות: ')) + totalHours);
+    txtLines.push((isAr ? 'نسبة الإنجاز: ' : (isRu ? 'Процент выполнения: ' : 'אחוז השלמה כולל: ')) + avgPct + '%');
+
+    var coveredTopics = Array.isArray(summary.coveredAiTopics) ? summary.coveredAiTopics : [];
+    if (coveredTopics.length) {
+      txtLines.push((isAr ? 'مواضيع الذكاء الاصطناعي: ' : (isRu ? 'Темы ИИ: ' : 'נושאי בינה מלאכותית: ')) + coveredTopics.join(', '));
+    }
+    txtLines.push('');
+    txtLines.push(isAr ? 'التفاصيل حسب الأزواج:' : (isRu ? 'Разбивка по парам:' : 'פירוט לפי זוגות:'));
+
+    var pairsHtml = [];
+    pairs.forEach(function (p) {
+      var pTopics = Array.isArray(p.coveredAiTopics) ? p.coveredAiTopics : [];
+      var topicLabels = pTopics.map(function (k) {
+        return (AI_TOPICS && AI_TOPICS[k] && (AI_TOPICS[k][lang] || AI_TOPICS[k].he)) || k;
+      }).join(', ');
+
+      var pairLine = (isAr ? 'زوج #' : (isRu ? 'Пара #' : 'זוג #')) + p.pairIndex + ': ' +
+        p.totalHours + '/' + p.targetHours + ' ' + (isAr ? 'ساعات' : (isRu ? 'ч' : 'שעות')) + ' (' +
+        p.completionPercent + '%) · ' +
+        (isAr ? 'لقاءات: ' : (isRu ? 'Занятий: ' : 'מפגשים: ')) + p.heldSessions +
+        (pTopics.length ? ' · AI: ' + pTopics.join(', ') : '');
+      txtLines.push(pairLine);
+
+      pairsHtml.push(
+        '<div class="item scholarship-pair-item" data-pair-index="' + p.pairIndex + '">' +
+        '<b>' + esc(isAr ? 'زوج #' : (isRu ? 'Пара #' : 'זוג #')) + p.pairIndex + '</b> · ' +
+        '<span>' + p.totalHours + ' / ' + p.targetHours + ' ' + (isAr ? 'ساعة' : (isRu ? 'ч' : 'שעות')) + ' (' + p.completionPercent + '%)</span> · ' +
+        '<span>' + esc(isAr ? 'اللقاءات: ' : (isRu ? 'Занятий: ' : 'מפגשים: ')) + p.heldSessions + '</span>' +
+        (topicLabels ? '<br><span class="meta">' + esc(isAr ? 'المواضيع: ' : (isRu ? 'Темы: ' : 'נושאי AI: ')) + esc(topicLabels) + '</span>' : '') +
+        '</div>'
+      );
+    });
+
+    lastScholarshipReportText = txtLines.join('\n');
+    out.innerHTML =
+      '<div class="scholarship-report-summary">' +
+      '<p><b>' + (isAr ? 'إجمالي الساعات:' : (isRu ? 'Всего часов:' : 'סך שעות כולל:')) + '</b> ' + totalHours + ' / ' + (totalPairs * target) + ' (' + avgPct + '%)</p>' +
+      '<p><b>' + (isAr ? 'اللقاءات المنعقدة:' : (isRu ? 'Состоявшихся занятий:' : 'מפגשים שהתקיימו:')) + '</b> ' + totalHeld + '</p>' +
+      (coveredTopics.length ? '<p><b>' + (isAr ? 'مواضيع الذكاء الاصطناعي:' : (isRu ? 'Темы ИИ:' : 'נושאי AI שכוסו:')) + '</b> ' + esc(coveredTopics.join(', ')) + '</p>' : '') +
+      '</div>' +
+      '<div class="scholarship-report-pairs">' +
+      (pairsHtml.length ? pairsHtml.join('') : '<p class="hint empty">' + (isAr ? 'لا توجد بيانات للأزواج' : (isRu ? 'Нет данных по парам' : 'אין נתוני שעות לזוגות')) + '</p>') +
+      '</div>';
+  }
+
+  function generateScholarshipReport() {
+    var targetSelect = $('scholarshipTargetSelect');
+    var targetHours = Number(targetSelect ? targetSelect.value : 30) || 30;
+    var records = Array.isArray(state.attendance) ? state.attendance : [];
+    var pairs = currentPairs();
+    var report = attendance && typeof attendance.buildScholarshipReport === 'function'
+      ? attendance.buildScholarshipReport(records, pairs, targetHours)
+      : { pairs: [], summary: { totalHours: 0, totalHeldSessions: 0, completionPercent: 0 } };
+    renderScholarshipReport(report, targetHours);
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var msg = lang === 'ar' ? 'تم إنشاء تقرير ساعات المنحة.' : (lang === 'ru' ? 'Отчет о часах стипендии сформирован.' : 'דוח שעות המלגה הופק בהצלחה.');
+    say('scholarshipReportStatus', msg);
+    return report;
+  }
+
+  if ($('generateScholarshipReportBtn')) {
+    $('generateScholarshipReportBtn').addEventListener('click', generateScholarshipReport);
+  }
+
+  if ($('copyScholarshipReportBtn')) {
+    $('copyScholarshipReportBtn').addEventListener('click', function () {
+      if (!lastScholarshipReportText) {
+        generateScholarshipReport();
+      }
+      var textToCopy = lastScholarshipReportText;
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      var copiedMsg = lang === 'ar' ? 'تم نسخ تقرير ساعات المنحة إلى الحافظة.' : (lang === 'ru' ? 'Отчет о часах стипендии скопирован в буфер обмена.' : 'דוח שעות המלגה הועתק ללוח.');
+      var readyMsg = lang === 'ar' ? 'تقرير ساعات المنحة جاهز للنسخ.' : (lang === 'ru' ? 'Отчет о часах стипендии готов к копированию.' : 'דוח שעות המלגה מוכן להעתקה.');
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(function () {
+          say('scholarshipReportStatus', copiedMsg);
+        }, function () {
+          say('scholarshipReportStatus', readyMsg);
+        });
+      } else {
+        say('scholarshipReportStatus', readyMsg);
+      }
+    });
+  }
 
   // ---------- wipe this device ----------
   // Everything the app holds sits under one key of this browser's storage (store.js), so ending a pilot
@@ -8041,9 +9631,12 @@ module.exports = {
     $('unitDuration').value = '20';
     if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
     revising = null;
-    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus'].forEach(function (id) {
+    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus'].forEach(function (id) {
       say(id, '');
     });
+    challengeEntries = [];
+    if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
+    renderChallengeLeaderboard();
     renderPeople(); renderUnits(); renderSessionForm();
     updatePairTotalHoursBadge(); renderSessions();
     setWipeArmed(false);
@@ -8210,6 +9803,7 @@ module.exports = {
     }).join('') : '<p class="empty">לא נמצא פרק מתאים.</p>';
     renderAITopicsSummary();
     renderScholarshipHoursSummary();
+    renderDropoutRiskList();
   }
 
   function renderScholarshipHoursSummary(customAttendance, customPairs) {
@@ -8377,6 +9971,321 @@ module.exports = {
   });
   $('guideAllBtn').addEventListener('click', function () { renderGuide(); say('guideStatus', 'כל המדריך מוצג.'); });
 
+  // ---------- Dropout Risk Module (#tab-guide) ----------
+  var S_DROPOUT_HEADING = {
+    he: 'זוגות בסיכון נשירה',
+    ar: 'الأزواج المعرضون لخطر التسرب',
+    ru: 'Пары в группе риска отсева'
+  };
+  var S_DROPOUT_THRESHOLD_LABEL = {
+    he: 'סף מינימום מפגשים',
+    ar: 'الحد الأدنى للجلسات',
+    ru: 'Минимальный порог занятий'
+  };
+  var S_DROPOUT_COUNT_LABEL = {
+    he: 'התראות פעילות',
+    ar: 'التنبيهات النشطة',
+    ru: 'Активные оповещения'
+  };
+  var S_DROPOUT_EMPTY = {
+    he: 'אין כרגע זוגות בסיכון נשירה.',
+    ar: 'لا يوجد أزواج معرضون لخطر التسرب حالياً.',
+    ru: 'На данный момент нет пар в группе риска.'
+  };
+  var S_DROPOUT_PAIR = {
+    he: 'זוג',
+    ar: 'الزوج',
+    ru: 'Пара'
+  };
+  var S_DROPOUT_HELD = {
+    he: 'מפגשים שהתקיימו',
+    ar: 'اللقاءات المنعقدة',
+    ru: 'Проведено занятий'
+  };
+  var S_DROPOUT_MISSED = {
+    he: 'החמצות וביטולים',
+    ar: 'إلغاءات وغياب',
+    ru: 'Отмен и пропусков'
+  };
+  var S_DROPOUT_REASON = {
+    he: 'סיבת סיכון',
+    ar: 'سبب الخطر',
+    ru: 'Причина риска'
+  };
+
+  function renderDropoutRiskList(customAttendance, customPairs) {
+    var listEl = $('dropoutRiskList');
+    if (!listEl) return;
+    var countEl = $('dropoutRiskCount');
+    var thresholdEl = $('dropoutThresholdSelect');
+    if (thresholdEl && !thresholdEl.value) {
+      thresholdEl.value = '2';
+    }
+    var threshold = thresholdEl ? (parseInt(thresholdEl.value, 10) || 2) : 2;
+
+    var s = (typeof window !== 'undefined' && window.state) ? window.state : state;
+    var cardEl = $('dropoutRiskCard');
+    var sourceState = cardEl?.state || s;
+
+    var records = [];
+    if (customAttendance !== undefined) {
+      records = customAttendance;
+    } else if (sourceState?.attendance && Array.isArray(sourceState.attendance.entries)) {
+      records = sourceState.attendance.entries;
+    } else if (Array.isArray(sourceState?.attendance)) {
+      records = sourceState.attendance;
+    } else if (Array.isArray(sourceState?.attendanceEntries)) {
+      records = sourceState.attendanceEntries;
+    } else if (Array.isArray(sourceState?.heldRecords)) {
+      records = sourceState.heldRecords;
+    }
+
+    var pairs = [];
+    if (customPairs !== undefined) {
+      pairs = customPairs;
+    } else if (Array.isArray(sourceState?.pairs) && sourceState.pairs.length) {
+      pairs = sourceState.pairs;
+    } else if (typeof currentPairs === 'function') {
+      pairs = currentPairs();
+    } else if (Array.isArray(lastMatch2?.pairs)) {
+      pairs = lastMatch2.pairs;
+    } else if (last && Array.isArray(last.pairs)) {
+      pairs = last.pairs;
+    }
+
+    var lang = currentLang || 'he';
+    var atRisk = [];
+    if (attendance && typeof attendance.detectInactivePairs === 'function') {
+      atRisk = attendance.detectInactivePairs(records, pairs, { minHeldCount: threshold, lang: lang });
+    }
+
+    if (countEl) {
+      countEl.textContent = String(atRisk.length);
+    }
+
+    listEl.setAttribute('aria-label', S_DROPOUT_HEADING[lang] || S_DROPOUT_HEADING.he);
+    if (!atRisk || atRisk.length === 0) {
+      var emptyMsg = S_DROPOUT_EMPTY[lang] || S_DROPOUT_EMPTY.he;
+      listEl.innerHTML = '<div class="empty-state"><p class="empty" id="dropoutRiskEmpty">' + esc(emptyMsg) + '</p></div>';
+    } else {
+      var pairWord = S_DROPOUT_PAIR[lang] || S_DROPOUT_PAIR.he;
+      var heldWord = S_DROPOUT_HELD[lang] || S_DROPOUT_HELD.he;
+      var missedWord = S_DROPOUT_MISSED[lang] || S_DROPOUT_MISSED.he;
+      var reasonWord = S_DROPOUT_REASON[lang] || S_DROPOUT_REASON.he;
+
+      var html = atRisk.map(function (item) {
+        var pNum = item.pairIndex + 1;
+        return '<div class="item dropout-risk-item" data-pair="' + esc(String(item.pairIndex)) + '">' +
+          '<b>' + esc(pairWord + ' ' + pNum) + '</b>' +
+          '<span class="meta">' +
+          esc(heldWord) + ': ' + esc(String(item.heldCount)) + ' · ' +
+          esc(missedWord) + ': ' + esc(String(item.missedOrCancelledCount)) + '<br>' +
+          '<b>' + esc(reasonWord) + ':</b> <span class="risk-reason">' + esc(item.riskReason) + '</span>' +
+          '</span>' +
+          '</div>';
+      }).join('');
+      listEl.innerHTML = html;
+    }
+
+    if (cardEl) {
+      cardEl.state = sourceState;
+      cardEl.renderDropoutRiskList = renderDropoutRiskList;
+    }
+  }
+
+  if ($('dropoutThresholdSelect')) {
+    if (!$('dropoutThresholdSelect').value) {
+      $('dropoutThresholdSelect').value = '2';
+    }
+    $('dropoutThresholdSelect').addEventListener('change', function () {
+      renderDropoutRiskList();
+    });
+  }
+
+  // ---------- AI Challenge Module (#tab-guide) ----------
+  var challengeEntries = [];
+
+  var S_CHALLENGE_HEADING = {
+    he: 'תחרות כלי AI',
+    ar: 'تحدي أدوات الذكاء الاصطناعي',
+    ru: 'Конкурс инструментов ИИ'
+  };
+  var S_CHALLENGE_PAIR = {
+    he: 'זוג',
+    ar: 'الزوج',
+    ru: 'Пара'
+  };
+  var S_CHALLENGE_TOPIC = {
+    he: 'נושא AI',
+    ar: 'موضوع الذكاء الاصطناعي',
+    ru: 'Тема ИИ'
+  };
+  var S_CHALLENGE_TITLE = {
+    he: 'שם הכלי',
+    ar: 'اسم الأداة',
+    ru: 'Название инструмента'
+  };
+  var S_CHALLENGE_INNOVATION = {
+    he: 'חדשנות (1-5)',
+    ar: 'الابتكار (1-5)',
+    ru: 'Инновации (1-5)'
+  };
+  var S_CHALLENGE_USEFULNESS = {
+    he: 'תועלת (1-5)',
+    ar: 'الفائدة (1-5)',
+    ru: 'Полезность (1-5)'
+  };
+  var S_CHALLENGE_SAFETY = {
+    he: 'בטיחות (1-5)',
+    ar: 'الأمان (1-5)',
+    ru: 'Безопасность (1-5)'
+  };
+  var S_CHALLENGE_SUBMIT_BTN = {
+    he: 'הגש אתגר',
+    ar: 'إرسال التحدي',
+    ru: 'Отправить работу'
+  };
+  var S_CHALLENGE_STATUS_SUCCESS = {
+    he: 'ההגשה נשמרה בהצלחה.',
+    ar: 'تم حفظ المشاركة بنجاح.',
+    ru: 'Заявка успешно сохранена.'
+  };
+
+  function renderChallengeForm() {
+    var pairSel = $('challengePairSelect');
+    if (pairSel) {
+      var pairs = typeof currentPairs === 'function' ? currentPairs() : [];
+      var curPair = pairSel.value;
+      var pairWord = currentLang === 'ar' ? 'زوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+      if (pairs.length === 0) {
+        var opt0 = pairWord + ' 1';
+        pairSel.innerHTML = '<option value="0">' + esc(opt0) + '</option>';
+        if (curPair) pairSel.value = curPair;
+        else pairSel.value = '0';
+      } else {
+        pairSel.innerHTML = pairs.map(function (p, i) {
+          return '<option value="' + i + '"' + (curPair === String(i) ? ' selected' : '') + '>' + esc(pairWord + ' ' + (i + 1)) + '</option>';
+        }).join('');
+        if (curPair && Number(curPair) < pairs.length) {
+          pairSel.value = curPair;
+        } else {
+          pairSel.value = '0';
+        }
+      }
+    }
+
+    var topicSel = $('challengeTopicSelect');
+    if (topicSel) {
+      var curTopic = topicSel.value;
+      var chooseTopic = currentLang === 'ar' ? 'اختر موضوع الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Выберите тему ИИ' : 'בחר נושא AI');
+      var html = '<option value="">' + esc(chooseTopic) + '</option>';
+      if (AI_TOPICS) {
+        Object.keys(AI_TOPICS).forEach(function (k) {
+          var label = (AI_TOPICS[k] && (AI_TOPICS[k][currentLang] || AI_TOPICS[k].he)) || k;
+          html += '<option value="' + esc(k) + '"' + (curTopic === k ? ' selected' : '') + '>' + esc(label) + '</option>';
+        });
+      }
+      topicSel.innerHTML = html;
+      topicSel.value = curTopic;
+    }
+  }
+
+  function renderChallengeLeaderboard() {
+    var board = $('challengeLeaderboard');
+    if (!board) return;
+    var heading = currentLang === 'ar' ? 'لوحة متصدري تحدي أدوات الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Таблица лидеров конкурса ИИ' : 'טבלת דירוג אתגר כלי AI');
+    board.setAttribute('aria-label', heading);
+
+    var ranked = [];
+    if (curriculumLib && typeof curriculumLib.rankChallengeLeaderboard === 'function') {
+      ranked = curriculumLib.rankChallengeLeaderboard(challengeEntries);
+    }
+    if (!ranked || ranked.length === 0) {
+      var emptyMsg = currentLang === 'ar' ? 'لا توجد مشاركات في تحدي أدوات الذكاء الاصطناعي بعد' : (currentLang === 'ru' ? 'Пока нет заявок на конкурс инструментов ИИ' : 'אין עדיין הגשות לתחרות כלי AI');
+      board.innerHTML = '<div class="empty-state"><p class="empty">' + esc(emptyMsg) + '</p></div>';
+      return;
+    }
+
+    var thRank = currentLang === 'ar' ? 'المرتبة' : (currentLang === 'ru' ? 'Место' : 'מקום');
+    var thPair = currentLang === 'ar' ? 'الزوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+    var thTopic = currentLang === 'ar' ? 'الموضوع' : (currentLang === 'ru' ? 'Тема' : 'נושא');
+    var thTitle = currentLang === 'ar' ? 'اسم الأداة' : (currentLang === 'ru' ? 'Инструмент' : 'שם הכלי');
+    var thInno = currentLang === 'ar' ? 'الابتكار' : (currentLang === 'ru' ? 'Инновации' : 'חדשנות');
+    var thUse = currentLang === 'ar' ? 'الفائدة' : (currentLang === 'ru' ? 'Полезность' : 'תועלת');
+    var thSafe = currentLang === 'ar' ? 'الأمان' : (currentLang === 'ru' ? 'Безопасность' : 'בטיחות');
+    var thTotal = currentLang === 'ar' ? 'الدرجة الكلية' : (currentLang === 'ru' ? 'Итого' : 'ציון כולל');
+    var pairWord = currentLang === 'ar' ? 'زوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+
+    var rowsHtml = ranked.map(function (item) {
+      var topicName = (AI_TOPICS && AI_TOPICS[item.aiTopic] && (AI_TOPICS[item.aiTopic][currentLang] || AI_TOPICS[item.aiTopic].he)) || item.aiTopic;
+      var pairLabel = pairWord + ' ' + (item.pairIndex + 1);
+      return '<tr data-pair="' + esc(String(item.pairIndex)) + '" data-rank="' + esc(String(item.rank)) + '">' +
+        '<td>' + esc(String(item.rank)) + '</td>' +
+        '<td>' + esc(pairLabel) + '</td>' +
+        '<td>' + esc(topicName) + '</td>' +
+        '<td>' + esc(item.toolTitle) + '</td>' +
+        '<td>' + esc(String(item.innovation)) + '</td>' +
+        '<td>' + esc(String(item.usefulness)) + '</td>' +
+        '<td>' + esc(String(item.safety)) + '</td>' +
+        '<td><b>' + esc(String(item.totalScore)) + '</b></td>' +
+        '</tr>';
+    }).join('');
+
+    board.innerHTML = '<table class="leaderboard-table">' +
+      '<thead><tr>' +
+      '<th>' + esc(thRank) + '</th>' +
+      '<th>' + esc(thPair) + '</th>' +
+      '<th>' + esc(thTopic) + '</th>' +
+      '<th>' + esc(thTitle) + '</th>' +
+      '<th>' + esc(thInno) + '</th>' +
+      '<th>' + esc(thUse) + '</th>' +
+      '<th>' + esc(thSafe) + '</th>' +
+      '<th>' + esc(thTotal) + '</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>';
+  }
+
+  if ($('submitChallengeBtn')) {
+    $('submitChallengeBtn').addEventListener('click', function () {
+      try {
+        var pairVal = $('challengePairSelect') ? $('challengePairSelect').value : '';
+        if (pairVal === '' || pairVal == null || isNaN(Number(pairVal))) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى اختيار زوج' : (currentLang === 'ru' ? 'Пожалуйста, выберите пару' : 'יש לבחור זוג'), true);
+          return;
+        }
+        var pairIndex = Number(pairVal);
+        var topic = $('challengeTopicSelect') ? $('challengeTopicSelect').value : '';
+        if (!topic) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى اختيار موضوع الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Пожалуйста, выберите тему ИИ' : 'יש לבחור נושא AI'), true);
+          return;
+        }
+        var title = $('challengeTitleInput') ? $('challengeTitleInput').value : '';
+        if (!title || !title.trim()) {
+          say('challengeStatus', currentLang === 'ar' ? 'يرجى إدخال اسم الأداة' : (currentLang === 'ru' ? 'Пожалуйста, введите название инструмента' : 'יש להזין שם כלי'), true);
+          return;
+        }
+        var inno = Number($('challengeScoreInnovation') ? $('challengeScoreInnovation').value : 5);
+        var use = Number($('challengeScoreUsefulness') ? $('challengeScoreUsefulness').value : 5);
+        var safe = Number($('challengeScoreSafety') ? $('challengeScoreSafety').value : 5);
+
+        challengeEntries = curriculumLib.submitChallengeEntry(challengeEntries, {
+          pairIndex: pairIndex,
+          aiTopic: topic,
+          toolTitle: title,
+          innovation: inno,
+          usefulness: use,
+          safety: safe
+        });
+        say('challengeStatus', S_CHALLENGE_STATUS_SUCCESS[currentLang] || S_CHALLENGE_STATUS_SUCCESS.he);
+        if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
+        renderChallengeLeaderboard();
+      } catch (err) {
+        say('challengeStatus', (errorHe ? errorHe(err) : err.message) || err.message, true);
+      }
+    });
+  }
+
   var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
   var lockedKeys = {};
   function rosterSplit() {
@@ -8509,6 +10418,9 @@ module.exports = {
     $('match2Out').innerHTML = displayPairs.map(function (p) {
       var student = r.students[p.studentIndex] || {};
       var pupil = r.pupils[p.pupilIndex] || {};
+      var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+      var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+      var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
       var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length > 0) ||
         (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length > 0);
       var key = p.studentIndex + '-' + p.pupilIndex;
@@ -8530,6 +10442,8 @@ module.exports = {
       var scoreVal = typeof p.score === 'number' ? p.score : 0;
       return '<div class="item pair" data-ai-overlap="' + aiVal + '" data-score="' + scoreVal + '"><b>סטודנט ' + (p.studentIndex + 1) + ' · תלמיד ' + (p.pupilIndex + 1) + '</b>' +
         '<span class="meta">' + esc(p.explanationHe) + '</span><br>' +
+        '<span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+        ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span><br>' +
         (topics ? ['<span class="meta">', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang)), '</span><br>'].join('') : '') +
         aiExplHtml +
         '<label class="check"><input type="checkbox" data-lock="' + key + '"' + (lockedKeys[key] ? ' checked' : '') + '> נעול</label></div>';
@@ -8686,7 +10600,7 @@ module.exports = {
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
-    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); }
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
@@ -8745,11 +10659,16 @@ module.exports = {
   renderGuide();
   renderAITopicsSummary();
   renderScholarshipHoursSummary();
+  renderDropoutRiskList();
+  renderChallengeForm();
+  renderChallengeLeaderboard();
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
-    document.documentElement.lang = currentLang;
-    document.documentElement.dir = i18n.dirFor(currentLang);
+    if (document.documentElement) {
+      document.documentElement.lang = currentLang;
+      document.documentElement.dir = i18n.dirFor(currentLang);
+    }
     if (typeof refreshSortAiMatchLabel === 'function') refreshSortAiMatchLabel();
     if (typeof refreshFilterAiOnlyLabel === 'function') refreshFilterAiOnlyLabel();
     if (typeof refreshFilterMissingAiLabel === 'function') refreshFilterMissingAiLabel();
@@ -8763,12 +10682,139 @@ module.exports = {
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary();
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList();
+    renderChallengeForm(); renderChallengeLeaderboard();
+
+    if ($('dropoutRiskHeading')) $('dropoutRiskHeading').textContent = S_DROPOUT_HEADING[currentLang] || S_DROPOUT_HEADING.he;
+    if ($('dropoutThresholdLabel')) $('dropoutThresholdLabel').textContent = S_DROPOUT_THRESHOLD_LABEL[currentLang] || S_DROPOUT_THRESHOLD_LABEL.he;
+    if ($('dropoutRiskCountLabel')) $('dropoutRiskCountLabel').textContent = S_DROPOUT_COUNT_LABEL[currentLang] || S_DROPOUT_COUNT_LABEL.he;
+
+    if ($('challengeHeading')) $('challengeHeading').textContent = S_CHALLENGE_HEADING[currentLang] || S_CHALLENGE_HEADING.he;
+    if ($('challengePairLabel')) $('challengePairLabel').textContent = S_CHALLENGE_PAIR[currentLang] || S_CHALLENGE_PAIR.he;
+    if ($('challengeTopicLabel')) $('challengeTopicLabel').textContent = S_CHALLENGE_TOPIC[currentLang] || S_CHALLENGE_TOPIC.he;
+    if ($('challengeTitleLabel')) $('challengeTitleLabel').textContent = S_CHALLENGE_TITLE[currentLang] || S_CHALLENGE_TITLE.he;
+    if ($('challengeInnovationLabel')) $('challengeInnovationLabel').textContent = S_CHALLENGE_INNOVATION[currentLang] || S_CHALLENGE_INNOVATION.he;
+    if ($('challengeUsefulnessLabel')) $('challengeUsefulnessLabel').textContent = S_CHALLENGE_USEFULNESS[currentLang] || S_CHALLENGE_USEFULNESS.he;
+    if ($('challengeSafetyLabel')) $('challengeSafetyLabel').textContent = S_CHALLENGE_SAFETY[currentLang] || S_CHALLENGE_SAFETY.he;
+    if ($('submitChallengeBtn')) {
+      var challengeBtnText = S_CHALLENGE_SUBMIT_BTN[currentLang] || S_CHALLENGE_SUBMIT_BTN.he;
+      $('submitChallengeBtn').textContent = challengeBtnText;
+      $('submitChallengeBtn').setAttribute('aria-label', challengeBtnText);
+    }
+
+    if ($('sessionDurationLabel')) $('sessionDurationLabel').textContent = S_SESSION_DURATION[currentLang] || S_SESSION_DURATION.he;
+    if ($('sessionAiTopicLabel')) $('sessionAiTopicLabel').textContent = S_SESSION_AI_TOPIC[currentLang] || S_SESSION_AI_TOPIC.he;
+    if ($('scholarshipReportHeading')) $('scholarshipReportHeading').textContent = S_SCHOLARSHIP_REPORT_HEADING[currentLang] || S_SCHOLARSHIP_REPORT_HEADING.he;
+    if ($('scholarshipReportHint')) $('scholarshipReportHint').textContent = S_SCHOLARSHIP_REPORT_HINT[currentLang] || S_SCHOLARSHIP_REPORT_HINT.he;
+    if ($('scholarshipTargetLabel')) $('scholarshipTargetLabel').textContent = S_SCHOLARSHIP_TARGET_LABEL[currentLang] || S_SCHOLARSHIP_TARGET_LABEL.he;
+    if ($('generateScholarshipReportBtn')) {
+      var genText = S_GENERATE_SCHOLARSHIP_REPORT[currentLang] || S_GENERATE_SCHOLARSHIP_REPORT.he;
+      $('generateScholarshipReportBtn').textContent = genText;
+      $('generateScholarshipReportBtn').setAttribute('aria-label', genText);
+    }
+    if ($('copyScholarshipReportBtn')) {
+      var copyText = S_COPY_SCHOLARSHIP_REPORT[currentLang] || S_COPY_SCHOLARSHIP_REPORT.he;
+      $('copyScholarshipReportBtn').textContent = copyText;
+      $('copyScholarshipReportBtn').setAttribute('aria-label', copyText);
+    }
+    var aiLevelSel = $('participantAiLevelSelect');
+    if (aiLevelSel) {
+      var noneTxt = AI_LEVEL_FIELD_LABELS.none[currentLang] || AI_LEVEL_FIELD_LABELS.none.he;
+      var begTxt = AI_LEVEL_LABELS.beginner[currentLang] || AI_LEVEL_LABELS.beginner.he;
+      var advTxt = AI_LEVEL_LABELS.advanced[currentLang] || AI_LEVEL_LABELS.advanced.he;
+      var currentAiVal = aiLevelSel.value || '';
+      aiLevelSel.innerHTML = '<option value="">' + esc(noneTxt) + '</option>' +
+        '<option value="beginner"' + (currentAiVal === 'beginner' ? ' selected' : '') + '>' + esc(begTxt) + '</option>' +
+        '<option value="advanced"' + (currentAiVal === 'advanced' ? ' selected' : '') + '>' + esc(advTxt) + '</option>';
+      aiLevelSel.value = currentAiVal;
+    }
+    if ($('participantAiLevelLabel')) {
+      $('participantAiLevelLabel').textContent = AI_LEVEL_FIELD_LABELS.label[currentLang] || AI_LEVEL_FIELD_LABELS.label.he;
+    }
+    if (last) {
+      $('pairs').innerHTML = last.pairs.length ? last.pairs.map(function (p, i) {
+        var student = state.people[p.student - 1] || {};
+        var pupil = state.people[p.pupil - 1] || {};
+        var topics = (Array.isArray(student.target_ai_topics) && student.target_ai_topics.length) ||
+          (Array.isArray(pupil.target_ai_topics) && pupil.target_ai_topics.length);
+        var overlapSlots = getWeeklyOverlapSlots(student, pupil);
+        var overlapText = weeklyOverlapBadgeText(overlapSlots, currentLang);
+        var levelFitText = aiLevelBadgeText(student.aiLevel, pupil.aiLevel, currentLang);
+        return '<div class="item pair"><b>זוג ' + (i + 1) + ' · ' + esc(REGION_HE[p.region] || p.region) + '</b>' +
+          '<span class="meta">' + ROLE_HE.student + ' #' + p.student + ' עם ' + ROLE_HE.pupil + ' #' + p.pupil + '<br>' +
+          'מקצועות משותפים: ' + p.sharedSubjects.map(function (s) { return esc(SUBJECT_HE[s] || s); }).join(', ') +
+          '<br>שעות משותפות: ' + p.sharedSlots.map(function (s) { return esc(slotHe(s)); }).join(', ') +
+          '<br><span class="match-overlap-slots pill" data-slots="' + esc(overlapSlots.join(',')) + '">' + esc(overlapText) + '</span>' +
+          ' <span class="match-ai-level pill">' + esc(levelFitText) + '</span>' +
+          (topics ? ['<br>', esc(aiTopicBadgeText(p.aiTopicMatch, currentLang))].join('') : '') +
+          '</span></div>';
+      }).join('') : '<p class="empty">' + S('noPairs') + '</p>';
+    }
+    if (lastMatch2 && typeof renderMatch2 === 'function') {
+      renderMatch2(lastMatch2);
+    }
+    var aiTopicSel = $('sessionAiTopicSelect');
+    if (aiTopicSel) {
+      var currentTopicVal = aiTopicSel.value;
+      var emptyText = currentLang === 'ar' ? 'بدون موضوع ذكاء اصطناعي' : (currentLang === 'ru' ? 'Без темы ИИ' : 'ללא נושא AI');
+      var optsHtml = '<option value="">' + esc(emptyText) + '</option>';
+      if (AI_TOPICS) {
+        Object.keys(AI_TOPICS).forEach(function (k) {
+          var label = (AI_TOPICS[k] && (AI_TOPICS[k][currentLang] || AI_TOPICS[k].he)) || k;
+          optsHtml += '<option value="' + esc(k) + '"' + (currentTopicVal === k ? ' selected' : '') + '>' + esc(label) + '</option>';
+        });
+      }
+      aiTopicSel.innerHTML = optsHtml;
+      aiTopicSel.value = currentTopicVal;
+    }
+    var targetSel = $('scholarshipTargetSelect');
+    if (targetSel) {
+      var currentTargetVal = targetSel.value;
+      var t30 = currentLang === 'ar' ? '30 ساعة (أساسي)' : (currentLang === 'ru' ? '30 часов (базовый)' : '30 שעות (בסיסי)');
+      var t130 = currentLang === 'ar' ? '130 ساعة (منحة IMPACT!)' : (currentLang === 'ru' ? '130 часов (стипендия IMPACT!)' : '130 שעות (מלגת IMPACT!)');
+      targetSel.innerHTML = '<option value="30"' + (currentTargetVal === '30' ? ' selected' : '') + '>' + esc(t30) + '</option>' +
+        '<option value="130"' + (currentTargetVal === '130' ? ' selected' : '') + '>' + esc(t130) + '</option>';
+      targetSel.value = currentTargetVal || '30';
+    }
+    if (lastScholarshipReportText) {
+      generateScholarshipReport();
+    }
+    if ($('pilotBatchHeading')) {
+      var headingTxt = currentLang === 'ar' ? 'استيراد دفعة للبرنامج التجريبي' : (currentLang === 'ru' ? 'Пакетный импорт для пилота' : 'ייבוא אצווה לפיילוט');
+      $('pilotBatchHeading').textContent = headingTxt;
+    }
+    if ($('pilotBatchInputLabel')) {
+      var labelTxt = currentLang === 'ar' ? 'بيانات الدفعة (JSON)' : (currentLang === 'ru' ? 'Данные пакета (JSON)' : 'נתוני אצווה (JSON)');
+      $('pilotBatchInputLabel').textContent = labelTxt;
+    }
+    if ($('validatePilotBatchBtn')) {
+      var vBtnTxt = currentLang === 'ar' ? 'التحقق من الدفعة' : (currentLang === 'ru' ? 'Проверить пакет' : 'אימות אצווה');
+      $('validatePilotBatchBtn').textContent = vBtnTxt;
+      $('validatePilotBatchBtn').setAttribute('aria-label', vBtnTxt);
+    }
+    if ($('confirmPilotBatchBtn')) {
+      var cBtnTxt = currentLang === 'ar' ? 'استيراد معتمد' : (currentLang === 'ru' ? 'Подтвердить импорт' : 'ייבוא מאושר');
+      $('confirmPilotBatchBtn').textContent = cBtnTxt;
+      $('confirmPilotBatchBtn').setAttribute('aria-label', cBtnTxt);
+    }
+    if (typeof renderPilotBatchStatus === 'function') {
+      renderPilotBatchStatus();
+    }
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
-  if (currentLang !== 'he') applyLanguage(currentLang);
-  if (typeof window !== 'undefined') window.applyLanguage = applyLanguage;
+  applyLanguage(currentLang);
+  if (typeof window !== 'undefined') {
+    window.applyLanguage = applyLanguage;
+    window.generateScholarshipReport = generateScholarshipReport;
+    window.renderScholarshipReport = renderScholarshipReport;
+    window.renderChallengeForm = renderChallengeForm;
+    window.renderChallengeLeaderboard = renderChallengeLeaderboard;
+    window.renderDropoutRiskList = renderDropoutRiskList;
+    window.detectInactivePairs = (attendance && attendance.detectInactivePairs) || detectInactivePairs;
+    window.validateBatchImportZeroPii = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
+    window.renderPilotBatchStatus = renderPilotBatchStatus;
+  }
 })();
 </script>
 </body>
