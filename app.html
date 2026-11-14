@@ -669,6 +669,16 @@
       <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
     </div>
   </div>
+    <div class="card" id="regionalImpactCard">
+      <h2 id="regionalImpactHeading">מאזן אזורי ודוח אימפקט</h2>
+      <p class="hint" id="regionalImpactHint">מאזן היצע וביקוש אזורי ודוח אימפקט פעילות ללא פרטים מזהים.</p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic regional balance -->
+      <div id="regionalBalanceOut" role="region" aria-live="polite" aria-label="מאזן אזורי ודוח אימפקט"></div>
+      <div class="actions" style="margin-top: 12px;">
+        <button type="button" class="act" id="copyImpactReportBtn" aria-describedby="impactReportStatus">העתק דוח אימפקט</button>
+      </div>
+      <p class="status" id="impactReportStatus" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
   <!-- ============ דוחות ============ -->
@@ -2916,23 +2926,33 @@ function findPairObject(pairs, pairIndex) {
 	if (!pairs) return null;
 	if (Array.isArray(pairs)) {
 		const candidate = pairs[pairIndex];
-		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+		if (
+			candidate &&
+			typeof candidate === "object" &&
+			!Array.isArray(candidate)
+		) {
 			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
 			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
 				return candidate;
 			}
 		}
-		return pairs.find(
-			(p) =>
-				p &&
-				typeof p === "object" &&
-				!Array.isArray(p) &&
-				p.pairIndex === pairIndex,
-		) || null;
+		return (
+			pairs.find(
+				(p) =>
+					p &&
+					typeof p === "object" &&
+					!Array.isArray(p) &&
+					p.pairIndex === pairIndex,
+			) || null
+		);
 	}
 	if (typeof pairs === "object") {
 		const candidate = pairs[pairIndex];
-		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+		if (
+			candidate &&
+			typeof candidate === "object" &&
+			!Array.isArray(candidate)
+		) {
 			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
 			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
 				return candidate;
@@ -2962,8 +2982,7 @@ function accumulateScholarshipRecord(r, pairs, result) {
 			participants.add(pair.pupilIndex);
 		}
 		for (const pIdx of participants) {
-			result.byParticipant[pIdx] =
-				(result.byParticipant[pIdx] || 0) + duration;
+			result.byParticipant[pIdx] = (result.byParticipant[pIdx] || 0) + duration;
 		}
 	}
 }
@@ -3101,7 +3120,11 @@ function buildScholarshipReport(records, pairs, targetHours) {
 	const overallAiTopics = new Set();
 
 	for (const pIdx of sortedPairIndexes) {
-		const { pairReport, metrics } = computePairReport(pIdx, cleanRecords, target);
+		const { pairReport, metrics } = computePairReport(
+			pIdx,
+			cleanRecords,
+			target,
+		);
 		pairReports.push(pairReport);
 		byPair[pIdx] = pairReport;
 
@@ -3815,6 +3838,61 @@ function detectInactivePairs(records, pairs, options) {
 	return Object.freeze(result);
 }
 
+function computeRegionalSupplyDemand(people) {
+	const summary = {};
+	if (!Array.isArray(people)) {
+		return Object.freeze(summary);
+	}
+	for (const p of people) {
+		if (!p || typeof p !== "object" || Array.isArray(p)) continue;
+		if (typeof p.role !== "string") continue;
+		const role = p.role.trim().toLowerCase();
+		if (role !== "student" && role !== "pupil") continue;
+
+		const rawArea = p.area !== undefined ? p.area : p.region;
+		if (typeof rawArea !== "string") continue;
+		const area = rawArea.trim();
+		if (area === "") continue;
+
+		if (!Object.hasOwn(summary, area)) {
+			summary[area] = {
+				area: area,
+				students: 0,
+				offered: 0,
+				pupils: 0,
+				requested: 0,
+				gap: 0,
+				total: 0,
+			};
+		}
+		if (role === "student") {
+			summary[area].students += 1;
+			summary[area].offered += 1;
+		} else if (role === "pupil") {
+			summary[area].pupils += 1;
+			summary[area].requested += 1;
+		}
+		summary[area].gap = summary[area].requested - summary[area].offered;
+		summary[area].total = summary[area].students + summary[area].pupils;
+	}
+
+	for (const key of Object.keys(summary)) {
+		Object.freeze(summary[key]);
+	}
+
+	Object.defineProperty(summary, Symbol.iterator, {
+		value: function* () {
+			for (const key of Object.keys(summary)) {
+				yield summary[key];
+			}
+		},
+		enumerable: false,
+		configurable: true,
+	});
+
+	return Object.freeze(summary);
+}
+
 module.exports = {
 	filterAttendanceRecords,
 	getPairSessionTimeline,
@@ -3856,39 +3934,52 @@ module.exports = {
 	loadFocusReaderConfig,
 	focusReaderConfig,
 	detectInactivePairs,
+	computeRegionalSupplyDemand,
 };
 
 function filterAttendanceRecords(records, filters) {
 	const clean = getCleanAttendanceRecords(records);
 	const f = filters || {};
-	return Object.freeze(clean.filter((r) => {
-		if (!r || typeof r !== 'object') return false;
-		if (f.status && f.status !== 'all' && r.status !== f.status) return false;
-		if (f.pairIndex !== undefined && f.pairIndex !== null && r.pairIndex !== f.pairIndex) return false;
-		if (f.aiTopic && r.aiTopic !== f.aiTopic) return false;
-		return true;
-	}));
+	return Object.freeze(
+		clean.filter((r) => {
+			if (!r || typeof r !== "object") return false;
+			if (f.status && f.status !== "all" && r.status !== f.status) return false;
+			if (
+				f.pairIndex !== undefined &&
+				f.pairIndex !== null &&
+				r.pairIndex !== f.pairIndex
+			)
+				return false;
+			if (f.aiTopic && r.aiTopic !== f.aiTopic) return false;
+			return true;
+		}),
+	);
 }
 
 function getPairSessionTimeline(records, pairIndex) {
 	const clean = getCleanAttendanceRecords(records);
 	const filtered = clean.filter((r) => r && r.pairIndex === pairIndex);
-	filtered.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+	filtered.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 	return Object.freeze(filtered);
 }
 
 function updateSessionOutcome(records, pairIndex, date, patch) {
 	const clean = getCleanAttendanceRecords(records);
-	const idx = clean.findIndex((r) => r && r.pairIndex === pairIndex && r.date === date);
+	const idx = clean.findIndex(
+		(r) => r && r.pairIndex === pairIndex && r.date === date,
+	);
 	if (idx === -1) {
-		throw new Error('session record not found');
+		throw new Error("session record not found");
 	}
 	const target = clean[idx];
 	const updatedRow = {
 		pairIndex: target.pairIndex,
 		date: target.date,
 		status: patch && patch.status !== undefined ? patch.status : target.status,
-		durationHours: patch && patch.durationHours !== undefined ? patch.durationHours : target.durationHours,
+		durationHours:
+			patch && patch.durationHours !== undefined
+				? patch.durationHours
+				: target.durationHours,
 	};
 	if (patch && patch.aiTopic !== undefined) {
 		updatedRow.aiTopic = patch.aiTopic;
@@ -3897,7 +3988,7 @@ function updateSessionOutcome(records, pairIndex, date, patch) {
 	}
 	const validated = sanitizeAttendanceRow(updatedRow, parseDate);
 	if (!validated) {
-		throw new Error('invalid attendance patch');
+		throw new Error("invalid attendance patch");
 	}
 	const updatedList = clean.slice();
 	updatedList[idx] = validated;
@@ -6489,13 +6580,18 @@ const {
 	withoutRetentionStamp,
 	PERSONAL_DATA_ERROR,
 } = require("./profile.js");
-const { PROFANITY_ERROR, validateBatchImportZeroPii } = require("./validator.js");
+const {
+	PROFANITY_ERROR,
+	validateBatchImportZeroPii,
+} = require("./validator.js");
 const { emptyQueue, loadQueue } = require("./approval.js");
 const { emptyLog, loadLog } = require("./session.js");
 const {
 	AI_TOPIC_KEYS,
 	serializeAttendance,
 	deserializeAttendance,
+	computeRegionalSupplyDemand,
+	detectInactivePairs,
 } = require("./attendance.js");
 
 const SCHEMA = "peered/1";
@@ -6619,11 +6715,7 @@ function storedPerson(person, at) {
 	let hasTopics = false;
 	let rawTopics;
 	let rawArea;
-	if (
-		person !== null &&
-		typeof person === "object" &&
-		!Array.isArray(person)
-	) {
+	if (person !== null && typeof person === "object" && !Array.isArray(person)) {
 		if (Object.hasOwn(person, "target_ai_topics")) {
 			hasTopics = true;
 			rawTopics = person.target_ai_topics;
@@ -6898,6 +6990,190 @@ function filterParticipantsByAITopic(participants, topicId) {
 	);
 }
 
+function buildImpactOverviewReport(state, lang) {
+	const s = state || emptyState();
+	const l = lang === "ar" || lang === "ru" || lang === "he" ? lang : "he";
+
+	const people = Array.isArray(s.people) ? s.people : [];
+	const records = attendanceRecords(s.attendance);
+
+	let totalHeldSessions = 0;
+	let totalHours = 0.0;
+	for (const r of records) {
+		if (r && r.status === "held") {
+			totalHeldSessions += 1;
+			const dur =
+				typeof r.durationHours === "number" &&
+				Number.isFinite(r.durationHours) &&
+				r.durationHours > 0
+					? r.durationHours
+					: 1.0;
+			totalHours += dur;
+		}
+	}
+	totalHours = Math.round(totalHours * 10) / 10;
+
+	const pairSet = new Set();
+	if (Array.isArray(s.pairs)) {
+		s.pairs.forEach((p, idx) => {
+			const pIdx =
+				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
+					? p.pairIndex
+					: idx;
+			pairSet.add(pIdx);
+		});
+	}
+	for (const r of records) {
+		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+			pairSet.add(r.pairIndex);
+		}
+	}
+	const totalPairs =
+		Array.isArray(s.pairs) && s.pairs.length > pairSet.size
+			? s.pairs.length
+			: pairSet.size;
+
+	const regionalBalance = computeRegionalSupplyDemand(people);
+
+	const pairsList =
+		Array.isArray(s.pairs) && s.pairs.length > 0
+			? s.pairs
+			: Array.from(pairSet)
+					.sort((a, b) => a - b)
+					.map((idx) => ({ pairIndex: idx }));
+
+	const atRiskPairs =
+		typeof detectInactivePairs === "function"
+			? detectInactivePairs(records, pairsList, { minHeldCount: 2, lang: l })
+			: Object.freeze([]);
+
+	const titles = {
+		he: {
+			header: "=== דוח אימפקט ומאזן אזורי ===",
+			pairs: "סך זוגות:",
+			held: "מפגשים שהתקיימו:",
+			hours: "סך שעות חונכות:",
+			atRisk: "זוגות בסיכון נשירה:",
+			regional: "מאזן אזורי:",
+			noRegions: "  אין נתוני אזורים",
+			regionRow: (a, st, pu, gp) =>
+				`  ${a}: סטודנטים: ${st}, תלמידים: ${pu}, פער: ${gp}`,
+			riskDetails: "פרטי סיכון:",
+			riskRow: (idx, reason, h, m) =>
+				`  - זוג ${idx + 1}: ${reason} (התקיימו: ${h}, ביטולים/החמצות: ${m})`,
+		},
+		ar: {
+			header: "=== تقرير الأثر والتوازن الإقليمي ===",
+			pairs: "إجمالي الأزواج:",
+			held: "اللقاءات المنعقدة:",
+			hours: "إجمالي ساعات الإرشاد:",
+			atRisk: "الأزواج المعرضون لخطر التسرب:",
+			regional: "التوازن الإقليمي:",
+			noRegions: "  لا توجد بيانات للمناطق",
+			regionRow: (a, st, pu, gp) =>
+				`  ${a}: طلاب مرشدون: ${st}, تلاميذ: ${pu}, الفجوة: ${gp}`,
+			riskDetails: "تفاصيل الخطر:",
+			riskRow: (idx, reason, h, m) =>
+				`  - الزوج ${idx + 1}: ${reason} (المنعقدة: ${h}, إلغاءات/غياب: ${m})`,
+		},
+		ru: {
+			header: "=== Отчет о воздействии и региональном балансе ===",
+			pairs: "Всего пар:",
+			held: "Состоявшихся занятий:",
+			hours: "Всего часов наставничества:",
+			atRisk: "Пары в группе риска отсева:",
+			regional: "Региональный баланс:",
+			noRegions: "  Нет данных по регионам",
+			regionRow: (a, st, pu, gp) =>
+				`  ${a}: наставники: ${st}, ученики: ${pu}, разрыв: ${gp}`,
+			riskDetails: "Детали риска:",
+			riskRow: (idx, reason, h, m) =>
+				`  - Пара ${idx + 1}: ${reason} (проведено: ${h}, отмен/пропусков: ${m})`,
+		},
+	};
+
+	const t = titles[l];
+	const lines = [
+		t.header,
+		`${t.pairs} ${totalPairs}`,
+		`${t.held} ${totalHeldSessions}`,
+		`${t.hours} ${totalHours}`,
+		`${t.atRisk} ${atRiskPairs.length}`,
+		t.regional,
+	];
+
+	const regionKeys = Object.keys(regionalBalance);
+	if (regionKeys.length === 0) {
+		lines.push(t.noRegions);
+	} else {
+		for (const key of regionKeys) {
+			const item = regionalBalance[key];
+			lines.push(t.regionRow(key, item.students, item.pupils, item.gap));
+		}
+	}
+
+	if (atRiskPairs.length > 0) {
+		lines.push(t.riskDetails);
+		for (const item of atRiskPairs) {
+			lines.push(
+				t.riskRow(
+					item.pairIndex,
+					item.riskReason,
+					item.heldCount,
+					item.missedOrCancelledCount,
+				),
+			);
+		}
+	}
+
+	const reportText = lines.join("\n");
+
+	const report = {
+		totalPairs,
+		pairsCount: totalPairs,
+		heldSessions: totalHeldSessions,
+		totalHeldSessions,
+		heldCount: totalHeldSessions,
+		totalHours,
+		hours: totalHours,
+		regionalBalance,
+		atRiskPairs,
+		atRiskCount: atRiskPairs.length,
+		lang: l,
+		text: reportText,
+		summary: Object.freeze({
+			totalPairs,
+			totalHeldSessions,
+			totalHours,
+			atRiskCount: atRiskPairs.length,
+		}),
+	};
+
+	report.toString = function () {
+		return this.text;
+	};
+	report.valueOf = function () {
+		return this.text;
+	};
+	report[Symbol.toPrimitive] = function () {
+		return this.text;
+	};
+	report.includes = function (s) {
+		return this.text.includes(s);
+	};
+	report.indexOf = function (s) {
+		return this.text.indexOf(s);
+	};
+	report.startsWith = function (s) {
+		return this.text.startsWith(s);
+	};
+	report.endsWith = function (s) {
+		return this.text.endsWith(s);
+	};
+
+	return Object.freeze(report);
+}
+
 module.exports = {
 	SCHEMA,
 	DEFAULT_KEY,
@@ -6911,6 +7187,8 @@ module.exports = {
 	isQuotaExceededError,
 	isQuotaExceeded,
 	validateBatchImportZeroPii,
+	computeRegionalSupplyDemand,
+	buildImpactOverviewReport,
 	filterParticipantsByAITopic
 };
   __registry["store"] = module.exports;
@@ -7351,6 +7629,10 @@ module.exports = {
       window.serializeAttendance = attendance.serializeAttendance;
       window.deserializeAttendance = attendance.deserializeAttendance;
       window.detectInactivePairs = attendance.detectInactivePairs;
+      window.computeRegionalSupplyDemand = attendance.computeRegionalSupplyDemand;
+    }
+    if (storeLib) {
+      window.buildImpactOverviewReport = storeLib.buildImpactOverviewReport;
     }
   }
   // Every hour the engine accepts (profile.HOUR_MIN..HOUR_MAX), so the grid can never offer less or more.
@@ -7742,6 +8024,7 @@ module.exports = {
       setAiFilterEmptyMessage(false);
       updateAiFilterCount(0, 0);
       renderAITopicsSummary();
+      if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
       return;
     }
     const missingAiActive = $('btn-filter-missing-ai')?.getAttribute('aria-pressed') === 'true';
@@ -7764,6 +8047,7 @@ module.exports = {
       setAiFilterEmptyMessage(true);
       updateAiFilterCount(0, state.people.length);
       renderAITopicsSummary();
+      if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
       return;
     }
     setAiFilterEmptyMessage(false);
@@ -7788,6 +8072,7 @@ module.exports = {
     $('peopleList').innerHTML = rows.join('');
     updateAiFilterCount(rows.length, state.people.length);
     renderAITopicsSummary();
+    if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
   }
 
   const peopleAiFilterEl = $('peopleAiFilter');
@@ -9142,6 +9427,7 @@ module.exports = {
     var er = $('exportReport');
     if (er) er.setAttribute('aria-expanded', $('reportBox').hidden ? 'false' : 'true');
     if (typeof renderDropoutRiskList === 'function') renderDropoutRiskList();
+    if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
   }
 
   // The export is session.reportCsv over the stored log: the screen never assembles a line of it, so
@@ -9758,6 +10044,7 @@ module.exports = {
     renderAITopicsSummary();
     renderScholarshipHoursSummary();
     renderDropoutRiskList();
+    if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
   }
 
   function renderScholarshipHoursSummary(customAttendance, customPairs) {
@@ -10274,6 +10561,142 @@ module.exports = {
     });
   }
 
+  // ---------- Regional Balance & Impact Report Module (#tab-guide) ----------
+  var S_REGIONAL_IMPACT_HEADING = {
+    he: 'מאזן אזורי ודוח אימפקט',
+    ar: 'التوازن الإقليمي وتقرير الأثر',
+    ru: 'Региональный баланс и отчет о воздействии'
+  };
+  var S_COPY_IMPACT_REPORT = {
+    he: 'העתק דוח אימפקט',
+    ar: 'نسخ تقرير الأثر',
+    ru: 'Копировать отчет о воздействии'
+  };
+  var S_REGIONAL_TABLE_AREA = {
+    he: 'אזור',
+    ar: 'المنطقة',
+    ru: 'Регион'
+  };
+  var S_REGIONAL_TABLE_STUDENTS = {
+    he: 'סטודנטים (היצע)',
+    ar: 'طلاب مرشدون (العرض)',
+    ru: 'Студенты (предложение)'
+  };
+  var S_REGIONAL_TABLE_PUPILS = {
+    he: 'תלמידים (ביקוש)',
+    ar: 'تلاميذ (الطلب)',
+    ru: 'Ученики (спрос)'
+  };
+  var S_REGIONAL_TABLE_GAP = {
+    he: 'פער (ביקוש - היצע)',
+    ar: 'الفجوة (الطلب - العرض)',
+    ru: 'Разрыв (спрос - предложение)'
+  };
+  var S_REGIONAL_EMPTY = {
+    he: 'אין נתוני אזורים עדיין.',
+    ar: 'لا توجد بيانات مناطق حالياً.',
+    ru: 'На данный момент нет данных по регионам.'
+  };
+
+  function renderRegionalBalance(customPeople) {
+    var out = $('regionalBalanceOut');
+    if (!out) return;
+    var s = (typeof window !== 'undefined' && window.state) ? window.state : state;
+    var cardEl = $('regionalImpactCard');
+    var sourceState = cardEl?.state || s;
+    var people = customPeople !== undefined
+      ? customPeople
+      : (sourceState && Array.isArray(sourceState.people) ? sourceState.people : []);
+
+    var lang = currentLang || 'he';
+    var balance = {};
+    if (attendance && typeof attendance.computeRegionalSupplyDemand === 'function') {
+      balance = attendance.computeRegionalSupplyDemand(people);
+    } else if (storeLib && typeof storeLib.computeRegionalSupplyDemand === 'function') {
+      balance = storeLib.computeRegionalSupplyDemand(people);
+    }
+
+    out.setAttribute('aria-label', S_REGIONAL_IMPACT_HEADING[lang] || S_REGIONAL_IMPACT_HEADING.he);
+
+    var thArea = S_REGIONAL_TABLE_AREA[lang] || S_REGIONAL_TABLE_AREA.he;
+    var thStudents = S_REGIONAL_TABLE_STUDENTS[lang] || S_REGIONAL_TABLE_STUDENTS.he;
+    var thPupils = S_REGIONAL_TABLE_PUPILS[lang] || S_REGIONAL_TABLE_PUPILS.he;
+    var thGap = S_REGIONAL_TABLE_GAP[lang] || S_REGIONAL_TABLE_GAP.he;
+    var emptyText = S_REGIONAL_EMPTY[lang] || S_REGIONAL_EMPTY.he;
+
+    var keys = Object.keys(balance);
+    var rowsHtml = '';
+    if (keys.length === 0) {
+      rowsHtml = '<tr class="empty-row"><td colspan="4" class="empty" style="text-align:center; padding:12px;">' + esc(emptyText) + '</td></tr>';
+    } else {
+      var sortedKeys = keys.slice().sort(function (a, b) {
+        var valid = (regions && typeof regions.getValidRegions === 'function') ? regions.getValidRegions() : [];
+        var idxA = valid.indexOf(a);
+        var idxB = valid.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b);
+      });
+
+      rowsHtml = sortedKeys.map(function (k) {
+        var d = balance[k];
+        var areaLabel = (REGION_HE && REGION_HE[k]) ? REGION_HE[k] : k;
+        var gapColor = d.gap > 0 ? '#b91c1c' : (d.gap < 0 ? '#15803d' : 'inherit');
+        return '<tr data-area="' + esc(k) + '" data-gap="' + esc(String(d.gap)) + '">' +
+          '<td><b>' + esc(areaLabel) + '</b></td>' +
+          '<td>' + esc(String(d.students)) + '</td>' +
+          '<td>' + esc(String(d.pupils)) + '</td>' +
+          '<td style="font-weight:600; color:' + gapColor + ';">' + esc(String(d.gap)) + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    out.innerHTML = '<table class="regional-balance-table" style="width:100%; border-collapse:collapse; margin-top:8px;">' +
+      '<thead><tr>' +
+      '<th style="text-align:start;">' + esc(thArea) + '</th>' +
+      '<th style="text-align:start;">' + esc(thStudents) + '</th>' +
+      '<th style="text-align:start;">' + esc(thPupils) + '</th>' +
+      '<th style="text-align:start;">' + esc(thGap) + '</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>';
+
+    if (cardEl) {
+      cardEl.state = sourceState;
+      cardEl.renderRegionalBalance = renderRegionalBalance;
+    }
+  }
+
+  if ($('copyImpactReportBtn')) {
+    $('copyImpactReportBtn').addEventListener('click', function () {
+      var s = (typeof window !== 'undefined' && window.state) ? window.state : state;
+      var lang = currentLang || 'he';
+      var report = (storeLib && typeof storeLib.buildImpactOverviewReport === 'function')
+        ? storeLib.buildImpactOverviewReport(s, lang)
+        : null;
+      var reportText = (report && typeof report.text === 'string')
+        ? report.text
+        : (report ? String(report) : '');
+      var copiedMsg = lang === 'ar'
+        ? 'تم نسخ تقرير الأثر إلى الحافظة.'
+        : (lang === 'ru' ? 'Отчет о воздействии скопирован в буфер обмена.' : 'דוח האימפקט הועתק ללוח.');
+      var readyMsg = lang === 'ar'
+        ? 'تقرير الأثر جاهز للنسخ.'
+        : (lang === 'ru' ? 'Отчет о воздействии готов к копированию.' : 'דוח האימפקט מוכן להעתקה.');
+
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(reportText).then(function () {
+          say('impactReportStatus', copiedMsg);
+        }, function () {
+          say('impactReportStatus', readyMsg);
+        });
+      } else {
+        say('impactReportStatus', readyMsg);
+      }
+    });
+  }
+
   var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
   var lockedKeys = {};
   function rosterSplit() {
@@ -10588,7 +11011,7 @@ module.exports = {
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
-    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); }
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); renderRegionalBalance(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
@@ -10648,6 +11071,7 @@ module.exports = {
   renderAITopicsSummary();
   renderScholarshipHoursSummary();
   renderDropoutRiskList();
+  renderRegionalBalance();
   renderChallengeForm();
   renderChallengeLeaderboard();
   function applyLanguage(lang) {
@@ -10670,8 +11094,15 @@ module.exports = {
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList();
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderRegionalBalance();
     renderChallengeForm(); renderChallengeLeaderboard();
+
+    if ($('regionalImpactHeading')) $('regionalImpactHeading').textContent = S_REGIONAL_IMPACT_HEADING[currentLang] || S_REGIONAL_IMPACT_HEADING.he;
+    if ($('copyImpactReportBtn')) {
+      var copyImpactBtnText = S_COPY_IMPACT_REPORT[currentLang] || S_COPY_IMPACT_REPORT.he;
+      $('copyImpactReportBtn').textContent = copyImpactBtnText;
+      $('copyImpactReportBtn').setAttribute('aria-label', copyImpactBtnText);
+    }
 
     if ($('dropoutRiskHeading')) $('dropoutRiskHeading').textContent = S_DROPOUT_HEADING[currentLang] || S_DROPOUT_HEADING.he;
     if ($('dropoutThresholdLabel')) $('dropoutThresholdLabel').textContent = S_DROPOUT_THRESHOLD_LABEL[currentLang] || S_DROPOUT_THRESHOLD_LABEL.he;
@@ -10802,6 +11233,9 @@ module.exports = {
     window.detectInactivePairs = (attendance && attendance.detectInactivePairs) || detectInactivePairs;
     window.validateBatchImportZeroPii = (storeLib && storeLib.validateBatchImportZeroPii) || (validator && validator.validateBatchImportZeroPii);
     window.renderPilotBatchStatus = renderPilotBatchStatus;
+    window.renderRegionalBalance = renderRegionalBalance;
+    window.computeRegionalSupplyDemand = (attendance && attendance.computeRegionalSupplyDemand) || (storeLib && storeLib.computeRegionalSupplyDemand);
+    window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
   }
 })();
 </script>
