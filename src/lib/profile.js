@@ -9,6 +9,7 @@ const ROLES = Object.freeze(['student', 'pupil']);
 const DAYS = Object.freeze(['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']);
 const SUBJECTS = Object.freeze(['MATH', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ENGLISH', 'HEBREW', 'HISTORY', 'CS', 'CIVICS']);
 const ACCEPTED_FIELDS = Object.freeze(['role', 'region', 'availability', 'subjects', 'parentConsent', 'blockedUsers', 'reportEvent', 'responseToReport']);
+const AI_LEVELS = Object.freeze(['beginner', 'advanced']);
 // the stamp makeProfile derives and writes next to those fields is only ever these two keys
 const RETENTION_FIELDS = Object.freeze(['dataCategory', 'maxAgeDays']);
 const PERSONAL_DATA_ERROR = 'personal data is not accepted';
@@ -44,6 +45,30 @@ function isSlot(slot) {
   return normalizeSlot(slot) !== null;
 }
 
+function isAiLevel(level) {
+  return typeof level === 'string' && AI_LEVELS.indexOf(level) !== -1;
+}
+
+function getWeeklyOverlapSlots(personA, personB) {
+  const a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
+  const b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
+  const right = new Set();
+  for (let i = 0; i < b.length; i += 1) {
+    const s = normalizeSlot(b[i]);
+    if (s !== null) right.add(s);
+  }
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < a.length; i += 1) {
+    const s = normalizeSlot(a[i]);
+    if (s !== null && right.has(s) && !seen.has(s)) {
+      seen.add(s);
+      out.push(s);
+    }
+  }
+  return out.sort();
+}
+
 // Order kept, repeats dropped: the people screen counts availability.length as free hours and the
 // match screen counts shared subjects, so a slot ticked twice (or stored twice) must not count twice.
 function unique(list) {
@@ -69,7 +94,10 @@ function makeProfile(input) {
   // Privacy gate first: an unknown key is rejected before anything else is looked at.
   const keys = Object.keys(input);
   for (let i = 0; i < keys.length; i += 1) {
-    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1 && keys[i] !== 'aiLevel') throw new Error(PERSONAL_DATA_ERROR);
+  }
+  if (input.aiLevel !== undefined && !isAiLevel(input.aiLevel)) {
+    throw new Error('invalid aiLevel: expected beginner or advanced');
   }
   const role = input.role;
   const region = input.region;
@@ -148,6 +176,10 @@ function makeProfile(input) {
 
   if (input.responseToReport !== undefined) {
     profile.responseToReport = Object.freeze(responseToReports.slice());
+  }
+
+  if (input.aiLevel !== undefined) {
+    profile.aiLevel = input.aiLevel;
   }
 
   const policy = getRetentionPolicy();
@@ -261,11 +293,14 @@ module.exports = {
   DAYS,
   SUBJECTS,
   ACCEPTED_FIELDS,
+  AI_LEVELS,
   PERSONAL_DATA_ERROR,
   HOUR_MIN,
   HOUR_MAX,
   isSlot,
   normalizeSlot,
+  isAiLevel,
+  getWeeklyOverlapSlots,
   makeProfile,
   withoutRetentionStamp,
   getSlotHour,
