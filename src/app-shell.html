@@ -527,12 +527,22 @@
             <option value="130">130 שעות (מלגת IMPACT!)</option>
           </select>
         </div>
+        <div>
+          <label for="sessionStartDate" id="sessionStartDateLabel">מתאריך</label>
+          <input type="date" id="sessionStartDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
+        </div>
+        <div>
+          <label for="sessionEndDate" id="sessionEndDateLabel">עד תאריך</label>
+          <input type="date" id="sessionEndDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
+        </div>
       </div>
       <div class="actions">
         <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
         <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
+        <button type="button" class="ghost" id="exportScholarshipCsvBtn" aria-label="ייצוא CSV אנונימי" aria-describedby="scholarshipCsvStatus">ייצוא CSV אנונימי</button>
       </div>
       <p class="status" id="scholarshipReportStatus" role="status"></p>
+      <p class="status" id="scholarshipCsvStatus" role="status"></p>
       <div id="scholarshipReportOut" role="region" aria-live="polite" aria-label="דוח שעות מלגה"></div>
     </div>
     <div class="card">
@@ -897,6 +907,31 @@
     he: 'העתק דוח',
     ar: 'نسخ التقرير',
     ru: 'Копировать отчет'
+  });
+  const S_SESSION_START_DATE = Object.freeze({
+    he: 'מתאריך',
+    ar: 'من تاريخ',
+    ru: 'С даты'
+  });
+  const S_SESSION_END_DATE = Object.freeze({
+    he: 'עד תאריך',
+    ar: 'إلى تاريخ',
+    ru: 'По дату'
+  });
+  const S_EXPORT_SCHOLARSHIP_CSV = Object.freeze({
+    he: 'ייצוא CSV אנונימי',
+    ar: 'تصدير CSV مجهول',
+    ru: 'Экспорт анонимного CSV'
+  });
+  const S_SCHOLARSHIP_CSV_COPIED = Object.freeze({
+    he: 'דוח שעות מלגה (CSV) הועתק ללוח.',
+    ar: 'تم نسخ تقرير ساعات المنحة (CSV) إلى الحافظة.',
+    ru: 'Отчет о часах стипендии (CSV) скопирован в буфер обмена.'
+  });
+  const S_SCHOLARSHIP_CSV_READY = Object.freeze({
+    he: 'דוח שעות מלגה (CSV) הופק בהצלחה.',
+    ar: 'تم إنشاء تقرير ساعات المنحة (CSV).',
+    ru: 'Отчет о часах стипендии (CSV) сформирован.'
   });
 
   function validateAITopics(topics) {
@@ -2961,13 +2996,28 @@
     var n = Number(sel.value);
     return Number.isInteger(n) && n >= 0 ? n : null;
   }
+  function getFilteredAttendanceRecords() {
+    var records = Array.isArray(state.attendance) ? state.attendance : [];
+    var startInput = $('sessionStartDate');
+    var endInput = $('sessionEndDate');
+    var startDate = startInput ? startInput.value : '';
+    var endDate = endInput ? endInput.value : '';
+    if (startDate || endDate) {
+      if (attendance && typeof attendance.filterAttendanceByDateRange === 'function') {
+        records = attendance.filterAttendanceByDateRange(records, startDate, endDate);
+      } else if (session && typeof session.filterAttendanceByDateRange === 'function') {
+        records = session.filterAttendanceByDateRange(records, startDate, endDate);
+      }
+    }
+    return records;
+  }
   function updatePairTotalHoursBadge() {
     var el = $('pairTotalHoursBadge');
     if (!el) return;
     var idx = activeSessionPairIndex();
     var total = 0;
     if (idx != null && attendance && typeof attendance.calculatePairHours === 'function') {
-      total = attendance.calculatePairHours(Array.isArray(state.attendance) ? state.attendance : [], idx);
+      total = attendance.calculatePairHours(getFilteredAttendanceRecords(), idx);
     }
     var labels = pairHoursBadgeLabels(total);
     var lang = typeof currentLang === 'string' ? currentLang : 'he';
@@ -3168,7 +3218,7 @@
   function generateScholarshipReport() {
     var targetSelect = $('scholarshipTargetSelect');
     var targetHours = Number(targetSelect ? targetSelect.value : 30) || 30;
-    var records = Array.isArray(state.attendance) ? state.attendance : [];
+    var records = getFilteredAttendanceRecords();
     var pairs = currentPairs();
     var report = attendance && typeof attendance.buildScholarshipReport === 'function'
       ? attendance.buildScholarshipReport(records, pairs, targetHours)
@@ -3178,6 +3228,24 @@
     var msg = lang === 'ar' ? 'تم إنشاء تقرير ساعات المنحة.' : (lang === 'ru' ? 'Отчет о часах стипендии сформирован.' : 'דוח שעות המלגה הופק בהצלחה.');
     say('scholarshipReportStatus', msg);
     return report;
+  }
+
+  function onSessionDateRangeChange() {
+    updatePairTotalHoursBadge();
+    generateScholarshipReport();
+  }
+  if ($('sessionStartDate')) {
+    $('sessionStartDate').addEventListener('input', onSessionDateRangeChange);
+    $('sessionStartDate').addEventListener('change', onSessionDateRangeChange);
+  }
+  if ($('sessionEndDate')) {
+    $('sessionEndDate').addEventListener('input', onSessionDateRangeChange);
+    $('sessionEndDate').addEventListener('change', onSessionDateRangeChange);
+  }
+  if ($('scholarshipTargetSelect')) {
+    $('scholarshipTargetSelect').addEventListener('change', function () {
+      generateScholarshipReport();
+    });
   }
 
   if ($('generateScholarshipReportBtn')) {
@@ -3201,6 +3269,33 @@
         });
       } else {
         say('scholarshipReportStatus', readyMsg);
+      }
+    });
+  }
+
+  if ($('exportScholarshipCsvBtn')) {
+    $('exportScholarshipCsvBtn').addEventListener('click', function () {
+      var targetSelect = $('scholarshipTargetSelect');
+      var targetHours = Number(targetSelect ? targetSelect.value : 30) || 30;
+      var records = getFilteredAttendanceRecords();
+      var pairs = currentPairs();
+      var csvText = '';
+      if (attendance && typeof attendance.exportScholarshipCsv === 'function') {
+        csvText = attendance.exportScholarshipCsv(records, pairs, targetHours);
+      } else if (session && typeof session.exportScholarshipCsv === 'function') {
+        csvText = session.exportScholarshipCsv(records, pairs, targetHours);
+      }
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      var copiedMsg = S_SCHOLARSHIP_CSV_COPIED[lang] || S_SCHOLARSHIP_CSV_COPIED.he;
+      var readyMsg = S_SCHOLARSHIP_CSV_READY[lang] || S_SCHOLARSHIP_CSV_READY.he;
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(csvText).then(function () {
+          say('scholarshipCsvStatus', copiedMsg);
+        }, function () {
+          say('scholarshipCsvStatus', readyMsg);
+        });
+      } else {
+        say('scholarshipCsvStatus', readyMsg);
       }
     });
   }
@@ -3325,9 +3420,11 @@
     $('unitDuration').value = '20';
     if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
     revising = null;
-    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus'].forEach(function (id) {
+    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus', 'scholarshipReportStatus', 'scholarshipCsvStatus'].forEach(function (id) {
       say(id, '');
     });
+    if ($('sessionStartDate')) $('sessionStartDate').value = '';
+    if ($('sessionEndDate')) $('sessionEndDate').value = '';
     challengeEntries = [];
     if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
     renderChallengeLeaderboard();
@@ -4589,6 +4686,13 @@
       var copyText = S_COPY_SCHOLARSHIP_REPORT[currentLang] || S_COPY_SCHOLARSHIP_REPORT.he;
       $('copyScholarshipReportBtn').textContent = copyText;
       $('copyScholarshipReportBtn').setAttribute('aria-label', copyText);
+    }
+    if ($('sessionStartDateLabel')) $('sessionStartDateLabel').textContent = S_SESSION_START_DATE[currentLang] || S_SESSION_START_DATE.he;
+    if ($('sessionEndDateLabel')) $('sessionEndDateLabel').textContent = S_SESSION_END_DATE[currentLang] || S_SESSION_END_DATE.he;
+    if ($('exportScholarshipCsvBtn')) {
+      var csvBtnText = S_EXPORT_SCHOLARSHIP_CSV[currentLang] || S_EXPORT_SCHOLARSHIP_CSV.he;
+      $('exportScholarshipCsvBtn').textContent = csvBtnText;
+      $('exportScholarshipCsvBtn').setAttribute('aria-label', csvBtnText);
     }
     var aiLevelSel = $('participantAiLevelSelect');
     if (aiLevelSel) {
