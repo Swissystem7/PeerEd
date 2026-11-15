@@ -336,6 +336,14 @@
       <p class="empty" id="matchAiOnlyEmpty" hidden aria-live="polite"></p>
       <div id="match2Out" role="region" aria-live="polite" aria-label="תוצאות שידוך מתקדם"></div>
     </div>
+    <div class="card" id="availabilityHeatmapPanel">
+      <h2 id="availabilityHeatmapTitle">מפת פערי זמינות שבועית</h2>
+      <p class="hint" id="availabilityHeatmapHint">ניתוח פערים שבועיים בין ביקוש תלמידים להיצע סטודנטים לפי ימים ושעות, ואיתור שעות שיא חסרות למדריכים.</p>
+      <div class="actions">
+        <button type="button" class="ghost" id="toggleAvailabilityHeatmapBtn" aria-expanded="false" aria-describedby="match2Status">הצג מפת פערי זמינות</button>
+      </div>
+      <div id="availabilityHeatmapOut" role="region" aria-live="polite" aria-label="מפת פערי זמינות שבועית" hidden></div>
+    </div>
     <div class="card">
       <h2>לוח וקיבולת</h2>
       <p class="hint">בונה לוח מהזוגות של השידוך המתקדם, בודק התנגשויות, מציע עד 3 חלופות, ומתריע כשיש יותר ביקוש מהיצע.</p>
@@ -1688,6 +1696,80 @@ function responseToReport(profile, input) {
   return makeProfile(Object.assign(base, { responseToReport: current }));
 }
 
+function computeWeeklyAvailabilityHeatmap(people) {
+  const dMap = new Map();
+  const sMap = new Map();
+
+  if (Array.isArray(people)) {
+    for (let i = 0; i < people.length; i += 1) {
+      const p = people[i];
+      if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
+      const role = typeof p.role === 'string' ? p.role.trim().toLowerCase() : '';
+      if (role !== 'student' && role !== 'pupil') continue;
+
+      const avail = Array.isArray(p.availability) ? p.availability : [];
+      const seenSlots = new Set();
+      for (let j = 0; j < avail.length; j += 1) {
+        const norm = normalizeSlot(avail[j]);
+        if (norm !== null && !seenSlots.has(norm)) {
+          seenSlots.add(norm);
+          if (role === 'pupil') {
+            dMap.set(norm, (dMap.get(norm) || 0) + 1);
+          } else if (role === 'student') {
+            sMap.set(norm, (sMap.get(norm) || 0) + 1);
+          }
+        }
+      }
+    }
+  }
+
+  const slots = [];
+  const topShortageSlots = [];
+
+  for (let di = 0; di < DAYS.length; di += 1) {
+    const day = DAYS[di];
+    for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
+      const slotKey = day + '_' + h;
+      const demand = dMap.get(slotKey) || 0;
+      const supply = sMap.get(slotKey) || 0;
+      const gap = demand - supply;
+      const shortage = Math.max(gap, 0);
+
+      const slotObj = Object.freeze({
+        slot: slotKey,
+        day: day,
+        hour: h,
+        demand: demand,
+        supply: supply,
+        gap: gap,
+        shortage: shortage,
+        pupils: demand,
+        students: supply
+      });
+
+      slots.push(slotObj);
+      slots[slotKey] = slotObj;
+
+      if (demand > supply) {
+        topShortageSlots.push(slotObj);
+      }
+    }
+  }
+
+  topShortageSlots.sort((a, b) => {
+    if (b.gap !== a.gap) return b.gap - a.gap;
+    if (b.demand !== a.demand) return b.demand - a.demand;
+    const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+    if (dayDiff !== 0) return dayDiff;
+    return a.hour - b.hour;
+  });
+
+  return Object.freeze({
+    slots: Object.freeze(slots),
+    topShortageSlots: Object.freeze(topShortageSlots)
+  });
+}
+
 module.exports = {
   DAYS,
   SUBJECTS,
@@ -1700,6 +1782,7 @@ module.exports = {
   normalizeSlot,
   isAiLevel,
   getWeeklyOverlapSlots,
+  computeWeeklyAvailabilityHeatmap,
   makeProfile,
   withoutRetentionStamp,
   getSlotHour,
@@ -2078,7 +2161,7 @@ module.exports = {
 
 const { shared, hasParentConsent } = require('./match.js');
 const { isRegion } = require('./regions.js');
-const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS } = require('./profile.js');
+const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS, computeWeeklyAvailabilityHeatmap } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
 const AI_TOPIC_KEY_RE = /^[A-Z0-9_]+$/;
 const AI_TOPIC_WEIGHT = 20;
@@ -2360,7 +2443,7 @@ function detectScheduleConflicts(lockedPairs, candidatePair) {
   });
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts };
+module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts, computeWeeklyAvailabilityHeatmap };
   __registry["match2"] = module.exports;
 })();
 
@@ -7644,6 +7727,60 @@ module.exports = {
     ru: 'Совпадение тем ИИ'
   });
 
+  var AVAILABILITY_HEATMAP_LABELS = Object.freeze({
+    toggleShow: Object.freeze({
+      he: 'הצג מפת פערי זמינות',
+      ar: 'عرض خريطة فجوات التوفر',
+      ru: 'Показать карту дефицита доступности'
+    }),
+    toggleHide: Object.freeze({
+      he: 'הסתר מפת פערי זמינות',
+      ar: 'إخفاء خريطة فجوات التوفر',
+      ru: 'Скрыть карту дефицита доступности'
+    }),
+    title: Object.freeze({
+      he: 'מפת פערי זמינות שבועית',
+      ar: 'خريطة فجوات التوفر الأسبوعية',
+      ru: 'Недельная карта дефицита доступности'
+    }),
+    hint: Object.freeze({
+      he: 'ניתוח פערים שבועיים בין ביקוש תלמידים להיצע סטודנטים לפי ימים ושעות, ואיתור שעות שיא חסרות למדריכים.',
+      ar: 'تحليل الفجوات الأسبوعية بين طلب الطلاب وعرض المرشدين حسب الأيام والساعات، وتحديد ساعات الذروة التي تفتقر للمرشدين.',
+      ru: 'Анализ еженедельных разрывов между спросом учеников и предложением студентов по дням и часам, а также выявление пиковых часов нехватки наставников.'
+    }),
+    shortageHeader: Object.freeze({
+      he: 'שעות שיא חסרות למדריכים (ביקוש עולה על היצע)',
+      ar: 'ساعات الذروة التي تفتقر للمرشدين (الطلب يتجاوز العرض)',
+      ru: 'Пиковые часы нехватки наставников (спрос превышает предложение)'
+    }),
+    noShortage: Object.freeze({
+      he: 'אין שעות שיא חסרות — היצע המדריכים עונה על הביקוש בכל חלונות הזמן.',
+      ar: 'لا توجد ساعات ذروة ناقصة — عرض المرشدين يغطي الطلب في جميع النوافذ الزمنية.',
+      ru: 'Нет пиковых часов нехватки — предложение наставников покрывает спрос во всех временных интервалах.'
+    }),
+    demandLabel: Object.freeze({
+      he: 'ביקוש תלמידים',
+      ar: 'طلب الطلاب',
+      ru: 'Спрос учеников'
+    }),
+    supplyLabel: Object.freeze({
+      he: 'היצע סטודנטים',
+      ar: 'عرض الطلاب',
+      ru: 'Предложение студентов'
+    }),
+    gapLabel: Object.freeze({
+      he: 'פער (חסרים)',
+      ar: 'الفجوة (نقص)',
+      ru: 'Разрыв (нехватка)'
+    })
+  });
+
+  var FULL_DAY_NAMES = Object.freeze({
+    he: Object.freeze({ SUN: 'יום ראשון', MON: 'יום שני', TUE: 'יום שלישי', WED: 'יום רביעי', THU: 'יום חמישי', FRI: 'יום שישי', SAT: 'יום שבת' }),
+    ar: Object.freeze({ SUN: 'الأحد', MON: 'الاثنين', TUE: 'الثلاثاء', WED: 'الأربعاء', THU: 'الخميس', FRI: 'الجمعة', SAT: 'السبت' }),
+    ru: Object.freeze({ SUN: 'Воскресенье', MON: 'Понедельник', TUE: 'Вторник', WED: 'Среда', THU: 'Четверг', FRI: 'Пятница', SAT: 'Суббота' })
+  });
+
   const S_SESSION_DURATION = Object.freeze({
     he: 'משך שיעור (שעות)',
     ar: 'مدة الجلسة (ساعات)',
@@ -7866,6 +8003,12 @@ module.exports = {
     window.AI_LEVEL_FIELD_LABELS = AI_LEVEL_FIELD_LABELS;
     window.AI_LEVEL_FIT_LABELS = AI_LEVEL_FIT_LABELS;
     window.OVERLAP_SLOTS_LABELS = OVERLAP_SLOTS_LABELS;
+    window.computeWeeklyAvailabilityHeatmap = profile.computeWeeklyAvailabilityHeatmap;
+    window.AVAILABILITY_HEATMAP_LABELS = AVAILABILITY_HEATMAP_LABELS;
+    window.FULL_DAY_NAMES = FULL_DAY_NAMES;
+    window.renderAvailabilityHeatmap = renderAvailabilityHeatmap;
+    window.toggleAvailabilityHeatmap = toggleAvailabilityHeatmap;
+    window.refreshAvailabilityHeatmapI18n = refreshAvailabilityHeatmapI18n;
     if (attendance) {
       window.estimateReadingTimeHebrew = attendance.estimateReadingTimeHebrew;
       window.getTopicTagColor = attendance.getTopicTagColor;
@@ -11323,6 +11466,131 @@ module.exports = {
   }
   refreshFilterMissingAiLabel();
 
+  function formatShortageLine(day, hour, demand, supply, gap, lang) {
+    if (lang === 'ar') {
+      return day + ' الساعة ' + hour + ':00 — الطلب: ' + demand + '، العرض: ' + supply + ' (نقص ' + gap + ' مرشدين)';
+    }
+    if (lang === 'ru') {
+      return day + ' в ' + hour + ':00 — спрос: ' + demand + ', предложение: ' + supply + ' (не хватает ' + gap + ' наставников)';
+    }
+    return day + ' בשעה ' + hour + ':00 — ביקוש: ' + demand + ', היצע: ' + supply + ' (חסרים ' + gap + ' מדריכים)';
+  }
+
+  function renderAvailabilityHeatmap() {
+    var out = $('availabilityHeatmapOut');
+    if (!out) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var people = (state && Array.isArray(state.people)) ? state.people : [];
+    var heatmap = match2Lib.computeWeeklyAvailabilityHeatmap(people);
+    var topShortages = heatmap.topShortageSlots || [];
+
+    var html = [];
+
+    // 1. Highlight top shortage slots (שעות שיא חסרות)
+    html.push('<div class="shortage-summary-box">');
+    html.push('<h3>' + esc(AVAILABILITY_HEATMAP_LABELS.shortageHeader[lang] || AVAILABILITY_HEATMAP_LABELS.shortageHeader.he) + '</h3>');
+    if (topShortages.length === 0) {
+      html.push('<p class="empty shortage-empty">' + esc(AVAILABILITY_HEATMAP_LABELS.noShortage[lang] || AVAILABILITY_HEATMAP_LABELS.noShortage.he) + '</p>');
+    } else {
+      html.push('<ul class="shortage-slots-list">');
+      for (var i = 0; i < topShortages.length; i += 1) {
+        var s = topShortages[i];
+        var dayName = (FULL_DAY_NAMES[lang] && FULL_DAY_NAMES[lang][s.day]) || s.day;
+        var lineText = formatShortageLine(dayName, s.hour, s.demand, s.supply, s.gap, lang);
+        html.push('<li class="item shortage-peak-item" data-slot="' + esc(s.slot) + '" data-gap="' + s.gap + '" data-demand="' + s.demand + '" data-supply="' + s.supply + '">');
+        html.push('<strong>' + esc(lineText) + '</strong>');
+        html.push('</li>');
+      }
+      html.push('</ul>');
+    }
+    html.push('</div>');
+
+    // 2. Summary grid of slots
+    var dLabel = AVAILABILITY_HEATMAP_LABELS.demandLabel[lang] || AVAILABILITY_HEATMAP_LABELS.demandLabel.he;
+    var sLabel = AVAILABILITY_HEATMAP_LABELS.supplyLabel[lang] || AVAILABILITY_HEATMAP_LABELS.supplyLabel.he;
+    var gLabel = AVAILABILITY_HEATMAP_LABELS.gapLabel[lang] || AVAILABILITY_HEATMAP_LABELS.gapLabel.he;
+
+    html.push('<div class="heatmap-grid-container" style="overflow-x:auto; margin-top:12px;">');
+    html.push('<table class="heatmap-table" style="width:100%; border-collapse:collapse; font-size:12px;">');
+    html.push('<thead><tr><th>' + esc(lang === 'ar' ? 'الساعة' : (lang === 'ru' ? 'Час' : 'שעה')) + '</th>');
+    profile.DAYS.forEach(function (d) {
+      var dShort = (DAY_NAMES[lang] && DAY_NAMES[lang][d]) || d;
+      html.push('<th>' + esc(dShort) + '</th>');
+    });
+    html.push('</tr></thead>');
+    html.push('<tbody>');
+
+    HOURS.forEach(function (h) {
+      html.push('<tr><td><b>' + h + ':00</b></td>');
+      profile.DAYS.forEach(function (d) {
+        var slotKey = d + '_' + h;
+        var slot = heatmap.slots[slotKey] || { demand: 0, supply: 0, gap: 0, shortage: 0 };
+        var isShortage = slot.demand > slot.supply;
+        var cellStyle = isShortage
+          ? 'background:rgba(230,50,50,0.18); font-weight:bold; color:#b00; text-align:center; padding:4px;'
+          : (slot.supply > 0 ? 'background:rgba(50,180,50,0.1); text-align:center; padding:4px;' : 'text-align:center; padding:4px;');
+        var dFullName = (FULL_DAY_NAMES[lang] && FULL_DAY_NAMES[lang][d]) || d;
+        var tooltip = dFullName + ' ' + h + ':00 — ' + dLabel + ': ' + slot.demand + ', ' + sLabel + ': ' + slot.supply + ', ' + gLabel + ': ' + slot.gap;
+        html.push('<td style="' + cellStyle + '" title="' + esc(tooltip) + '" data-slot="' + esc(slotKey) + '" data-demand="' + slot.demand + '" data-supply="' + slot.supply + '" data-gap="' + slot.gap + '">');
+        html.push(slot.demand + ' / ' + slot.supply);
+        html.push('</td>');
+      });
+      html.push('</tr>');
+    });
+    html.push('</tbody></table></div>');
+
+    out.innerHTML = html.join('');
+  }
+
+  function refreshAvailabilityHeatmapBtnLabel() {
+    var btn = $('toggleAvailabilityHeatmapBtn');
+    if (!btn) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var isExpanded = btn.getAttribute('aria-expanded') === 'true';
+    var labelKey = isExpanded ? 'toggleHide' : 'toggleShow';
+    btn.textContent = (AVAILABILITY_HEATMAP_LABELS[labelKey] && AVAILABILITY_HEATMAP_LABELS[labelKey][lang]) ||
+      AVAILABILITY_HEATMAP_LABELS[labelKey].he;
+    if ($('availabilityHeatmapTitle')) {
+      $('availabilityHeatmapTitle').textContent = (AVAILABILITY_HEATMAP_LABELS.title[lang] || AVAILABILITY_HEATMAP_LABELS.title.he);
+    }
+    if ($('availabilityHeatmapHint')) {
+      $('availabilityHeatmapHint').textContent = (AVAILABILITY_HEATMAP_LABELS.hint[lang] || AVAILABILITY_HEATMAP_LABELS.hint.he);
+    }
+  }
+
+  function toggleAvailabilityHeatmap() {
+    var btn = $('toggleAvailabilityHeatmapBtn');
+    var out = $('availabilityHeatmapOut');
+    if (!btn || !out) return;
+    var isExpanded = btn.getAttribute('aria-expanded') === 'true';
+    var nextState = !isExpanded;
+    btn.setAttribute('aria-expanded', nextState ? 'true' : 'false');
+    out.hidden = !nextState;
+    if (nextState) {
+      if (out.removeAttribute) out.removeAttribute('hidden');
+      if (out.style) out.style.display = 'block';
+      renderAvailabilityHeatmap();
+    } else {
+      if (out.setAttribute) out.setAttribute('hidden', '');
+      if (out.style) out.style.display = 'none';
+    }
+    refreshAvailabilityHeatmapBtnLabel();
+  }
+
+  function refreshAvailabilityHeatmapI18n() {
+    refreshAvailabilityHeatmapBtnLabel();
+    var out = $('availabilityHeatmapOut');
+    if (out && !out.hidden && (!out.style || out.style.display !== 'none')) {
+      renderAvailabilityHeatmap();
+    }
+  }
+
+  var toggleAvailabilityHeatmapBtn = $('toggleAvailabilityHeatmapBtn');
+  if (toggleAvailabilityHeatmapBtn) {
+    toggleAvailabilityHeatmapBtn.addEventListener('click', toggleAvailabilityHeatmap);
+  }
+  refreshAvailabilityHeatmapBtnLabel();
+
   $('runSchedule').addEventListener('click', function () {
     if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
     var r = rosterSplit();
@@ -11476,6 +11744,7 @@ module.exports = {
     if (typeof refreshSortAiMatchLabel === 'function') refreshSortAiMatchLabel();
     if (typeof refreshFilterAiOnlyLabel === 'function') refreshFilterAiOnlyLabel();
     if (typeof refreshFilterMissingAiLabel === 'function') refreshFilterMissingAiLabel();
+    if (typeof refreshAvailabilityHeatmapI18n === 'function') refreshAvailabilityHeatmapI18n();
     var sel = $('langSelect'); if (sel) sel.value = currentLang;
     REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
     SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };

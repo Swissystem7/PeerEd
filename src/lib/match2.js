@@ -6,7 +6,7 @@
 
 const { shared, hasParentConsent } = require('./match.js');
 const { isRegion } = require('./regions.js');
-const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS } = require('./profile.js');
+const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS, computeWeeklyAvailabilityHeatmap } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
 const AI_TOPIC_KEY_RE = /^[A-Z0-9_]+$/;
 const AI_TOPIC_WEIGHT = 20;
@@ -288,4 +288,4 @@ function detectScheduleConflicts(lockedPairs, candidatePair) {
   });
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts };
+module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts, computeWeeklyAvailabilityHeatmap };
