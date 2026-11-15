@@ -227,5 +227,7 @@ module.exports = {
   PERIODS, PERIOD_NAMES,
   periodSlots, chipsToSlots, slotsToChips, toggleChip,
   makeGroupAggregate, formGroups, formGroupsWithRegion, assignStudents,
-  shortLesson, lessonForGroup, switchMode, emptyModeState, groupReport, groupReportCsv
+  shortLesson, lessonForGroup, switchMode, emptyModeState, groupReport, groupReportCsv,
+  AI_CHALLENGE_TEMPLATES: curriculum.AI_CHALLENGE_TEMPLATES,
+  generateChallengeCertificateText: curriculum.generateChallengeCertificateText
 };

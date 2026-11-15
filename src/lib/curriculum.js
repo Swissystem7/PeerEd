@@ -490,9 +490,166 @@ function buildChallengeWinnersSummary(entries, lang) {
   });
 }
 
+const AI_CHALLENGE_TEMPLATES = Object.freeze([
+  Object.freeze({
+    id: 'ai-lit-prompt',
+    topic: 'AI_LIT_PROMPT',
+    aiTopic: 'AI_LIT_PROMPT',
+    title: Object.freeze({
+      he: 'עוזר הנחיות מדויק',
+      ar: 'مساعد التوجيه الدقيق',
+      ru: 'Мастер точных промптов'
+    }),
+    titleHe: 'עוזר הנחיות מדויק',
+    titleAr: 'مساعد التوجيه الدقيق',
+    titleRu: 'Мастер точных промптов',
+    criterion: Object.freeze({
+      he: 'בהירות הניסוח ודיוק התוצאה',
+      ar: 'وضوح الصياغة ودقة النتيجة',
+      ru: 'Четкость формулировки и точность результата'
+    }),
+    mainCriterion: Object.freeze({
+      he: 'בהירות הניסוח ודיוק התוצאה',
+      ar: 'وضوح الصياغة ودقة النتيجة',
+      ru: 'Четкость формулировки и точность результата'
+    }),
+    criterionHe: 'בהירות הניסוח ודיוק התוצאה',
+    criterionAr: 'وضوح الصياغة ودقة النتيجة',
+    criterionRu: 'Четкость формулировки и точность результата'
+  }),
+  Object.freeze({
+    id: 'ai-creative',
+    topic: 'AI_CREATIVE',
+    aiTopic: 'AI_CREATIVE',
+    title: Object.freeze({
+      he: 'יוצר סיפורים מאויר',
+      ar: 'مؤلف القصص المصورة',
+      ru: 'Генератор иллюстрированных историй'
+    }),
+    titleHe: 'יוצר סיפורים מאויר',
+    titleAr: 'مؤلف القصص المصورة',
+    titleRu: 'Генератор иллюстрированных историй',
+    criterion: Object.freeze({
+      he: 'מקוריות עלילתית ושילוב מדיה יוצרת',
+      ar: 'أصالة الحبكة ودمج الوسائط التوليدية',
+      ru: 'Оригинальность сюжета и интеграция медиа'
+    }),
+    mainCriterion: Object.freeze({
+      he: 'מקוריות עלילתית ושילוב מדיה יוצרת',
+      ar: 'أصالة الحبكة וدمج الوسائط التوليدية',
+      ru: 'Оригинальность сюжета и интеграция медиа'
+    }),
+    criterionHe: 'מקוריות עלילתית ושילוב מדיה יוצרת',
+    criterionAr: 'أصالة الحبكة ودمج الوسائط التوليدية',
+    criterionRu: 'Оригинальность сюжета и интеграция медиа'
+  }),
+  Object.freeze({
+    id: 'ai-stem-code',
+    topic: 'AI_STEM_CODE',
+    aiTopic: 'AI_STEM_CODE',
+    title: Object.freeze({
+      he: 'מדריך לפתרון תקלות קוד',
+      ar: 'مرشد تصحيح أخطاء البرمجة',
+      ru: 'Инструктор по отладке кода'
+    }),
+    titleHe: 'מדריך לפתרון תקלות קוד',
+    titleAr: 'مرشد تصحيح أخطاء البرمجة',
+    titleRu: 'Инструктор по отладке кода',
+    criterion: Object.freeze({
+      he: 'יעילות האלגוריתם והסבר צעדי הפתרון',
+      ar: 'كفاءة الخوارزمية وشرح خطوات الحل',
+      ru: 'Эффективность алгоритма и объяснение шагов'
+    }),
+    mainCriterion: Object.freeze({
+      he: 'יעילות האלגוריתם והסבר צעדי הפתרון',
+      ar: 'كفاءة الخوارزمية وشرح خطوات الحل',
+      ru: 'Эффективность алгоритма и объяснение шагов'
+    }),
+    criterionHe: 'יעילות האלגוריתם והסבר צעדי הפתרון',
+    criterionAr: 'كفاءة الخوارزمية وشرح خطوات الحل',
+    criterionRu: 'Эффективность алгоритма и объяснение шагов'
+  }),
+  Object.freeze({
+    id: 'ai-ethics-sec',
+    topic: 'AI_ETHICS_SEC',
+    aiTopic: 'AI_ETHICS_SEC',
+    title: Object.freeze({
+      he: 'שומר פרטיות ובטיחות תוכן',
+      ar: 'حارس الخصوصية وأمان المحتوى',
+      ru: 'Защитник приватности и безопасности'
+    }),
+    titleHe: 'שומר פרטיות ובטיחות תוכן',
+    titleAr: 'حارس الخصوصية وأمان المحتوى',
+    titleRu: 'Защитник приватности и безопасности',
+    criterion: Object.freeze({
+      he: 'זיהוי הטיות, מניעת דליפת מידע ושמירה על פרטיות',
+      ar: 'كشف التحيز ومنع تسريب البيانات وحماية الخصوصية',
+      ru: 'Выявление предвзятости, предотвращение утечек данных и защита приватности'
+    }),
+    mainCriterion: Object.freeze({
+      he: 'זיהוי הטיות, מניעת דליפת מידע ושמירה על פרטיות',
+      ar: 'كشف التحيز ومنع تسريب البيانات وحماية الخصوصية',
+      ru: 'Выявление предвзятости, предотвращение утечек данных и защита приватности'
+    }),
+    criterionHe: 'זיהוי הטיות, מניעת דליפת מידע ושמירה על פרטיות',
+    criterionAr: 'كشف التحيز ومنع تسريب البيانات وحماية الخصوصية',
+    criterionRu: 'Выявление предвзятости, предотвращение утечек данных и защита приватности'
+  })
+]);
+
+function generateChallengeCertificateText(entry, rank, lang) {
+  if (!entry || typeof entry !== 'object') {
+    return '';
+  }
+  let targetLang = lang;
+  let targetRank = rank;
+  if (typeof rank === 'string' && (rank === 'he' || rank === 'ar' || rank === 'ru')) {
+    targetLang = rank;
+    targetRank = undefined;
+  }
+  const l = (targetLang === 'ar' || targetLang === 'ru' || targetLang === 'he') ? targetLang : 'he';
+  const actualRank = targetRank != null ? targetRank : (entry.rank != null ? entry.rank : 1);
+  const pairIndex = entry.pairIndex !== undefined ? entry.pairIndex : '';
+  const toolTitle = entry.toolTitle || '';
+  const aiTopic = entry.aiTopic || entry.topic || '';
+  const totalScore = entry.totalScore != null ? entry.totalScore : (entry.score != null ? entry.score : 0);
+
+  if (l === 'ar') {
+    return [
+      'شهادة تقدير ومشاركة - تحدي أدوات الذكاء الاصطناعي',
+      `المرتبة: #${actualRank}`,
+      `الثنائي: زوج ${pairIndex}`,
+      `اسم الأداة: ${toolTitle}`,
+      `موضوع الذكاء الاصطناعي: ${aiTopic}`,
+      `الدرجة الكلية: ${totalScore}`
+    ].join('\n');
+  }
+
+  if (l === 'ru') {
+    return [
+      'Почётная грамота и сертификат участия - Конкурс инструментов ИИ',
+      `Место: #${actualRank}`,
+      `Пара: Пара ${pairIndex}`,
+      `Название инструмента: ${toolTitle}`,
+      `Тема ИИ: ${aiTopic}`,
+      `Итоговый балл: ${totalScore}`
+    ].join('\n');
+  }
+
+  return [
+    'תעודת הוקרה והשתתפות - אתגר כלי AI',
+    `מקום: #${actualRank}`,
+    `זוג: זוג ${pairIndex}`,
+    `שם הכלי: ${toolTitle}`,
+    `נושא AI: ${aiTopic}`,
+    `ציון כולל: ${totalScore}`
+  ].join('\n');
+}
+
 module.exports = {
   TRACKS, TRACK_GRADES, ALL_LESSONS,
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
-  VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary
+  VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary,
+  AI_CHALLENGE_TEMPLATES, generateChallengeCertificateText
 };
