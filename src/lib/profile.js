@@ -288,6 +288,80 @@ function responseToReport(profile, input) {
   return makeProfile(Object.assign(base, { responseToReport: current }));
 }
 
+function computeWeeklyAvailabilityHeatmap(people) {
+  const dMap = new Map();
+  const sMap = new Map();
+
+  if (Array.isArray(people)) {
+    for (let i = 0; i < people.length; i += 1) {
+      const p = people[i];
+      if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
+      const role = typeof p.role === 'string' ? p.role.trim().toLowerCase() : '';
+      if (role !== 'student' && role !== 'pupil') continue;
+
+      const avail = Array.isArray(p.availability) ? p.availability : [];
+      const seenSlots = new Set();
+      for (let j = 0; j < avail.length; j += 1) {
+        const norm = normalizeSlot(avail[j]);
+        if (norm !== null && !seenSlots.has(norm)) {
+          seenSlots.add(norm);
+          if (role === 'pupil') {
+            dMap.set(norm, (dMap.get(norm) || 0) + 1);
+          } else if (role === 'student') {
+            sMap.set(norm, (sMap.get(norm) || 0) + 1);
+          }
+        }
+      }
+    }
+  }
+
+  const slots = [];
+  const topShortageSlots = [];
+
+  for (let di = 0; di < DAYS.length; di += 1) {
+    const day = DAYS[di];
+    for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
+      const slotKey = day + '_' + h;
+      const demand = dMap.get(slotKey) || 0;
+      const supply = sMap.get(slotKey) || 0;
+      const gap = demand - supply;
+      const shortage = Math.max(gap, 0);
+
+      const slotObj = Object.freeze({
+        slot: slotKey,
+        day: day,
+        hour: h,
+        demand: demand,
+        supply: supply,
+        gap: gap,
+        shortage: shortage,
+        pupils: demand,
+        students: supply
+      });
+
+      slots.push(slotObj);
+      slots[slotKey] = slotObj;
+
+      if (demand > supply) {
+        topShortageSlots.push(slotObj);
+      }
+    }
+  }
+
+  topShortageSlots.sort((a, b) => {
+    if (b.gap !== a.gap) return b.gap - a.gap;
+    if (b.demand !== a.demand) return b.demand - a.demand;
+    const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+    if (dayDiff !== 0) return dayDiff;
+    return a.hour - b.hour;
+  });
+
+  return Object.freeze({
+    slots: Object.freeze(slots),
+    topShortageSlots: Object.freeze(topShortageSlots)
+  });
+}
+
 module.exports = {
   DAYS,
   SUBJECTS,
@@ -300,6 +374,7 @@ module.exports = {
   normalizeSlot,
   isAiLevel,
   getWeeklyOverlapSlots,
+  computeWeeklyAvailabilityHeatmap,
   makeProfile,
   withoutRetentionStamp,
   getSlotHour,
