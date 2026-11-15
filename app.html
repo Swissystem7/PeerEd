@@ -2712,6 +2712,72 @@ const ATTENDANCE_STATUSES = Object.freeze([
 
 const MAX_ATTENDANCE_RECORDS = 5000;
 
+// Mirrors AI_TOPICS in src/app-shell.html
+const AI_TOPICS = Object.freeze({
+	AI_LIT_PROMPT: Object.freeze({
+		he: "אוריינות בינה מלאכותית והנחיה",
+		ar: "محو الأمية في التوجيهات",
+		ru: "Грамотность в ИИ и промптинг",
+	}),
+	AI_CREATIVE: Object.freeze({
+		he: "יצירתיות ובינה יוצרת",
+		ar: "إنشاء المحتوى والوسائط",
+		ru: "Творчество и генеративный ИИ",
+	}),
+	AI_STEM_CODE: Object.freeze({
+		he: "מדעים, טכנולוגיה ותכנות",
+		ar: "كفاءة الذكاء الاصطناعي والبرمجة",
+		ru: "STEM и программирование",
+	}),
+	AI_ETHICS_SEC: Object.freeze({
+		he: "אתיקה, פרטיות ובטיחות",
+		ar: "الأخلاق والأمان",
+		ru: "Этика и безопасность ИИ",
+	}),
+});
+
+const AI_TOPIC_KEYS = Object.freeze([
+	"AI_LIT_PROMPT",
+	"AI_CREATIVE",
+	"AI_STEM_CODE",
+	"AI_ETHICS_SEC",
+]);
+
+function isPlainObject(val) {
+	if (!val) return false;
+	if (typeof val !== "object") return false;
+	return !Array.isArray(val);
+}
+
+function isValidPairIndex(idx) {
+	if (!Number.isInteger(idx)) return false;
+	return idx >= 0;
+}
+
+function isValidDuration(dur) {
+	if (typeof dur !== "number") return false;
+	if (!Number.isFinite(dur)) return false;
+	return dur > 0;
+}
+
+function isValidNonNegativeDuration(dur) {
+	if (typeof dur !== "number") return false;
+	if (!Number.isFinite(dur)) return false;
+	return dur >= 0;
+}
+
+function isValidAiTopic(topic) {
+	if (typeof topic !== "string") return false;
+	return AI_TOPIC_KEYS.includes(topic);
+}
+
+function sanitizeAiTopic(topic) {
+	if (topic === undefined) return undefined;
+	if (topic === null) return null;
+	if (isValidAiTopic(topic)) return topic;
+	return undefined;
+}
+
 function todayLocalISO() {
 	const now = new Date();
 	const y = now.getFullYear();
@@ -2733,6 +2799,7 @@ function isValidAttendanceDate(dateStr) {
 function makeAttendanceLog() {
 	return Object.freeze({ entries: Object.freeze([]) });
 }
+
 function assertLog(log) {
 	if (!log || !Array.isArray(log.entries))
 		throw new Error("invalid attendance log");
@@ -2740,35 +2807,28 @@ function assertLog(log) {
 
 function validateAttendanceInput(input) {
 	const o = input || {};
-	if (!Number.isInteger(o.pairIndex) || o.pairIndex < 0)
+	if (!isValidPairIndex(o.pairIndex))
 		throw new Error("invalid attendance: pairIndex");
 	parseDate(o.date);
 	if (!isValidAttendanceDate(o.date))
 		throw new Error("invalid attendance: future or invalid date");
-	if (ATTENDANCE_STATUSES.indexOf(o.status) === -1)
+	if (!ATTENDANCE_STATUSES.includes(o.status))
 		throw new Error("invalid attendance status");
 	return o;
 }
 
 function resolveAttendanceDuration(o) {
-	let durationHours = 0.0;
-	if (o.status === "held") {
-		durationHours = 1.0;
-		if (
-			typeof o.durationHours === "number" &&
-			Number.isFinite(o.durationHours) &&
-			o.durationHours > 0
-		) {
-			durationHours = o.durationHours;
-		}
+	if (o.status !== "held") return 0.0;
+	if (isValidDuration(o.durationHours)) {
+		return o.durationHours;
 	}
-	return durationHours;
+	return 1.0;
 }
 
 function resolveAttendanceAiTopic(o) {
 	if (o.aiTopic === undefined) return undefined;
 	if (o.aiTopic === null) return null;
-	if (typeof o.aiTopic === "string" && AI_TOPIC_KEYS.includes(o.aiTopic)) {
+	if (isValidAiTopic(o.aiTopic)) {
 		return o.aiTopic;
 	}
 	throw new Error("invalid attendance: aiTopic");
@@ -2806,8 +2866,8 @@ function recordAttendance(log, input) {
 }
 
 function sanitizeAttendanceRow(r, validateDateFn) {
-	if (!r || typeof r !== "object" || Array.isArray(r)) return null;
-	if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) return null;
+	if (!isPlainObject(r)) return null;
+	if (!isValidPairIndex(r.pairIndex)) return null;
 	if (typeof r.date !== "string") return null;
 	if (validateDateFn) {
 		try {
@@ -2816,28 +2876,19 @@ function sanitizeAttendanceRow(r, validateDateFn) {
 			return null;
 		}
 	}
-	if (ATTENDANCE_STATUSES.indexOf(r.status) === -1) return null;
-	let durationHours = 1.0;
-	if (
-		typeof r.durationHours === "number" &&
-		Number.isFinite(r.durationHours) &&
-		r.durationHours >= 0
-	) {
-		durationHours = r.durationHours;
-	}
+	if (!ATTENDANCE_STATUSES.includes(r.status)) return null;
+	const durationHours = isValidNonNegativeDuration(r.durationHours)
+		? r.durationHours
+		: 1.0;
 	const row = {
 		pairIndex: r.pairIndex,
 		date: r.date,
 		status: r.status,
-		durationHours: durationHours,
+		durationHours,
 	};
-	if (r.aiTopic !== undefined) {
-		if (
-			r.aiTopic === null ||
-			(typeof r.aiTopic === "string" && AI_TOPIC_KEYS.includes(r.aiTopic))
-		) {
-			row.aiTopic = r.aiTopic;
-		}
+	const topic = sanitizeAiTopic(r.aiTopic);
+	if (topic !== undefined) {
+		row.aiTopic = topic;
 	}
 	return Object.freeze(row);
 }
@@ -2890,42 +2941,23 @@ function attendanceSummary(log, opts) {
 	};
 }
 
-// Mirrors AI_TOPICS in src/app-shell.html
-const AI_TOPICS = Object.freeze({
-	AI_LIT_PROMPT: Object.freeze({
-		he: "אוריינות בינה מלאכותית והנחיה",
-		ar: "محو الأمية في التوجيهات",
-		ru: "Грамотность в ИИ и промптинг",
-	}),
-	AI_CREATIVE: Object.freeze({
-		he: "יצירתיות ובינה יוצרת",
-		ar: "إنشاء المحتوى والوسائط",
-		ru: "Творчество и генеративный ИИ",
-	}),
-	AI_STEM_CODE: Object.freeze({
-		he: "מדעים, טכנולוגיה ותכנות",
-		ar: "كفاءة الذكاء الاصطناعي والبرمجة",
-		ru: "STEM и программирование",
-	}),
-	AI_ETHICS_SEC: Object.freeze({
-		he: "אתיקה, פרטיות ובטיחות",
-		ar: "الأخلاق والأمان",
-		ru: "Этика и безопасность ИИ",
-	}),
-});
+function applyParticipantTopic(p, result, topic) {
+	if (!isValidAiTopic(topic)) return;
+	result[topic].total += 1;
+	if (p.role === "student") {
+		result[topic].offered += 1;
+	} else if (p.role === "pupil") {
+		result[topic].requested += 1;
+	}
+}
 
-const AI_TOPIC_KEYS = Object.freeze([
-	"AI_LIT_PROMPT",
-	"AI_CREATIVE",
-	"AI_STEM_CODE",
-	"AI_ETHICS_SEC",
-]);
-
-function isAITopicList(topics) {
-	if (!Array.isArray(topics) || topics.length === 0) return false;
-	return topics.every(
-		(t) => typeof t === "string" && AI_TOPIC_KEYS.includes(t),
-	);
+function applyParticipantTopics(p, result) {
+	if (!isPlainObject(p)) return;
+	if (!Array.isArray(p.target_ai_topics)) return;
+	const uniqueTopics = new Set(p.target_ai_topics);
+	for (const topic of uniqueTopics) {
+		applyParticipantTopic(p, result, topic);
+	}
 }
 
 function getAITopicsSummary(participants) {
@@ -2939,53 +2971,71 @@ function getAITopicsSummary(participants) {
 		return result;
 	}
 	for (const p of participants) {
-		if (!p || typeof p !== "object" || Array.isArray(p)) continue;
-		const topics = p.target_ai_topics;
-		if (!Array.isArray(topics)) continue;
-		const uniqueTopics = new Set(topics);
-		for (const topic of uniqueTopics) {
-			if (!isAITopicList([topic])) continue;
-			result[topic].total += 1;
-			if (p.role === "student") {
-				result[topic].offered += 1;
-			} else if (p.role === "pupil") {
-				result[topic].requested += 1;
-			}
-		}
+		applyParticipantTopics(p, result);
 	}
 	return result;
+}
+
+function recordLastHeldDate(lastMap, e) {
+	if (e.status !== "held") return;
+	const prevDate = lastMap.get(e.pairIndex);
+	if (!prevDate || e.date > prevDate) {
+		lastMap.set(e.pairIndex, e.date);
+	}
+}
+
+function buildLastHeldMap(entries) {
+	const last = new Map();
+	for (const e of entries) {
+		recordLastHeldDate(last, e);
+	}
+	return last;
+}
+
+function evaluatePairStaleness(pair, pairIndex, last, ctx) {
+	const idx =
+		isPlainObject(pair) && Number.isInteger(pair.pairIndex)
+			? pair.pairIndex
+			: pairIndex;
+	const lastHeld = last.get(idx) || null;
+	const ref = lastHeld || ctx.since;
+	if (ref === null) return null;
+	const gap = diffDays(ref, ctx.asOfISO);
+	if (gap < ctx.days) return null;
+	return {
+		pairIndex: idx,
+		lastHeldDate: lastHeld,
+		daysSince: gap,
+		alertHe: `הזוג לא נפגש כבר ${gap} ימים`,
+	};
+}
+
+function resolveStaleDays(opts) {
+	if (opts && Number.isInteger(opts.days)) return opts.days;
+	return 14;
+}
+
+function resolveStaleSince(opts) {
+	const since = opts?.since || null;
+	if (since) parseDate(since);
+	return since;
 }
 
 // Pairs with no 'held' session for at least `days` days (default 14) as of asOfISO.
 function stalePairs(pairs, log, asOfISO, opts) {
 	assertLog(log);
 	parseDate(asOfISO);
-	const days = opts && Number.isInteger(opts.days) ? opts.days : 14;
-	const since = opts?.since ? opts.since : null;
-	if (since) parseDate(since);
-	const last = new Map();
-	log.entries.forEach((e) => {
-		if (
-			e.status === "held" &&
-			(!last.has(e.pairIndex) || e.date > last.get(e.pairIndex))
-		)
-			last.set(e.pairIndex, e.date);
-	});
+	const ctx = {
+		days: resolveStaleDays(opts),
+		since: resolveStaleSince(opts),
+		asOfISO,
+	};
+	const last = buildLastHeldMap(log.entries);
+	const pairList = Array.isArray(pairs) ? pairs : [];
 	const out = [];
-	(Array.isArray(pairs) ? pairs : []).forEach((pair, pairIndex) => {
-		const idx =
-			pair && Number.isInteger(pair.pairIndex) ? pair.pairIndex : pairIndex;
-		const lastHeld = last.get(idx) || null;
-		const ref = lastHeld || since;
-		if (ref === null) return; // without a semester start there is no honest baseline
-		const gap = diffDays(ref, asOfISO);
-		if (gap >= days)
-			out.push({
-				pairIndex: idx,
-				lastHeldDate: lastHeld,
-				daysSince: gap,
-				alertHe: `הזוג לא נפגש כבר ${gap} ימים`,
-			});
+	pairList.forEach((pair, pairIndex) => {
+		const item = evaluatePairStaleness(pair, pairIndex, last, ctx);
+		if (item) out.push(item);
 	});
 	return out.sort(
 		(a, b) => b.daysSince - a.daysSince || a.pairIndex - b.pairIndex,
@@ -2993,15 +3043,17 @@ function stalePairs(pairs, log, asOfISO, opts) {
 }
 
 function getRecordDurationHours(record) {
-	if (
-		record &&
-		typeof record.durationHours === "number" &&
-		Number.isFinite(record.durationHours) &&
-		record.durationHours > 0
-	) {
+	if (!record) return 1.0;
+	if (isValidDuration(record.durationHours)) {
 		return record.durationHours;
 	}
 	return 1.0;
+}
+
+function isHeldPairRecord(r, pairIndex) {
+	if (!r) return false;
+	if (r.pairIndex !== pairIndex) return false;
+	return r.status === "held";
 }
 
 // Sums durations for records with r.pairIndex === pairIndex and r.status === 'held'.
@@ -3009,60 +3061,63 @@ function getRecordDurationHours(record) {
 // Returns 0 for non-array inputs, invalid pairIndex, or when no matching held records exist.
 function calculatePairHours(attendanceRecords, pairIndex) {
 	if (!Array.isArray(attendanceRecords)) return 0;
-	if (!Number.isInteger(pairIndex) || pairIndex < 0) return 0;
+	if (!isValidPairIndex(pairIndex)) return 0;
 	let total = 0;
 	for (const r of attendanceRecords) {
-		if (!r || typeof r !== "object") continue;
-		if (r.pairIndex === pairIndex && r.status === "held") {
+		if (isHeldPairRecord(r, pairIndex)) {
 			total += getRecordDurationHours(r);
 		}
 	}
 	return total;
 }
 
+function matchesPairIndex(candidate, pairIndex) {
+	if (!isPlainObject(candidate)) return false;
+	if (!Number.isInteger(candidate.pairIndex)) return true;
+	return candidate.pairIndex === pairIndex;
+}
+
+function findPairInArray(pairs, pairIndex) {
+	const candidate = pairs[pairIndex];
+	if (matchesPairIndex(candidate, pairIndex)) {
+		return candidate;
+	}
+	return (
+		pairs.find((p) => isPlainObject(p) && p.pairIndex === pairIndex) || null
+	);
+}
+
 function findPairObject(pairs, pairIndex) {
 	if (!pairs) return null;
 	if (Array.isArray(pairs)) {
-		const candidate = pairs[pairIndex];
-		if (
-			candidate &&
-			typeof candidate === "object" &&
-			!Array.isArray(candidate)
-		) {
-			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
-			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
-				return candidate;
-			}
-		}
-		return (
-			pairs.find(
-				(p) =>
-					p &&
-					typeof p === "object" &&
-					!Array.isArray(p) &&
-					p.pairIndex === pairIndex,
-			) || null
-		);
+		return findPairInArray(pairs, pairIndex);
 	}
 	if (typeof pairs === "object") {
 		const candidate = pairs[pairIndex];
-		if (
-			candidate &&
-			typeof candidate === "object" &&
-			!Array.isArray(candidate)
-		) {
-			const hasExplicitIndex = Number.isInteger(candidate.pairIndex);
-			if (!hasExplicitIndex || candidate.pairIndex === pairIndex) {
-				return candidate;
-			}
+		if (matchesPairIndex(candidate, pairIndex)) {
+			return candidate;
 		}
 	}
 	return null;
 }
 
+function addParticipantHours(result, pair, duration) {
+	if (!isPlainObject(pair)) return;
+	const participants = new Set();
+	if (isValidPairIndex(pair.studentIndex)) {
+		participants.add(pair.studentIndex);
+	}
+	if (isValidPairIndex(pair.pupilIndex)) {
+		participants.add(pair.pupilIndex);
+	}
+	for (const pIdx of participants) {
+		result.byParticipant[pIdx] = (result.byParticipant[pIdx] || 0) + duration;
+	}
+}
+
 function accumulateScholarshipRecord(r, pairs, result) {
-	if (!r || typeof r !== "object") return;
-	if (!Number.isInteger(r.pairIndex) || r.pairIndex < 0) return;
+	if (!isPlainObject(r)) return;
+	if (!isValidPairIndex(r.pairIndex)) return;
 	if (r.status !== "held") return;
 
 	const duration = getRecordDurationHours(r);
@@ -3071,18 +3126,7 @@ function accumulateScholarshipRecord(r, pairs, result) {
 	result.byPair[r.pairIndex] = (result.byPair[r.pairIndex] || 0) + duration;
 
 	const pair = findPairObject(pairs, r.pairIndex);
-	if (pair && typeof pair === "object" && !Array.isArray(pair)) {
-		const participants = new Set();
-		if (Number.isInteger(pair.studentIndex) && pair.studentIndex >= 0) {
-			participants.add(pair.studentIndex);
-		}
-		if (Number.isInteger(pair.pupilIndex) && pair.pupilIndex >= 0) {
-			participants.add(pair.pupilIndex);
-		}
-		for (const pIdx of participants) {
-			result.byParticipant[pIdx] = (result.byParticipant[pIdx] || 0) + duration;
-		}
-	}
+	addParticipantHours(result, pair, duration);
 }
 
 function getScholarshipHoursSummary(attendanceRecords, pairs) {
@@ -3124,63 +3168,64 @@ function collectPairIndexes(cleanRecords, pairs) {
 	if (Array.isArray(pairs)) {
 		pairs.forEach((p, idx) => {
 			const pIdx =
-				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
-					? p.pairIndex
-					: idx;
+				isPlainObject(p) && isValidPairIndex(p.pairIndex) ? p.pairIndex : idx;
 			pairIndexes.add(pIdx);
 		});
 	}
 	for (const r of cleanRecords) {
-		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+		if (r && isValidPairIndex(r.pairIndex)) {
 			pairIndexes.add(r.pairIndex);
 		}
 	}
 	return Array.from(pairIndexes).sort((a, b) => a - b);
 }
 
+function processPairRecordForReport(r, pIdx, state) {
+	if (!isPlainObject(r)) return;
+	if (r.pairIndex !== pIdx) return;
+	if (Object.hasOwn(state.statusCounts, r.status)) {
+		state.statusCounts[r.status] += 1;
+	}
+	if (r.status !== "held") return;
+	state.heldSessions += 1;
+	state.totalHours += getRecordDurationHours(r);
+	if (isValidAiTopic(r.aiTopic)) {
+		state.coveredAiTopicsSet.add(r.aiTopic);
+	}
+}
+
 function computePairReport(pIdx, cleanRecords, target) {
-	let heldSessions = 0;
-	let totalHours = 0;
-	const statusCounts = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
-	const coveredAiTopicsSet = new Set();
+	const state = {
+		heldSessions: 0,
+		totalHours: 0,
+		statusCounts: { held: 0, missed: 0, postponed: 0, cancelled: 0 },
+		coveredAiTopicsSet: new Set(),
+	};
 
 	for (const r of cleanRecords) {
-		if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
-		if (Object.hasOwn(statusCounts, r.status)) {
-			statusCounts[r.status] += 1;
-		}
-		if (r.status === "held") {
-			heldSessions += 1;
-			const duration = getRecordDurationHours(r);
-			totalHours += duration;
-			if (
-				r.aiTopic &&
-				typeof r.aiTopic === "string" &&
-				AI_TOPIC_KEYS.includes(r.aiTopic)
-			) {
-				coveredAiTopicsSet.add(r.aiTopic);
-			}
-		}
+		processPairRecordForReport(r, pIdx, state);
 	}
 
 	const completionPercent =
-		target > 0 ? Math.round((totalHours / target) * 100) : 0;
+		target > 0 ? Math.round((state.totalHours / target) * 100) : 0;
 
 	return {
 		pairReport: Object.freeze({
 			pairIndex: pIdx,
-			heldSessions,
-			totalHours,
+			heldSessions: state.heldSessions,
+			totalHours: state.totalHours,
 			targetHours: target,
 			completionPercent,
-			coveredAiTopics: Object.freeze(Array.from(coveredAiTopicsSet).sort()),
-			statusCounts: Object.freeze(statusCounts),
+			coveredAiTopics: Object.freeze(
+				Array.from(state.coveredAiTopicsSet).sort(),
+			),
+			statusCounts: Object.freeze(state.statusCounts),
 		}),
 		metrics: {
-			heldSessions,
-			totalHours,
-			statusCounts,
-			coveredAiTopics: coveredAiTopicsSet,
+			heldSessions: state.heldSessions,
+			totalHours: state.totalHours,
+			statusCounts: state.statusCounts,
+			coveredAiTopics: state.coveredAiTopicsSet,
 		},
 	};
 }
@@ -3267,6 +3312,20 @@ function buildScholarshipReport(records, pairs, targetHours) {
 	});
 }
 
+function cleanDateParam(val) {
+	if (typeof val !== "string") return null;
+	const trimmed = val.trim();
+	return trimmed.length > 0 ? trimmed : null;
+}
+
+function isRecordInDateRange(r, start, end) {
+	if (!isPlainObject(r)) return false;
+	if (typeof r.date !== "string") return false;
+	if (start && r.date < start) return false;
+	if (end && r.date > end) return false;
+	return true;
+}
+
 /**
  * Filters attendance records by date range (inclusive, YYYY-MM-DD).
  * Supports open ranges (null/undefined/empty string).
@@ -3278,22 +3337,9 @@ function buildScholarshipReport(records, pairs, targetHours) {
  */
 function filterAttendanceByDateRange(records, startDate, endDate) {
 	const clean = getCleanAttendanceRecords(records);
-	const start =
-		typeof startDate === "string" && startDate.trim()
-			? startDate.trim()
-			: null;
-	const end =
-		typeof endDate === "string" && endDate.trim()
-			? endDate.trim()
-			: null;
-	const filtered = clean.filter((r) => {
-		if (!r || typeof r !== "object" || typeof r.date !== "string") {
-			return false;
-		}
-		if (start && r.date < start) return false;
-		if (end && r.date > end) return false;
-		return true;
-	});
+	const start = cleanDateParam(startDate);
+	const end = cleanDateParam(endDate);
+	const filtered = clean.filter((r) => isRecordInDateRange(r, start, end));
 	return Object.freeze(filtered);
 }
 
@@ -3394,32 +3440,41 @@ function getTopicTagStyle(topicKey) {
 	};
 }
 
+function accumulateAiTopicScore(item, acc) {
+	const tot = typeof item.total === "number" ? item.total : 0;
+	const req = typeof item.requested === "number" ? item.requested : 0;
+	const off = typeof item.offered === "number" ? item.offered : 0;
+	acc.totalCount += tot;
+	if (tot > 0) acc.activeTopics += 1;
+	if (req > 0 && off > 0) acc.balancedTopics += 1;
+}
+
 function scoreAiSummary(summary, keys) {
-	let totalCount = 0;
-	let activeTopics = 0;
-	let balancedTopics = 0;
 	const topicKeys = keys.filter(
 		(k) => summary[k] && typeof summary[k] === "object",
 	);
 	if (topicKeys.length === 0) {
 		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
 	}
+	const acc = { totalCount: 0, activeTopics: 0, balancedTopics: 0 };
 	for (const k of topicKeys) {
-		const item = summary[k];
-		const tot = typeof item.total === "number" ? item.total : 0;
-		const req = typeof item.requested === "number" ? item.requested : 0;
-		const off = typeof item.offered === "number" ? item.offered : 0;
-		totalCount += tot;
-		if (tot > 0) activeTopics += 1;
-		if (req > 0 && off > 0) balancedTopics += 1;
+		accumulateAiTopicScore(summary[k], acc);
 	}
-	if (totalCount === 0) {
+	if (acc.totalCount === 0) {
 		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
 	}
-	const diversityScore = (activeTopics / Math.max(1, topicKeys.length)) * 40;
-	const volumeScore = Math.min(35, totalCount * 7);
-	const balanceScore = (balancedTopics / Math.max(1, activeTopics)) * 25;
+	const diversityScore =
+		(acc.activeTopics / Math.max(1, topicKeys.length)) * 40;
+	const volumeScore = Math.min(35, acc.totalCount * 7);
+	const balanceScore =
+		(acc.balancedTopics / Math.max(1, acc.activeTopics)) * 25;
 	return Math.round(diversityScore + volumeScore + balanceScore);
+}
+
+function isScholarshipEmpty(totalHours, totalHeld, participantCount) {
+	if (totalHours > 0) return false;
+	if (totalHeld > 0) return false;
+	return participantCount === 0;
 }
 
 function scoreScholarshipSummary(summary) {
@@ -3429,11 +3484,10 @@ function scoreScholarshipSummary(summary) {
 		typeof summary.totalHeldSessions === "number"
 			? summary.totalHeldSessions
 			: 0;
-	const participantCount =
-		summary.byParticipant && typeof summary.byParticipant === "object"
-			? Object.keys(summary.byParticipant).length
-			: 0;
-	if (totalHours === 0 && totalHeld === 0 && participantCount === 0) {
+	const participantCount = isPlainObject(summary.byParticipant)
+		? Object.keys(summary.byParticipant).length
+		: 0;
+	if (isScholarshipEmpty(totalHours, totalHeld, participantCount)) {
 		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
 	}
 	const hoursScore = Math.min(45, totalHours * 5);
@@ -3480,8 +3534,27 @@ function scoreGenericSummary(summary, keys) {
 	);
 }
 
+function detectSummaryType(summary, keys) {
+	const isAi =
+		keys.some((k) => AI_TOPIC_KEYS.includes(k)) ||
+		keys.some((k) => isPlainObject(summary[k]) && "total" in summary[k]);
+	if (isAi) return "ai";
+	if ("totalHours" in summary || "totalHeldSessions" in summary)
+		return "scholarship";
+	if ("byStatus" in summary && isPlainObject(summary.byStatus))
+		return "attendance";
+	return "generic";
+}
+
+function dispatchSummaryScore(summary, keys, type) {
+	if (type === "ai") return scoreAiSummary(summary, keys);
+	if (type === "scholarship") return scoreScholarshipSummary(summary);
+	if (type === "attendance") return scoreAttendanceSummary(summary);
+	return scoreGenericSummary(summary, keys);
+}
+
 function getSummaryQualityScore(summary) {
-	if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+	if (!isPlainObject(summary)) {
 		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
 	}
 
@@ -3490,42 +3563,11 @@ function getSummaryQualityScore(summary) {
 		return { score: 0, rating: "empty", labelHe: "ללא נתונים" };
 	}
 
-	const isAiSummary =
-		keys.some((k) => AI_TOPIC_KEYS.includes(k)) ||
-		keys.some(
-			(k) =>
-				summary[k] && typeof summary[k] === "object" && "total" in summary[k],
-		);
+	const type = detectSummaryType(summary, keys);
+	const res = dispatchSummaryScore(summary, keys, type);
+	if (typeof res === "object") return res;
 
-	const isScholarshipSummary =
-		"totalHours" in summary || "totalHeldSessions" in summary;
-
-	const isAttendanceSummary =
-		"byStatus" in summary &&
-		summary.byStatus &&
-		typeof summary.byStatus === "object";
-
-	let rawScore = 0;
-
-	if (isAiSummary) {
-		const res = scoreAiSummary(summary, keys);
-		if (typeof res === "object") return res;
-		rawScore = res;
-	} else if (isScholarshipSummary) {
-		const res = scoreScholarshipSummary(summary);
-		if (typeof res === "object") return res;
-		rawScore = res;
-	} else if (isAttendanceSummary) {
-		const res = scoreAttendanceSummary(summary);
-		if (typeof res === "object") return res;
-		rawScore = res;
-	} else {
-		const res = scoreGenericSummary(summary, keys);
-		if (typeof res === "object") return res;
-		rawScore = res;
-	}
-
-	const score = Math.max(1, Math.min(100, rawScore));
+	const score = Math.max(1, Math.min(100, res));
 	let rating = "low";
 	let labelHe = "בסיסי";
 	if (score >= 80) {
@@ -3626,53 +3668,50 @@ function matchesCriterion(itemVal, filterVal, isArrayTarget = false) {
 	return normalize(itemVal) === normalize(filterVal);
 }
 
+function cleanFilterValue(val) {
+	if (val == null) return null;
+	if (val === "") return null;
+	if (val === "all") return null;
+	return val;
+}
+
+function matchesFilterCriteria(item, filters) {
+	const { semester, difficulty, topic } = filters;
+	if (semester !== null && !matchesCriterion(item.semester, semester)) {
+		return false;
+	}
+	if (difficulty !== null && !matchesCriterion(item.difficulty, difficulty)) {
+		return false;
+	}
+	if (topic !== null && !matchesCriterion(item.topic, topic, true)) {
+		return false;
+	}
+	return true;
+}
+
+function itemMatchesFilters(item, q, filters) {
+	if (!isPlainObject(item)) return false;
+	if (!matchesQuery(item, q)) return false;
+	return matchesFilterCriteria(item, filters);
+}
+
 function filterSummaryItems(items, filters) {
 	if (!Array.isArray(items) || items.length === 0) {
 		return [];
 	}
-	if (!filters || typeof filters !== "object") {
+	if (!isPlainObject(filters)) {
 		return items.slice();
 	}
 
 	const q =
 		typeof filters.query === "string" ? filters.query.trim().toLowerCase() : "";
-
-	const cleanFilter = (val) => {
-		if (val == null || val === "" || val === "all") return null;
-		return val;
+	const filterCriteria = {
+		semester: cleanFilterValue(filters.semester),
+		difficulty: cleanFilterValue(filters.difficulty),
+		topic: cleanFilterValue(filters.topic),
 	};
 
-	const filterSemester = cleanFilter(filters.semester);
-	const filterDifficulty = cleanFilter(filters.difficulty);
-	const filterTopic = cleanFilter(filters.topic);
-
-	return items.filter((item) => {
-		if (!item || typeof item !== "object") return false;
-
-		if (!matchesQuery(item, q)) {
-			return false;
-		}
-
-		if (filterSemester !== null) {
-			if (!matchesCriterion(item.semester, filterSemester)) {
-				return false;
-			}
-		}
-
-		if (filterDifficulty !== null) {
-			if (!matchesCriterion(item.difficulty, filterDifficulty)) {
-				return false;
-			}
-		}
-
-		if (filterTopic !== null) {
-			if (!matchesCriterion(item.topic, filterTopic, true)) {
-				return false;
-			}
-		}
-
-		return true;
-	});
+	return items.filter((item) => itemMatchesFilters(item, q, filterCriteria));
 }
 
 /**
@@ -3709,18 +3748,21 @@ const FONT_SIZE_REM_MAP = Object.freeze({
 	huge: "1.5rem",
 });
 
+function resolveMaxWidth(maxWidth) {
+	if (typeof maxWidth !== "string") return FOCUS_READER_LINE_WIDTH;
+	const trimmed = maxWidth.trim();
+	return trimmed.length > 0 ? trimmed : FOCUS_READER_LINE_WIDTH;
+}
+
 function validateFocusReaderConfig(config) {
-	if (!config || typeof config !== "object" || Array.isArray(config)) {
+	if (!isPlainObject(config)) {
 		return Object.freeze({ ...DEFAULT_FOCUS_READER_CONFIG });
 	}
 	const enabled = typeof config.enabled === "boolean" ? config.enabled : false;
 	const fontSize = FOCUS_READER_FONT_SIZES.includes(config.fontSize)
 		? config.fontSize
 		: "normal";
-	const maxWidth =
-		typeof config.maxWidth === "string" && config.maxWidth.trim().length > 0
-			? config.maxWidth.trim()
-			: FOCUS_READER_LINE_WIDTH;
+	const maxWidth = resolveMaxWidth(config.maxWidth);
 	const rtl = typeof config.rtl === "boolean" ? config.rtl : true;
 	const inlineFormulas =
 		typeof config.inlineFormulas === "boolean" ? config.inlineFormulas : true;
@@ -3798,6 +3840,12 @@ function saveFocusReaderConfig(
 	}
 }
 
+function isBlankRawStorage(raw) {
+	if (raw == null) return true;
+	if (typeof raw === "string") return raw.trim().length === 0;
+	return false;
+}
+
 function loadFocusReaderConfig(backend, key = "peered_focus_reader_v1") {
 	try {
 		if (!backend || typeof backend.getItem !== "function") {
@@ -3808,15 +3856,10 @@ function loadFocusReaderConfig(backend, key = "peered_focus_reader_v1") {
 				? key
 				: "peered_focus_reader_v1";
 		const raw = backend.getItem(storageKey);
-		if (
-			raw === null ||
-			raw === undefined ||
-			(typeof raw === "string" && raw.trim().length === 0)
-		) {
+		if (isBlankRawStorage(raw)) {
 			return DEFAULT_FOCUS_READER_CONFIG;
 		}
-		const parsed = JSON.parse(raw);
-		return validateFocusReaderConfig(parsed);
+		return validateFocusReaderConfig(JSON.parse(raw));
 	} catch {
 		return DEFAULT_FOCUS_READER_CONFIG;
 	}
@@ -3835,47 +3878,54 @@ const focusReaderConfig = Object.freeze({
 	loadFocusReaderConfig,
 });
 
-function getDropoutRiskReason(
-	heldCount,
-	minHeld,
-	consecutiveStreak,
-	_missedCount,
-	lang = "he",
-) {
-	const belowThreshold = heldCount < minHeld;
-	const hasStreak = consecutiveStreak >= 2;
-
-	if (lang === "ar") {
-		if (belowThreshold && hasStreak) {
-			return `أقل من الحد الأدنى للجلسات (${heldCount}/${minHeld}) وتتالي الإلغاءات/الغياب (${consecutiveStreak})`;
-		}
-		if (belowThreshold) {
-			return `أقل من الحد الأدنى للجلسات (${heldCount} من ${minHeld})`;
-		}
-		return `تتالي الإلغاءات أو الغياب (${consecutiveStreak} متتالية)`;
+function formatRiskReasonAr(heldCount, minHeld, streak) {
+	const below = heldCount < minHeld;
+	const hasStreak = streak >= 2;
+	if (below && hasStreak) {
+		return `أقل من الحد الأدنى للجلسات (${heldCount}/${minHeld}) وتتالي الإلغاءات/الغياب (${streak})`;
 	}
-
-	if (lang === "ru") {
-		if (belowThreshold && hasStreak) {
-			return `Ниже порога занятий (${heldCount}/${minHeld}) и серия отмен/пропусков (${consecutiveStreak})`;
-		}
-		if (belowThreshold) {
-			return `Ниже порога проведенных занятий (${heldCount} из ${minHeld})`;
-		}
-		return `Серия отмен или пропусков (${consecutiveStreak} подряд)`;
+	if (below) {
+		return `أقل من الحد الأدنى للجلسات (${heldCount} من ${minHeld})`;
 	}
-
-	// Hebrew (default)
-	if (belowThreshold && hasStreak) {
-		return `מתחת לסף מפגשים (${heldCount}/${minHeld}) ורצף ביטולים/החמצות (${consecutiveStreak})`;
-	}
-	if (belowThreshold) {
-		return `מתחת לסף מפגשים שהתקיימו (${heldCount} מתוך ${minHeld})`;
-	}
-	return `רצף ביטולים או החמצות (${consecutiveStreak} ברצף)`;
+	return `تتالي الإلغاءات أو الغياب (${streak} متتالية)`;
 }
 
-function detectInactivePairs(records, pairs, options) {
+function formatRiskReasonRu(heldCount, minHeld, streak) {
+	const below = heldCount < minHeld;
+	const hasStreak = streak >= 2;
+	if (below && hasStreak) {
+		return `Ниже порога занятий (${heldCount}/${minHeld}) и серия отмен/пропусков (${streak})`;
+	}
+	if (below) {
+		return `Ниже порога проведенных занятий (${heldCount} из ${minHeld})`;
+	}
+	return `Серия отмен или пропусков (${streak} подряд)`;
+}
+
+function formatRiskReasonHe(heldCount, minHeld, streak) {
+	const below = heldCount < minHeld;
+	const hasStreak = streak >= 2;
+	if (below && hasStreak) {
+		return `מתחת לסף מפגשים (${heldCount}/${minHeld}) ורצף ביטולים/החמצות (${streak})`;
+	}
+	if (below) {
+		return `מתחת לסף מפגשים שהתקיימו (${heldCount} מתוך ${minHeld})`;
+	}
+	return `רצף ביטולים או החמצות (${streak} ברצף)`;
+}
+
+function getDropoutRiskReason(heldCount, minHeld, streak, ...rest) {
+	const lang = rest.find((arg) => typeof arg === "string") || "he";
+	if (lang === "ar") {
+		return formatRiskReasonAr(heldCount, minHeld, streak);
+	}
+	if (lang === "ru") {
+		return formatRiskReasonRu(heldCount, minHeld, streak);
+	}
+	return formatRiskReasonHe(heldCount, minHeld, streak);
+}
+
+function resolveDropoutOptions(options) {
 	const rawMin =
 		typeof options === "number"
 			? options
@@ -3887,98 +3937,111 @@ function detectInactivePairs(records, pairs, options) {
 		options && (options.lang === "ar" || options.lang === "ru")
 			? options.lang
 			: "he";
-	const consecutiveThreshold = 2;
+	return { minHeld, lang };
+}
 
-	const cleanRecords = Array.isArray(records)
-		? records
-		: records && Array.isArray(records.entries)
-			? records.entries
-			: [];
-
+function collectDropoutPairIndexes(cleanRecords, pairs) {
 	const pairIndexes = new Set();
 	if (Array.isArray(pairs)) {
 		pairs.forEach((p, idx) => {
 			const pIdx =
-				p && Number.isInteger(p.pairIndex) && p.pairIndex >= 0
-					? p.pairIndex
-					: idx;
+				isPlainObject(p) && isValidPairIndex(p.pairIndex) ? p.pairIndex : idx;
 			pairIndexes.add(pIdx);
 		});
 	}
 	for (const r of cleanRecords) {
-		if (r && Number.isInteger(r.pairIndex) && r.pairIndex >= 0) {
+		if (r && isValidPairIndex(r.pairIndex)) {
 			pairIndexes.add(r.pairIndex);
 		}
 	}
+	return Array.from(pairIndexes).sort((a, b) => a - b);
+}
 
-	if (pairIndexes.size === 0) {
+function stepPairStreak(r, acc) {
+	if (r.status === "held") {
+		acc.heldCount += 1;
+		acc.currentStreak = 0;
+		return;
+	}
+	if (r.status === "missed" || r.status === "cancelled") {
+		acc.missedOrCancelledCount += 1;
+		acc.currentStreak += 1;
+		acc.maxStreak = Math.max(acc.maxStreak, acc.currentStreak);
+	}
+}
+
+function analyzePairStreak(pairRecords) {
+	const acc = {
+		heldCount: 0,
+		missedOrCancelledCount: 0,
+		currentStreak: 0,
+		maxStreak: 0,
+	};
+	for (const r of pairRecords) {
+		stepPairStreak(r, acc);
+	}
+	return acc;
+}
+
+function evaluatePairDropoutRisk(pIdx, cleanRecords, opts) {
+	const pairRecords = [];
+	for (const r of cleanRecords) {
+		if (isPlainObject(r) && r.pairIndex === pIdx) {
+			pairRecords.push(r);
+		}
+	}
+
+	pairRecords.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+	const { heldCount, missedOrCancelledCount, maxStreak } =
+		analyzePairStreak(pairRecords);
+
+	const isBelowThreshold = heldCount < opts.minHeld;
+	const hasStreak = maxStreak >= 2;
+
+	if (!isBelowThreshold && !hasStreak) {
+		return null;
+	}
+
+	const riskReason = getDropoutRiskReason(
+		heldCount,
+		opts.minHeld,
+		maxStreak,
+		missedOrCancelledCount,
+		opts.lang,
+	);
+	const belowGap = Math.max(0, opts.minHeld - heldCount);
+	const riskScore =
+		belowGap * 1000 + maxStreak * 100 + missedOrCancelledCount * 10 - heldCount;
+
+	return {
+		pairIndex: pIdx,
+		heldCount,
+		missedOrCancelledCount,
+		riskReason,
+		_riskScore: riskScore,
+	};
+}
+
+function detectInactivePairs(records, pairs, options) {
+	const opts = resolveDropoutOptions(options);
+	const cleanRecords = getCleanAttendanceRecords(records);
+	const sortedPairIndexes = collectDropoutPairIndexes(cleanRecords, pairs);
+
+	if (sortedPairIndexes.length === 0) {
 		return Object.freeze([]);
 	}
 
-	const sortedPairIndexes = Array.from(pairIndexes).sort((a, b) => a - b);
 	const atRiskPairs = [];
-
 	for (const pIdx of sortedPairIndexes) {
-		const pairRecords = [];
-		for (const r of cleanRecords) {
-			if (!r || typeof r !== "object" || r.pairIndex !== pIdx) continue;
-			pairRecords.push(r);
-		}
-
-		pairRecords.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-
-		let heldCount = 0;
-		let missedOrCancelledCount = 0;
-		let currentStreak = 0;
-		let maxStreak = 0;
-
-		for (const r of pairRecords) {
-			if (r.status === "held") {
-				heldCount += 1;
-				currentStreak = 0;
-			} else if (r.status === "missed" || r.status === "cancelled") {
-				missedOrCancelledCount += 1;
-				currentStreak += 1;
-				if (currentStreak > maxStreak) {
-					maxStreak = currentStreak;
-				}
-			}
-		}
-
-		const isBelowThreshold = heldCount < minHeld;
-		const hasStreak = maxStreak >= consecutiveThreshold;
-
-		if (isBelowThreshold || hasStreak) {
-			const riskReason = getDropoutRiskReason(
-				heldCount,
-				minHeld,
-				maxStreak,
-				missedOrCancelledCount,
-				lang,
-			);
-			const belowGap = Math.max(0, minHeld - heldCount);
-			const riskScore =
-				belowGap * 1000 +
-				maxStreak * 100 +
-				missedOrCancelledCount * 10 -
-				heldCount;
-
-			atRiskPairs.push({
-				pairIndex: pIdx,
-				heldCount,
-				missedOrCancelledCount,
-				riskReason,
-				_riskScore: riskScore,
-			});
+		const risk = evaluatePairDropoutRisk(pIdx, cleanRecords, opts);
+		if (risk) {
+			atRiskPairs.push(risk);
 		}
 	}
 
-	atRiskPairs.sort((a, b) => {
-		if (b._riskScore !== a._riskScore) {
-			return b._riskScore - a._riskScore;
-		}
-		return a.pairIndex - b.pairIndex;
-	});
+	atRiskPairs.sort(
+		(a, b) => b._riskScore - a._riskScore || a.pairIndex - b.pairIndex,
+	);
 
 	const result = atRiskPairs.map((p) =>
 		Object.freeze({
@@ -3992,42 +4055,55 @@ function detectInactivePairs(records, pairs, options) {
 	return Object.freeze(result);
 }
 
+function extractPersonRegion(p) {
+	if (!isPlainObject(p)) return null;
+	if (typeof p.role !== "string") return null;
+	const role = p.role.trim().toLowerCase();
+	if (role !== "student" && role !== "pupil") return null;
+
+	const rawArea = p.area !== undefined ? p.area : p.region;
+	if (typeof rawArea !== "string") return null;
+	const area = rawArea.trim();
+	if (area === "") return null;
+
+	return { role, area };
+}
+
+function recordPersonSupplyDemand(summary, p) {
+	const info = extractPersonRegion(p);
+	if (!info) return;
+	const { role, area } = info;
+
+	if (!Object.hasOwn(summary, area)) {
+		summary[area] = {
+			area,
+			students: 0,
+			offered: 0,
+			pupils: 0,
+			requested: 0,
+			gap: 0,
+			total: 0,
+		};
+	}
+	const item = summary[area];
+	if (role === "student") {
+		item.students += 1;
+		item.offered += 1;
+	} else if (role === "pupil") {
+		item.pupils += 1;
+		item.requested += 1;
+	}
+	item.gap = item.requested - item.offered;
+	item.total = item.students + item.pupils;
+}
+
 function computeRegionalSupplyDemand(people) {
 	const summary = {};
 	if (!Array.isArray(people)) {
 		return Object.freeze(summary);
 	}
 	for (const p of people) {
-		if (!p || typeof p !== "object" || Array.isArray(p)) continue;
-		if (typeof p.role !== "string") continue;
-		const role = p.role.trim().toLowerCase();
-		if (role !== "student" && role !== "pupil") continue;
-
-		const rawArea = p.area !== undefined ? p.area : p.region;
-		if (typeof rawArea !== "string") continue;
-		const area = rawArea.trim();
-		if (area === "") continue;
-
-		if (!Object.hasOwn(summary, area)) {
-			summary[area] = {
-				area: area,
-				students: 0,
-				offered: 0,
-				pupils: 0,
-				requested: 0,
-				gap: 0,
-				total: 0,
-			};
-		}
-		if (role === "student") {
-			summary[area].students += 1;
-			summary[area].offered += 1;
-		} else if (role === "pupil") {
-			summary[area].pupils += 1;
-			summary[area].requested += 1;
-		}
-		summary[area].gap = summary[area].requested - summary[area].offered;
-		summary[area].total = summary[area].students + summary[area].pupils;
+		recordPersonSupplyDemand(summary, p);
 	}
 
 	for (const key of Object.keys(summary)) {
@@ -4045,6 +4121,80 @@ function computeRegionalSupplyDemand(people) {
 	});
 
 	return Object.freeze(summary);
+}
+
+function filterMatchesStatus(statusFilter, recordStatus) {
+	if (!statusFilter || statusFilter === "all") return true;
+	return recordStatus === statusFilter;
+}
+
+function filterMatchesPairIndex(targetIndex, recordIndex) {
+	if (targetIndex == null) return true;
+	return recordIndex === targetIndex;
+}
+
+function filterMatchesAiTopic(targetTopic, recordTopic) {
+	if (!targetTopic) return true;
+	return recordTopic === targetTopic;
+}
+
+function matchesRecordFilter(r, f) {
+	if (!isPlainObject(r)) return false;
+	if (!filterMatchesStatus(f.status, r.status)) return false;
+	if (!filterMatchesPairIndex(f.pairIndex, r.pairIndex)) return false;
+	if (!filterMatchesAiTopic(f.aiTopic, r.aiTopic)) return false;
+	return true;
+}
+
+function filterAttendanceRecords(records, filters) {
+	const clean = getCleanAttendanceRecords(records);
+	const f = filters || {};
+	return Object.freeze(clean.filter((r) => matchesRecordFilter(r, f)));
+}
+
+function getPairSessionTimeline(records, pairIndex) {
+	const clean = getCleanAttendanceRecords(records);
+	const filtered = clean.filter((r) => r && r.pairIndex === pairIndex);
+	filtered.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+	return Object.freeze(filtered);
+}
+
+function buildUpdatedOutcomeRow(target, patch) {
+	const p = patch || {};
+	const status = p.status !== undefined ? p.status : target.status;
+	const durationHours =
+		p.durationHours !== undefined ? p.durationHours : target.durationHours;
+	const row = {
+		pairIndex: target.pairIndex,
+		date: target.date,
+		status,
+		durationHours,
+	};
+	if (p.aiTopic !== undefined) {
+		row.aiTopic = p.aiTopic;
+	} else if (target.aiTopic !== undefined) {
+		row.aiTopic = target.aiTopic;
+	}
+	return row;
+}
+
+function updateSessionOutcome(records, pairIndex, date, patch) {
+	const clean = getCleanAttendanceRecords(records);
+	const idx = clean.findIndex(
+		(r) => r && r.pairIndex === pairIndex && r.date === date,
+	);
+	if (idx === -1) {
+		throw new Error("session record not found");
+	}
+	const target = clean[idx];
+	const updatedRow = buildUpdatedOutcomeRow(target, patch);
+	const validated = sanitizeAttendanceRow(updatedRow, parseDate);
+	if (!validated) {
+		throw new Error("invalid attendance patch");
+	}
+	const updatedList = clean.slice();
+	updatedList[idx] = validated;
+	return Object.freeze({ entries: Object.freeze(updatedList) });
 }
 
 module.exports = {
@@ -4092,64 +4242,6 @@ module.exports = {
 	detectInactivePairs,
 	computeRegionalSupplyDemand,
 };
-
-function filterAttendanceRecords(records, filters) {
-	const clean = getCleanAttendanceRecords(records);
-	const f = filters || {};
-	return Object.freeze(
-		clean.filter((r) => {
-			if (!r || typeof r !== "object") return false;
-			if (f.status && f.status !== "all" && r.status !== f.status) return false;
-			if (
-				f.pairIndex !== undefined &&
-				f.pairIndex !== null &&
-				r.pairIndex !== f.pairIndex
-			)
-				return false;
-			if (f.aiTopic && r.aiTopic !== f.aiTopic) return false;
-			return true;
-		}),
-	);
-}
-
-function getPairSessionTimeline(records, pairIndex) {
-	const clean = getCleanAttendanceRecords(records);
-	const filtered = clean.filter((r) => r && r.pairIndex === pairIndex);
-	filtered.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-	return Object.freeze(filtered);
-}
-
-function updateSessionOutcome(records, pairIndex, date, patch) {
-	const clean = getCleanAttendanceRecords(records);
-	const idx = clean.findIndex(
-		(r) => r && r.pairIndex === pairIndex && r.date === date,
-	);
-	if (idx === -1) {
-		throw new Error("session record not found");
-	}
-	const target = clean[idx];
-	const updatedRow = {
-		pairIndex: target.pairIndex,
-		date: target.date,
-		status: patch && patch.status !== undefined ? patch.status : target.status,
-		durationHours:
-			patch && patch.durationHours !== undefined
-				? patch.durationHours
-				: target.durationHours,
-	};
-	if (patch && patch.aiTopic !== undefined) {
-		updatedRow.aiTopic = patch.aiTopic;
-	} else if (target.aiTopic !== undefined) {
-		updatedRow.aiTopic = target.aiTopic;
-	}
-	const validated = sanitizeAttendanceRow(updatedRow, parseDate);
-	if (!validated) {
-		throw new Error("invalid attendance patch");
-	}
-	const updatedList = clean.slice();
-	updatedList[idx] = validated;
-	return Object.freeze({ entries: Object.freeze(updatedList) });
-}
   __registry["attendance"] = module.exports;
 })();
 
