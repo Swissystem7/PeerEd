@@ -611,6 +611,10 @@
     </div>
     <div class="card" id="aiChallengeCard">
       <h2 id="challengeHeading">תחרות כלי AI</h2>
+      <div style="margin-bottom: 0.5rem;">
+        <label for="challengeTemplateSelect" id="challengeTemplateLabel">תבנית מהירה</label>
+        <select id="challengeTemplateSelect" aria-describedby="challengeStatus"></select>
+      </div>
       <div class="row">
         <div>
           <label for="challengePairSelect" id="challengePairLabel">זוג</label>
@@ -676,6 +680,7 @@
         <option value="AI_ETHICS_SEC">AI_ETHICS_SEC</option>
       </select>
       <button type="button" id="copyChallengeWinnersBtn" class="btn btn-primary" aria-describedby="challengeWinnersStatus">העתק סיכום זוכים</button>
+      <button type="button" id="copyTopChallengeCertBtn" class="btn btn-secondary" aria-describedby="challengeWinnersStatus">העתק תעודת זוכה</button>
       <span id="challengeWinnersStatus" aria-live="polite" style="font-size: 0.9rem; color: var(--success, green);"></span>
     </div>
   </div>
@@ -3427,6 +3432,7 @@
     if ($('sessionEndDate')) $('sessionEndDate').value = '';
     challengeEntries = [];
     if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
+    if ($('challengeTemplateSelect')) $('challengeTemplateSelect').value = '';
     renderChallengeLeaderboard();
     renderPeople(); renderUnits(); renderSessionForm();
     updatePairTotalHoursBadge(); renderSessions();
@@ -3937,6 +3943,16 @@
     ar: 'إرسال التحدي',
     ru: 'Отправить работу'
   };
+  var S_CHALLENGE_TEMPLATE = {
+    he: 'תבנית מהירה',
+    ar: 'قالب سريع',
+    ru: 'Быстрый шаблон'
+  };
+  var S_COPY_TOP_CERT_BTN = {
+    he: 'העתק תעודת זוכה',
+    ar: 'نسخ شهادة الفائز',
+    ru: 'Копировать сертификат победителя'
+  };
   var S_CHALLENGE_STATUS_SUCCESS = {
     he: 'ההגשה נשמרה בהצלחה.',
     ar: 'تم حفظ المشاركة بنجاح.',
@@ -3944,6 +3960,20 @@
   };
 
   function renderChallengeForm() {
+    var tplSel = $('challengeTemplateSelect');
+    if (tplSel) {
+      var curTpl = tplSel.value;
+      var chooseTpl = currentLang === 'ar' ? 'اختر قالباً سريعاً' : (currentLang === 'ru' ? 'Выберите быстрый шаблон' : 'בחר תבנית מהירה');
+      var tplHtml = '<option value="">' + esc(chooseTpl) + '</option>';
+      var templates = (curriculumLib && curriculumLib.AI_CHALLENGE_TEMPLATES) || (modesLib && modesLib.AI_CHALLENGE_TEMPLATES) || [];
+      templates.forEach(function (tpl) {
+        var tplTitle = (tpl.title && (tpl.title[currentLang] || tpl.title.he)) || tpl.titleHe || tpl.id;
+        tplHtml += '<option value="' + esc(tpl.id) + '"' + (curTpl === tpl.id ? ' selected' : '') + '>' + esc(tplTitle) + '</option>';
+      });
+      tplSel.innerHTML = tplHtml;
+      tplSel.value = curTpl;
+    }
+
     var pairSel = $('challengePairSelect');
     if (pairSel) {
       var pairs = typeof currentPairs === 'function' ? currentPairs() : [];
@@ -4046,6 +4076,24 @@
       '</table>';
   }
 
+  if ($('challengeTemplateSelect')) {
+    $('challengeTemplateSelect').addEventListener('change', function () {
+      var val = $('challengeTemplateSelect').value;
+      if (!val) return;
+      var templates = (curriculumLib && curriculumLib.AI_CHALLENGE_TEMPLATES) || (modesLib && modesLib.AI_CHALLENGE_TEMPLATES) || [];
+      var found = templates.find(function (t) { return t.id === val; });
+      if (found) {
+        if ($('challengeTopicSelect')) {
+          $('challengeTopicSelect').value = found.aiTopic || found.topic;
+        }
+        if ($('challengeTitleInput')) {
+          var titleStr = (found.title && (found.title[currentLang] || found.title.he)) || found.titleHe || '';
+          $('challengeTitleInput').value = titleStr;
+        }
+      }
+    });
+  }
+
   if ($('challengeTopicFilter')) {
     $('challengeTopicFilter').addEventListener('change', function () {
       if ($('challengeWinnersStatus')) $('challengeWinnersStatus').textContent = '';
@@ -4068,6 +4116,32 @@
         }, function () { status.textContent = summary.text; });
       } else {
         status.textContent = summary.text;
+      }
+    });
+  }
+
+  if ($('copyTopChallengeCertBtn')) {
+    $('copyTopChallengeCertBtn').addEventListener('click', function () {
+      var shown = filteredChallengeEntries().map(function (e) { return Object.assign({}, e, { pairIndex: e.pairIndex + 1 }); });
+      var ranked = curriculumLib && typeof curriculumLib.rankChallengeLeaderboard === 'function'
+        ? curriculumLib.rankChallengeLeaderboard(shown)
+        : [];
+      var status = $('challengeWinnersStatus');
+      if (!ranked || ranked.length === 0) {
+        var emptyMsg = currentLang === 'ar' ? 'لا توجد مشاركات' : (currentLang === 'ru' ? 'Нет заявок' : 'אין הגשות זמינות');
+        if (status) status.textContent = emptyMsg;
+        return;
+      }
+      var topWinner = ranked[0];
+      var certFn = (curriculumLib && curriculumLib.generateChallengeCertificateText) || (modesLib && modesLib.generateChallengeCertificateText);
+      var certText = certFn ? certFn(topWinner, 1, currentLang) : '';
+      var copied = currentLang === 'ar' ? 'تم نسخ شهادة التقدير' : (currentLang === 'ru' ? 'Сертификат победителя скопирован' : 'תעודת ההוקרה הועתקה ללוח');
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(certText).then(function () {
+          if (status) status.textContent = copied;
+        }, function () { if (status) status.textContent = certText; });
+      } else {
+        if (status) status.textContent = certText;
       }
     });
   }
@@ -4105,6 +4179,7 @@
         });
         say('challengeStatus', S_CHALLENGE_STATUS_SUCCESS[currentLang] || S_CHALLENGE_STATUS_SUCCESS.he);
         if ($('challengeTitleInput')) $('challengeTitleInput').value = '';
+        if ($('challengeTemplateSelect')) $('challengeTemplateSelect').value = '';
         renderChallengeLeaderboard();
       } catch (err) {
         say('challengeStatus', (errorHe ? errorHe(err) : err.message) || err.message, true);
@@ -4660,6 +4735,7 @@
     if ($('dropoutRiskCountLabel')) $('dropoutRiskCountLabel').textContent = S_DROPOUT_COUNT_LABEL[currentLang] || S_DROPOUT_COUNT_LABEL.he;
 
     if ($('challengeHeading')) $('challengeHeading').textContent = S_CHALLENGE_HEADING[currentLang] || S_CHALLENGE_HEADING.he;
+    if ($('challengeTemplateLabel')) $('challengeTemplateLabel').textContent = S_CHALLENGE_TEMPLATE[currentLang] || S_CHALLENGE_TEMPLATE.he;
     if ($('challengePairLabel')) $('challengePairLabel').textContent = S_CHALLENGE_PAIR[currentLang] || S_CHALLENGE_PAIR.he;
     if ($('challengeTopicLabel')) $('challengeTopicLabel').textContent = S_CHALLENGE_TOPIC[currentLang] || S_CHALLENGE_TOPIC.he;
     if ($('challengeTitleLabel')) $('challengeTitleLabel').textContent = S_CHALLENGE_TITLE[currentLang] || S_CHALLENGE_TITLE.he;
@@ -4670,6 +4746,11 @@
       var challengeBtnText = S_CHALLENGE_SUBMIT_BTN[currentLang] || S_CHALLENGE_SUBMIT_BTN.he;
       $('submitChallengeBtn').textContent = challengeBtnText;
       $('submitChallengeBtn').setAttribute('aria-label', challengeBtnText);
+    }
+    if ($('copyTopChallengeCertBtn')) {
+      var certBtnText = S_COPY_TOP_CERT_BTN[currentLang] || S_COPY_TOP_CERT_BTN.he;
+      $('copyTopChallengeCertBtn').textContent = certBtnText;
+      $('copyTopChallengeCertBtn').setAttribute('aria-label', certBtnText);
     }
 
     if ($('sessionDurationLabel')) $('sessionDurationLabel').textContent = S_SESSION_DURATION[currentLang] || S_SESSION_DURATION.he;
