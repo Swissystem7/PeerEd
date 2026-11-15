@@ -9,6 +9,7 @@
 const { isRegion } = require('./regions.js');
 const { isSlot, normalizeSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
 const { statusOf } = require('./approval.js');
+const { filterAttendanceByDateRange, exportScholarshipCsv } = require('./attendance.js');
 
 const OUTCOMES = Object.freeze(['held', 'missed', 'cut_short']);
 const ACCEPTED_FIELDS = Object.freeze(['slot', 'subject', 'unitId', 'outcome']);
@@ -227,5 +228,7 @@ module.exports = {
   summarize,
   reportCsv,
   REPORT_HEADER,
-  loadLog
+  loadLog,
+  filterAttendanceByDateRange,
+  exportScholarshipCsv
 };

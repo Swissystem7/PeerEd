@@ -567,6 +567,62 @@ function buildScholarshipReport(records, pairs, targetHours) {
 	});
 }
 
+/**
+ * Filters attendance records by date range (inclusive, YYYY-MM-DD).
+ * Supports open ranges (null/undefined/empty string).
+ *
+ * @param {Array<Object>|Object} records Attendance records or log
+ * @param {string|null|undefined} startDate Minimum date (inclusive)
+ * @param {string|null|undefined} endDate Maximum date (inclusive)
+ * @returns {Array<Object>} Filtered frozen records
+ */
+function filterAttendanceByDateRange(records, startDate, endDate) {
+	const clean = getCleanAttendanceRecords(records);
+	const start =
+		typeof startDate === "string" && startDate.trim()
+			? startDate.trim()
+			: null;
+	const end =
+		typeof endDate === "string" && endDate.trim()
+			? endDate.trim()
+			: null;
+	const filtered = clean.filter((r) => {
+		if (!r || typeof r !== "object" || typeof r.date !== "string") {
+			return false;
+		}
+		if (start && r.date < start) return false;
+		if (end && r.date > end) return false;
+		return true;
+	});
+	return Object.freeze(filtered);
+}
+
+/**
+ * Exports anonymous scholarship report in CSV format.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} records Attendance records or log
+ * @param {Array<Object>} pairs Matched pairs list
+ * @param {number} targetHours Target scholarship hours (default 30)
+ * @returns {string} Anonymous CSV text
+ */
+function exportScholarshipCsv(records, pairs, targetHours) {
+	const report = buildScholarshipReport(records, pairs, targetHours);
+	const lines = [
+		"pairIndex,heldSessions,totalHours,targetHours,completionPercent,coveredAiTopics",
+	];
+	for (const p of report.pairs) {
+		const topics =
+			Array.isArray(p.coveredAiTopics) && p.coveredAiTopics.length > 0
+				? p.coveredAiTopics.join(";")
+				: "";
+		lines.push(
+			`${p.pairIndex},${p.heldSessions},${p.totalHours},${p.targetHours},${p.completionPercent},${topics}`,
+		);
+	}
+	return `${lines.join("\n")}\n`;
+}
+
 const TOPIC_PASTEL_PALETTE = Object.freeze([
 	"#93c5fd", // pastel blue
 	"#86efac", // pastel green
@@ -1292,6 +1348,8 @@ function computeRegionalSupplyDemand(people) {
 }
 
 module.exports = {
+	filterAttendanceByDateRange,
+	exportScholarshipCsv,
 	filterAttendanceRecords,
 	getPairSessionTimeline,
 	updateSessionOutcome,
