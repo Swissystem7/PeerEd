@@ -621,6 +621,8 @@ module.exports = {
 	isQuotaExceededError,
 	isQuotaExceeded,
 	validateBatchImportZeroPii,
+	parseCsvPilotBatch: require("./validator.js").parseCsvPilotBatch,
+	commitPilotCsvBatch: require("./validator.js").commitPilotCsvBatch,
 	computeRegionalSupplyDemand,
 	buildImpactOverviewReport,
 	filterParticipantsByAITopic
