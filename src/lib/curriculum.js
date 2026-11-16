@@ -344,6 +344,25 @@ const ALLOWED_CHALLENGE_KEYS = Object.freeze([
   'safety'
 ]);
 
+const ALLOWED_JUDGE_EVAL_KEYS = Object.freeze([
+  'judgeRole',
+  'innovation',
+  'usefulness',
+  'safety'
+]);
+
+const VALID_JUDGE_ROLES = Object.freeze([
+  'coordinator',
+  'mentor_peer',
+  'industry_guest'
+]);
+
+const JUDGE_ROLE_WEIGHTS = Object.freeze({
+  coordinator: 0.4,
+  mentor_peer: 0.3,
+  industry_guest: 0.3
+});
+
 function submitChallengeEntry(entries, entry) {
   if (entries !== undefined && entries !== null && !Array.isArray(entries)) {
     throw new Error('invalid entries: expected array');
@@ -401,6 +420,98 @@ function submitChallengeEntry(entries, entry) {
   return Object.freeze(next);
 }
 
+function addJudgeEvaluation(entries, entryIndex, evaluation) {
+  if (!Array.isArray(entries)) {
+    throw new Error('invalid entries: expected array');
+  }
+  if (!Number.isInteger(entryIndex) || entryIndex < 0) {
+    throw new Error('invalid entryIndex: expected non-negative integer');
+  }
+  let targetIdx = -1;
+  if (entryIndex < entries.length && entries[entryIndex]) {
+    targetIdx = entryIndex;
+  } else {
+    targetIdx = entries.findIndex((e) => e && e.pairIndex === entryIndex);
+  }
+  if (targetIdx === -1) {
+    throw new Error('entry not found');
+  }
+
+  if (!evaluation || typeof evaluation !== 'object' || Array.isArray(evaluation)) {
+    throw new Error('invalid evaluation: expected an object');
+  }
+
+  const keys = Object.keys(evaluation);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (ALLOWED_JUDGE_EVAL_KEYS.indexOf(keys[i]) === -1) {
+      throw new Error('personal data is not accepted');
+    }
+  }
+
+  if (typeof evaluation.judgeRole !== 'string' || VALID_JUDGE_ROLES.indexOf(evaluation.judgeRole) === -1) {
+    throw new Error("invalid judgeRole: expected 'coordinator', 'mentor_peer', or 'industry_guest'");
+  }
+
+  for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
+    const val = evaluation[scoreKey];
+    if (!Number.isInteger(val) || val < 1 || val > 5) {
+      throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
+    }
+  }
+
+  const currentEntry = entries[targetIdx];
+  const prevEvals = Array.isArray(currentEntry.evaluations) ? currentEntry.evaluations : [];
+  if (prevEvals.some((ev) => ev && ev.judgeRole === evaluation.judgeRole)) {
+    throw new Error(`duplicate judgeRole: evaluation already exists for role '${evaluation.judgeRole}'`);
+  }
+
+  const evalRecord = Object.freeze({
+    judgeRole: evaluation.judgeRole,
+    innovation: evaluation.innovation,
+    usefulness: evaluation.usefulness,
+    safety: evaluation.safety,
+    totalScore: evaluation.innovation + evaluation.usefulness + evaluation.safety,
+    averageScore: Math.round(((evaluation.innovation + evaluation.usefulness + evaluation.safety) / 3) * 100) / 100
+  });
+
+  const nextEvals = prevEvals.concat([evalRecord]);
+
+  let totalWeight = 0;
+  let weightedInnoSum = 0;
+  let weightedUseSum = 0;
+  let weightedSafeSum = 0;
+
+  for (let i = 0; i < nextEvals.length; i += 1) {
+    const ev = nextEvals[i];
+    const weight = JUDGE_ROLE_WEIGHTS[ev.judgeRole] || 1;
+    totalWeight += weight;
+    weightedInnoSum += ev.innovation * weight;
+    weightedUseSum += ev.usefulness * weight;
+    weightedSafeSum += ev.safety * weight;
+  }
+
+  const weightedInno = Math.round((weightedInnoSum / totalWeight) * 100) / 100;
+  const weightedUse = Math.round((weightedUseSum / totalWeight) * 100) / 100;
+  const weightedSafe = Math.round((weightedSafeSum / totalWeight) * 100) / 100;
+  const totalScore = Math.round((weightedInno + weightedUse + weightedSafe) * 100) / 100;
+  const averageScore = Math.round((totalScore / 3) * 100) / 100;
+
+  const updatedEntry = Object.freeze(Object.assign({}, currentEntry, {
+    innovation: weightedInno,
+    usefulness: weightedUse,
+    safety: weightedSafe,
+    totalScore: totalScore,
+    averageScore: averageScore,
+    score: totalScore,
+    evaluations: Object.freeze(nextEvals),
+    judgeCount: nextEvals.length
+  }));
+
+  const nextEntries = entries.slice();
+  nextEntries[targetIdx] = updatedEntry;
+  return Object.freeze(nextEntries);
+}
+
 function rankChallengeLeaderboard(entries) {
   if (!entries || !Array.isArray(entries) || entries.length === 0) {
     return Object.freeze([]);
@@ -413,8 +524,12 @@ function rankChallengeLeaderboard(entries) {
     const innovation = Number(e.innovation);
     const usefulness = Number(e.usefulness);
     const safety = Number(e.safety);
-    const totalScore = innovation + usefulness + safety;
-    const averageScore = Math.round((totalScore / 3) * 100) / 100;
+    const totalScore = e.totalScore !== undefined
+      ? Math.round(Number(e.totalScore) * 100) / 100
+      : Math.round((innovation + usefulness + safety) * 100) / 100;
+    const averageScore = e.averageScore !== undefined
+      ? Math.round(Number(e.averageScore) * 100) / 100
+      : Math.round((totalScore / 3) * 100) / 100;
     return {
       pairIndex: pairIndex,
       aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
@@ -424,7 +539,9 @@ function rankChallengeLeaderboard(entries) {
       safety: safety,
       totalScore: totalScore,
       averageScore: averageScore,
-      score: totalScore
+      score: totalScore,
+      evaluations: Array.isArray(e.evaluations) ? e.evaluations : Object.freeze([]),
+      judgeCount: Number.isInteger(e.judgeCount) ? e.judgeCount : (Array.isArray(e.evaluations) ? e.evaluations.length : 0)
     };
   });
 
@@ -445,8 +562,25 @@ function rankChallengeLeaderboard(entries) {
     safety: item.safety,
     totalScore: item.totalScore,
     averageScore: item.averageScore,
-    score: item.score
+    score: item.score,
+    evaluations: item.evaluations,
+    judgeCount: item.judgeCount
   })));
+}
+
+function selectChallengeFinalists(entries, topN) {
+  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+    return Object.freeze([]);
+  }
+  const n = (topN !== undefined && Number.isInteger(topN)) ? Math.max(0, topN) : 3;
+  if (n === 0) {
+    return Object.freeze([]);
+  }
+  const ranked = rankChallengeLeaderboard(entries);
+  const finalists = ranked.slice(0, n).map((item) => Object.freeze(Object.assign({}, item, {
+    isFinalist: true
+  })));
+  return Object.freeze(finalists);
 }
 
 function filterChallengeEntriesByTopic(entries, aiTopic) {
@@ -651,5 +785,6 @@ module.exports = {
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
   VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary,
-  AI_CHALLENGE_TEMPLATES, generateChallengeCertificateText
+  AI_CHALLENGE_TEMPLATES, generateChallengeCertificateText,
+  addJudgeEvaluation, selectChallengeFinalists, VALID_JUDGE_ROLES, JUDGE_ROLE_WEIGHTS
 };

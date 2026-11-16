@@ -86,6 +86,7 @@
   table.leaderboard-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:.85rem; }
   table.leaderboard-table th, table.leaderboard-table td { padding:8px 6px; text-align:start; border-bottom:1px solid var(--line); }
   table.leaderboard-table th { color:var(--muted); font-size:.78rem; font-weight:700; }
+  .challenge-finalist-badge { display:inline-block; font-size:.72rem; font-weight:700; border-radius:999px; background:#CCFBF1; color:var(--key); border:1px solid var(--key); padding:1px 6px; margin-inline-start:4px; vertical-align:middle; }
 
   .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
@@ -675,8 +676,19 @@
           </select>
         </div>
       </div>
+      <div class="row" style="margin-top: 0.5rem;">
+        <div>
+          <label for="judgeRoleSelect" id="judgeRoleLabel">תפקיד שופט</label>
+          <select id="judgeRoleSelect" aria-describedby="challengeWinnersStatus">
+            <option value="coordinator">רכז</option>
+            <option value="mentor_peer">חונך עמית</option>
+            <option value="industry_guest">אורח מהתעשייה</option>
+          </select>
+        </div>
+      </div>
       <div class="actions">
         <button type="button" class="act" id="submitChallengeBtn" aria-describedby="challengeStatus">הגש אתגר</button>
+        <button type="button" class="act" id="judgeSubmitBtn" aria-describedby="challengeWinnersStatus">הוסף הערכת שופט</button>
       </div>
       <p class="status" id="challengeStatus" role="status"></p>
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic challenge leaderboard -->
@@ -4128,6 +4140,31 @@
     ar: 'تم حفظ المشاركة بنجاح.',
     ru: 'Заявка успешно сохранена.'
   };
+  var S_JUDGE_ROLE_LABEL = {
+    he: 'תפקיד שופט',
+    ar: 'دور المحكّم',
+    ru: 'Роль судьи'
+  };
+  var S_JUDGE_SUBMIT_BTN = {
+    he: 'הוסף הערכת שופט',
+    ar: 'إضافة تقييم المحكّم',
+    ru: 'Добавить оценку судьи'
+  };
+  var S_JUDGE_ROLES = {
+    coordinator: { he: 'רכז', ar: 'منسق', ru: 'Координатор' },
+    mentor_peer: { he: 'חונך עמית', ar: 'مرشد نظير', ru: 'Наставник-сверстник' },
+    industry_guest: { he: 'אורח מהתעשייה', ar: 'ضيف من المجال', ru: 'Гость из индустрии' }
+  };
+  var S_CHALLENGE_FINALIST = {
+    he: 'פיינליסט',
+    ar: 'مرشح نهائي',
+    ru: 'Финалист'
+  };
+  var S_JUDGE_STATUS_SUCCESS = {
+    he: 'הערכת שופט נוספה בהצלחה',
+    ar: 'تمت إضافة تقييم المحكّم بنجاح',
+    ru: 'Оценка судьи успешно добавлена'
+  };
 
   function renderChallengeForm() {
     var tplSel = $('challengeTemplateSelect');
@@ -4180,6 +4217,17 @@
       topicSel.innerHTML = html;
       topicSel.value = curTopic;
     }
+
+    var judgeSel = $('judgeRoleSelect');
+    if (judgeSel) {
+      var curJudgeRole = judgeSel.value || 'coordinator';
+      judgeSel.innerHTML = [
+        '<option value="coordinator"' + (curJudgeRole === 'coordinator' ? ' selected' : '') + '>' + esc((S_JUDGE_ROLES.coordinator && S_JUDGE_ROLES.coordinator[currentLang]) || 'רכז') + '</option>',
+        '<option value="mentor_peer"' + (curJudgeRole === 'mentor_peer' ? ' selected' : '') + '>' + esc((S_JUDGE_ROLES.mentor_peer && S_JUDGE_ROLES.mentor_peer[currentLang]) || 'חונך עמית') + '</option>',
+        '<option value="industry_guest"' + (curJudgeRole === 'industry_guest' ? ' selected' : '') + '>' + esc((S_JUDGE_ROLES.industry_guest && S_JUDGE_ROLES.industry_guest[currentLang]) || 'אורח מהתעשייה') + '</option>'
+      ].join('');
+      judgeSel.value = curJudgeRole;
+    }
   }
 
   // The topic filter above the leaderboard (#challengeTopicFilter): "all" or one AI topic. The leaderboard
@@ -4195,9 +4243,10 @@
     var heading = currentLang === 'ar' ? 'لوحة متصدري تحدي أدوات الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Таблица лидеров конкурса ИИ' : 'טבלת דירוג אתגר כלי AI');
     board.setAttribute('aria-label', heading);
 
+    var filtered = filteredChallengeEntries();
     var ranked = [];
     if (curriculumLib && typeof curriculumLib.rankChallengeLeaderboard === 'function') {
-      ranked = curriculumLib.rankChallengeLeaderboard(filteredChallengeEntries());
+      ranked = curriculumLib.rankChallengeLeaderboard(filtered);
     }
     if (!ranked || ranked.length === 0) {
       var emptyMsg = currentLang === 'ar' ? 'لا توجد مشاركات في تحدي أدوات الذكاء الاصطناعي بعد' : (currentLang === 'ru' ? 'Пока нет заявок на конкурс инструментов ИИ' : 'אין עדיין הגשות לתחרות כלי AI');
@@ -4205,6 +4254,10 @@
       board.innerHTML = '<div class="empty-state"><p class="empty">' + esc(emptyMsg) + '</p></div>';
       return;
     }
+
+    var finalistsFn = (curriculumLib && curriculumLib.selectChallengeFinalists) || (modesLib && modesLib.selectChallengeFinalists);
+    var finalists = finalistsFn ? finalistsFn(filtered, 3) : [];
+    var finalistPairSet = new Set(finalists.map(function (f) { return f.pairIndex; }));
 
     var thRank = currentLang === 'ar' ? 'المرتبة' : (currentLang === 'ru' ? 'Место' : 'מקום');
     var thPair = currentLang === 'ar' ? 'الزوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
@@ -4215,15 +4268,20 @@
     var thSafe = currentLang === 'ar' ? 'الأمان' : (currentLang === 'ru' ? 'Безопасность' : 'בטיחות');
     var thTotal = currentLang === 'ar' ? 'الدرجة الكلية' : (currentLang === 'ru' ? 'Итого' : 'ציון כולל');
     var pairWord = currentLang === 'ar' ? 'زوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+    var finalistText = S_CHALLENGE_FINALIST[currentLang] || S_CHALLENGE_FINALIST.he;
 
     var rowsHtml = ranked.map(function (item) {
       var topicName = (AI_TOPICS && AI_TOPICS[item.aiTopic] && (AI_TOPICS[item.aiTopic][currentLang] || AI_TOPICS[item.aiTopic].he)) || item.aiTopic;
       var pairLabel = pairWord + ' ' + (item.pairIndex + 1);
+      var isFinalist = finalistPairSet.has(item.pairIndex);
+      var finalistBadge = isFinalist
+        ? ' <span class="challenge-finalist-badge">' + esc(finalistText) + '</span>'
+        : '';
       return '<tr data-pair="' + esc(String(item.pairIndex)) + '" data-rank="' + esc(String(item.rank)) + '">' +
         '<td>' + esc(String(item.rank)) + '</td>' +
         '<td>' + esc(pairLabel) + '</td>' +
         '<td>' + esc(topicName) + '</td>' +
-        '<td>' + esc(item.toolTitle) + '</td>' +
+        '<td>' + esc(item.toolTitle) + finalistBadge + '</td>' +
         '<td>' + esc(String(item.innovation)) + '</td>' +
         '<td>' + esc(String(item.usefulness)) + '</td>' +
         '<td>' + esc(String(item.safety)) + '</td>' +
@@ -4353,6 +4411,57 @@
         renderChallengeLeaderboard();
       } catch (err) {
         say('challengeStatus', (errorHe ? errorHe(err) : err.message) || err.message, true);
+      }
+    });
+  }
+
+  if ($('judgeSubmitBtn')) {
+    $('judgeSubmitBtn').addEventListener('click', function () {
+      try {
+        var pairVal = $('challengePairSelect') ? $('challengePairSelect').value : '';
+        if (pairVal === '' || pairVal == null || isNaN(Number(pairVal))) {
+          var pairErrMsg = currentLang === 'ar' ? 'يرجى اختيار زوج' : (currentLang === 'ru' ? 'Пожалуйста, выберите пару' : 'יש לבחור זוג');
+          say('challengeWinnersStatus', pairErrMsg, true);
+          return;
+        }
+        var pairIndex = Number(pairVal);
+        var entryIdx = challengeEntries.findIndex(function (e) {
+          return e && e.pairIndex === pairIndex;
+        });
+        if (entryIdx === -1) {
+          var notFoundMsg = currentLang === 'ar' ? 'لا توجد مشاركة لهذا الزوج' : (currentLang === 'ru' ? 'Нет заявки для этой пары' : 'אין הגשה קיימת לזוג זה');
+          say('challengeWinnersStatus', notFoundMsg, true);
+          return;
+        }
+
+        var judgeRole = $('judgeRoleSelect') ? $('judgeRoleSelect').value : 'coordinator';
+        var inno = Number($('challengeScoreInnovation') ? $('challengeScoreInnovation').value : 5);
+        var use = Number($('challengeScoreUsefulness') ? $('challengeScoreUsefulness').value : 5);
+        var safe = Number($('challengeScoreSafety') ? $('challengeScoreSafety').value : 5);
+
+        var addEvalFn = (curriculumLib && curriculumLib.addJudgeEvaluation) || (modesLib && modesLib.addJudgeEvaluation);
+        if (typeof addEvalFn !== 'function') {
+          throw new Error('addJudgeEvaluation is not available');
+        }
+
+        challengeEntries = addEvalFn(challengeEntries, entryIdx, {
+          judgeRole: judgeRole,
+          innovation: inno,
+          usefulness: use,
+          safety: safe
+        });
+
+        var successMsg = S_JUDGE_STATUS_SUCCESS[currentLang] || S_JUDGE_STATUS_SUCCESS.he;
+        say('challengeWinnersStatus', successMsg);
+        renderChallengeLeaderboard();
+      } catch (err) {
+        var msg = (err && err.message) || '';
+        if (msg.indexOf('duplicate judgeRole') === 0) {
+          var dupMsg = currentLang === 'ar' ? 'تم تقديم تقييم سابق لهذا الدور' : (currentLang === 'ru' ? 'Оценка для этой роли уже существует' : 'כבר נרשמה הערכה מתפקיד שופט זה');
+          say('challengeWinnersStatus', dupMsg, true);
+        } else {
+          say('challengeWinnersStatus', (errorHe ? errorHe(err) : msg) || msg, true);
+        }
       }
     });
   }
@@ -5042,6 +5151,12 @@
       var challengeBtnText = S_CHALLENGE_SUBMIT_BTN[currentLang] || S_CHALLENGE_SUBMIT_BTN.he;
       $('submitChallengeBtn').textContent = challengeBtnText;
       $('submitChallengeBtn').setAttribute('aria-label', challengeBtnText);
+    }
+    if ($('judgeRoleLabel')) $('judgeRoleLabel').textContent = S_JUDGE_ROLE_LABEL[currentLang] || S_JUDGE_ROLE_LABEL.he;
+    if ($('judgeSubmitBtn')) {
+      var judgeBtnText = S_JUDGE_SUBMIT_BTN[currentLang] || S_JUDGE_SUBMIT_BTN.he;
+      $('judgeSubmitBtn').textContent = judgeBtnText;
+      $('judgeSubmitBtn').setAttribute('aria-label', judgeBtnText);
     }
     if ($('copyTopChallengeCertBtn')) {
       var certBtnText = S_COPY_TOP_CERT_BTN[currentLang] || S_COPY_TOP_CERT_BTN.he;
