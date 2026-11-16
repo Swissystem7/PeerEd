@@ -80,6 +80,9 @@
   .scholarship-progress { margin-top:8px; max-width:280px; }
   .scholarship-progress-track { height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
   .scholarship-progress-fill { height:100%; background:var(--key); width:0%; transition:width .2s ease; }
+  .scholarship-milestones-bar { display:flex; gap:8px; margin:12px 0; flex-wrap:wrap; }
+  .scholarship-milestone-checkpoint { flex:1; min-width:60px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; text-align:center; font-size:13px; background:var(--card); color:var(--muted); }
+  .scholarship-milestone-checkpoint.reached { background:#e0f2fe; border-color:var(--key); color:var(--key); font-weight:600; }
   table.leaderboard-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:.85rem; }
   table.leaderboard-table th, table.leaderboard-table td { padding:8px 6px; text-align:start; border-bottom:1px solid var(--line); }
   table.leaderboard-table th { color:var(--muted); font-size:.78rem; font-weight:700; }
@@ -544,13 +547,16 @@
           <input type="date" id="sessionEndDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
         </div>
       </div>
+      <div id="scholarshipMilestonesBar" class="scholarship-milestones-bar" role="region" aria-label="צ'קפוינטים להשלמת מלגה" aria-live="polite"></div>
       <div class="actions">
         <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
         <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
         <button type="button" class="ghost" id="exportScholarshipCsvBtn" aria-label="ייצוא CSV אנונימי" aria-describedby="scholarshipCsvStatus">ייצוא CSV אנונימי</button>
+        <button type="button" class="ghost" id="confirmPairHoursBtn" aria-label="אישור שעות" aria-describedby="scholarshipConfirmationStatus">אישור שעות</button>
       </div>
       <p class="status" id="scholarshipReportStatus" role="status"></p>
       <p class="status" id="scholarshipCsvStatus" role="status"></p>
+      <p class="status" id="scholarshipConfirmationStatus" role="status"></p>
       <div id="scholarshipReportOut" role="region" aria-live="polite" aria-label="דוח שעות מלגה"></div>
     </div>
     <div class="card">
@@ -1192,6 +1198,8 @@
       window.deserializeAttendance = attendance.deserializeAttendance;
       window.detectInactivePairs = attendance.detectInactivePairs;
       window.computeRegionalSupplyDemand = attendance.computeRegionalSupplyDemand;
+      window.computeScholarshipMilestones = attendance.computeScholarshipMilestones;
+      window.recordPairHoursConfirmation = attendance.recordPairHoursConfirmation;
     }
     if (storeLib) {
       window.buildImpactOverviewReport = storeLib.buildImpactOverviewReport;
@@ -3117,6 +3125,7 @@
       var fmt = SCHOLARSHIP_PROGRESS_LABELS[lang] || SCHOLARSHIP_PROGRESS_LABELS.he;
       lab.textContent = fmt(pct);
     }
+    renderScholarshipMilestonesBar();
   }
 
 
@@ -3318,6 +3327,7 @@
   if ($('scholarshipTargetSelect')) {
     $('scholarshipTargetSelect').addEventListener('change', function () {
       generateScholarshipReport();
+      renderScholarshipMilestonesBar();
     });
   }
 
@@ -3370,6 +3380,98 @@
       } else {
         say('scholarshipCsvStatus', readyMsg);
       }
+    });
+  }
+
+  var S_CONFIRM_PAIR_HOURS_BTN = Object.freeze({
+    he: 'אישור שעות',
+    ar: 'تأكيد الساعات',
+    ru: 'Подтверждение часов'
+  });
+
+  var S_CONFIRM_PAIR_HOURS_STATUS = Object.freeze({
+    he: 'שעות המלגה אושרו בהצלחה.',
+    ar: 'تم تأكيد ساعات المنحة بنجاح.',
+    ru: 'Часы стипендии успешно подтверждены.'
+  });
+
+  function renderScholarshipMilestonesBar() {
+    var bar = $('scholarshipMilestonesBar');
+    if (!bar) return;
+    var targetSelect = $('scholarshipTargetSelect');
+    var targetHours = targetSelect ? (Number(targetSelect.value) || 30) : 30;
+    var pairIndex = activeSessionPairIndex();
+    if (pairIndex == null) pairIndex = 0;
+    var records = getFilteredAttendanceRecords();
+    var pairs = currentPairs();
+    var milestones = attendance && typeof attendance.computeScholarshipMilestones === 'function'
+      ? attendance.computeScholarshipMilestones(records, pairs.length ? pairs : [{ pairIndex: pairIndex }], targetHours)
+      : null;
+
+    var pairMilestone = null;
+    if (milestones) {
+      if (milestones.byPair && milestones.byPair[pairIndex]) {
+        pairMilestone = milestones.byPair[pairIndex];
+      } else if (Array.isArray(milestones) && milestones.length > 0) {
+        pairMilestone = milestones.find(function (m) { return m.pairIndex === pairIndex; }) || milestones[0];
+      }
+    }
+
+    var r25 = pairMilestone ? Boolean(pairMilestone.reached25) : false;
+    var r50 = pairMilestone ? Boolean(pairMilestone.reached50) : false;
+    var r75 = pairMilestone ? Boolean(pairMilestone.reached75) : false;
+    var r100 = pairMilestone ? Boolean(pairMilestone.reached100) : false;
+
+    var h25 = targetHours * 0.25;
+    var h50 = targetHours * 0.50;
+    var h75 = targetHours * 0.75;
+    var h100 = targetHours;
+
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var hourSuffix = lang === 'ar' ? ' س' : (lang === 'ru' ? ' ч' : ' שעות');
+
+    bar.innerHTML = [
+      '<div class="scholarship-milestone-checkpoint' + (r25 ? ' reached' : '') + '" data-checkpoint="25">',
+      '  <span class="checkpoint-pct">25%</span> <span class="checkpoint-hours">(' + h25 + hourSuffix + ')</span>',
+      '</div>',
+      '<div class="scholarship-milestone-checkpoint' + (r50 ? ' reached' : '') + '" data-checkpoint="50">',
+      '  <span class="checkpoint-pct">50%</span> <span class="checkpoint-hours">(' + h50 + hourSuffix + ')</span>',
+      '</div>',
+      '<div class="scholarship-milestone-checkpoint' + (r75 ? ' reached' : '') + '" data-checkpoint="75">',
+      '  <span class="checkpoint-pct">75%</span> <span class="checkpoint-hours">(' + h75 + hourSuffix + ')</span>',
+      '</div>',
+      '<div class="scholarship-milestone-checkpoint' + (r100 ? ' reached' : '') + '" data-checkpoint="100">',
+      '  <span class="checkpoint-pct">100%</span> <span class="checkpoint-hours">(' + h100 + hourSuffix + ')</span>',
+      '</div>'
+    ].join('\n');
+  }
+
+  if ($('confirmPairHoursBtn')) {
+    $('confirmPairHoursBtn').addEventListener('click', function () {
+      var pairIndex = activeSessionPairIndex();
+      if (pairIndex == null) pairIndex = 0;
+      var records = getFilteredAttendanceRecords();
+      var confirmedHours = 0;
+      if (attendance && typeof attendance.calculatePairHours === 'function') {
+        confirmedHours = attendance.calculatePairHours(records, pairIndex);
+      }
+      var now = new Date();
+      var y = now.getFullYear();
+      var m = String(now.getMonth() + 1).padStart(2, '0');
+      var d = String(now.getDate()).padStart(2, '0');
+      var today = y + '-' + m + '-' + d;
+
+      if (attendance && typeof attendance.recordPairHoursConfirmation === 'function') {
+        state.confirmations = attendance.recordPairHoursConfirmation(state.confirmations || [], {
+          pairIndex: pairIndex,
+          role: 'coordinator',
+          confirmedHours: confirmedHours,
+          date: today
+        });
+      }
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      var msg = S_CONFIRM_PAIR_HOURS_STATUS[lang] || S_CONFIRM_PAIR_HOURS_STATUS.he;
+      say('scholarshipConfirmationStatus', msg);
     });
   }
 
@@ -3493,7 +3595,7 @@
     $('unitDuration').value = '20';
     if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
     revising = null;
-    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus', 'scholarshipReportStatus', 'scholarshipCsvStatus'].forEach(function (id) {
+    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus', 'scholarshipReportStatus', 'scholarshipCsvStatus', 'scholarshipConfirmationStatus'].forEach(function (id) {
       say(id, '');
     });
     if ($('sessionStartDate')) $('sessionStartDate').value = '';
@@ -4969,6 +5071,16 @@
       $('exportScholarshipCsvBtn').textContent = csvBtnText;
       $('exportScholarshipCsvBtn').setAttribute('aria-label', csvBtnText);
     }
+    if ($('confirmPairHoursBtn')) {
+      var confirmBtnText = S_CONFIRM_PAIR_HOURS_BTN[currentLang] || S_CONFIRM_PAIR_HOURS_BTN.he;
+      $('confirmPairHoursBtn').textContent = confirmBtnText;
+      $('confirmPairHoursBtn').setAttribute('aria-label', confirmBtnText);
+    }
+    var confStatus = $('scholarshipConfirmationStatus');
+    if (confStatus && confStatus.textContent) {
+      confStatus.textContent = S_CONFIRM_PAIR_HOURS_STATUS[currentLang] || S_CONFIRM_PAIR_HOURS_STATUS.he;
+    }
+    renderScholarshipMilestonesBar();
     var aiLevelSel = $('participantAiLevelSelect');
     if (aiLevelSel) {
       var noneTxt = AI_LEVEL_FIELD_LABELS.none[currentLang] || AI_LEVEL_FIELD_LABELS.none.he;
@@ -5068,6 +5180,7 @@
     window.renderPilotBatchStatus = renderPilotBatchStatus;
     window.renderRegionalBalance = renderRegionalBalance;
     window.computeRegionalSupplyDemand = (attendance && attendance.computeRegionalSupplyDemand) || (storeLib && storeLib.computeRegionalSupplyDemand);
+    window.renderScholarshipMilestonesBar = renderScholarshipMilestonesBar;
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
   }
 })();
