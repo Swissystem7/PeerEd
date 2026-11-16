@@ -331,6 +331,288 @@ function matchSummaryCsv(m, people) {
   return lines.join('\n') + '\n';
 }
 
+const DAY_LABELS = Object.freeze({
+  he: Object.freeze({ SUN: 'יום ראשון', MON: 'יום שני', TUE: 'יום שלישי', WED: 'יום רביעי', THU: 'יום חמישי', FRI: 'יום שישי', SAT: 'יום שבת' }),
+  ar: Object.freeze({ SUN: 'الأحد', MON: 'الاثنين', TUE: 'الثلاثاء', WED: 'الأربعاء', THU: 'الخميس', FRI: 'الجمعة', SAT: 'السبت' }),
+  ru: Object.freeze({ SUN: 'Воскресенье', MON: 'Понедельник', TUE: 'Вторник', WED: 'Среда', THU: 'Четверг', FRI: 'Пятница', SAT: 'Суббота' })
+});
+
+const GAP_REASON_LABELS = Object.freeze({
+  missing_one_slot: Object.freeze({
+    he: 'פער של שעה אחת בלוח הזמנים',
+    ar: 'فارق ساعة واحدة في الجدول الزمني',
+    ru: 'Разница в один час в расписании'
+  }),
+  adjacent_level: Object.freeze({
+    he: 'התאמת רמה קרובה (רמה סמוכה)',
+    ar: 'مستوى دراسي متقارب (مستوى مجاور)',
+    ru: 'Близкий уровень обучения (соседний уровень)'
+  }),
+  partial_ai_topic: Object.freeze({
+    he: 'חפיפה חלקית בנושאי בינה מלאכותית',
+    ar: 'تطابق جزئي في موضوعات الذكاء الاصطناعي',
+    ru: 'Частичное совпадение тем ИИ'
+  })
+});
+
+const AI_TOPIC_RE = /^[A-Z0-9_]+$/;
+
+function extractValidSlots(p) {
+  if (!p) return [];
+  const raw = Array.isArray(p) ? p : (p && Array.isArray(p.availability) ? p.availability : []);
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const s = normalizeSlot(raw[i]);
+    if (s !== null && !seen.has(s)) {
+      seen.add(s);
+      const m = /^([A-Z]{3})_(\d{1,2})$/.exec(s);
+      if (m) {
+        out.push({ day: m[1], hour: Number(m[2]), slot: s });
+      }
+    }
+  }
+  return out;
+}
+
+function getCleanTopics(x) {
+  const raw = Array.isArray(x)
+    ? x
+    : (x && Array.isArray(x.target_ai_topics)
+      ? x.target_ai_topics
+      : (x && Array.isArray(x.aiTopics)
+        ? x.aiTopics
+        : (x && Array.isArray(x.topics) ? x.topics : [])));
+  return raw.filter((v) => typeof v === 'string' && AI_TOPIC_RE.test(v));
+}
+
+function getLevel(x) {
+  const n = x && x.level;
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+// suggestScheduleShift(personA, personB):
+// Calculates the closest hour shift on schedule that enables overlap, with zero PII.
+function suggestScheduleShift(personA, personB) {
+  const slotsA = extractValidSlots(personA);
+  const slotsB = extractValidSlots(personB);
+  if (slotsA.length === 0 || slotsB.length === 0) {
+    return null;
+  }
+
+  let best = null;
+  for (let i = 0; i < slotsA.length; i += 1) {
+    const a = slotsA[i];
+    for (let j = 0; j < slotsB.length; j += 1) {
+      const b = slotsB[j];
+      if (a.day === b.day) {
+        const diff = Math.abs(a.hour - b.hour);
+        if (best === null || diff < best.shiftHours || (diff === best.shiftHours && a.slot < best.slotA)) {
+          best = {
+            shiftHours: diff,
+            day: a.day,
+            slotA: a.slot,
+            slotB: b.slot,
+            fromSlot: a.slot,
+            toSlot: b.slot,
+            targetSlot: b.slot,
+            suggestedSlot: b.slot,
+            hourA: a.hour,
+            hourB: b.hour
+          };
+        }
+      }
+    }
+  }
+
+  if (!best) {
+    return null;
+  }
+
+  const d = best.day;
+  const dayHe = (DAY_LABELS.he && DAY_LABELS.he[d]) || d;
+  const dayAr = (DAY_LABELS.ar && DAY_LABELS.ar[d]) || d;
+  const dayRu = (DAY_LABELS.ru && DAY_LABELS.ru[d]) || d;
+
+  let textHe;
+  let textAr;
+  let textRu;
+
+  if (best.shiftHours === 0) {
+    textHe = `יש חפיפת שעות ב-${dayHe} (${best.slotA})`;
+    textAr = `يوجد تداخل ساعات في ${dayAr} (${best.slotA})`;
+    textRu = `Есть совпадение часов в ${dayRu} (${best.slotA})`;
+  } else if (best.shiftHours === 1) {
+    textHe = `הזזה מומלצת: שעה אחת ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`;
+    textAr = `الإزاحة المقترحة: ساعة واحدة في ${dayAr} نحو التوافق في ${best.targetSlot}`;
+    textRu = `Рекомендуемый сдвиг: 1 час в ${dayRu} для совпадения в ${best.targetSlot}`;
+  } else {
+    textHe = `הזזה מומלצת: ${best.shiftHours} שעות ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`;
+    textAr = `الإزاحة المقترحة: ${best.shiftHours} ساعات في ${dayAr} نحو التوافق في ${best.targetSlot}`;
+    textRu = `Рекомендуемый сдвиг: ${best.shiftHours} ч. в ${dayRu} для совпадения в ${best.targetSlot}`;
+  }
+
+  return Object.freeze({
+    shiftHours: best.shiftHours,
+    day: best.day,
+    slotA: best.slotA,
+    slotB: best.slotB,
+    fromSlot: best.fromSlot,
+    toSlot: best.toSlot,
+    targetSlot: best.targetSlot,
+    suggestedSlot: best.suggestedSlot,
+    hourA: best.hourA,
+    hourB: best.hourB,
+    explanation: Object.freeze({
+      he: textHe,
+      ar: textAr,
+      ru: textRu
+    })
+  });
+}
+
+// findNearMissCandidates(person, candidates, options):
+// Finds near-miss backup candidates with explicit gap reasons ('missing_one_slot', 'adjacent_level', 'partial_ai_topic').
+function findNearMissCandidates(person, candidates, options) {
+  if (!person || typeof person !== 'object' || !Array.isArray(candidates) || candidates.length === 0) {
+    return [];
+  }
+  const opts = options || {};
+
+  // A pupil must have parent consent
+  if (person.role === 'pupil' && !hasParentConsent(person)) {
+    return [];
+  }
+
+  const pSubjects = Array.isArray(person.subjects) ? person.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [];
+  const pSlots = extractValidSlots(person).map((s) => s.slot);
+  const pTopics = getCleanTopics(person);
+  const pLevel = getLevel(person);
+
+  const results = [];
+
+  for (let idx = 0; idx < candidates.length; idx += 1) {
+    const raw = candidates[idx];
+    if (!raw || typeof raw !== 'object') continue;
+    const c = raw.person || raw;
+    const cIdx = Number.isInteger(raw.index) ? raw.index : idx;
+
+    if (person.role && c.role && person.role === c.role && !opts.allowSameRole) {
+      continue;
+    }
+
+    if (c.role === 'pupil' && !hasParentConsent(c)) {
+      continue;
+    }
+
+    if (opts.requireSameRegion && person.region && c.region && person.region !== c.region) {
+      continue;
+    }
+
+    const cSubjects = Array.isArray(c.subjects) ? c.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [];
+    const cSlots = extractValidSlots(c).map((s) => s.slot);
+    const cTopics = getCleanTopics(c);
+    const cLevel = getLevel(c);
+
+    const sharedSubs = shared(pSubjects, cSubjects);
+    const sharedSl = shared(pSlots, cSlots);
+    const sharedTop = shared(pTopics, cTopics);
+
+    const hasSubjectOrTopic = sharedSubs.length > 0 || sharedTop.length > 0;
+    if (!hasSubjectOrTopic) {
+      continue;
+    }
+
+    const shift = suggestScheduleShift(person, c);
+    const reasons = [];
+
+    // Reason 1: missing_one_slot
+    if (sharedSl.length === 0 && shift && shift.shiftHours === 1) {
+      reasons.push('missing_one_slot');
+    }
+
+    // Reason 2: adjacent_level
+    if (pLevel !== null && cLevel !== null && Math.abs(pLevel - cLevel) === 1) {
+      reasons.push('adjacent_level');
+    } else if (pLevel === null && cLevel === null && person.aiLevel && c.aiLevel && person.aiLevel !== c.aiLevel) {
+      reasons.push('adjacent_level');
+    }
+
+    // Reason 3: partial_ai_topic
+    if (pTopics.length > 0 && cTopics.length > 0 && sharedTop.length > 0 &&
+        (sharedTop.length < pTopics.length || sharedTop.length < cTopics.length)) {
+      reasons.push('partial_ai_topic');
+    }
+
+    if (reasons.length === 0) {
+      continue;
+    }
+
+    if (opts.reason && !reasons.includes(opts.reason)) {
+      continue;
+    }
+
+    const primaryReason = reasons[0];
+    const reasonExplHe = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].he) || primaryReason;
+    const reasonExplAr = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].ar) || primaryReason;
+    const reasonExplRu = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].ru) || primaryReason;
+
+    const candidateSummary = Object.freeze({
+      index: cIdx,
+      candidateIndex: cIdx,
+      role: c.role || null,
+      region: c.region || null,
+      subjects: Object.freeze(cSubjects.slice()),
+      availability: Object.freeze(cSlots.slice()),
+      level: cLevel,
+      aiLevel: c.aiLevel || null,
+      target_ai_topics: Object.freeze(cTopics.slice())
+    });
+
+    const item = {
+      index: cIdx,
+      candidateIndex: cIdx,
+      candidate: candidateSummary,
+      role: c.role || null,
+      region: c.region || null,
+      subjects: Object.freeze(cSubjects.slice()),
+      availability: Object.freeze(cSlots.slice()),
+      level: cLevel,
+      aiLevel: c.aiLevel || null,
+      target_ai_topics: Object.freeze(cTopics.slice()),
+      reason: primaryReason,
+      gapReason: primaryReason,
+      reasons: Object.freeze(reasons.slice()),
+      sharedSubjects: Object.freeze(sharedSubs),
+      sharedSlots: Object.freeze(sharedSl),
+      sharedAiTopics: Object.freeze(sharedTop),
+      shift: shift,
+      suggestedShift: shift,
+      explanation: Object.freeze({
+        he: reasonExplHe,
+        ar: reasonExplAr,
+        ru: reasonExplRu
+      })
+    };
+    results.push(Object.freeze(item));
+  }
+
+  results.sort((x, y) => {
+    const shiftX = (x.suggestedShift && x.suggestedShift.shiftHours !== null) ? x.suggestedShift.shiftHours : 999;
+    const shiftY = (y.suggestedShift && y.suggestedShift.shiftHours !== null) ? y.suggestedShift.shiftHours : 999;
+    return (shiftX - shiftY) ||
+      (y.sharedSubjects.length - x.sharedSubjects.length) ||
+      (y.sharedAiTopics.length - x.sharedAiTopics.length) ||
+      (x.candidateIndex - y.candidateIndex);
+  });
+
+  if (Number.isInteger(opts.limit) && opts.limit > 0) {
+    return results.slice(0, opts.limit);
+  }
+
+  return results;
+}
+
 module.exports = {
   matchPairs,
   explainUnmatched,
@@ -341,7 +623,9 @@ module.exports = {
   makeMatchRecord,
   summarizeMatch,
   matchSummaryCsv,
-  MATCH_REPORT_HEADER
+  MATCH_REPORT_HEADER,
+  findNearMissCandidates,
+  suggestScheduleShift
 };
 
 

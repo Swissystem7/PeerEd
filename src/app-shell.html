@@ -348,6 +348,14 @@
       </div>
       <div id="availabilityHeatmapOut" role="region" aria-live="polite" aria-label="מפת פערי זמינות שבועית" hidden></div>
     </div>
+    <div class="card" id="backupMatchesPanel">
+      <h2 id="backupMatchesTitle">הצעות גיבוי קרובות והזזת שעה</h2>
+      <p class="hint" id="backupMatchesHint">איתור מועמדי גיבוי עם פער קל (שעה אחת, רמה סמוכה או נושא AI חלקי) והמלצה על הזזת שעה שתאפשר חפיפה.</p>
+      <div class="actions">
+        <button type="button" class="ghost" id="toggleBackupMatchesBtn" aria-expanded="false" aria-describedby="match2Status">הצג הצעות גיבוי</button>
+      </div>
+      <div id="backupMatchesOut" role="region" aria-live="polite" aria-label="הצעות גיבוי קרובות" hidden></div>
+    </div>
     <div class="card">
       <h2>לוח וקיבולת</h2>
       <p class="hint">בונה לוח מהזוגות של השידוך המתקדם, בודק התנגשויות, מציע עד 3 חלופות, ומתריע כשיש יותר ביקוש מהיצע.</p>
@@ -4961,6 +4969,145 @@
   }
   refreshAvailabilityHeatmapBtnLabel();
 
+  var BACKUP_MATCHES_LABELS = Object.freeze({
+    title: Object.freeze({
+      he: 'הצעות גיבוי קרובות והזזת שעה',
+      ar: 'مقترحات الاحتياط القريبة وإزاحة الساعات',
+      ru: 'Близкие резервные предложения и сдвиг времени'
+    }),
+    hint: Object.freeze({
+      he: 'איתור מועמדי גיבוי עם פער קל (שעה אחת, רמה סמוכה או נושא AI חלקי) והמלצה על הזזת שעה שתאפשר חפיפה.',
+      ar: 'تحديد المرشحين الاحتياطيين بفارق بسيط (ساعة واحدة، مستوى مجاور أو موضوع ذكاء اصطناعي جزئي) وتوصية بإزاحة الساعة لتمكين التوافق.',
+      ru: 'Поиск резервных кандидатов с небольшим разрывом (один час, соседний уровень или частичная тема ИИ) и рекомендация по сдвигу времени для совпадения.'
+    }),
+    toggleShow: Object.freeze({
+      he: 'הצג הצעות גיבוי',
+      ar: 'عرض مقترحات الاحتياط',
+      ru: 'Показать резервные предложения'
+    }),
+    toggleHide: Object.freeze({
+      he: 'הסתר הצעות גיבוי',
+      ar: 'إخفاء مقترحات الاحتياط',
+      ru: 'Скрыть резервные предложения'
+    }),
+    empty: Object.freeze({
+      he: 'לא נמצאו הצעות גיבוי קרובות.',
+      ar: 'لم يتم العثور على مقترحات احتياطية قريبة.',
+      ru: 'Близких резервных предложений не найдено.'
+    }),
+    studentLabel: Object.freeze({
+      he: 'סטודנט',
+      ar: 'طالب',
+      ru: 'Студент'
+    }),
+    pupilLabel: Object.freeze({
+      he: 'תלמיד',
+      ar: 'تلميذ',
+      ru: 'Ученик'
+    })
+  });
+
+  function refreshBackupMatchesBtnLabel() {
+    var btn = $('toggleBackupMatchesBtn');
+    if (!btn) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var isExpanded = btn.getAttribute('aria-expanded') === 'true';
+    var labelKey = isExpanded ? 'toggleHide' : 'toggleShow';
+    btn.textContent = (BACKUP_MATCHES_LABELS[labelKey] && BACKUP_MATCHES_LABELS[labelKey][lang]) ||
+      BACKUP_MATCHES_LABELS[labelKey].he;
+    if ($('backupMatchesTitle')) {
+      $('backupMatchesTitle').textContent = (BACKUP_MATCHES_LABELS.title[lang] || BACKUP_MATCHES_LABELS.title.he);
+    }
+    if ($('backupMatchesHint')) {
+      $('backupMatchesHint').textContent = (BACKUP_MATCHES_LABELS.hint[lang] || BACKUP_MATCHES_LABELS.hint.he);
+    }
+  }
+
+  function renderBackupMatches() {
+    var out = $('backupMatchesOut');
+    if (!out) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var r = rosterSplit();
+    var students = (r && Array.isArray(r.students)) ? r.students : [];
+    var pupils = (r && Array.isArray(r.pupils)) ? r.pupils : [];
+
+    var html = [];
+    var foundAny = false;
+
+    for (var pi = 0; pi < pupils.length; pi += 1) {
+      var p = pupils[pi];
+      if (!p || !match.hasParentConsent(p)) continue;
+      var candidatePool = students.map(function (s, si) {
+        return Object.assign({}, s, { index: si });
+      });
+      var nearCandidates = match2Lib.findNearMissCandidates(p, candidatePool);
+
+      if (nearCandidates && nearCandidates.length > 0) {
+        for (var ci = 0; ci < nearCandidates.length; ci += 1) {
+          foundAny = true;
+          var cand = nearCandidates[ci];
+          var studentIdx = cand.candidateIndex;
+          var shift = cand.suggestedShift || match2Lib.suggestScheduleShift(students[studentIdx], p);
+          var reasonExpl = (cand.explanation && cand.explanation[lang]) || cand.reason;
+          var shiftExpl = shift && shift.explanation ? (shift.explanation[lang] || shift.explanation.he) : '';
+
+          var sName = (BACKUP_MATCHES_LABELS.studentLabel[lang] || 'סטודנט') + ' ' + (studentIdx + 1);
+          var pName = (BACKUP_MATCHES_LABELS.pupilLabel[lang] || 'תלמיד') + ' ' + (pi + 1);
+
+          html.push('<div class="item backup-candidate-card" data-student-index="' + studentIdx + '" data-pupil-index="' + pi + '" data-reason="' + esc(cand.reason) + '">');
+          html.push('<b>' + esc(sName) + ' ↔ ' + esc(pName) + '</b><br>');
+          html.push('<span class="pill backup-reason backup-reason-' + esc(cand.reason) + '">' + esc(reasonExpl) + '</span>');
+          if (shiftExpl) {
+            html.push('<div class="backup-shift-recommendation meta" data-shift-hours="' + (shift ? shift.shiftHours : '') + '">' + esc(shiftExpl) + '</div>');
+          }
+          if (cand.sharedSubjects && cand.sharedSubjects.length) {
+            html.push('<div class="meta">' + esc(cand.sharedSubjects.join(', ')) + '</div>');
+          }
+          html.push('</div>');
+        }
+      }
+    }
+
+    if (!foundAny) {
+      html.push('<p class="empty backup-matches-empty">' + esc(BACKUP_MATCHES_LABELS.empty[lang] || BACKUP_MATCHES_LABELS.empty.he) + '</p>');
+    }
+
+    out.innerHTML = html.join('');
+  }
+
+  function toggleBackupMatches() {
+    var btn = $('toggleBackupMatchesBtn');
+    var out = $('backupMatchesOut');
+    if (!btn || !out) return;
+    var isExpanded = btn.getAttribute('aria-expanded') === 'true';
+    var nextState = !isExpanded;
+    btn.setAttribute('aria-expanded', nextState ? 'true' : 'false');
+    out.hidden = !nextState;
+    if (nextState) {
+      if (out.removeAttribute) out.removeAttribute('hidden');
+      if (out.style) out.style.display = 'block';
+      renderBackupMatches();
+    } else {
+      if (out.setAttribute) out.setAttribute('hidden', '');
+      if (out.style) out.style.display = 'none';
+    }
+    refreshBackupMatchesBtnLabel();
+  }
+
+  function refreshBackupMatchesI18n() {
+    refreshBackupMatchesBtnLabel();
+    var out = $('backupMatchesOut');
+    if (out && !out.hidden && (!out.style || out.style.display !== 'none')) {
+      renderBackupMatches();
+    }
+  }
+
+  var toggleBackupMatchesBtn = $('toggleBackupMatchesBtn');
+  if (toggleBackupMatchesBtn) {
+    toggleBackupMatchesBtn.addEventListener('click', toggleBackupMatches);
+  }
+  refreshBackupMatchesBtnLabel();
+
   $('runSchedule').addEventListener('click', function () {
     if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
     var r = rosterSplit();
@@ -5115,6 +5262,7 @@
     if (typeof refreshFilterAiOnlyLabel === 'function') refreshFilterAiOnlyLabel();
     if (typeof refreshFilterMissingAiLabel === 'function') refreshFilterMissingAiLabel();
     if (typeof refreshAvailabilityHeatmapI18n === 'function') refreshAvailabilityHeatmapI18n();
+    if (typeof refreshBackupMatchesI18n === 'function') refreshBackupMatchesI18n();
     var sel = $('langSelect'); if (sel) sel.value = currentLang;
     REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
     SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
@@ -5297,6 +5445,8 @@
     window.computeRegionalSupplyDemand = (attendance && attendance.computeRegionalSupplyDemand) || (storeLib && storeLib.computeRegionalSupplyDemand);
     window.renderScholarshipMilestonesBar = renderScholarshipMilestonesBar;
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
+    window.renderBackupMatches = renderBackupMatches;
+    window.toggleBackupMatches = toggleBackupMatches;
   }
 })();
 </script>
