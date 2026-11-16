@@ -497,5 +497,165 @@ module.exports = {
   RESPONSE_TO_REPORT_FIELDS: RESPONSE_TO_REPORT_FIELDS,
   RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH,
   makeResponseToReport: makeResponseToReport,
-  validateBatchImportZeroPii: validateBatchImportZeroPii
+  validateBatchImportZeroPii: validateBatchImportZeroPii,
+  parseCsvPilotBatch: parseCsvPilotBatch,
+  commitPilotCsvBatch: commitPilotCsvBatch
 };
+
+function splitCsvLine(line) {
+  let out = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    let c = line.charAt(i);
+    if (quoted) {
+      if (c === '"') {
+        if (line.charAt(i + 1) === '"') { cur += '"'; i += 1; } else { quoted = false; }
+      } else { cur += c; }
+    } else if (c === '"') { quoted = true; }
+    else if (c === ',') { out.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  out.push(cur);
+  return out;
+}
+
+function csvCellFor(header, cells, keys, fallbackIdx) {
+  if (header) {
+    for (let k = 0; k < keys.length; k += 1) {
+      let idx = header.indexOf(keys[k]);
+      if (idx !== -1) return cells[idx] || '';
+    }
+    return '';
+  }
+  return cells[fallbackIdx] || '';
+}
+
+function csvCellList(cell) {
+  if (typeof cell !== 'string') return [];
+  return cell.split(/[|;]/).map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+}
+
+function normalizeCsvHeader(h) {
+  return String(h == null ? '' : h).trim().toLowerCase().replace(/[\s_-]/g, '');
+}
+
+function isValidCsvSlot(slot) {
+  let days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  let m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
+  if (!m || days.indexOf(m[1]) === -1) return false;
+  let hour = Number(m[2]);
+  return Number.isInteger(hour) && hour >= 8 && hour <= 22;
+}
+
+function parseCsvPilotBatch(csvText) {
+  let empty = { validRows: Object.freeze([]), invalidRows: Object.freeze([]), piiBlockedCount: 0 };
+  if (typeof csvText !== 'string' || csvText.trim() === '') return empty;
+  let lines = csvText.replace(/^\uFEFF/, '').split(/\r\n|\r|\n/);
+  let validRows = [];
+  let invalidRows = [];
+  let piiBlockedCount = 0;
+  let header = null;
+  let headerHasName = false;
+  let started = false;
+  for (let li = 0; li < lines.length; li += 1) {
+    let raw = lines[li];
+    if (!raw.trim()) continue;
+    let cells = splitCsvLine(raw).map(function (c) { return c.trim(); });
+    if (!started) {
+      started = true;
+      let norm = cells.map(normalizeCsvHeader);
+      if (norm.indexOf('role') !== -1) {
+        header = norm;
+        headerHasName = norm.some(function (h) { return /name/.test(h); });
+        continue;
+      }
+    }
+    let roleRaw = csvCellFor(header, cells, ['role'], 0);
+    let areaRaw = csvCellFor(header, cells, ['area', 'region'], 1);
+    let topicsRaw = csvCellFor(header, cells, ['aitopics', 'topics', 'targetaitopics'], 2);
+    let levelRaw = csvCellFor(header, cells, ['ailevel', 'level'], 3);
+    let slotsRaw = csvCellFor(header, cells, ['slots', 'availability', 'hours'], 4);
+    if (headerHasName || hasPiiString(raw)) {
+      piiBlockedCount += 1;
+      invalidRows.push(Object.freeze({ line: li + 1, row: raw, reason: 'contains PII', errors: Object.freeze(['contains PII']), isPii: true }));
+      continue;
+    }
+    let errors = [];
+    let role = roleRaw.trim().toLowerCase();
+    if (PILOT_ROLES.indexOf(role) === -1) errors.push('invalid role');
+    let area = areaRaw.trim().toUpperCase();
+    if (PILOT_REGIONS.indexOf(area) === -1) errors.push('invalid area');
+    let topics = cleanBatchAiTopics(csvCellList(topicsRaw));
+    let aiLevel = levelRaw.trim().toLowerCase();
+    if (aiLevel && aiLevel !== 'beginner' && aiLevel !== 'advanced') errors.push('invalid aiLevel');
+    let slotList = csvCellList(slotsRaw).map(function (s) { return s.toUpperCase(); });
+    let slotsOk = slotList.every(isValidCsvSlot);
+    if (!slotsOk) errors.push('invalid slots');
+    if (errors.length > 0) {
+      invalidRows.push(Object.freeze({ line: li + 1, row: raw, reason: errors.join(', '), errors: Object.freeze(errors), isPii: false }));
+      continue;
+    }
+    let slots = slotList.length ? slotList : ['SUN_16'];
+    let validRow = {
+      role: role,
+      area: area,
+      region: area,
+      aiTopics: Object.freeze(topics.slice()),
+      target_ai_topics: Object.freeze(topics.slice()),
+      slots: Object.freeze(slots.slice()),
+      availability: Object.freeze(slots.slice()),
+      subjects: Object.freeze(['MATH'])
+    };
+    if (aiLevel) validRow.aiLevel = aiLevel;
+    validRows.push(Object.freeze(validRow));
+  }
+  return { validRows: Object.freeze(validRows), invalidRows: Object.freeze(invalidRows), piiBlockedCount: piiBlockedCount };
+}
+
+function csvRowToPerson(row) {
+  let topics = cleanBatchAiTopics(Array.isArray(row.target_ai_topics) ? row.target_ai_topics : (Array.isArray(row.aiTopics) ? row.aiTopics : []));
+  let slotsRaw = Array.isArray(row.availability) ? row.availability : (Array.isArray(row.slots) ? row.slots : []);
+  let regionRaw = row.region !== undefined ? row.region : row.area;
+  let candidate = {
+    role: typeof row.role === 'string' ? row.role.trim().toLowerCase() : '',
+    region: typeof regionRaw === 'string' ? regionRaw.trim().toUpperCase() : '',
+    availability: slotsRaw.length ? slotsRaw.slice() : ['SUN_16'],
+    subjects: Array.isArray(row.subjects) && row.subjects.length ? row.subjects.slice() : ['MATH']
+  };
+  if (candidate.role === 'pupil') candidate.parentConsent = row.parentConsent !== undefined ? Boolean(row.parentConsent) : true;
+  if (row.aiLevel === 'beginner' || row.aiLevel === 'advanced') candidate.aiLevel = row.aiLevel;
+  let person = null;
+  try { person = require('./profile.js').makeProfile(candidate); } catch (_e) { person = null; }
+  if (!person) {
+    person = { role: candidate.role, region: candidate.region, availability: Object.freeze(candidate.availability.slice()), subjects: Object.freeze(candidate.subjects.slice()) };
+    if (candidate.parentConsent !== undefined) person.parentConsent = candidate.parentConsent;
+    if (candidate.aiLevel) person.aiLevel = candidate.aiLevel;
+    person = Object.freeze(person);
+  }
+  let out = Object.assign({}, person);
+  if (topics.length) out.target_ai_topics = Object.freeze(topics.slice());
+  out.area = candidate.region;
+  return Object.freeze(out);
+}
+
+function commitPilotCsvBatch(state, validRows) {
+  let base = (state !== null && typeof state === 'object' && !Array.isArray(state)) ? state : { people: [] };
+  let basePeople = Array.isArray(base.people) ? base.people : [];
+  let rows = Array.isArray(validRows) ? validRows : [];
+  let converted = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    let r = rows[i];
+    if (r === null || typeof r !== 'object' || Array.isArray(r)) continue;
+    if (checkDeepPii(r)) continue;
+    try { converted.push(csvRowToPerson(r)); } catch (_e) { /* skip malformed row */ }
+  }
+  let mutable = !Object.isFrozen(base) && Array.isArray(base.people) && !Object.isFrozen(base.people);
+  if (mutable) {
+    for (let j = 0; j < converted.length; j += 1) base.people.push(converted[j]);
+    return base;
+  }
+  let next = Object.assign({}, base);
+  next.people = Object.freeze(basePeople.concat(converted));
+  return Object.freeze(next);
+}

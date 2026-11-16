@@ -236,6 +236,18 @@
       </div>
       <p class="status" id="pilotBatchStatus" role="status"></p>
     </div>
+    <div class="card" id="pilotCsvCard">
+      <h2 id="pilotCsvHeading">ייבוא CSV אנונימי לכיתה</h2>
+      <p class="hint" id="pilotCsvHint">הדביקו שורות CSV בפורמט role,area,aiTopics,aiLevel,slots. שורות עם מייל, טלפון ישראלי או עמודת שם נחסמות אוטומטית.</p>
+      <label for="pilotCsvInput" id="pilotCsvInputLabel">נתוני CSV (role,area,aiTopics,aiLevel,slots)</label>
+      <textarea id="pilotCsvInput" rows="5" aria-describedby="pilotCsvStatus" style="width: 100%; font-family: monospace; direction: ltr; box-sizing: border-box;"></textarea>
+      <div class="actions">
+        <button type="button" class="act" id="previewPilotCsvBtn" aria-describedby="pilotCsvStatus">תצוגה מקדימה</button>
+        <button type="button" class="act" id="commitPilotCsvBtn" aria-describedby="pilotCsvStatus">אישור ייבוא</button>
+      </div>
+      <div id="pilotCsvPreviewOut" role="region" aria-live="polite" aria-label="תצוגה מקדימה של ייבוא CSV"></div>
+      <p class="status" id="pilotCsvStatus" role="status"></p>
+    </div>
     <div class="card">
       <h2>המשתתפים</h2>
       <!-- The pairs file is the result of a match by list number, not the list: a person's hours outside the
@@ -2055,6 +2067,74 @@
     if ($('pilotBatchInput')) $('pilotBatchInput').value = '';
     lastBatchValidated = false;
   });
+
+  var lastCsvResult = null;
+  var PILOT_CSV_LABELS = {
+    heading: { he: 'ייבוא CSV אנונימי לכיתה', ar: 'استيراد CSV مجهول للفصل', ru: 'Анонимный импорт CSV для класса' },
+    hint: { he: 'הדביקו שורות CSV בפורמט role,area,aiTopics,aiLevel,slots. שורות עם מייל, טלפון ישראלי או עמודת שם נחסמות אוטומטית.', ar: 'الصق صفوف CSV بالتنسيق role,area,aiTopics,aiLevel,slots. يتم حظر الصفوف التي تحتوي على بريد إلكتروني أو هاتف إسرائيلي أو عمود اسم تلقائيًا.', ru: 'Вставьте строки CSV в формате role,area,aiTopics,aiLevel,slots. Строки с электронной почтой, израильским телефоном или столбцом имени блокируются автоматически.' },
+    input: { he: 'נתוני CSV (role,area,aiTopics,aiLevel,slots)', ar: 'بيانات CSV (role,area,aiTopics,aiLevel,slots)', ru: 'Данные CSV (role,area,aiTopics,aiLevel,slots)' },
+    preview: { he: 'תצוגה מקדימה', ar: 'معاينة', ru: 'Предпросмотр' },
+    commit: { he: 'אישור ייבוא', ar: 'تأكيد الاستيراد', ru: 'Подтвердить импорт' },
+    valid: { he: 'תקינות', ar: 'صالح', ru: 'Валидных' },
+    invalid: { he: 'שגויות', ar: 'غير صالح', ru: 'Невалидных' },
+    pii: { he: 'נחסמו PII', ar: 'محظور PII', ru: 'Заблокировано PII' },
+    committed: { he: 'יובאו', ar: 'تم استيراد', ru: 'Импортировано' }
+  };
+  function csvLabel(key, lang) {
+    var entry = PILOT_CSV_LABELS[key];
+    var l = lang || currentLang;
+    return entry ? (entry[l] || entry.he) : key;
+  }
+  function renderPilotCsv(lang) {
+    var l = lang || currentLang;
+    if ($('pilotCsvHeading')) $('pilotCsvHeading').textContent = csvLabel('heading', l);
+    if ($('pilotCsvHint')) $('pilotCsvHint').textContent = csvLabel('hint', l);
+    if ($('pilotCsvInputLabel')) $('pilotCsvInputLabel').textContent = csvLabel('input', l);
+    if ($('previewPilotCsvBtn')) $('previewPilotCsvBtn').textContent = csvLabel('preview', l);
+    if ($('commitPilotCsvBtn')) $('commitPilotCsvBtn').textContent = csvLabel('commit', l);
+    if (!lastCsvResult) return;
+    var summary = csvLabel('valid', l) + ': ' + lastCsvResult.validRows.length + ', ' +
+      csvLabel('invalid', l) + ': ' + lastCsvResult.invalidRows.length + ', ' +
+      csvLabel('pii', l) + ': ' + lastCsvResult.piiBlockedCount;
+    if ($('pilotCsvPreviewOut')) $('pilotCsvPreviewOut').textContent = summary;
+    say('pilotCsvStatus', summary, lastCsvResult.validRows.length === 0 && lastCsvResult.invalidRows.length > 0);
+  }
+  function parsePilotCsvInput() {
+    var parseFn = (storeLib && storeLib.parseCsvPilotBatch) || (validator && validator.parseCsvPilotBatch);
+    var text = ($('pilotCsvInput') && $('pilotCsvInput').value) || '';
+    lastCsvResult = parseFn(text);
+    return lastCsvResult;
+  }
+  if ($('previewPilotCsvBtn')) $('previewPilotCsvBtn').addEventListener('click', function () {
+    parsePilotCsvInput();
+    renderPilotCsv();
+  });
+  if ($('commitPilotCsvBtn')) $('commitPilotCsvBtn').addEventListener('click', function () {
+    if (!lastCsvResult) parsePilotCsvInput();
+    var commitFn = (storeLib && storeLib.commitPilotCsvBatch) || (validator && validator.commitPilotCsvBatch);
+    var validRows = lastCsvResult ? lastCsvResult.validRows : [];
+    var next = commitFn(state, validRows);
+    if (next && next !== state) {
+      state = { people: (next.people || []).slice(), queue: next.queue || state.queue, log: next.log || state.log, attendance: state.attendance, pairs: state.pairs };
+      if (typeof window !== 'undefined') window.state = state;
+    }
+    resetMatchView();
+    renderPeople();
+    renderPilotCsv();
+    say('pilotCsvStatus', csvLabel('committed') + ': ' + validRows.length + ', ' +
+      csvLabel('invalid') + ': ' + (lastCsvResult ? lastCsvResult.invalidRows.length : 0) + ', ' +
+      csvLabel('pii') + ': ' + (lastCsvResult ? lastCsvResult.piiBlockedCount : 0), false);
+    save('pilotCsvStatus');
+  });
+  if ($('langSelect')) $('langSelect').addEventListener('change', function () {
+    renderPilotCsv(($('langSelect') && $('langSelect').value) || currentLang);
+  });
+  renderPilotCsv();
+  if (typeof window !== 'undefined') {
+    window.parseCsvPilotBatch = (storeLib && storeLib.parseCsvPilotBatch) || (validator && validator.parseCsvPilotBatch);
+    window.commitPilotCsvBatch = (storeLib && storeLib.commitPilotCsvBatch) || (validator && validator.commitPilotCsvBatch);
+    window.renderPilotCsv = renderPilotCsv;
+  }
 
   // ---------- match ----------
 
