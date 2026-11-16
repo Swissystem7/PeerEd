@@ -86,6 +86,7 @@
   table.leaderboard-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:.85rem; }
   table.leaderboard-table th, table.leaderboard-table td { padding:8px 6px; text-align:start; border-bottom:1px solid var(--line); }
   table.leaderboard-table th { color:var(--muted); font-size:.78rem; font-weight:700; }
+  .challenge-finalist-badge { display:inline-block; font-size:.72rem; font-weight:700; border-radius:999px; background:#CCFBF1; color:var(--key); border:1px solid var(--key); padding:1px 6px; margin-inline-start:4px; vertical-align:middle; }
 
   .banner { background:rgba(15,118,110,.08); color:var(--key); border:1px solid rgba(15,118,110,.28);
             border-radius:10px; padding:10px 12px; font-size:.79rem; line-height:1.6; margin:10px 0; }
@@ -675,8 +676,19 @@
           </select>
         </div>
       </div>
+      <div class="row" style="margin-top: 0.5rem;">
+        <div>
+          <label for="judgeRoleSelect" id="judgeRoleLabel">תפקיד שופט</label>
+          <select id="judgeRoleSelect" aria-describedby="challengeWinnersStatus">
+            <option value="coordinator">רכז</option>
+            <option value="mentor_peer">חונך עמית</option>
+            <option value="industry_guest">אורח מהתעשייה</option>
+          </select>
+        </div>
+      </div>
       <div class="actions">
         <button type="button" class="act" id="submitChallengeBtn" aria-describedby="challengeStatus">הגש אתגר</button>
+        <button type="button" class="act" id="judgeSubmitBtn" aria-describedby="challengeWinnersStatus">הוסף הערכת שופט</button>
       </div>
       <p class="status" id="challengeStatus" role="status"></p>
       <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic challenge leaderboard -->
@@ -5461,6 +5473,25 @@ const ALLOWED_CHALLENGE_KEYS = Object.freeze([
   'safety'
 ]);
 
+const ALLOWED_JUDGE_EVAL_KEYS = Object.freeze([
+  'judgeRole',
+  'innovation',
+  'usefulness',
+  'safety'
+]);
+
+const VALID_JUDGE_ROLES = Object.freeze([
+  'coordinator',
+  'mentor_peer',
+  'industry_guest'
+]);
+
+const JUDGE_ROLE_WEIGHTS = Object.freeze({
+  coordinator: 0.4,
+  mentor_peer: 0.3,
+  industry_guest: 0.3
+});
+
 function submitChallengeEntry(entries, entry) {
   if (entries !== undefined && entries !== null && !Array.isArray(entries)) {
     throw new Error('invalid entries: expected array');
@@ -5518,6 +5549,98 @@ function submitChallengeEntry(entries, entry) {
   return Object.freeze(next);
 }
 
+function addJudgeEvaluation(entries, entryIndex, evaluation) {
+  if (!Array.isArray(entries)) {
+    throw new Error('invalid entries: expected array');
+  }
+  if (!Number.isInteger(entryIndex) || entryIndex < 0) {
+    throw new Error('invalid entryIndex: expected non-negative integer');
+  }
+  let targetIdx = -1;
+  if (entryIndex < entries.length && entries[entryIndex]) {
+    targetIdx = entryIndex;
+  } else {
+    targetIdx = entries.findIndex((e) => e && e.pairIndex === entryIndex);
+  }
+  if (targetIdx === -1) {
+    throw new Error('entry not found');
+  }
+
+  if (!evaluation || typeof evaluation !== 'object' || Array.isArray(evaluation)) {
+    throw new Error('invalid evaluation: expected an object');
+  }
+
+  const keys = Object.keys(evaluation);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (ALLOWED_JUDGE_EVAL_KEYS.indexOf(keys[i]) === -1) {
+      throw new Error('personal data is not accepted');
+    }
+  }
+
+  if (typeof evaluation.judgeRole !== 'string' || VALID_JUDGE_ROLES.indexOf(evaluation.judgeRole) === -1) {
+    throw new Error("invalid judgeRole: expected 'coordinator', 'mentor_peer', or 'industry_guest'");
+  }
+
+  for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
+    const val = evaluation[scoreKey];
+    if (!Number.isInteger(val) || val < 1 || val > 5) {
+      throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
+    }
+  }
+
+  const currentEntry = entries[targetIdx];
+  const prevEvals = Array.isArray(currentEntry.evaluations) ? currentEntry.evaluations : [];
+  if (prevEvals.some((ev) => ev && ev.judgeRole === evaluation.judgeRole)) {
+    throw new Error(`duplicate judgeRole: evaluation already exists for role '${evaluation.judgeRole}'`);
+  }
+
+  const evalRecord = Object.freeze({
+    judgeRole: evaluation.judgeRole,
+    innovation: evaluation.innovation,
+    usefulness: evaluation.usefulness,
+    safety: evaluation.safety,
+    totalScore: evaluation.innovation + evaluation.usefulness + evaluation.safety,
+    averageScore: Math.round(((evaluation.innovation + evaluation.usefulness + evaluation.safety) / 3) * 100) / 100
+  });
+
+  const nextEvals = prevEvals.concat([evalRecord]);
+
+  let totalWeight = 0;
+  let weightedInnoSum = 0;
+  let weightedUseSum = 0;
+  let weightedSafeSum = 0;
+
+  for (let i = 0; i < nextEvals.length; i += 1) {
+    const ev = nextEvals[i];
+    const weight = JUDGE_ROLE_WEIGHTS[ev.judgeRole] || 1;
+    totalWeight += weight;
+    weightedInnoSum += ev.innovation * weight;
+    weightedUseSum += ev.usefulness * weight;
+    weightedSafeSum += ev.safety * weight;
+  }
+
+  const weightedInno = Math.round((weightedInnoSum / totalWeight) * 100) / 100;
+  const weightedUse = Math.round((weightedUseSum / totalWeight) * 100) / 100;
+  const weightedSafe = Math.round((weightedSafeSum / totalWeight) * 100) / 100;
+  const totalScore = Math.round((weightedInno + weightedUse + weightedSafe) * 100) / 100;
+  const averageScore = Math.round((totalScore / 3) * 100) / 100;
+
+  const updatedEntry = Object.freeze(Object.assign({}, currentEntry, {
+    innovation: weightedInno,
+    usefulness: weightedUse,
+    safety: weightedSafe,
+    totalScore: totalScore,
+    averageScore: averageScore,
+    score: totalScore,
+    evaluations: Object.freeze(nextEvals),
+    judgeCount: nextEvals.length
+  }));
+
+  const nextEntries = entries.slice();
+  nextEntries[targetIdx] = updatedEntry;
+  return Object.freeze(nextEntries);
+}
+
 function rankChallengeLeaderboard(entries) {
   if (!entries || !Array.isArray(entries) || entries.length === 0) {
     return Object.freeze([]);
@@ -5530,8 +5653,12 @@ function rankChallengeLeaderboard(entries) {
     const innovation = Number(e.innovation);
     const usefulness = Number(e.usefulness);
     const safety = Number(e.safety);
-    const totalScore = innovation + usefulness + safety;
-    const averageScore = Math.round((totalScore / 3) * 100) / 100;
+    const totalScore = e.totalScore !== undefined
+      ? Math.round(Number(e.totalScore) * 100) / 100
+      : Math.round((innovation + usefulness + safety) * 100) / 100;
+    const averageScore = e.averageScore !== undefined
+      ? Math.round(Number(e.averageScore) * 100) / 100
+      : Math.round((totalScore / 3) * 100) / 100;
     return {
       pairIndex: pairIndex,
       aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
@@ -5541,7 +5668,9 @@ function rankChallengeLeaderboard(entries) {
       safety: safety,
       totalScore: totalScore,
       averageScore: averageScore,
-      score: totalScore
+      score: totalScore,
+      evaluations: Array.isArray(e.evaluations) ? e.evaluations : Object.freeze([]),
+      judgeCount: Number.isInteger(e.judgeCount) ? e.judgeCount : (Array.isArray(e.evaluations) ? e.evaluations.length : 0)
     };
   });
 
@@ -5562,8 +5691,25 @@ function rankChallengeLeaderboard(entries) {
     safety: item.safety,
     totalScore: item.totalScore,
     averageScore: item.averageScore,
-    score: item.score
+    score: item.score,
+    evaluations: item.evaluations,
+    judgeCount: item.judgeCount
   })));
+}
+
+function selectChallengeFinalists(entries, topN) {
+  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+    return Object.freeze([]);
+  }
+  const n = (topN !== undefined && Number.isInteger(topN)) ? Math.max(0, topN) : 3;
+  if (n === 0) {
+    return Object.freeze([]);
+  }
+  const ranked = rankChallengeLeaderboard(entries);
+  const finalists = ranked.slice(0, n).map((item) => Object.freeze(Object.assign({}, item, {
+    isFinalist: true
+  })));
+  return Object.freeze(finalists);
 }
 
 function filterChallengeEntriesByTopic(entries, aiTopic) {
@@ -5768,7 +5914,8 @@ module.exports = {
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
   VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary,
-  AI_CHALLENGE_TEMPLATES, generateChallengeCertificateText
+  AI_CHALLENGE_TEMPLATES, generateChallengeCertificateText,
+  addJudgeEvaluation, selectChallengeFinalists, VALID_JUDGE_ROLES, JUDGE_ROLE_WEIGHTS
 };
   __registry["curriculum"] = module.exports;
 })();
@@ -6848,7 +6995,11 @@ module.exports = {
   makeGroupAggregate, formGroups, formGroupsWithRegion, assignStudents,
   shortLesson, lessonForGroup, switchMode, emptyModeState, groupReport, groupReportCsv,
   AI_CHALLENGE_TEMPLATES: curriculum.AI_CHALLENGE_TEMPLATES,
-  generateChallengeCertificateText: curriculum.generateChallengeCertificateText
+  generateChallengeCertificateText: curriculum.generateChallengeCertificateText,
+  addJudgeEvaluation: curriculum.addJudgeEvaluation,
+  selectChallengeFinalists: curriculum.selectChallengeFinalists,
+  VALID_JUDGE_ROLES: curriculum.VALID_JUDGE_ROLES,
+  JUDGE_ROLE_WEIGHTS: curriculum.JUDGE_ROLE_WEIGHTS
 };
   __registry["modes"] = module.exports;
 })();
@@ -11313,6 +11464,31 @@ module.exports = {
     ar: 'تم حفظ المشاركة بنجاح.',
     ru: 'Заявка успешно сохранена.'
   };
+  var S_JUDGE_ROLE_LABEL = {
+    he: 'תפקיד שופט',
+    ar: 'دور المحكّم',
+    ru: 'Роль судьи'
+  };
+  var S_JUDGE_SUBMIT_BTN = {
+    he: 'הוסף הערכת שופט',
+    ar: 'إضافة تقييم المحكّم',
+    ru: 'Добавить оценку судьи'
+  };
+  var S_JUDGE_ROLES = {
+    coordinator: { he: 'רכז', ar: 'منسق', ru: 'Координатор' },
+    mentor_peer: { he: 'חונך עמית', ar: 'مرشد نظير', ru: 'Наставник-сверстник' },
+    industry_guest: { he: 'אורח מהתעשייה', ar: 'ضيف من المجال', ru: 'Гость из индустрии' }
+  };
+  var S_CHALLENGE_FINALIST = {
+    he: 'פיינליסט',
+    ar: 'مرشح نهائي',
+    ru: 'Финалист'
+  };
+  var S_JUDGE_STATUS_SUCCESS = {
+    he: 'הערכת שופט נוספה בהצלחה',
+    ar: 'تمت إضافة تقييم المحكّم بنجاح',
+    ru: 'Оценка судьи успешно добавлена'
+  };
 
   function renderChallengeForm() {
     var tplSel = $('challengeTemplateSelect');
@@ -11365,6 +11541,17 @@ module.exports = {
       topicSel.innerHTML = html;
       topicSel.value = curTopic;
     }
+
+    var judgeSel = $('judgeRoleSelect');
+    if (judgeSel) {
+      var curJudgeRole = judgeSel.value || 'coordinator';
+      judgeSel.innerHTML = [
+        '<option value="coordinator"' + (curJudgeRole === 'coordinator' ? ' selected' : '') + '>' + esc((S_JUDGE_ROLES.coordinator && S_JUDGE_ROLES.coordinator[currentLang]) || 'רכז') + '</option>',
+        '<option value="mentor_peer"' + (curJudgeRole === 'mentor_peer' ? ' selected' : '') + '>' + esc((S_JUDGE_ROLES.mentor_peer && S_JUDGE_ROLES.mentor_peer[currentLang]) || 'חונך עמית') + '</option>',
+        '<option value="industry_guest"' + (curJudgeRole === 'industry_guest' ? ' selected' : '') + '>' + esc((S_JUDGE_ROLES.industry_guest && S_JUDGE_ROLES.industry_guest[currentLang]) || 'אורח מהתעשייה') + '</option>'
+      ].join('');
+      judgeSel.value = curJudgeRole;
+    }
   }
 
   // The topic filter above the leaderboard (#challengeTopicFilter): "all" or one AI topic. The leaderboard
@@ -11380,9 +11567,10 @@ module.exports = {
     var heading = currentLang === 'ar' ? 'لوحة متصدري تحدي أدوات الذكاء الاصطناعي' : (currentLang === 'ru' ? 'Таблица лидеров конкурса ИИ' : 'טבלת דירוג אתגר כלי AI');
     board.setAttribute('aria-label', heading);
 
+    var filtered = filteredChallengeEntries();
     var ranked = [];
     if (curriculumLib && typeof curriculumLib.rankChallengeLeaderboard === 'function') {
-      ranked = curriculumLib.rankChallengeLeaderboard(filteredChallengeEntries());
+      ranked = curriculumLib.rankChallengeLeaderboard(filtered);
     }
     if (!ranked || ranked.length === 0) {
       var emptyMsg = currentLang === 'ar' ? 'لا توجد مشاركات في تحدي أدوات الذكاء الاصطناعي بعد' : (currentLang === 'ru' ? 'Пока нет заявок на конкурс инструментов ИИ' : 'אין עדיין הגשות לתחרות כלי AI');
@@ -11390,6 +11578,10 @@ module.exports = {
       board.innerHTML = '<div class="empty-state"><p class="empty">' + esc(emptyMsg) + '</p></div>';
       return;
     }
+
+    var finalistsFn = (curriculumLib && curriculumLib.selectChallengeFinalists) || (modesLib && modesLib.selectChallengeFinalists);
+    var finalists = finalistsFn ? finalistsFn(filtered, 3) : [];
+    var finalistPairSet = new Set(finalists.map(function (f) { return f.pairIndex; }));
 
     var thRank = currentLang === 'ar' ? 'المرتبة' : (currentLang === 'ru' ? 'Место' : 'מקום');
     var thPair = currentLang === 'ar' ? 'الزوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
@@ -11400,15 +11592,20 @@ module.exports = {
     var thSafe = currentLang === 'ar' ? 'الأمان' : (currentLang === 'ru' ? 'Безопасность' : 'בטיחות');
     var thTotal = currentLang === 'ar' ? 'الدرجة الكلية' : (currentLang === 'ru' ? 'Итого' : 'ציון כולל');
     var pairWord = currentLang === 'ar' ? 'زوج' : (currentLang === 'ru' ? 'Пара' : 'זוג');
+    var finalistText = S_CHALLENGE_FINALIST[currentLang] || S_CHALLENGE_FINALIST.he;
 
     var rowsHtml = ranked.map(function (item) {
       var topicName = (AI_TOPICS && AI_TOPICS[item.aiTopic] && (AI_TOPICS[item.aiTopic][currentLang] || AI_TOPICS[item.aiTopic].he)) || item.aiTopic;
       var pairLabel = pairWord + ' ' + (item.pairIndex + 1);
+      var isFinalist = finalistPairSet.has(item.pairIndex);
+      var finalistBadge = isFinalist
+        ? ' <span class="challenge-finalist-badge">' + esc(finalistText) + '</span>'
+        : '';
       return '<tr data-pair="' + esc(String(item.pairIndex)) + '" data-rank="' + esc(String(item.rank)) + '">' +
         '<td>' + esc(String(item.rank)) + '</td>' +
         '<td>' + esc(pairLabel) + '</td>' +
         '<td>' + esc(topicName) + '</td>' +
-        '<td>' + esc(item.toolTitle) + '</td>' +
+        '<td>' + esc(item.toolTitle) + finalistBadge + '</td>' +
         '<td>' + esc(String(item.innovation)) + '</td>' +
         '<td>' + esc(String(item.usefulness)) + '</td>' +
         '<td>' + esc(String(item.safety)) + '</td>' +
@@ -11538,6 +11735,57 @@ module.exports = {
         renderChallengeLeaderboard();
       } catch (err) {
         say('challengeStatus', (errorHe ? errorHe(err) : err.message) || err.message, true);
+      }
+    });
+  }
+
+  if ($('judgeSubmitBtn')) {
+    $('judgeSubmitBtn').addEventListener('click', function () {
+      try {
+        var pairVal = $('challengePairSelect') ? $('challengePairSelect').value : '';
+        if (pairVal === '' || pairVal == null || isNaN(Number(pairVal))) {
+          var pairErrMsg = currentLang === 'ar' ? 'يرجى اختيار زوج' : (currentLang === 'ru' ? 'Пожалуйста, выберите пару' : 'יש לבחור זוג');
+          say('challengeWinnersStatus', pairErrMsg, true);
+          return;
+        }
+        var pairIndex = Number(pairVal);
+        var entryIdx = challengeEntries.findIndex(function (e) {
+          return e && e.pairIndex === pairIndex;
+        });
+        if (entryIdx === -1) {
+          var notFoundMsg = currentLang === 'ar' ? 'لا توجد مشاركة لهذا الزوج' : (currentLang === 'ru' ? 'Нет заявки для этой пары' : 'אין הגשה קיימת לזוג זה');
+          say('challengeWinnersStatus', notFoundMsg, true);
+          return;
+        }
+
+        var judgeRole = $('judgeRoleSelect') ? $('judgeRoleSelect').value : 'coordinator';
+        var inno = Number($('challengeScoreInnovation') ? $('challengeScoreInnovation').value : 5);
+        var use = Number($('challengeScoreUsefulness') ? $('challengeScoreUsefulness').value : 5);
+        var safe = Number($('challengeScoreSafety') ? $('challengeScoreSafety').value : 5);
+
+        var addEvalFn = (curriculumLib && curriculumLib.addJudgeEvaluation) || (modesLib && modesLib.addJudgeEvaluation);
+        if (typeof addEvalFn !== 'function') {
+          throw new Error('addJudgeEvaluation is not available');
+        }
+
+        challengeEntries = addEvalFn(challengeEntries, entryIdx, {
+          judgeRole: judgeRole,
+          innovation: inno,
+          usefulness: use,
+          safety: safe
+        });
+
+        var successMsg = S_JUDGE_STATUS_SUCCESS[currentLang] || S_JUDGE_STATUS_SUCCESS.he;
+        say('challengeWinnersStatus', successMsg);
+        renderChallengeLeaderboard();
+      } catch (err) {
+        var msg = (err && err.message) || '';
+        if (msg.indexOf('duplicate judgeRole') === 0) {
+          var dupMsg = currentLang === 'ar' ? 'تم تقديم تقييم سابق لهذا الدور' : (currentLang === 'ru' ? 'Оценка для этой роли уже существует' : 'כבר נרשמה הערכה מתפקיד שופט זה');
+          say('challengeWinnersStatus', dupMsg, true);
+        } else {
+          say('challengeWinnersStatus', (errorHe ? errorHe(err) : msg) || msg, true);
+        }
       }
     });
   }
@@ -12227,6 +12475,12 @@ module.exports = {
       var challengeBtnText = S_CHALLENGE_SUBMIT_BTN[currentLang] || S_CHALLENGE_SUBMIT_BTN.he;
       $('submitChallengeBtn').textContent = challengeBtnText;
       $('submitChallengeBtn').setAttribute('aria-label', challengeBtnText);
+    }
+    if ($('judgeRoleLabel')) $('judgeRoleLabel').textContent = S_JUDGE_ROLE_LABEL[currentLang] || S_JUDGE_ROLE_LABEL.he;
+    if ($('judgeSubmitBtn')) {
+      var judgeBtnText = S_JUDGE_SUBMIT_BTN[currentLang] || S_JUDGE_SUBMIT_BTN.he;
+      $('judgeSubmitBtn').textContent = judgeBtnText;
+      $('judgeSubmitBtn').setAttribute('aria-label', judgeBtnText);
     }
     if ($('copyTopChallengeCertBtn')) {
       var certBtnText = S_COPY_TOP_CERT_BTN[currentLang] || S_COPY_TOP_CERT_BTN.he;

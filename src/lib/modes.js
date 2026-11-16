@@ -229,5 +229,9 @@ module.exports = {
   makeGroupAggregate, formGroups, formGroupsWithRegion, assignStudents,
   shortLesson, lessonForGroup, switchMode, emptyModeState, groupReport, groupReportCsv,
   AI_CHALLENGE_TEMPLATES: curriculum.AI_CHALLENGE_TEMPLATES,
-  generateChallengeCertificateText: curriculum.generateChallengeCertificateText
+  generateChallengeCertificateText: curriculum.generateChallengeCertificateText,
+  addJudgeEvaluation: curriculum.addJudgeEvaluation,
+  selectChallengeFinalists: curriculum.selectChallengeFinalists,
+  VALID_JUDGE_ROLES: curriculum.VALID_JUDGE_ROLES,
+  JUDGE_ROLE_WEIGHTS: curriculum.JUDGE_ROLE_WEIGHTS
 };
