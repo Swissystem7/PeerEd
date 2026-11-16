@@ -9,6 +9,7 @@
 const { PERSONAL_DATA_ERROR } = require('./profile.js');
 const { makeUnit } = require('./unit.js');
 const { assertCleanText, PROFANITY_ERROR } = require('./validator.js');
+const { computeScholarshipMilestones, recordPairHoursConfirmation } = require('./attendance.js');
 
 const STATUSES = Object.freeze(['pending', 'approved', 'rejected']);
 // The keys a stored entry may carry. The unit inside has its own gate (assertUnit, through makeUnit);
@@ -264,5 +265,7 @@ module.exports = {
   listPending,
   approvedUnits,
   statusOf,
-  loadQueue
+  loadQueue,
+  computeScholarshipMilestones,
+  recordPairHoursConfirmation
 };

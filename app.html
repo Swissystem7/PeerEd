@@ -80,6 +80,9 @@
   .scholarship-progress { margin-top:8px; max-width:280px; }
   .scholarship-progress-track { height:10px; background:var(--line); border-radius:999px; overflow:hidden; }
   .scholarship-progress-fill { height:100%; background:var(--key); width:0%; transition:width .2s ease; }
+  .scholarship-milestones-bar { display:flex; gap:8px; margin:12px 0; flex-wrap:wrap; }
+  .scholarship-milestone-checkpoint { flex:1; min-width:60px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; text-align:center; font-size:13px; background:var(--card); color:var(--muted); }
+  .scholarship-milestone-checkpoint.reached { background:#e0f2fe; border-color:var(--key); color:var(--key); font-weight:600; }
   table.leaderboard-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:.85rem; }
   table.leaderboard-table th, table.leaderboard-table td { padding:8px 6px; text-align:start; border-bottom:1px solid var(--line); }
   table.leaderboard-table th { color:var(--muted); font-size:.78rem; font-weight:700; }
@@ -544,13 +547,16 @@
           <input type="date" id="sessionEndDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
         </div>
       </div>
+      <div id="scholarshipMilestonesBar" class="scholarship-milestones-bar" role="region" aria-label="צ'קפוינטים להשלמת מלגה" aria-live="polite"></div>
       <div class="actions">
         <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
         <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
         <button type="button" class="ghost" id="exportScholarshipCsvBtn" aria-label="ייצוא CSV אנונימי" aria-describedby="scholarshipCsvStatus">ייצוא CSV אנונימי</button>
+        <button type="button" class="ghost" id="confirmPairHoursBtn" aria-label="אישור שעות" aria-describedby="scholarshipConfirmationStatus">אישור שעות</button>
       </div>
       <p class="status" id="scholarshipReportStatus" role="status"></p>
       <p class="status" id="scholarshipCsvStatus" role="status"></p>
+      <p class="status" id="scholarshipConfirmationStatus" role="status"></p>
       <div id="scholarshipReportOut" role="region" aria-live="polite" aria-label="דוח שעות מלגה"></div>
     </div>
     <div class="card">
@@ -2702,6 +2708,7 @@ module.exports = { makeSemester, isTeachingDay, expandSessions, cancelSession, p
 // Immutable log, internal pair indexes only. No clock: every date is passed in.
 
 const { diffDays, parseDate } = require("./semester.js");
+const { PERSONAL_DATA_ERROR } = require("./profile.js");
 
 const ATTENDANCE_STATUSES = Object.freeze([
 	"held",
@@ -3368,6 +3375,177 @@ function buildScholarshipReport(records, pairs, targetHours) {
 	});
 }
 
+function normalizeMilestonePairs(pairs) {
+	if (Array.isArray(pairs)) return pairs;
+	if (isPlainObject(pairs)) return [pairs];
+	if (Number.isInteger(pairs) && pairs >= 0) return [{ pairIndex: pairs }];
+	return [];
+}
+
+/**
+ * Computes scholarship completion milestones (25%, 50%, 75%, 100%) for pairs.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} records Attendance records or log
+ * @param {Array<Object>|Object|number} pairs Matched pairs or pair index
+ * @param {number} targetHours Target scholarship hours (default 30)
+ * @returns {Array<Object>} List of milestones per pair, with byPair lookup
+ */
+function computeScholarshipMilestones(records, pairs, targetHours) {
+	const target = resolveScholarshipTarget(targetHours);
+	const cleanRecords = getCleanAttendanceRecords(records);
+	const pairList = normalizeMilestonePairs(pairs);
+	const sortedPairIndexes = collectPairIndexes(cleanRecords, pairList);
+
+	const pairMilestones = [];
+	const byPair = {};
+
+	for (const pIdx of sortedPairIndexes) {
+		const totalHours = calculatePairHours(cleanRecords, pIdx);
+		const m25 = target * 0.25;
+		const m50 = target * 0.5;
+		const m75 = target * 0.75;
+		const m100 = target;
+
+		const reached25 = totalHours >= m25;
+		const reached50 = totalHours >= m50;
+		const reached75 = totalHours >= m75;
+		const reached100 = totalHours >= m100;
+
+		let nextMilestoneHours = m25;
+		if (reached75) {
+			nextMilestoneHours = m100;
+		} else if (reached50) {
+			nextMilestoneHours = m75;
+		} else if (reached25) {
+			nextMilestoneHours = m50;
+		}
+
+		const hoursRemaining = Math.max(0, target - totalHours);
+		const completionPercent = computeCompletionPercent(totalHours, target);
+
+		const item = Object.freeze({
+			pairIndex: pIdx,
+			totalHours,
+			targetHours: target,
+			reached25,
+			reached50,
+			reached75,
+			reached100,
+			nextMilestoneHours,
+			hoursRemaining,
+			completionPercent,
+		});
+
+		pairMilestones.push(item);
+		byPair[pIdx] = item;
+	}
+
+	pairMilestones.byPair = Object.freeze(byPair);
+	pairMilestones.pairs = pairMilestones;
+	return Object.freeze(pairMilestones);
+}
+
+const CONFIRMATION_ROLES = Object.freeze(["student", "coordinator"]);
+const CONFIRMATION_ALLOWED_KEYS = Object.freeze([
+	"confirmedHours",
+	"date",
+	"pairIndex",
+	"role",
+]);
+
+/**
+ * Records an anonymous bilateral hours confirmation per pair and role.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} confirmations Existing confirmations
+ * @param {Object} entry Confirmation entry
+ * @returns {Array<Object>|Object} Updated confirmations
+ */
+function recordPairHoursConfirmation(confirmations, entry) {
+	if (!isPlainObject(entry)) {
+		throw new Error("invalid confirmation entry: expected object");
+	}
+
+	const keys = Object.keys(entry);
+	for (const k of keys) {
+		if (!CONFIRMATION_ALLOWED_KEYS.includes(k)) {
+			throw new Error(PERSONAL_DATA_ERROR);
+		}
+	}
+
+	if (!Number.isInteger(entry.pairIndex) || entry.pairIndex < 0) {
+		throw new Error("invalid confirmation: invalid pairIndex");
+	}
+
+	if (
+		typeof entry.role !== "string" ||
+		!CONFIRMATION_ROLES.includes(entry.role)
+	) {
+		throw new Error(
+			"invalid confirmation: role must be student or coordinator",
+		);
+	}
+
+	if (
+		typeof entry.confirmedHours !== "number" ||
+		!Number.isFinite(entry.confirmedHours) ||
+		entry.confirmedHours < 0
+	) {
+		throw new Error("invalid confirmation: invalid confirmedHours");
+	}
+
+	if (typeof entry.date !== "string") {
+		throw new Error("invalid confirmation: date must be string");
+	}
+
+	try {
+		parseDate(entry.date);
+	} catch {
+		throw new Error("invalid confirmation: invalid date");
+	}
+
+	if (!isValidAttendanceDate(entry.date)) {
+		throw new Error("invalid confirmation: date cannot be in the future");
+	}
+
+	const cleanRecord = Object.freeze({
+		pairIndex: entry.pairIndex,
+		role: entry.role,
+		confirmedHours: entry.confirmedHours,
+		date: entry.date,
+	});
+
+	const existingList = Array.isArray(confirmations)
+		? confirmations.slice()
+		: confirmations && Array.isArray(confirmations.entries)
+			? confirmations.entries.slice()
+			: [];
+
+	const existingIdx = existingList.findIndex(
+		(c) =>
+			c && c.pairIndex === cleanRecord.pairIndex && c.role === cleanRecord.role,
+	);
+
+	if (existingIdx !== -1) {
+		existingList[existingIdx] = cleanRecord;
+	} else {
+		existingList.push(cleanRecord);
+	}
+
+	existingList.entries = existingList;
+	const frozenList = Object.freeze(existingList);
+
+	if (
+		confirmations &&
+		isPlainObject(confirmations) &&
+		!Array.isArray(confirmations)
+	) {
+		return Object.freeze({ entries: frozenList });
+	}
+	return frozenList;
+}
+
 function cleanDateParam(val) {
 	if (typeof val !== "string") return null;
 	const trimmed = val.trim();
@@ -3721,7 +3899,9 @@ function matchesCriterion(itemVal, filterVal, isArrayTarget = false) {
 			normalizeCriterionValue(itemVal),
 		);
 	}
-	return normalizeCriterionValue(itemVal) === normalizeCriterionValue(filterVal);
+	return (
+		normalizeCriterionValue(itemVal) === normalizeCriterionValue(filterVal)
+	);
 }
 
 function cleanFilterValue(val) {
@@ -4314,6 +4494,8 @@ module.exports = {
 	focusReaderConfig,
 	detectInactivePairs,
 	computeRegionalSupplyDemand,
+	computeScholarshipMilestones,
+	recordPairHoursConfirmation,
 };
   __registry["attendance"] = module.exports;
 })();
@@ -5726,6 +5908,7 @@ module.exports = {
 const { PERSONAL_DATA_ERROR } = require('./profile.js');
 const { makeUnit } = require('./unit.js');
 const { assertCleanText, PROFANITY_ERROR } = require('./validator.js');
+const { computeScholarshipMilestones, recordPairHoursConfirmation } = require('./attendance.js');
 
 const STATUSES = Object.freeze(['pending', 'approved', 'rejected']);
 // The keys a stored entry may carry. The unit inside has its own gate (assertUnit, through makeUnit);
@@ -5981,7 +6164,9 @@ module.exports = {
   listPending,
   approvedUnits,
   statusOf,
-  loadQueue
+  loadQueue,
+  computeScholarshipMilestones,
+  recordPairHoursConfirmation
 };
   __registry["approval"] = module.exports;
 })();
@@ -8198,6 +8383,8 @@ module.exports = {
       window.deserializeAttendance = attendance.deserializeAttendance;
       window.detectInactivePairs = attendance.detectInactivePairs;
       window.computeRegionalSupplyDemand = attendance.computeRegionalSupplyDemand;
+      window.computeScholarshipMilestones = attendance.computeScholarshipMilestones;
+      window.recordPairHoursConfirmation = attendance.recordPairHoursConfirmation;
     }
     if (storeLib) {
       window.buildImpactOverviewReport = storeLib.buildImpactOverviewReport;
@@ -10123,6 +10310,7 @@ module.exports = {
       var fmt = SCHOLARSHIP_PROGRESS_LABELS[lang] || SCHOLARSHIP_PROGRESS_LABELS.he;
       lab.textContent = fmt(pct);
     }
+    renderScholarshipMilestonesBar();
   }
 
 
@@ -10324,6 +10512,7 @@ module.exports = {
   if ($('scholarshipTargetSelect')) {
     $('scholarshipTargetSelect').addEventListener('change', function () {
       generateScholarshipReport();
+      renderScholarshipMilestonesBar();
     });
   }
 
@@ -10376,6 +10565,98 @@ module.exports = {
       } else {
         say('scholarshipCsvStatus', readyMsg);
       }
+    });
+  }
+
+  var S_CONFIRM_PAIR_HOURS_BTN = Object.freeze({
+    he: 'אישור שעות',
+    ar: 'تأكيد الساعات',
+    ru: 'Подтверждение часов'
+  });
+
+  var S_CONFIRM_PAIR_HOURS_STATUS = Object.freeze({
+    he: 'שעות המלגה אושרו בהצלחה.',
+    ar: 'تم تأكيد ساعات المنحة بنجاح.',
+    ru: 'Часы стипендии успешно подтверждены.'
+  });
+
+  function renderScholarshipMilestonesBar() {
+    var bar = $('scholarshipMilestonesBar');
+    if (!bar) return;
+    var targetSelect = $('scholarshipTargetSelect');
+    var targetHours = targetSelect ? (Number(targetSelect.value) || 30) : 30;
+    var pairIndex = activeSessionPairIndex();
+    if (pairIndex == null) pairIndex = 0;
+    var records = getFilteredAttendanceRecords();
+    var pairs = currentPairs();
+    var milestones = attendance && typeof attendance.computeScholarshipMilestones === 'function'
+      ? attendance.computeScholarshipMilestones(records, pairs.length ? pairs : [{ pairIndex: pairIndex }], targetHours)
+      : null;
+
+    var pairMilestone = null;
+    if (milestones) {
+      if (milestones.byPair && milestones.byPair[pairIndex]) {
+        pairMilestone = milestones.byPair[pairIndex];
+      } else if (Array.isArray(milestones) && milestones.length > 0) {
+        pairMilestone = milestones.find(function (m) { return m.pairIndex === pairIndex; }) || milestones[0];
+      }
+    }
+
+    var r25 = pairMilestone ? Boolean(pairMilestone.reached25) : false;
+    var r50 = pairMilestone ? Boolean(pairMilestone.reached50) : false;
+    var r75 = pairMilestone ? Boolean(pairMilestone.reached75) : false;
+    var r100 = pairMilestone ? Boolean(pairMilestone.reached100) : false;
+
+    var h25 = targetHours * 0.25;
+    var h50 = targetHours * 0.50;
+    var h75 = targetHours * 0.75;
+    var h100 = targetHours;
+
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var hourSuffix = lang === 'ar' ? ' س' : (lang === 'ru' ? ' ч' : ' שעות');
+
+    bar.innerHTML = [
+      '<div class="scholarship-milestone-checkpoint' + (r25 ? ' reached' : '') + '" data-checkpoint="25">',
+      '  <span class="checkpoint-pct">25%</span> <span class="checkpoint-hours">(' + h25 + hourSuffix + ')</span>',
+      '</div>',
+      '<div class="scholarship-milestone-checkpoint' + (r50 ? ' reached' : '') + '" data-checkpoint="50">',
+      '  <span class="checkpoint-pct">50%</span> <span class="checkpoint-hours">(' + h50 + hourSuffix + ')</span>',
+      '</div>',
+      '<div class="scholarship-milestone-checkpoint' + (r75 ? ' reached' : '') + '" data-checkpoint="75">',
+      '  <span class="checkpoint-pct">75%</span> <span class="checkpoint-hours">(' + h75 + hourSuffix + ')</span>',
+      '</div>',
+      '<div class="scholarship-milestone-checkpoint' + (r100 ? ' reached' : '') + '" data-checkpoint="100">',
+      '  <span class="checkpoint-pct">100%</span> <span class="checkpoint-hours">(' + h100 + hourSuffix + ')</span>',
+      '</div>'
+    ].join('\n');
+  }
+
+  if ($('confirmPairHoursBtn')) {
+    $('confirmPairHoursBtn').addEventListener('click', function () {
+      var pairIndex = activeSessionPairIndex();
+      if (pairIndex == null) pairIndex = 0;
+      var records = getFilteredAttendanceRecords();
+      var confirmedHours = 0;
+      if (attendance && typeof attendance.calculatePairHours === 'function') {
+        confirmedHours = attendance.calculatePairHours(records, pairIndex);
+      }
+      var now = new Date();
+      var y = now.getFullYear();
+      var m = String(now.getMonth() + 1).padStart(2, '0');
+      var d = String(now.getDate()).padStart(2, '0');
+      var today = y + '-' + m + '-' + d;
+
+      if (attendance && typeof attendance.recordPairHoursConfirmation === 'function') {
+        state.confirmations = attendance.recordPairHoursConfirmation(state.confirmations || [], {
+          pairIndex: pairIndex,
+          role: 'coordinator',
+          confirmedHours: confirmedHours,
+          date: today
+        });
+      }
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      var msg = S_CONFIRM_PAIR_HOURS_STATUS[lang] || S_CONFIRM_PAIR_HOURS_STATUS.he;
+      say('scholarshipConfirmationStatus', msg);
     });
   }
 
@@ -10499,7 +10780,7 @@ module.exports = {
     $('unitDuration').value = '20';
     if (profile.SUBJECTS && profile.SUBJECTS.length) $('unitSubject').value = profile.SUBJECTS[0];
     revising = null;
-    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus', 'scholarshipReportStatus', 'scholarshipCsvStatus'].forEach(function (id) {
+    ['addStatus', 'matchStatus', 'checkStatus', 'gateStatus', 'unitStatus', 'decideStatus', 'sessionStatus', 'reportStatus', 'challengeStatus', 'scholarshipReportStatus', 'scholarshipCsvStatus', 'scholarshipConfirmationStatus'].forEach(function (id) {
       say(id, '');
     });
     if ($('sessionStartDate')) $('sessionStartDate').value = '';
@@ -11975,6 +12256,16 @@ module.exports = {
       $('exportScholarshipCsvBtn').textContent = csvBtnText;
       $('exportScholarshipCsvBtn').setAttribute('aria-label', csvBtnText);
     }
+    if ($('confirmPairHoursBtn')) {
+      var confirmBtnText = S_CONFIRM_PAIR_HOURS_BTN[currentLang] || S_CONFIRM_PAIR_HOURS_BTN.he;
+      $('confirmPairHoursBtn').textContent = confirmBtnText;
+      $('confirmPairHoursBtn').setAttribute('aria-label', confirmBtnText);
+    }
+    var confStatus = $('scholarshipConfirmationStatus');
+    if (confStatus && confStatus.textContent) {
+      confStatus.textContent = S_CONFIRM_PAIR_HOURS_STATUS[currentLang] || S_CONFIRM_PAIR_HOURS_STATUS.he;
+    }
+    renderScholarshipMilestonesBar();
     var aiLevelSel = $('participantAiLevelSelect');
     if (aiLevelSel) {
       var noneTxt = AI_LEVEL_FIELD_LABELS.none[currentLang] || AI_LEVEL_FIELD_LABELS.none.he;
@@ -12074,6 +12365,7 @@ module.exports = {
     window.renderPilotBatchStatus = renderPilotBatchStatus;
     window.renderRegionalBalance = renderRegionalBalance;
     window.computeRegionalSupplyDemand = (attendance && attendance.computeRegionalSupplyDemand) || (storeLib && storeLib.computeRegionalSupplyDemand);
+    window.renderScholarshipMilestonesBar = renderScholarshipMilestonesBar;
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
   }
 })();

@@ -2,6 +2,7 @@
 // Immutable log, internal pair indexes only. No clock: every date is passed in.
 
 const { diffDays, parseDate } = require("./semester.js");
+const { PERSONAL_DATA_ERROR } = require("./profile.js");
 
 const ATTENDANCE_STATUSES = Object.freeze([
 	"held",
@@ -668,6 +669,177 @@ function buildScholarshipReport(records, pairs, targetHours) {
 	});
 }
 
+function normalizeMilestonePairs(pairs) {
+	if (Array.isArray(pairs)) return pairs;
+	if (isPlainObject(pairs)) return [pairs];
+	if (Number.isInteger(pairs) && pairs >= 0) return [{ pairIndex: pairs }];
+	return [];
+}
+
+/**
+ * Computes scholarship completion milestones (25%, 50%, 75%, 100%) for pairs.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} records Attendance records or log
+ * @param {Array<Object>|Object|number} pairs Matched pairs or pair index
+ * @param {number} targetHours Target scholarship hours (default 30)
+ * @returns {Array<Object>} List of milestones per pair, with byPair lookup
+ */
+function computeScholarshipMilestones(records, pairs, targetHours) {
+	const target = resolveScholarshipTarget(targetHours);
+	const cleanRecords = getCleanAttendanceRecords(records);
+	const pairList = normalizeMilestonePairs(pairs);
+	const sortedPairIndexes = collectPairIndexes(cleanRecords, pairList);
+
+	const pairMilestones = [];
+	const byPair = {};
+
+	for (const pIdx of sortedPairIndexes) {
+		const totalHours = calculatePairHours(cleanRecords, pIdx);
+		const m25 = target * 0.25;
+		const m50 = target * 0.5;
+		const m75 = target * 0.75;
+		const m100 = target;
+
+		const reached25 = totalHours >= m25;
+		const reached50 = totalHours >= m50;
+		const reached75 = totalHours >= m75;
+		const reached100 = totalHours >= m100;
+
+		let nextMilestoneHours = m25;
+		if (reached75) {
+			nextMilestoneHours = m100;
+		} else if (reached50) {
+			nextMilestoneHours = m75;
+		} else if (reached25) {
+			nextMilestoneHours = m50;
+		}
+
+		const hoursRemaining = Math.max(0, target - totalHours);
+		const completionPercent = computeCompletionPercent(totalHours, target);
+
+		const item = Object.freeze({
+			pairIndex: pIdx,
+			totalHours,
+			targetHours: target,
+			reached25,
+			reached50,
+			reached75,
+			reached100,
+			nextMilestoneHours,
+			hoursRemaining,
+			completionPercent,
+		});
+
+		pairMilestones.push(item);
+		byPair[pIdx] = item;
+	}
+
+	pairMilestones.byPair = Object.freeze(byPair);
+	pairMilestones.pairs = pairMilestones;
+	return Object.freeze(pairMilestones);
+}
+
+const CONFIRMATION_ROLES = Object.freeze(["student", "coordinator"]);
+const CONFIRMATION_ALLOWED_KEYS = Object.freeze([
+	"confirmedHours",
+	"date",
+	"pairIndex",
+	"role",
+]);
+
+/**
+ * Records an anonymous bilateral hours confirmation per pair and role.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} confirmations Existing confirmations
+ * @param {Object} entry Confirmation entry
+ * @returns {Array<Object>|Object} Updated confirmations
+ */
+function recordPairHoursConfirmation(confirmations, entry) {
+	if (!isPlainObject(entry)) {
+		throw new Error("invalid confirmation entry: expected object");
+	}
+
+	const keys = Object.keys(entry);
+	for (const k of keys) {
+		if (!CONFIRMATION_ALLOWED_KEYS.includes(k)) {
+			throw new Error(PERSONAL_DATA_ERROR);
+		}
+	}
+
+	if (!Number.isInteger(entry.pairIndex) || entry.pairIndex < 0) {
+		throw new Error("invalid confirmation: invalid pairIndex");
+	}
+
+	if (
+		typeof entry.role !== "string" ||
+		!CONFIRMATION_ROLES.includes(entry.role)
+	) {
+		throw new Error(
+			"invalid confirmation: role must be student or coordinator",
+		);
+	}
+
+	if (
+		typeof entry.confirmedHours !== "number" ||
+		!Number.isFinite(entry.confirmedHours) ||
+		entry.confirmedHours < 0
+	) {
+		throw new Error("invalid confirmation: invalid confirmedHours");
+	}
+
+	if (typeof entry.date !== "string") {
+		throw new Error("invalid confirmation: date must be string");
+	}
+
+	try {
+		parseDate(entry.date);
+	} catch {
+		throw new Error("invalid confirmation: invalid date");
+	}
+
+	if (!isValidAttendanceDate(entry.date)) {
+		throw new Error("invalid confirmation: date cannot be in the future");
+	}
+
+	const cleanRecord = Object.freeze({
+		pairIndex: entry.pairIndex,
+		role: entry.role,
+		confirmedHours: entry.confirmedHours,
+		date: entry.date,
+	});
+
+	const existingList = Array.isArray(confirmations)
+		? confirmations.slice()
+		: confirmations && Array.isArray(confirmations.entries)
+			? confirmations.entries.slice()
+			: [];
+
+	const existingIdx = existingList.findIndex(
+		(c) =>
+			c && c.pairIndex === cleanRecord.pairIndex && c.role === cleanRecord.role,
+	);
+
+	if (existingIdx !== -1) {
+		existingList[existingIdx] = cleanRecord;
+	} else {
+		existingList.push(cleanRecord);
+	}
+
+	existingList.entries = existingList;
+	const frozenList = Object.freeze(existingList);
+
+	if (
+		confirmations &&
+		isPlainObject(confirmations) &&
+		!Array.isArray(confirmations)
+	) {
+		return Object.freeze({ entries: frozenList });
+	}
+	return frozenList;
+}
+
 function cleanDateParam(val) {
 	if (typeof val !== "string") return null;
 	const trimmed = val.trim();
@@ -1021,7 +1193,9 @@ function matchesCriterion(itemVal, filterVal, isArrayTarget = false) {
 			normalizeCriterionValue(itemVal),
 		);
 	}
-	return normalizeCriterionValue(itemVal) === normalizeCriterionValue(filterVal);
+	return (
+		normalizeCriterionValue(itemVal) === normalizeCriterionValue(filterVal)
+	);
 }
 
 function cleanFilterValue(val) {
@@ -1614,4 +1788,6 @@ module.exports = {
 	focusReaderConfig,
 	detectInactivePairs,
 	computeRegionalSupplyDemand,
+	computeScholarshipMilestones,
+	recordPairHoursConfirmation,
 };
