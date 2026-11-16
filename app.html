@@ -2834,12 +2834,7 @@ function resolveAttendanceAiTopic(o) {
 	throw new Error("invalid attendance: aiTopic");
 }
 
-function recordAttendance(log, input) {
-	assertLog(log);
-	const o = validateAttendanceInput(input);
-	const durationHours = resolveAttendanceDuration(o);
-	const aiTopic = resolveAttendanceAiTopic(o);
-
+function buildAttendanceEntry(o, durationHours, aiTopic) {
 	const entryObj = {
 		pairIndex: o.pairIndex,
 		date: o.date,
@@ -2849,42 +2844,70 @@ function recordAttendance(log, input) {
 	if (aiTopic !== undefined) {
 		entryObj.aiTopic = aiTopic;
 	}
-	const entry = Object.freeze(entryObj);
-	const existingIdx = log.entries.findIndex(
-		(e) => e.pairIndex === o.pairIndex && e.date === o.date,
-	);
-	if (existingIdx !== -1) {
-		const updated = log.entries.slice();
-		updated[existingIdx] = entry;
-		return Object.freeze({ entries: Object.freeze(updated) });
-	}
-	let prior = log.entries;
+	return Object.freeze(entryObj);
+}
+
+function replaceAttendanceEntry(entries, existingIdx, entry) {
+	const updated = entries.slice();
+	updated[existingIdx] = entry;
+	return Object.freeze({ entries: Object.freeze(updated) });
+}
+
+function appendAttendanceEntry(entries, entry) {
+	let prior = entries;
 	if (prior.length >= MAX_ATTENDANCE_RECORDS) {
 		prior = prior.slice(prior.length - MAX_ATTENDANCE_RECORDS + 1);
 	}
 	return Object.freeze({ entries: Object.freeze(prior.concat([entry])) });
 }
 
+function findExistingEntryIndex(entries, o) {
+	return entries.findIndex(
+		(e) => e.pairIndex === o.pairIndex && e.date === o.date,
+	);
+}
+
+function recordAttendance(log, input) {
+	assertLog(log);
+	const o = validateAttendanceInput(input);
+	const entry = buildAttendanceEntry(
+		o,
+		resolveAttendanceDuration(o),
+		resolveAttendanceAiTopic(o),
+	);
+	const existingIdx = findExistingEntryIndex(log.entries, o);
+	if (existingIdx !== -1) {
+		return replaceAttendanceEntry(log.entries, existingIdx, entry);
+	}
+	return appendAttendanceEntry(log.entries, entry);
+}
+
+function isRowDateAcceptable(r, validateDateFn) {
+	if (typeof r.date !== "string") return false;
+	if (!validateDateFn) return true;
+	try {
+		validateDateFn(r.date);
+	} catch {
+		return false;
+	}
+	return true;
+}
+
+function resolveSanitizedDuration(r) {
+	if (isValidNonNegativeDuration(r.durationHours)) return r.durationHours;
+	return 1.0;
+}
+
 function sanitizeAttendanceRow(r, validateDateFn) {
 	if (!isPlainObject(r)) return null;
 	if (!isValidPairIndex(r.pairIndex)) return null;
-	if (typeof r.date !== "string") return null;
-	if (validateDateFn) {
-		try {
-			validateDateFn(r.date);
-		} catch {
-			return null;
-		}
-	}
+	if (!isRowDateAcceptable(r, validateDateFn)) return null;
 	if (!ATTENDANCE_STATUSES.includes(r.status)) return null;
-	const durationHours = isValidNonNegativeDuration(r.durationHours)
-		? r.durationHours
-		: 1.0;
 	const row = {
 		pairIndex: r.pairIndex,
 		date: r.date,
 		status: r.status,
-		durationHours,
+		durationHours: resolveSanitizedDuration(r),
 	};
 	const topic = sanitizeAiTopic(r.aiTopic);
 	if (topic !== undefined) {
@@ -2913,31 +2936,43 @@ function deserializeAttendance(raw) {
 	return Object.freeze(out);
 }
 
+function isWithinSummaryRange(e, o) {
+	if (o.from && e.date < o.from) return false;
+	if (o.to && e.date > o.to) return false;
+	return true;
+}
+
+function emptyStatusCounts() {
+	return { held: 0, missed: 0, postponed: 0, cancelled: 0 };
+}
+
+function accumulateSummaryEntry(e, byStatus, byPair) {
+	byStatus[e.status] += 1;
+	if (!byPair[e.pairIndex]) {
+		byPair[e.pairIndex] = emptyStatusCounts();
+	}
+	byPair[e.pairIndex][e.status] += 1;
+}
+
+function computeHeldRate(byStatus) {
+	const decided = byStatus.held + byStatus.missed;
+	if (decided === 0) return null;
+	return Math.round((byStatus.held / decided) * 1000) / 1000;
+}
+
 function attendanceSummary(log, opts) {
 	assertLog(log);
 	const o = opts || {};
-	const byStatus = { held: 0, missed: 0, postponed: 0, cancelled: 0 };
+	const byStatus = emptyStatusCounts();
 	const byPair = {};
 	log.entries.forEach((e) => {
-		if (o.from && e.date < o.from) return;
-		if (o.to && e.date > o.to) return;
-		byStatus[e.status] += 1;
-		byPair[e.pairIndex] = byPair[e.pairIndex] || {
-			held: 0,
-			missed: 0,
-			postponed: 0,
-			cancelled: 0,
-		};
-		byPair[e.pairIndex][e.status] += 1;
+		if (!isWithinSummaryRange(e, o)) return;
+		accumulateSummaryEntry(e, byStatus, byPair);
 	});
-	const decided = byStatus.held + byStatus.missed;
 	return {
 		byStatus,
 		byPair,
-		heldRate:
-			decided === 0
-				? null
-				: Math.round((byStatus.held / decided) * 1000) / 1000,
+		heldRate: computeHeldRate(byStatus),
 	};
 }
 
@@ -2992,11 +3027,15 @@ function buildLastHeldMap(entries) {
 	return last;
 }
 
+function resolveStalePairIndex(pair, pairIndex) {
+	if (isPlainObject(pair) && Number.isInteger(pair.pairIndex)) {
+		return pair.pairIndex;
+	}
+	return pairIndex;
+}
+
 function evaluatePairStaleness(pair, pairIndex, last, ctx) {
-	const idx =
-		isPlainObject(pair) && Number.isInteger(pair.pairIndex)
-			? pair.pairIndex
-			: pairIndex;
+	const idx = resolveStalePairIndex(pair, pairIndex);
 	const lastHeld = last.get(idx) || null;
 	const ref = lastHeld || ctx.since;
 	if (ref === null) return null;
@@ -3198,7 +3237,7 @@ function computePairReport(pIdx, cleanRecords, target) {
 	const state = {
 		heldSessions: 0,
 		totalHours: 0,
-		statusCounts: { held: 0, missed: 0, postponed: 0, cancelled: 0 },
+		statusCounts: emptyStatusCounts(),
 		coveredAiTopicsSet: new Set(),
 	};
 
@@ -3206,8 +3245,7 @@ function computePairReport(pIdx, cleanRecords, target) {
 		processPairRecordForReport(r, pIdx, state);
 	}
 
-	const completionPercent =
-		target > 0 ? Math.round((state.totalHours / target) * 100) : 0;
+	const completionPercent = computeCompletionPercent(state.totalHours, target);
 
 	return {
 		pairReport: Object.freeze({
@@ -3239,28 +3277,49 @@ function computePairReport(pIdx, cleanRecords, target) {
  * @param {number} targetHours Target scholarship hours (default 30)
  * @returns {Object} Report containing pairs list, byPair lookup, and summary
  */
+function resolveScholarshipTarget(targetHours) {
+	if (typeof targetHours !== "number") return 30;
+	if (!Number.isFinite(targetHours)) return 30;
+	if (targetHours > 0) return targetHours;
+	return 30;
+}
+
+function createScholarshipTotals() {
+	return {
+		heldSessions: 0,
+		totalHours: 0,
+		statusCounts: emptyStatusCounts(),
+		aiTopics: new Set(),
+	};
+}
+
+function mergePairMetrics(totals, metrics) {
+	totals.heldSessions += metrics.heldSessions;
+	totals.totalHours += metrics.totalHours;
+	for (const st of Object.keys(totals.statusCounts)) {
+		totals.statusCounts[st] += metrics.statusCounts[st];
+	}
+	for (const top of metrics.coveredAiTopics) {
+		totals.aiTopics.add(top);
+	}
+}
+
+function computeCompletionPercent(totalHours, expectedTotalHours) {
+	if (expectedTotalHours > 0) {
+		return Math.round((totalHours / expectedTotalHours) * 100);
+	}
+	return 0;
+}
+
 function buildScholarshipReport(records, pairs, targetHours) {
-	const target =
-		typeof targetHours === "number" &&
-		Number.isFinite(targetHours) &&
-		targetHours > 0
-			? targetHours
-			: 30;
+	const target = resolveScholarshipTarget(targetHours);
 
 	const cleanRecords = getCleanAttendanceRecords(records);
 	const sortedPairIndexes = collectPairIndexes(cleanRecords, pairs);
 
 	const pairReports = [];
 	const byPair = {};
-	let overallHeldSessions = 0;
-	let overallTotalHours = 0;
-	const overallStatusCounts = {
-		held: 0,
-		missed: 0,
-		postponed: 0,
-		cancelled: 0,
-	};
-	const overallAiTopics = new Set();
+	const totals = createScholarshipTotals();
 
 	for (const pIdx of sortedPairIndexes) {
 		const { pairReport, metrics } = computePairReport(
@@ -3270,23 +3329,20 @@ function buildScholarshipReport(records, pairs, targetHours) {
 		);
 		pairReports.push(pairReport);
 		byPair[pIdx] = pairReport;
-
-		overallHeldSessions += metrics.heldSessions;
-		overallTotalHours += metrics.totalHours;
-		for (const st of Object.keys(overallStatusCounts)) {
-			overallStatusCounts[st] += metrics.statusCounts[st];
-		}
-		for (const top of metrics.coveredAiTopics) {
-			overallAiTopics.add(top);
-		}
+		mergePairMetrics(totals, metrics);
 	}
+
+	const overallHeldSessions = totals.heldSessions;
+	const overallTotalHours = totals.totalHours;
+	const overallStatusCounts = totals.statusCounts;
+	const overallAiTopics = totals.aiTopics;
 
 	const totalPairs = sortedPairIndexes.length;
 	const expectedTotalHours = totalPairs * target;
-	const overallCompletionPercent =
-		expectedTotalHours > 0
-			? Math.round((overallTotalHours / expectedTotalHours) * 100)
-			: 0;
+	const overallCompletionPercent = computeCompletionPercent(
+		overallTotalHours,
+		expectedTotalHours,
+	);
 
 	const summary = Object.freeze({
 		totalPairs,
@@ -3568,17 +3624,14 @@ function getSummaryQualityScore(summary) {
 	if (typeof res === "object") return res;
 
 	const score = Math.max(1, Math.min(100, res));
-	let rating = "low";
-	let labelHe = "בסיסי";
-	if (score >= 80) {
-		rating = "high";
-		labelHe = "מצוין";
-	} else if (score >= 45) {
-		rating = "medium";
-		labelHe = "טוב";
-	}
-
+	const { rating, labelHe } = ratingForScore(score);
 	return { score, rating, labelHe };
+}
+
+function ratingForScore(score) {
+	if (score >= 80) return { rating: "high", labelHe: "מצוין" };
+	if (score >= 45) return { rating: "medium", labelHe: "טוב" };
+	return { rating: "low", labelHe: "בסיסי" };
 }
 
 const summaryCardMeta = Object.freeze({
@@ -3644,28 +3697,31 @@ function matchesQuery(item, q) {
 	return parts.join(" ").toLowerCase().includes(q);
 }
 
+function normalizeCriterionValue(v) {
+	return String(v).toLowerCase();
+}
+
+function toNormalizedList(v) {
+	if (Array.isArray(v)) return v.map(normalizeCriterionValue);
+	return [normalizeCriterionValue(v)];
+}
+
+function matchesArrayCriterion(itemVal, filterVal) {
+	const itemTopics = toNormalizedList(itemVal);
+	const targetTopics = toNormalizedList(filterVal);
+	return itemTopics.some((t) => targetTopics.includes(t));
+}
+
 function matchesCriterion(itemVal, filterVal, isArrayTarget = false) {
 	if (filterVal === null) return true;
 	if (itemVal == null) return false;
-
-	const normalize = (v) => String(v).toLowerCase();
-
-	if (isArrayTarget) {
-		const itemTopics = Array.isArray(itemVal)
-			? itemVal.map(normalize)
-			: [normalize(itemVal)];
-		const targetTopics = Array.isArray(filterVal)
-			? filterVal.map(normalize)
-			: [normalize(filterVal)];
-		return itemTopics.some((t) => targetTopics.includes(t));
-	}
-
+	if (isArrayTarget) return matchesArrayCriterion(itemVal, filterVal);
 	if (Array.isArray(filterVal)) {
-		const semStrings = filterVal.map(normalize);
-		return semStrings.includes(normalize(itemVal));
+		return toNormalizedList(filterVal).includes(
+			normalizeCriterionValue(itemVal),
+		);
 	}
-
-	return normalize(itemVal) === normalize(filterVal);
+	return normalizeCriterionValue(itemVal) === normalizeCriterionValue(filterVal);
 }
 
 function cleanFilterValue(val) {
@@ -3754,18 +3810,25 @@ function resolveMaxWidth(maxWidth) {
 	return trimmed.length > 0 ? trimmed : FOCUS_READER_LINE_WIDTH;
 }
 
+function resolveFocusFontSize(config) {
+	if (FOCUS_READER_FONT_SIZES.includes(config.fontSize)) return config.fontSize;
+	return "normal";
+}
+
+function resolveFocusBool(value, fallback) {
+	if (typeof value === "boolean") return value;
+	return fallback;
+}
+
 function validateFocusReaderConfig(config) {
 	if (!isPlainObject(config)) {
 		return Object.freeze({ ...DEFAULT_FOCUS_READER_CONFIG });
 	}
-	const enabled = typeof config.enabled === "boolean" ? config.enabled : false;
-	const fontSize = FOCUS_READER_FONT_SIZES.includes(config.fontSize)
-		? config.fontSize
-		: "normal";
+	const enabled = resolveFocusBool(config.enabled, false);
+	const fontSize = resolveFocusFontSize(config);
 	const maxWidth = resolveMaxWidth(config.maxWidth);
-	const rtl = typeof config.rtl === "boolean" ? config.rtl : true;
-	const inlineFormulas =
-		typeof config.inlineFormulas === "boolean" ? config.inlineFormulas : true;
+	const rtl = resolveFocusBool(config.rtl, true);
+	const inlineFormulas = resolveFocusBool(config.inlineFormulas, true);
 
 	return Object.freeze({
 		enabled,
@@ -3925,19 +3988,29 @@ function getDropoutRiskReason(heldCount, minHeld, streak, ...rest) {
 	return formatRiskReasonHe(heldCount, minHeld, streak);
 }
 
+function resolveMinHeldCount(options) {
+	let rawMin = 2;
+	if (typeof options === "number") {
+		rawMin = options;
+	} else if (options && typeof options.minHeldCount === "number") {
+		rawMin = options.minHeldCount;
+	}
+	if (Number.isFinite(rawMin)) return rawMin;
+	return 2;
+}
+
+function resolveDropoutLang(options) {
+	if (!options) return "he";
+	if (options.lang === "ar") return "ar";
+	if (options.lang === "ru") return "ru";
+	return "he";
+}
+
 function resolveDropoutOptions(options) {
-	const rawMin =
-		typeof options === "number"
-			? options
-			: options && typeof options.minHeldCount === "number"
-				? options.minHeldCount
-				: 2;
-	const minHeld = Number.isFinite(rawMin) ? rawMin : 2;
-	const lang =
-		options && (options.lang === "ar" || options.lang === "ru")
-			? options.lang
-			: "he";
-	return { minHeld, lang };
+	return {
+		minHeld: resolveMinHeldCount(options),
+		lang: resolveDropoutLang(options),
+	};
 }
 
 function collectDropoutPairIndexes(cleanRecords, pairs) {
