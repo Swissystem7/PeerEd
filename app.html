@@ -348,6 +348,14 @@
       </div>
       <div id="availabilityHeatmapOut" role="region" aria-live="polite" aria-label="מפת פערי זמינות שבועית" hidden></div>
     </div>
+    <div class="card" id="backupMatchesPanel">
+      <h2 id="backupMatchesTitle">הצעות גיבוי קרובות והזזת שעה</h2>
+      <p class="hint" id="backupMatchesHint">איתור מועמדי גיבוי עם פער קל (שעה אחת, רמה סמוכה או נושא AI חלקי) והמלצה על הזזת שעה שתאפשר חפיפה.</p>
+      <div class="actions">
+        <button type="button" class="ghost" id="toggleBackupMatchesBtn" aria-expanded="false" aria-describedby="match2Status">הצג הצעות גיבוי</button>
+      </div>
+      <div id="backupMatchesOut" role="region" aria-live="polite" aria-label="הצעות גיבוי קרובות" hidden></div>
+    </div>
     <div class="card">
       <h2>לוח וקיבולת</h2>
       <p class="hint">בונה לוח מהזוגות של השידוך המתקדם, בודק התנגשויות, מציע עד 3 חלופות, ומתריע כשיש יותר ביקוש מהיצע.</p>
@@ -2152,6 +2160,288 @@ function matchSummaryCsv(m, people) {
   return lines.join('\n') + '\n';
 }
 
+const DAY_LABELS = Object.freeze({
+  he: Object.freeze({ SUN: 'יום ראשון', MON: 'יום שני', TUE: 'יום שלישי', WED: 'יום רביעי', THU: 'יום חמישי', FRI: 'יום שישי', SAT: 'יום שבת' }),
+  ar: Object.freeze({ SUN: 'الأحد', MON: 'الاثنين', TUE: 'الثلاثاء', WED: 'الأربعاء', THU: 'الخميس', FRI: 'الجمعة', SAT: 'السبت' }),
+  ru: Object.freeze({ SUN: 'Воскресенье', MON: 'Понедельник', TUE: 'Вторник', WED: 'Среда', THU: 'Четверг', FRI: 'Пятница', SAT: 'Суббота' })
+});
+
+const GAP_REASON_LABELS = Object.freeze({
+  missing_one_slot: Object.freeze({
+    he: 'פער של שעה אחת בלוח הזמנים',
+    ar: 'فارق ساعة واحدة في الجدول الزمني',
+    ru: 'Разница в один час в расписании'
+  }),
+  adjacent_level: Object.freeze({
+    he: 'התאמת רמה קרובה (רמה סמוכה)',
+    ar: 'مستوى دراسي متقارب (مستوى مجاور)',
+    ru: 'Близкий уровень обучения (соседний уровень)'
+  }),
+  partial_ai_topic: Object.freeze({
+    he: 'חפיפה חלקית בנושאי בינה מלאכותית',
+    ar: 'تطابق جزئي في موضوعات الذكاء الاصطناعي',
+    ru: 'Частичное совпадение тем ИИ'
+  })
+});
+
+const AI_TOPIC_RE = /^[A-Z0-9_]+$/;
+
+function extractValidSlots(p) {
+  if (!p) return [];
+  const raw = Array.isArray(p) ? p : (p && Array.isArray(p.availability) ? p.availability : []);
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const s = normalizeSlot(raw[i]);
+    if (s !== null && !seen.has(s)) {
+      seen.add(s);
+      const m = /^([A-Z]{3})_(\d{1,2})$/.exec(s);
+      if (m) {
+        out.push({ day: m[1], hour: Number(m[2]), slot: s });
+      }
+    }
+  }
+  return out;
+}
+
+function getCleanTopics(x) {
+  const raw = Array.isArray(x)
+    ? x
+    : (x && Array.isArray(x.target_ai_topics)
+      ? x.target_ai_topics
+      : (x && Array.isArray(x.aiTopics)
+        ? x.aiTopics
+        : (x && Array.isArray(x.topics) ? x.topics : [])));
+  return raw.filter((v) => typeof v === 'string' && AI_TOPIC_RE.test(v));
+}
+
+function getLevel(x) {
+  const n = x && x.level;
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+// suggestScheduleShift(personA, personB):
+// Calculates the closest hour shift on schedule that enables overlap, with zero PII.
+function suggestScheduleShift(personA, personB) {
+  const slotsA = extractValidSlots(personA);
+  const slotsB = extractValidSlots(personB);
+  if (slotsA.length === 0 || slotsB.length === 0) {
+    return null;
+  }
+
+  let best = null;
+  for (let i = 0; i < slotsA.length; i += 1) {
+    const a = slotsA[i];
+    for (let j = 0; j < slotsB.length; j += 1) {
+      const b = slotsB[j];
+      if (a.day === b.day) {
+        const diff = Math.abs(a.hour - b.hour);
+        if (best === null || diff < best.shiftHours || (diff === best.shiftHours && a.slot < best.slotA)) {
+          best = {
+            shiftHours: diff,
+            day: a.day,
+            slotA: a.slot,
+            slotB: b.slot,
+            fromSlot: a.slot,
+            toSlot: b.slot,
+            targetSlot: b.slot,
+            suggestedSlot: b.slot,
+            hourA: a.hour,
+            hourB: b.hour
+          };
+        }
+      }
+    }
+  }
+
+  if (!best) {
+    return null;
+  }
+
+  const d = best.day;
+  const dayHe = (DAY_LABELS.he && DAY_LABELS.he[d]) || d;
+  const dayAr = (DAY_LABELS.ar && DAY_LABELS.ar[d]) || d;
+  const dayRu = (DAY_LABELS.ru && DAY_LABELS.ru[d]) || d;
+
+  let textHe;
+  let textAr;
+  let textRu;
+
+  if (best.shiftHours === 0) {
+    textHe = `יש חפיפת שעות ב-${dayHe} (${best.slotA})`;
+    textAr = `يوجد تداخل ساعات في ${dayAr} (${best.slotA})`;
+    textRu = `Есть совпадение часов в ${dayRu} (${best.slotA})`;
+  } else if (best.shiftHours === 1) {
+    textHe = `הזזה מומלצת: שעה אחת ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`;
+    textAr = `الإزاحة المقترحة: ساعة واحدة في ${dayAr} نحو التوافق في ${best.targetSlot}`;
+    textRu = `Рекомендуемый сдвиг: 1 час в ${dayRu} для совпадения в ${best.targetSlot}`;
+  } else {
+    textHe = `הזזה מומלצת: ${best.shiftHours} שעות ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`;
+    textAr = `الإزاحة المقترحة: ${best.shiftHours} ساعات في ${dayAr} نحو التوافق في ${best.targetSlot}`;
+    textRu = `Рекомендуемый сдвиг: ${best.shiftHours} ч. в ${dayRu} для совпадения в ${best.targetSlot}`;
+  }
+
+  return Object.freeze({
+    shiftHours: best.shiftHours,
+    day: best.day,
+    slotA: best.slotA,
+    slotB: best.slotB,
+    fromSlot: best.fromSlot,
+    toSlot: best.toSlot,
+    targetSlot: best.targetSlot,
+    suggestedSlot: best.suggestedSlot,
+    hourA: best.hourA,
+    hourB: best.hourB,
+    explanation: Object.freeze({
+      he: textHe,
+      ar: textAr,
+      ru: textRu
+    })
+  });
+}
+
+// findNearMissCandidates(person, candidates, options):
+// Finds near-miss backup candidates with explicit gap reasons ('missing_one_slot', 'adjacent_level', 'partial_ai_topic').
+function findNearMissCandidates(person, candidates, options) {
+  if (!person || typeof person !== 'object' || !Array.isArray(candidates) || candidates.length === 0) {
+    return [];
+  }
+  const opts = options || {};
+
+  // A pupil must have parent consent
+  if (person.role === 'pupil' && !hasParentConsent(person)) {
+    return [];
+  }
+
+  const pSubjects = Array.isArray(person.subjects) ? person.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [];
+  const pSlots = extractValidSlots(person).map((s) => s.slot);
+  const pTopics = getCleanTopics(person);
+  const pLevel = getLevel(person);
+
+  const results = [];
+
+  for (let idx = 0; idx < candidates.length; idx += 1) {
+    const raw = candidates[idx];
+    if (!raw || typeof raw !== 'object') continue;
+    const c = raw.person || raw;
+    const cIdx = Number.isInteger(raw.index) ? raw.index : idx;
+
+    if (person.role && c.role && person.role === c.role && !opts.allowSameRole) {
+      continue;
+    }
+
+    if (c.role === 'pupil' && !hasParentConsent(c)) {
+      continue;
+    }
+
+    if (opts.requireSameRegion && person.region && c.region && person.region !== c.region) {
+      continue;
+    }
+
+    const cSubjects = Array.isArray(c.subjects) ? c.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [];
+    const cSlots = extractValidSlots(c).map((s) => s.slot);
+    const cTopics = getCleanTopics(c);
+    const cLevel = getLevel(c);
+
+    const sharedSubs = shared(pSubjects, cSubjects);
+    const sharedSl = shared(pSlots, cSlots);
+    const sharedTop = shared(pTopics, cTopics);
+
+    const hasSubjectOrTopic = sharedSubs.length > 0 || sharedTop.length > 0;
+    if (!hasSubjectOrTopic) {
+      continue;
+    }
+
+    const shift = suggestScheduleShift(person, c);
+    const reasons = [];
+
+    // Reason 1: missing_one_slot
+    if (sharedSl.length === 0 && shift && shift.shiftHours === 1) {
+      reasons.push('missing_one_slot');
+    }
+
+    // Reason 2: adjacent_level
+    if (pLevel !== null && cLevel !== null && Math.abs(pLevel - cLevel) === 1) {
+      reasons.push('adjacent_level');
+    } else if (pLevel === null && cLevel === null && person.aiLevel && c.aiLevel && person.aiLevel !== c.aiLevel) {
+      reasons.push('adjacent_level');
+    }
+
+    // Reason 3: partial_ai_topic
+    if (pTopics.length > 0 && cTopics.length > 0 && sharedTop.length > 0 &&
+        (sharedTop.length < pTopics.length || sharedTop.length < cTopics.length)) {
+      reasons.push('partial_ai_topic');
+    }
+
+    if (reasons.length === 0) {
+      continue;
+    }
+
+    if (opts.reason && !reasons.includes(opts.reason)) {
+      continue;
+    }
+
+    const primaryReason = reasons[0];
+    const reasonExplHe = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].he) || primaryReason;
+    const reasonExplAr = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].ar) || primaryReason;
+    const reasonExplRu = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].ru) || primaryReason;
+
+    const candidateSummary = Object.freeze({
+      index: cIdx,
+      candidateIndex: cIdx,
+      role: c.role || null,
+      region: c.region || null,
+      subjects: Object.freeze(cSubjects.slice()),
+      availability: Object.freeze(cSlots.slice()),
+      level: cLevel,
+      aiLevel: c.aiLevel || null,
+      target_ai_topics: Object.freeze(cTopics.slice())
+    });
+
+    const item = {
+      index: cIdx,
+      candidateIndex: cIdx,
+      candidate: candidateSummary,
+      role: c.role || null,
+      region: c.region || null,
+      subjects: Object.freeze(cSubjects.slice()),
+      availability: Object.freeze(cSlots.slice()),
+      level: cLevel,
+      aiLevel: c.aiLevel || null,
+      target_ai_topics: Object.freeze(cTopics.slice()),
+      reason: primaryReason,
+      gapReason: primaryReason,
+      reasons: Object.freeze(reasons.slice()),
+      sharedSubjects: Object.freeze(sharedSubs),
+      sharedSlots: Object.freeze(sharedSl),
+      sharedAiTopics: Object.freeze(sharedTop),
+      shift: shift,
+      suggestedShift: shift,
+      explanation: Object.freeze({
+        he: reasonExplHe,
+        ar: reasonExplAr,
+        ru: reasonExplRu
+      })
+    };
+    results.push(Object.freeze(item));
+  }
+
+  results.sort((x, y) => {
+    const shiftX = (x.suggestedShift && x.suggestedShift.shiftHours !== null) ? x.suggestedShift.shiftHours : 999;
+    const shiftY = (y.suggestedShift && y.suggestedShift.shiftHours !== null) ? y.suggestedShift.shiftHours : 999;
+    return (shiftX - shiftY) ||
+      (y.sharedSubjects.length - x.sharedSubjects.length) ||
+      (y.sharedAiTopics.length - x.sharedAiTopics.length) ||
+      (x.candidateIndex - y.candidateIndex);
+  });
+
+  if (Number.isInteger(opts.limit) && opts.limit > 0) {
+    return results.slice(0, opts.limit);
+  }
+
+  return results;
+}
+
 module.exports = {
   matchPairs,
   explainUnmatched,
@@ -2162,7 +2452,9 @@ module.exports = {
   makeMatchRecord,
   summarizeMatch,
   matchSummaryCsv,
-  MATCH_REPORT_HEADER
+  MATCH_REPORT_HEADER,
+  findNearMissCandidates,
+  suggestScheduleShift
 };
   __registry["match"] = module.exports;
 })();
@@ -2177,7 +2469,7 @@ module.exports = {
 // Extended profile fields (level, languages, preferredSubjects) are read here only; makeProfile's
 // privacy gate is untouched and a pupil still needs parentConsent === true to be paired at all.
 
-const { shared, hasParentConsent } = require('./match.js');
+const { shared, hasParentConsent, findNearMissCandidates, suggestScheduleShift } = require('./match.js');
 const { isRegion } = require('./regions.js');
 const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS, computeWeeklyAvailabilityHeatmap } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
@@ -2461,7 +2753,7 @@ function detectScheduleConflicts(lockedPairs, candidatePair) {
   });
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts, computeWeeklyAvailabilityHeatmap };
+module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts, computeWeeklyAvailabilityHeatmap, findNearMissCandidates, suggestScheduleShift };
   __registry["match2"] = module.exports;
 })();
 
@@ -12285,6 +12577,145 @@ module.exports = {
   }
   refreshAvailabilityHeatmapBtnLabel();
 
+  var BACKUP_MATCHES_LABELS = Object.freeze({
+    title: Object.freeze({
+      he: 'הצעות גיבוי קרובות והזזת שעה',
+      ar: 'مقترحات الاحتياط القريبة وإزاحة الساعات',
+      ru: 'Близкие резервные предложения и сдвиг времени'
+    }),
+    hint: Object.freeze({
+      he: 'איתור מועמדי גיבוי עם פער קל (שעה אחת, רמה סמוכה או נושא AI חלקי) והמלצה על הזזת שעה שתאפשר חפיפה.',
+      ar: 'تحديد المرشحين الاحتياطيين بفارق بسيط (ساعة واحدة، مستوى مجاور أو موضوع ذكاء اصطناعي جزئي) وتوصية بإزاحة الساعة لتمكين التوافق.',
+      ru: 'Поиск резервных кандидатов с небольшим разрывом (один час, соседний уровень или частичная тема ИИ) и рекомендация по сдвигу времени для совпадения.'
+    }),
+    toggleShow: Object.freeze({
+      he: 'הצג הצעות גיבוי',
+      ar: 'عرض مقترحات الاحتياط',
+      ru: 'Показать резервные предложения'
+    }),
+    toggleHide: Object.freeze({
+      he: 'הסתר הצעות גיבוי',
+      ar: 'إخفاء مقترحات الاحتياط',
+      ru: 'Скрыть резервные предложения'
+    }),
+    empty: Object.freeze({
+      he: 'לא נמצאו הצעות גיבוי קרובות.',
+      ar: 'لم يتم العثور على مقترحات احتياطية قريبة.',
+      ru: 'Близких резервных предложений не найдено.'
+    }),
+    studentLabel: Object.freeze({
+      he: 'סטודנט',
+      ar: 'طالب',
+      ru: 'Студент'
+    }),
+    pupilLabel: Object.freeze({
+      he: 'תלמיד',
+      ar: 'تلميذ',
+      ru: 'Ученик'
+    })
+  });
+
+  function refreshBackupMatchesBtnLabel() {
+    var btn = $('toggleBackupMatchesBtn');
+    if (!btn) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var isExpanded = btn.getAttribute('aria-expanded') === 'true';
+    var labelKey = isExpanded ? 'toggleHide' : 'toggleShow';
+    btn.textContent = (BACKUP_MATCHES_LABELS[labelKey] && BACKUP_MATCHES_LABELS[labelKey][lang]) ||
+      BACKUP_MATCHES_LABELS[labelKey].he;
+    if ($('backupMatchesTitle')) {
+      $('backupMatchesTitle').textContent = (BACKUP_MATCHES_LABELS.title[lang] || BACKUP_MATCHES_LABELS.title.he);
+    }
+    if ($('backupMatchesHint')) {
+      $('backupMatchesHint').textContent = (BACKUP_MATCHES_LABELS.hint[lang] || BACKUP_MATCHES_LABELS.hint.he);
+    }
+  }
+
+  function renderBackupMatches() {
+    var out = $('backupMatchesOut');
+    if (!out) return;
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var r = rosterSplit();
+    var students = (r && Array.isArray(r.students)) ? r.students : [];
+    var pupils = (r && Array.isArray(r.pupils)) ? r.pupils : [];
+
+    var html = [];
+    var foundAny = false;
+
+    for (var pi = 0; pi < pupils.length; pi += 1) {
+      var p = pupils[pi];
+      if (!p || !match.hasParentConsent(p)) continue;
+      var candidatePool = students.map(function (s, si) {
+        return Object.assign({}, s, { index: si });
+      });
+      var nearCandidates = match2Lib.findNearMissCandidates(p, candidatePool);
+
+      if (nearCandidates && nearCandidates.length > 0) {
+        for (var ci = 0; ci < nearCandidates.length; ci += 1) {
+          foundAny = true;
+          var cand = nearCandidates[ci];
+          var studentIdx = cand.candidateIndex;
+          var shift = cand.suggestedShift || match2Lib.suggestScheduleShift(students[studentIdx], p);
+          var reasonExpl = (cand.explanation && cand.explanation[lang]) || cand.reason;
+          var shiftExpl = shift && shift.explanation ? (shift.explanation[lang] || shift.explanation.he) : '';
+
+          var sName = (BACKUP_MATCHES_LABELS.studentLabel[lang] || 'סטודנט') + ' ' + (studentIdx + 1);
+          var pName = (BACKUP_MATCHES_LABELS.pupilLabel[lang] || 'תלמיד') + ' ' + (pi + 1);
+
+          html.push('<div class="item backup-candidate-card" data-student-index="' + studentIdx + '" data-pupil-index="' + pi + '" data-reason="' + esc(cand.reason) + '">');
+          html.push('<b>' + esc(sName) + ' ↔ ' + esc(pName) + '</b><br>');
+          html.push('<span class="pill backup-reason backup-reason-' + esc(cand.reason) + '">' + esc(reasonExpl) + '</span>');
+          if (shiftExpl) {
+            html.push('<div class="backup-shift-recommendation meta" data-shift-hours="' + (shift ? shift.shiftHours : '') + '">' + esc(shiftExpl) + '</div>');
+          }
+          if (cand.sharedSubjects && cand.sharedSubjects.length) {
+            html.push('<div class="meta">' + esc(cand.sharedSubjects.join(', ')) + '</div>');
+          }
+          html.push('</div>');
+        }
+      }
+    }
+
+    if (!foundAny) {
+      html.push('<p class="empty backup-matches-empty">' + esc(BACKUP_MATCHES_LABELS.empty[lang] || BACKUP_MATCHES_LABELS.empty.he) + '</p>');
+    }
+
+    out.innerHTML = html.join('');
+  }
+
+  function toggleBackupMatches() {
+    var btn = $('toggleBackupMatchesBtn');
+    var out = $('backupMatchesOut');
+    if (!btn || !out) return;
+    var isExpanded = btn.getAttribute('aria-expanded') === 'true';
+    var nextState = !isExpanded;
+    btn.setAttribute('aria-expanded', nextState ? 'true' : 'false');
+    out.hidden = !nextState;
+    if (nextState) {
+      if (out.removeAttribute) out.removeAttribute('hidden');
+      if (out.style) out.style.display = 'block';
+      renderBackupMatches();
+    } else {
+      if (out.setAttribute) out.setAttribute('hidden', '');
+      if (out.style) out.style.display = 'none';
+    }
+    refreshBackupMatchesBtnLabel();
+  }
+
+  function refreshBackupMatchesI18n() {
+    refreshBackupMatchesBtnLabel();
+    var out = $('backupMatchesOut');
+    if (out && !out.hidden && (!out.style || out.style.display !== 'none')) {
+      renderBackupMatches();
+    }
+  }
+
+  var toggleBackupMatchesBtn = $('toggleBackupMatchesBtn');
+  if (toggleBackupMatchesBtn) {
+    toggleBackupMatchesBtn.addEventListener('click', toggleBackupMatches);
+  }
+  refreshBackupMatchesBtnLabel();
+
   $('runSchedule').addEventListener('click', function () {
     if (!lastMatch2) { say('scheduleStatus', 'קודם לחצו "חשב שידוך מתקדם".', true); return; }
     var r = rosterSplit();
@@ -12439,6 +12870,7 @@ module.exports = {
     if (typeof refreshFilterAiOnlyLabel === 'function') refreshFilterAiOnlyLabel();
     if (typeof refreshFilterMissingAiLabel === 'function') refreshFilterMissingAiLabel();
     if (typeof refreshAvailabilityHeatmapI18n === 'function') refreshAvailabilityHeatmapI18n();
+    if (typeof refreshBackupMatchesI18n === 'function') refreshBackupMatchesI18n();
     var sel = $('langSelect'); if (sel) sel.value = currentLang;
     REGION_HE = { NORTH: S('regionNORTH'), HAIFA: S('regionHAIFA'), CENTER: S('regionCENTER'), TEL_AVIV: S('regionTEL_AVIV'), JERUSALEM: S('regionJERUSALEM'), SOUTH: S('regionSOUTH') };
     SUBJECT_HE = { MATH: S('subjectMATH'), PHYSICS: S('subjectPHYSICS'), CHEMISTRY: S('subjectCHEMISTRY'), BIOLOGY: S('subjectBIOLOGY'), ENGLISH: S('subjectENGLISH'), HEBREW: S('subjectHEBREW'), HISTORY: S('subjectHISTORY'), CS: S('subjectCS'), CIVICS: S('subjectCIVICS') };
@@ -12621,6 +13053,8 @@ module.exports = {
     window.computeRegionalSupplyDemand = (attendance && attendance.computeRegionalSupplyDemand) || (storeLib && storeLib.computeRegionalSupplyDemand);
     window.renderScholarshipMilestonesBar = renderScholarshipMilestonesBar;
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
+    window.renderBackupMatches = renderBackupMatches;
+    window.toggleBackupMatches = toggleBackupMatches;
   }
 })();
 </script>

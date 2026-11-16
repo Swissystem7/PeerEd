@@ -4,7 +4,7 @@
 // Extended profile fields (level, languages, preferredSubjects) are read here only; makeProfile's
 // privacy gate is untouched and a pupil still needs parentConsent === true to be paired at all.
 
-const { shared, hasParentConsent } = require('./match.js');
+const { shared, hasParentConsent, findNearMissCandidates, suggestScheduleShift } = require('./match.js');
 const { isRegion } = require('./regions.js');
 const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS, computeWeeklyAvailabilityHeatmap } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
@@ -288,4 +288,4 @@ function detectScheduleConflicts(lockedPairs, candidatePair) {
   });
 }
 
-module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts, computeWeeklyAvailabilityHeatmap };
+module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics, DEFAULT_WEIGHTS, AI_TOPIC_WEIGHT, AI_LEVEL_WEIGHT, aiTopicOverlap, AI_TOPIC_LABELS, getWeeklyOverlapSlots, AI_LEVELS, compareMatchCandidates, detectScheduleConflicts, computeWeeklyAvailabilityHeatmap, findNearMissCandidates, suggestScheduleShift };
