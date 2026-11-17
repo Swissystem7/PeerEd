@@ -748,15 +748,7 @@ const CONFIRMATION_ALLOWED_KEYS = Object.freeze([
 	"role",
 ]);
 
-/**
- * Records an anonymous bilateral hours confirmation per pair and role.
- * Zero PII.
- *
- * @param {Array<Object>|Object} confirmations Existing confirmations
- * @param {Object} entry Confirmation entry
- * @returns {Array<Object>|Object} Updated confirmations
- */
-function recordPairHoursConfirmation(confirmations, entry) {
+function validateConfirmationEntry(entry) {
 	if (!isPlainObject(entry)) {
 		throw new Error("invalid confirmation entry: expected object");
 	}
@@ -803,33 +795,40 @@ function recordPairHoursConfirmation(confirmations, entry) {
 		throw new Error("invalid confirmation: date cannot be in the future");
 	}
 
-	const cleanRecord = Object.freeze({
+	return Object.freeze({
 		pairIndex: entry.pairIndex,
 		role: entry.role,
 		confirmedHours: entry.confirmedHours,
 		date: entry.date,
 	});
+}
 
-	const existingList = Array.isArray(confirmations)
-		? confirmations.slice()
-		: confirmations && Array.isArray(confirmations.entries)
-			? confirmations.entries.slice()
-			: [];
+function extractConfirmationList(confirmations) {
+	if (Array.isArray(confirmations)) {
+		return confirmations.slice();
+	}
+	if (confirmations && Array.isArray(confirmations.entries)) {
+		return confirmations.entries.slice();
+	}
+	return [];
+}
 
-	const existingIdx = existingList.findIndex(
-		(c) =>
-			c && c.pairIndex === cleanRecord.pairIndex && c.role === cleanRecord.role,
+function upsertConfirmationRecord(list, record) {
+	const existingIdx = list.findIndex(
+		(c) => c && c.pairIndex === record.pairIndex && c.role === record.role,
 	);
 
 	if (existingIdx !== -1) {
-		existingList[existingIdx] = cleanRecord;
+		list[existingIdx] = record;
 	} else {
-		existingList.push(cleanRecord);
+		list.push(record);
 	}
 
-	existingList.entries = existingList;
-	const frozenList = Object.freeze(existingList);
+	list.entries = list;
+	return Object.freeze(list);
+}
 
+function wrapConfirmations(confirmations, frozenList) {
 	if (
 		confirmations &&
 		isPlainObject(confirmations) &&
@@ -838,6 +837,21 @@ function recordPairHoursConfirmation(confirmations, entry) {
 		return Object.freeze({ entries: frozenList });
 	}
 	return frozenList;
+}
+
+/**
+ * Records an anonymous bilateral hours confirmation per pair and role.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} confirmations Existing confirmations
+ * @param {Object} entry Confirmation entry
+ * @returns {Array<Object>|Object} Updated confirmations
+ */
+function recordPairHoursConfirmation(confirmations, entry) {
+	const cleanRecord = validateConfirmationEntry(entry);
+	const existingList = extractConfirmationList(confirmations);
+	const frozenList = upsertConfirmationRecord(existingList, cleanRecord);
+	return wrapConfirmations(confirmations, frozenList);
 }
 
 function cleanDateParam(val) {
