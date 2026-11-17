@@ -740,6 +740,19 @@
       </div>
       <p class="status" id="impactReportStatus" role="status" aria-live="polite"></p>
     </div>
+    <div class="card" id="cycleTrendsCard">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <h2 id="cycleTrendsHeading" style="margin: 0;">מגמות רב-מחזוריות ושימור מדריכים</h2>
+        <span id="mentorRetentionBadge" class="badge" aria-live="polite">שימור מדריכים: 0%</span>
+      </div>
+      <p class="hint" id="cycleTrendsHint">ניתוח דלתות בין מחזורים ושיעור שימור חונכים ללא פרטים מזהים.</p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic cycle trends -->
+      <div id="cycleTrendsOut" role="region" aria-live="polite" aria-label="מגמות רב-מחזוריות ושימור מדריכים"></div>
+      <div class="actions" style="margin-top: 12px;">
+        <button type="button" class="act" id="refreshCycleTrendsBtn" aria-describedby="cycleTrendsStatus">רענן מגמות</button>
+      </div>
+      <p class="status" id="cycleTrendsStatus" role="status" aria-live="polite"></p>
+    </div>
   </section>
 
   <!-- ============ דוחות ============ -->
@@ -4780,7 +4793,213 @@ function updateSessionOutcome(records, pairIndex, date, patch) {
 	return Object.freeze({ entries: Object.freeze(updatedList) });
 }
 
+function extractCycleSnapshotMetrics(snap) {
+	if (!snap || typeof snap !== "object") {
+		return { people: 0, pairs: 0, hours: 0, completionRate: 0 };
+	}
+	let people = 0;
+	if (
+		typeof snap.peopleCount === "number" &&
+		Number.isFinite(snap.peopleCount)
+	) {
+		people = snap.peopleCount;
+	} else if (Array.isArray(snap.people)) {
+		people = snap.people.length;
+	}
+
+	let pairs = 0;
+	if (typeof snap.pairsCount === "number" && Number.isFinite(snap.pairsCount)) {
+		pairs = snap.pairsCount;
+	} else if (Array.isArray(snap.pairs)) {
+		pairs = snap.pairs.length;
+	}
+
+	let hours = 0;
+	if (typeof snap.totalHours === "number" && Number.isFinite(snap.totalHours)) {
+		hours = snap.totalHours;
+	} else if (typeof snap.hours === "number" && Number.isFinite(snap.hours)) {
+		hours = snap.hours;
+	}
+
+	let completionRate = 0;
+	if (
+		typeof snap.completionRate === "number" &&
+		Number.isFinite(snap.completionRate)
+	) {
+		completionRate = snap.completionRate;
+	} else if (
+		typeof snap.completionPercent === "number" &&
+		Number.isFinite(snap.completionPercent)
+	) {
+		completionRate = snap.completionPercent;
+	}
+
+	return {
+		people,
+		pairs,
+		hours: Math.round(hours * 100) / 100,
+		completionRate: Math.round(completionRate * 100) / 100,
+	};
+}
+
+function compareArchiveCycles(archives, currentSnapshot) {
+	const current = extractCycleSnapshotMetrics(currentSnapshot);
+
+	let prevSnapshot = null;
+	if (Array.isArray(archives)) {
+		if (archives.length > 0) {
+			prevSnapshot = archives[archives.length - 1];
+		}
+	} else if (archives && typeof archives === "object") {
+		prevSnapshot = archives;
+	}
+
+	if (!prevSnapshot || Object.keys(prevSnapshot).length === 0) {
+		return Object.freeze({
+			hasPrevious: false,
+			peopleDelta: 0,
+			pairsDelta: 0,
+			hoursDelta: 0,
+			completionRateDelta: 0,
+			current: Object.freeze(current),
+			previous: null,
+		});
+	}
+
+	const prev = extractCycleSnapshotMetrics(prevSnapshot);
+	const peopleDelta = current.people - prev.people;
+	const pairsDelta = current.pairs - prev.pairs;
+	const hoursDelta = Math.round((current.hours - prev.hours) * 100) / 100;
+	const completionRateDelta =
+		Math.round((current.completionRate - prev.completionRate) * 100) / 100;
+
+	return Object.freeze({
+		hasPrevious: true,
+		peopleDelta,
+		pairsDelta,
+		hoursDelta,
+		completionRateDelta,
+		current: Object.freeze(current),
+		previous: Object.freeze(prev),
+	});
+}
+
+const PII_CHECK_PATTERNS = [
+	/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
+	/05\d[- ]?\d{7}/,
+	/\b\d{9}\b/,
+];
+
+function assertZeroPiiString(val) {
+	if (typeof val !== "string") return;
+	for (const pattern of PII_CHECK_PATTERNS) {
+		if (pattern.test(val)) {
+			throw new Error(PERSONAL_DATA_ERROR);
+		}
+	}
+}
+
+function extractMentorAnonymousKey(p) {
+	if (!p || typeof p !== "object" || Array.isArray(p)) return null;
+	if (p.role && p.role === "pupil") return null;
+	if (p.role && p.role !== "student") return null;
+
+	if (typeof p.name === "string") assertZeroPiiString(p.name);
+	if (typeof p.phone === "string") assertZeroPiiString(p.phone);
+	if (typeof p.email === "string") assertZeroPiiString(p.email);
+
+	let key = null;
+	if (typeof p.id === "string" && p.id.trim()) {
+		key = p.id.trim();
+	} else if (typeof p.id === "number") {
+		key = String(p.id);
+	}
+
+	if (key) {
+		assertZeroPiiString(key);
+	}
+	return key;
+}
+
+function extractArchiveMentors(archives) {
+	const mentorKeys = new Set();
+	if (!archives) return mentorKeys;
+
+	let prevPeopleList = [];
+	if (Array.isArray(archives)) {
+		if (archives.length === 0) return mentorKeys;
+		const lastCycle = archives[archives.length - 1];
+		if (lastCycle && typeof lastCycle === "object") {
+			if (Array.isArray(lastCycle.people)) prevPeopleList = lastCycle.people;
+		}
+	} else if (typeof archives === "object") {
+		if (Array.isArray(archives.people)) prevPeopleList = archives.people;
+	}
+
+	for (const p of prevPeopleList) {
+		const k = extractMentorAnonymousKey(p);
+		if (k) mentorKeys.add(k);
+	}
+	return mentorKeys;
+}
+
+function extractCurrentMentors(currentPeople) {
+	const mentorKeys = new Set();
+	let peopleList = [];
+	if (Array.isArray(currentPeople)) {
+		peopleList = currentPeople;
+	} else if (currentPeople && typeof currentPeople === "object") {
+		if (Array.isArray(currentPeople.people)) peopleList = currentPeople.people;
+	}
+
+	for (const p of peopleList) {
+		const k = extractMentorAnonymousKey(p);
+		if (k) mentorKeys.add(k);
+	}
+	return mentorKeys;
+}
+
+function computeMentorRetentionStats(archives, currentPeople) {
+	const prevKeys = extractArchiveMentors(archives);
+	const currKeys = extractCurrentMentors(currentPeople);
+
+	const previousMentorsCount = prevKeys.size;
+	const currentMentorsCount = currKeys.size;
+
+	const retainedMentorKeys = [];
+	for (const k of currKeys) {
+		if (prevKeys.has(k)) {
+			retainedMentorKeys.push(k);
+		}
+	}
+	retainedMentorKeys.sort();
+
+	const retainedCount = retainedMentorKeys.length;
+	const newMentorsCount = Math.max(0, currentMentorsCount - retainedCount);
+	const retentionRate =
+		previousMentorsCount > 0
+			? Math.round((retainedCount / previousMentorsCount) * 100)
+			: 0;
+	const retentionRatio =
+		previousMentorsCount > 0
+			? Math.round((retainedCount / previousMentorsCount) * 10000) / 10000
+			: 0;
+
+	return Object.freeze({
+		previousMentorsCount,
+		currentMentorsCount,
+		retainedCount,
+		newMentorsCount,
+		retentionRate,
+		retentionPercent: retentionRate,
+		retentionRatio,
+		retainedMentorKeys: Object.freeze(retainedMentorKeys),
+	});
+}
+
 module.exports = {
+	compareArchiveCycles,
+	computeMentorRetentionStats,
 	filterAttendanceByDateRange,
 	exportScholarshipCsv,
 	filterAttendanceRecords,
@@ -7889,6 +8108,8 @@ const {
 	deserializeAttendance,
 	computeRegionalSupplyDemand,
 	detectInactivePairs,
+	compareArchiveCycles,
+	computeMentorRetentionStats,
 } = require("./attendance.js");
 
 const SCHEMA = "peered/1";
@@ -8488,6 +8709,8 @@ module.exports = {
 	commitPilotCsvBatch: require("./validator.js").commitPilotCsvBatch,
 	computeRegionalSupplyDemand,
 	buildImpactOverviewReport,
+	compareArchiveCycles,
+	computeMentorRetentionStats,
 	filterParticipantsByAITopic
 };
   __registry["store"] = module.exports;
@@ -9411,6 +9634,7 @@ module.exports = {
       updateAiFilterCount(0, 0);
       renderAITopicsSummary();
       if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
+      if (typeof renderCycleTrends === 'function') renderCycleTrends();
       return;
     }
     const missingAiActive = $('btn-filter-missing-ai')?.getAttribute('aria-pressed') === 'true';
@@ -9434,6 +9658,7 @@ module.exports = {
       updateAiFilterCount(0, state.people.length);
       renderAITopicsSummary();
       if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
+      if (typeof renderCycleTrends === 'function') renderCycleTrends();
       return;
     }
     setAiFilterEmptyMessage(false);
@@ -9459,6 +9684,7 @@ module.exports = {
     updateAiFilterCount(rows.length, state.people.length);
     renderAITopicsSummary();
     if (typeof renderRegionalBalance === 'function') renderRegionalBalance();
+    if (typeof renderCycleTrends === 'function') renderCycleTrends();
   }
 
   const peopleAiFilterEl = $('peopleAiFilter');
@@ -12474,6 +12700,167 @@ module.exports = {
     });
   }
 
+  // ---------- Cycle Trends & Mentor Retention Module (#tab-guide) ----------
+  var S_CYCLE_TRENDS_HEADING = {
+    he: 'מגמות רב-מחזוריות ושימור מדריכים',
+    ar: 'اتجاهات الدورات المتعددة واستبقاء المرشدين',
+    ru: 'Многоцикловые тренды и удержание наставников'
+  };
+  var S_CYCLE_TRENDS_HINT = {
+    he: 'ניתוח דלתות בין מחזורים ושיעור שימור חונכים ללא פרטים מזהים.',
+    ar: 'تحليل الفروق بين الدورات ومعدل استبقاء المرشدين بدون بيانات شخصية.',
+    ru: 'Анализ изменений между циклами и показатель удержания наставников без PII.'
+  };
+  var S_REFRESH_CYCLE_TRENDS = {
+    he: 'רענן מגמות',
+    ar: 'تحديث الاتجاهات',
+    ru: 'Обновить тренды'
+  };
+  var S_CYCLE_TRENDS_STATUS = {
+    he: 'נתוני המגמות והשימור עודכנו בהצלחה',
+    ar: 'تم تحديث بيانات الاتجاهات والاستبقاء بنجاح',
+    ru: 'Данные трендов и удержания успешно обновлены'
+  };
+  var S_RETENTION_BADGE_LABEL = {
+    he: 'שימור מדריכים',
+    ar: 'استبقاء المرشدين',
+    ru: 'Удержание наставников'
+  };
+  var S_NO_PREVIOUS_ARCHIVES = {
+    he: 'אין נתוני מחזורים קודמים להשוואה (מחזור בסיס ראשון)',
+    ar: 'لا توجد بيانات دورات سابقة للمقارنة (الدورة التأسيسية الأولى)',
+    ru: 'Нет данных предыдущих циклов для сравнения (первый базовый цикл)'
+  };
+  var S_TREND_METRICS = {
+    peopleDelta: {
+      he: 'דלתא משתתפים',
+      ar: 'فرق المشاركين',
+      ru: 'Дельта участников'
+    },
+    pairsDelta: {
+      he: 'דלתא זוגות',
+      ar: 'فرق الأزواج',
+      ru: 'Дельта пар'
+    },
+    hoursDelta: {
+      he: 'דלתא שעות חונכות',
+      ar: 'فرق ساعات الإرشاد',
+      ru: 'Дельта часов'
+    },
+    completionRateDelta: {
+      he: 'דלתא שיעור השלמה',
+      ar: 'فرق معدل الإكمال',
+      ru: 'Дельта процента завершения'
+    },
+    retentionRate: {
+      he: 'שיעור שימור מדריכים',
+      ar: 'معدل استبقاء المرشدين',
+      ru: 'Показатель удержания наставников'
+    }
+  };
+
+  function renderCycleTrends(customArchives, customSnapshot) {
+    var out = $('cycleTrendsOut');
+    var badge = $('mentorRetentionBadge');
+    if (!out) return;
+
+    var s = (typeof window !== 'undefined' && window.state) ? window.state : state;
+    var cardEl = $('cycleTrendsCard');
+    var archives = customArchives !== undefined
+      ? customArchives
+      : ((cardEl && cardEl.archives) || (s && s.archives) || (typeof window !== 'undefined' && window.archives) || []);
+    var snapshot = customSnapshot !== undefined
+      ? customSnapshot
+      : ((cardEl && cardEl.currentSnapshot) || s || {});
+
+    var compareFn = (attendance && typeof attendance.compareArchiveCycles === 'function')
+      ? attendance.compareArchiveCycles
+      : (storeLib && typeof storeLib.compareArchiveCycles === 'function' ? storeLib.compareArchiveCycles : null);
+
+    var retentionFn = (attendance && typeof attendance.computeMentorRetentionStats === 'function')
+      ? attendance.computeMentorRetentionStats
+      : (storeLib && typeof storeLib.computeMentorRetentionStats === 'function' ? storeLib.computeMentorRetentionStats : null);
+
+    var comparison = compareFn
+      ? compareFn(archives, snapshot)
+      : { peopleDelta: 0, pairsDelta: 0, hoursDelta: 0, completionRateDelta: 0, hasPrevious: false };
+
+    var peopleList = Array.isArray(snapshot.people) ? snapshot.people : [];
+    var retentionStats = retentionFn
+      ? retentionFn(archives, peopleList)
+      : { previousMentorsCount: 0, currentMentorsCount: 0, retainedCount: 0, retentionRate: 0 };
+
+    var lang = currentLang || 'he';
+    var heading = $('cycleTrendsHeading');
+    if (heading) heading.textContent = S_CYCLE_TRENDS_HEADING[lang] || S_CYCLE_TRENDS_HEADING.he;
+    var hint = $('cycleTrendsHint');
+    if (hint) hint.textContent = S_CYCLE_TRENDS_HINT[lang] || S_CYCLE_TRENDS_HINT.he;
+    var btn = $('refreshCycleTrendsBtn');
+    if (btn) btn.textContent = S_REFRESH_CYCLE_TRENDS[lang] || S_REFRESH_CYCLE_TRENDS.he;
+
+    var badgePrefix = S_RETENTION_BADGE_LABEL[lang] || S_RETENTION_BADGE_LABEL.he;
+    var badgeText = badgePrefix + ': ' + (retentionStats.retentionRate || 0) + '%';
+    if (badge) {
+      badge.textContent = badgeText;
+      badge.setAttribute('data-rate', String(retentionStats.retentionRate || 0));
+      badge.setAttribute('data-retained', String(retentionStats.retainedCount || 0));
+      badge.setAttribute('data-prev-count', String(retentionStats.previousMentorsCount || 0));
+    }
+
+    out.setAttribute('aria-label', S_CYCLE_TRENDS_HEADING[lang] || S_CYCLE_TRENDS_HEADING.he);
+    out.setAttribute('data-people-delta', String(comparison.peopleDelta));
+    out.setAttribute('data-pairs-delta', String(comparison.pairsDelta));
+    out.setAttribute('data-hours-delta', String(comparison.hoursDelta));
+    out.setAttribute('data-completion-delta', String(comparison.completionRateDelta));
+    out.setAttribute('data-retention-rate', String(retentionStats.retentionRate || 0));
+    out.setAttribute('data-has-previous', String(Boolean(comparison.hasPrevious)));
+
+    function formatDelta(d, suffix) {
+      var sfx = suffix || '';
+      if (d > 0) return '+' + d + sfx;
+      return String(d) + sfx;
+    }
+
+    var noArchivesNote = !comparison.hasPrevious
+      ? '<p class="hint empty" style="margin: 0 0 10px 0;">' + esc(S_NO_PREVIOUS_ARCHIVES[lang] || S_NO_PREVIOUS_ARCHIVES.he) + '</p>'
+      : '';
+
+    var rows = [
+      { key: 'peopleDelta', label: S_TREND_METRICS.peopleDelta[lang] || S_TREND_METRICS.peopleDelta.he, val: formatDelta(comparison.peopleDelta) },
+      { key: 'pairsDelta', label: S_TREND_METRICS.pairsDelta[lang] || S_TREND_METRICS.pairsDelta.he, val: formatDelta(comparison.pairsDelta) },
+      { key: 'hoursDelta', label: S_TREND_METRICS.hoursDelta[lang] || S_TREND_METRICS.hoursDelta.he, val: formatDelta(comparison.hoursDelta, (lang === 'ar' ? ' س' : (lang === 'ru' ? ' ч' : ' שעות'))) },
+      { key: 'completionRateDelta', label: S_TREND_METRICS.completionRateDelta[lang] || S_TREND_METRICS.completionRateDelta.he, val: formatDelta(comparison.completionRateDelta, '%') },
+      { key: 'retentionRate', label: S_TREND_METRICS.retentionRate[lang] || S_TREND_METRICS.retentionRate.he, val: (retentionStats.retentionRate || 0) + '%' + ' (' + retentionStats.retainedCount + '/' + retentionStats.previousMentorsCount + ')' }
+    ];
+
+    var tableHtml = '<table class="cycle-trends-table" style="width:100%; border-collapse:collapse; margin-top:4px;">' +
+      '<tbody>' +
+      rows.map(function (r) {
+        return '<tr data-metric="' + esc(r.key) + '" style="border-bottom: 1px solid var(--border, #eee);">' +
+          '<td style="padding: 6px 0; font-weight: 500;">' + esc(r.label) + '</td>' +
+          '<td style="padding: 6px 0; text-align: end; font-weight: 600;" data-value="' + esc(r.key) + '">' + esc(r.val) + '</td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table>';
+
+    out.innerHTML = noArchivesNote + tableHtml;
+
+    if (cardEl) {
+      cardEl.archives = archives;
+      cardEl.currentSnapshot = snapshot;
+      cardEl.renderCycleTrends = renderCycleTrends;
+    }
+  }
+
+  if ($('refreshCycleTrendsBtn')) {
+    $('refreshCycleTrendsBtn').addEventListener('click', function () {
+      renderCycleTrends();
+      var lang = currentLang || 'he';
+      var msg = S_CYCLE_TRENDS_STATUS[lang] || S_CYCLE_TRENDS_STATUS.he;
+      say('cycleTrendsStatus', msg);
+    });
+  }
+
   var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
   var lockedKeys = {};
   function rosterSplit() {
@@ -13052,7 +13439,7 @@ module.exports = {
     if (tab.id === 'nav-sessions') renderSessionForm();
     // a save on another tab writes over a refused document no copy was kept of (emptyRosterHe)
     if (tab.id === 'nav-people') renderPeople();
-    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); renderRegionalBalance(); }
+    if (tab.id === 'nav-guide') { renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderChallengeForm(); renderChallengeLeaderboard(); renderRegionalBalance(); renderCycleTrends(); }
     if (focus) tab.focus();
     window.scrollTo(0, 0);
   }
@@ -13113,6 +13500,7 @@ module.exports = {
   renderScholarshipHoursSummary();
   renderDropoutRiskList();
   renderRegionalBalance();
+  renderCycleTrends();
   renderChallengeForm();
   renderChallengeLeaderboard();
   function applyLanguage(lang) {
@@ -13137,7 +13525,7 @@ module.exports = {
 
     buildInputs();
     fillSelect('sessionOutcome', session.OUTCOMES, function (o) { return OUTCOME_HE[o] || o; });
-    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderRegionalBalance();
+    renderPeople(); renderUnits(); renderSessionForm(); renderSessions(); setWipeArmed(false); initHome(); renderGuide(); renderAITopicsSummary(); renderScholarshipHoursSummary(); renderDropoutRiskList(); renderRegionalBalance(); renderCycleTrends();
     renderChallengeForm(); renderChallengeLeaderboard();
 
     if ($('regionalImpactHeading')) $('regionalImpactHeading').textContent = S_REGIONAL_IMPACT_HEADING[currentLang] || S_REGIONAL_IMPACT_HEADING.he;
@@ -13307,6 +13695,9 @@ module.exports = {
     window.renderPilotBatchStatus = renderPilotBatchStatus;
     window.renderRegionalBalance = renderRegionalBalance;
     window.computeRegionalSupplyDemand = (attendance && attendance.computeRegionalSupplyDemand) || (storeLib && storeLib.computeRegionalSupplyDemand);
+    window.renderCycleTrends = renderCycleTrends;
+    window.compareArchiveCycles = (attendance && attendance.compareArchiveCycles) || (storeLib && storeLib.compareArchiveCycles);
+    window.computeMentorRetentionStats = (attendance && attendance.computeMentorRetentionStats) || (storeLib && storeLib.computeMentorRetentionStats);
     window.renderScholarshipMilestonesBar = renderScholarshipMilestonesBar;
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
     window.renderBackupMatches = renderBackupMatches;
