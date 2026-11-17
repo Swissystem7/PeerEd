@@ -1,0 +1,12 @@
+Modern Web Guidance skill (SKILL.md)
+
+Source: https://github.com/GoogleChrome/modern-web-guidance
+Path: skills/modern-web-guidance/SKILL.md
+Commit: 64a6d708f5a43f2cd3fde5d4d7db3905ba1bdf65 (v1.0.1)
+
+Copyright the contributors to GoogleChrome/modern-web-guidance.
+Stewarded by the Google Chrome, Microsoft Edge, Mozilla Firefox, and MDN teams.
+
+Licensed under the Apache License, Version 2.0. See LICENSE in this directory.
+The guide corpus and CLI are not vendored; agents run `npx -y modern-web-guidance@latest`.
+SKILL.md is an unmodified copy of the file at the commit above.
