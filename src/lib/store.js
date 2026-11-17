@@ -26,6 +26,8 @@ const {
 	deserializeAttendance,
 	computeRegionalSupplyDemand,
 	detectInactivePairs,
+	compareArchiveCycles,
+	computeMentorRetentionStats,
 } = require("./attendance.js");
 
 const SCHEMA = "peered/1";
@@ -625,5 +627,7 @@ module.exports = {
 	commitPilotCsvBatch: require("./validator.js").commitPilotCsvBatch,
 	computeRegionalSupplyDemand,
 	buildImpactOverviewReport,
+	compareArchiveCycles,
+	computeMentorRetentionStats,
 	filterParticipantsByAITopic
 };

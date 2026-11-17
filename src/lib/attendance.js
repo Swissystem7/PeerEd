@@ -1758,7 +1758,213 @@ function updateSessionOutcome(records, pairIndex, date, patch) {
 	return Object.freeze({ entries: Object.freeze(updatedList) });
 }
 
+function extractCycleSnapshotMetrics(snap) {
+	if (!snap || typeof snap !== "object") {
+		return { people: 0, pairs: 0, hours: 0, completionRate: 0 };
+	}
+	let people = 0;
+	if (
+		typeof snap.peopleCount === "number" &&
+		Number.isFinite(snap.peopleCount)
+	) {
+		people = snap.peopleCount;
+	} else if (Array.isArray(snap.people)) {
+		people = snap.people.length;
+	}
+
+	let pairs = 0;
+	if (typeof snap.pairsCount === "number" && Number.isFinite(snap.pairsCount)) {
+		pairs = snap.pairsCount;
+	} else if (Array.isArray(snap.pairs)) {
+		pairs = snap.pairs.length;
+	}
+
+	let hours = 0;
+	if (typeof snap.totalHours === "number" && Number.isFinite(snap.totalHours)) {
+		hours = snap.totalHours;
+	} else if (typeof snap.hours === "number" && Number.isFinite(snap.hours)) {
+		hours = snap.hours;
+	}
+
+	let completionRate = 0;
+	if (
+		typeof snap.completionRate === "number" &&
+		Number.isFinite(snap.completionRate)
+	) {
+		completionRate = snap.completionRate;
+	} else if (
+		typeof snap.completionPercent === "number" &&
+		Number.isFinite(snap.completionPercent)
+	) {
+		completionRate = snap.completionPercent;
+	}
+
+	return {
+		people,
+		pairs,
+		hours: Math.round(hours * 100) / 100,
+		completionRate: Math.round(completionRate * 100) / 100,
+	};
+}
+
+function compareArchiveCycles(archives, currentSnapshot) {
+	const current = extractCycleSnapshotMetrics(currentSnapshot);
+
+	let prevSnapshot = null;
+	if (Array.isArray(archives)) {
+		if (archives.length > 0) {
+			prevSnapshot = archives[archives.length - 1];
+		}
+	} else if (archives && typeof archives === "object") {
+		prevSnapshot = archives;
+	}
+
+	if (!prevSnapshot || Object.keys(prevSnapshot).length === 0) {
+		return Object.freeze({
+			hasPrevious: false,
+			peopleDelta: 0,
+			pairsDelta: 0,
+			hoursDelta: 0,
+			completionRateDelta: 0,
+			current: Object.freeze(current),
+			previous: null,
+		});
+	}
+
+	const prev = extractCycleSnapshotMetrics(prevSnapshot);
+	const peopleDelta = current.people - prev.people;
+	const pairsDelta = current.pairs - prev.pairs;
+	const hoursDelta = Math.round((current.hours - prev.hours) * 100) / 100;
+	const completionRateDelta =
+		Math.round((current.completionRate - prev.completionRate) * 100) / 100;
+
+	return Object.freeze({
+		hasPrevious: true,
+		peopleDelta,
+		pairsDelta,
+		hoursDelta,
+		completionRateDelta,
+		current: Object.freeze(current),
+		previous: Object.freeze(prev),
+	});
+}
+
+const PII_CHECK_PATTERNS = [
+	/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
+	/05\d[- ]?\d{7}/,
+	/\b\d{9}\b/,
+];
+
+function assertZeroPiiString(val) {
+	if (typeof val !== "string") return;
+	for (const pattern of PII_CHECK_PATTERNS) {
+		if (pattern.test(val)) {
+			throw new Error(PERSONAL_DATA_ERROR);
+		}
+	}
+}
+
+function extractMentorAnonymousKey(p) {
+	if (!p || typeof p !== "object" || Array.isArray(p)) return null;
+	if (p.role && p.role === "pupil") return null;
+	if (p.role && p.role !== "student") return null;
+
+	if (typeof p.name === "string") assertZeroPiiString(p.name);
+	if (typeof p.phone === "string") assertZeroPiiString(p.phone);
+	if (typeof p.email === "string") assertZeroPiiString(p.email);
+
+	let key = null;
+	if (typeof p.id === "string" && p.id.trim()) {
+		key = p.id.trim();
+	} else if (typeof p.id === "number") {
+		key = String(p.id);
+	}
+
+	if (key) {
+		assertZeroPiiString(key);
+	}
+	return key;
+}
+
+function extractArchiveMentors(archives) {
+	const mentorKeys = new Set();
+	if (!archives) return mentorKeys;
+
+	let prevPeopleList = [];
+	if (Array.isArray(archives)) {
+		if (archives.length === 0) return mentorKeys;
+		const lastCycle = archives[archives.length - 1];
+		if (lastCycle && typeof lastCycle === "object") {
+			if (Array.isArray(lastCycle.people)) prevPeopleList = lastCycle.people;
+		}
+	} else if (typeof archives === "object") {
+		if (Array.isArray(archives.people)) prevPeopleList = archives.people;
+	}
+
+	for (const p of prevPeopleList) {
+		const k = extractMentorAnonymousKey(p);
+		if (k) mentorKeys.add(k);
+	}
+	return mentorKeys;
+}
+
+function extractCurrentMentors(currentPeople) {
+	const mentorKeys = new Set();
+	let peopleList = [];
+	if (Array.isArray(currentPeople)) {
+		peopleList = currentPeople;
+	} else if (currentPeople && typeof currentPeople === "object") {
+		if (Array.isArray(currentPeople.people)) peopleList = currentPeople.people;
+	}
+
+	for (const p of peopleList) {
+		const k = extractMentorAnonymousKey(p);
+		if (k) mentorKeys.add(k);
+	}
+	return mentorKeys;
+}
+
+function computeMentorRetentionStats(archives, currentPeople) {
+	const prevKeys = extractArchiveMentors(archives);
+	const currKeys = extractCurrentMentors(currentPeople);
+
+	const previousMentorsCount = prevKeys.size;
+	const currentMentorsCount = currKeys.size;
+
+	const retainedMentorKeys = [];
+	for (const k of currKeys) {
+		if (prevKeys.has(k)) {
+			retainedMentorKeys.push(k);
+		}
+	}
+	retainedMentorKeys.sort();
+
+	const retainedCount = retainedMentorKeys.length;
+	const newMentorsCount = Math.max(0, currentMentorsCount - retainedCount);
+	const retentionRate =
+		previousMentorsCount > 0
+			? Math.round((retainedCount / previousMentorsCount) * 100)
+			: 0;
+	const retentionRatio =
+		previousMentorsCount > 0
+			? Math.round((retainedCount / previousMentorsCount) * 10000) / 10000
+			: 0;
+
+	return Object.freeze({
+		previousMentorsCount,
+		currentMentorsCount,
+		retainedCount,
+		newMentorsCount,
+		retentionRate,
+		retentionPercent: retentionRate,
+		retentionRatio,
+		retainedMentorKeys: Object.freeze(retainedMentorKeys),
+	});
+}
+
 module.exports = {
+	compareArchiveCycles,
+	computeMentorRetentionStats,
 	filterAttendanceByDateRange,
 	exportScholarshipCsv,
 	filterAttendanceRecords,
