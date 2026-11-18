@@ -1,0 +1,1291 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="PeerEd — אב-טיפוס אינטראקטיבי לפאנל השוואת מועמדים בטאב שידוך (#tab-match) ומערכת אותות הצטיינות">
+<title>PeerEd — אב-טיפוס פאנל השוואת שידוכים (#tab-match)</title>
+<style>
+  :root {
+    --bg: #F7F5FF;
+    --card: #FFFFFF;
+    --line: #6D6A8F;
+    --line-subtle: #E2E8F0;
+    --ink: #1E1B4B;
+    --muted: #475569;
+    --key: #0F766E;
+    --key-hover: #0d635c;
+    --key-light: #CCFBF1;
+    --warm: #9A3412;
+    --bad: #B91C1C;
+    --bad-bg: #FEF2F2;
+    --ok: #15803D;
+    --ok-bg: #F0FDF4;
+    --hero: #0F766E;
+    --hero2: #4338CA;
+    --emg: #9A3412;
+    --focus: #4338CA;
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-full: 999px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Rubik, Assistant, Arial, "Segoe UI", sans-serif;
+    min-height: 100vh;
+    padding-bottom: 90px;
+    line-height: 1.5;
+  }
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 16px 16px 32px;
+  }
+
+  /* Header banner */
+  header.prototype-header {
+    background: linear-gradient(135deg, #0F766E 0%, #4338CA 100%);
+    color: #FFFFFF;
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 25px rgba(49, 46, 129, 0.15);
+  }
+
+  .prototype-tag {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: var(--radius-full);
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  header h1 {
+    font-size: 1.7rem;
+    margin: 4px 0 8px;
+    font-weight: 800;
+  }
+
+  header p {
+    color: #F1F5F9;
+    font-size: 0.95rem;
+    margin: 0;
+    line-height: 1.6;
+    max-width: 72ch;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin: 16px 0;
+    box-shadow: 0 8px 24px rgba(49, 46, 129, 0.08);
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line-subtle);
+    padding-bottom: 10px;
+  }
+
+  .card h2 {
+    font-size: 1.25rem;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  .hint {
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin: 4px 0 12px;
+  }
+
+  /* Buttons and Actions */
+  button {
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    min-height: 44px;
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+
+  button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  button.act {
+    background: linear-gradient(90deg, #0F766E 0%, #4338CA 100%);
+    color: #FFFFFF;
+    border: none;
+    font-weight: 700;
+    border-radius: var(--radius-full);
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+  }
+
+  button.act:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+  }
+
+  button.ghost {
+    background: #EEF2FF;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-weight: 600;
+  }
+
+  button.ghost:hover {
+    background: #E0E7FF;
+  }
+
+  button.danger {
+    background: var(--bad-bg);
+    color: var(--bad);
+    border: 1px solid #FCA5A5;
+  }
+
+  button.danger:hover {
+    background: #FEE2E2;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  /* Candidate Selector Strip */
+  .candidate-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  .candidate-card {
+    border: 2px solid var(--line-subtle);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    background: #FAFAFC;
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  .candidate-card:hover {
+    border-color: var(--key);
+    background: #FFFFFF;
+    box-shadow: 0 6px 18px rgba(15, 118, 110, 0.12);
+  }
+
+  .candidate-card.selected {
+    border-color: var(--key);
+    background: #F0FDFA;
+    box-shadow: 0 0 0 1px var(--key);
+  }
+
+  .candidate-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .candidate-id-badge {
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .candidate-role {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+  }
+
+  .role-student { background: #E0E7FF; color: #3730A3; }
+  .role-pupil { background: #FEF3C7; color: #92400E; }
+
+  .candidate-score-pill {
+    background: var(--key);
+    color: #FFFFFF;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: 0.9rem;
+  }
+
+  .candidate-meta-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+    font-size: 0.85rem;
+  }
+
+  .candidate-meta-list li {
+    margin: 5px 0;
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+  }
+
+  .candidate-meta-list li strong {
+    color: var(--ink);
+  }
+
+  .compare-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-top: 12px;
+    cursor: pointer;
+    min-height: 44px;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    background: rgba(15, 118, 110, 0.06);
+  }
+
+  .compare-checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--key);
+    cursor: pointer;
+  }
+
+  /* Conflict & Prerequisite Badges */
+  .badge-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.76rem;
+    font-weight: 600;
+  }
+
+  .badge-tag.ok { background: #DCFCE7; color: #166534; }
+  .badge-tag.warn { background: #FEF3C7; color: #B45309; }
+  .badge-tag.bad { background: #FEE2E2; color: #991B1B; }
+
+  /* Comparison Panel Section */
+  .match-compare-panel {
+    border: 2px solid var(--hero2);
+    position: relative;
+    background: #FFFFFF;
+  }
+
+  .match-compare-panel::before {
+    content: "השוואה פעילה";
+    position: absolute;
+    top: -12px;
+    right: 20px;
+    background: var(--hero2);
+    color: #FFFFFF;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 12px;
+    border-radius: var(--radius-full);
+  }
+
+  .compare-view-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .compare-view-tabs button {
+    background: #F1F5F9;
+    border: 1px solid var(--line-subtle);
+    border-radius: var(--radius-full);
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .compare-view-tabs button[aria-selected="true"] {
+    background: var(--key);
+    color: #FFFFFF;
+    border-color: var(--key);
+  }
+
+  /* Comparison Table (Modern Responsive Design) */
+  .table-wrapper {
+    overflow-x: auto;
+    max-inline-size: 100%;
+    margin: 16px 0;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line-subtle);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  table.compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    text-align: right;
+  }
+
+  table.compare-table th, table.compare-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line-subtle);
+    border-inline-end: 1px solid var(--line-subtle);
+  }
+
+  table.compare-table thead th {
+    background: #EEF2FF;
+    color: var(--ink);
+    font-weight: 700;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  table.compare-table thead th:first-child {
+    background: #E0E7FF;
+    width: 220px;
+  }
+
+  table.compare-table tbody th {
+    background: #F8FAFC;
+    color: var(--muted);
+    font-weight: 600;
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    white-space: nowrap;
+  }
+
+  table.compare-table tr:hover td {
+    background: #F0FDFA;
+  }
+
+  .cell-highlight-best {
+    background: #ECFDF5 !important;
+    font-weight: 700;
+    color: var(--ok);
+  }
+
+  .cell-badge-icon {
+    width: 32px;
+    height: 32px;
+    vertical-align: middle;
+    margin-inline-end: 6px;
+  }
+
+  /* Side-by-side cards comparison view */
+  .compare-cards-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  .compare-column-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 18px;
+    background: #FFFFFF;
+    position: relative;
+  }
+
+  .compare-column-card.is-winner {
+    border: 2px solid var(--ok);
+    background: #FAFCF9;
+  }
+
+  .winner-ribbon {
+    background: var(--ok);
+    color: #FFFFFF;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: var(--radius-full);
+    display: inline-block;
+    margin-bottom: 8px;
+  }
+
+  /* Weight Slider Simulator */
+  .weights-simulator {
+    background: #F8FAFC;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-top: 20px;
+  }
+
+  .weights-simulator h3 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+
+  .slider-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 50px;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0;
+    font-size: 0.85rem;
+  }
+
+  .slider-row input[type="range"] {
+    accent-color: var(--key);
+    min-height: 24px;
+  }
+
+  /* SVG Badges Showcase Section */
+  .badges-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .badge-gallery-item {
+    background: #FFFFFF;
+    border: 1px solid var(--line-subtle);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .badge-gallery-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    border-color: var(--key);
+  }
+
+  .badge-gallery-item img, .badge-gallery-item object {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 10px;
+    display: block;
+  }
+
+  .badge-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+
+  .badge-desc {
+    font-size: 0.74rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* Floating Dock Bar when items selected */
+  .floating-compare-dock {
+    position: fixed;
+    bottom: 16px;
+    left: 20px;
+    right: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    background: var(--ink);
+    color: #FFFFFF;
+    border-radius: var(--radius-full);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    z-index: 50;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  }
+
+  .floating-compare-dock.hidden {
+    transform: translateY(120%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .dock-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .dock-count-badge {
+    background: var(--key);
+    color: #FFFFFF;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 640px) {
+    .wrap { padding: 12px 10px 90px; }
+    header.prototype-header { padding: 18px; }
+    header h1 { font-size: 1.4rem; }
+    .slider-row { grid-template-columns: 1fr; gap: 4px; }
+    .floating-compare-dock { left: 10px; right: 10px; padding: 10px 16px; font-size: 0.85rem; }
+    table.compare-table { font-size: 0.8rem; }
+    table.compare-table th, table.compare-table td { padding: 8px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <!-- Header -->
+  <header class="prototype-header">
+    <span class="prototype-tag">PeerEd — Design Prototype & Specification</span>
+    <h1>פאנל השוואת מועמדים לשידוך (#tab-match)</h1>
+    <p>
+      אב-טיפוס אינטראקטיבי של מנגנון השוואת מועמדים (Compare Panel) עבור שכבת השידוך הדטרמיניסטית של PeerEd.
+      מאפשר להשוות בין 2 ל-3 מועמדים במקביל לפי קריטריוני מרחק, שעות, התאמת נושאי AI, רמה, והיסטוריית אותות הצטיינות — תחת עקרון אפס פרטים אישיים (Zero-PII).
+    </p>
+  </header>
+
+  <!-- Prototype Instructions Card -->
+  <section class="card" aria-labelledby="intro-title">
+    <div class="card-header">
+      <h2 id="intro-title">הנחיות לאב-טיפוס ודוגמאות אינטראקטיביות</h2>
+      <span class="badge-tag ok">דטרמיניסטי & אפס PII</span>
+    </div>
+    <p class="hint">
+      סמן בתיבת הסימון (Compare) 2 או 3 מועמדים מרשימת השידוכים הפוטנציאליים מטה כדי לפתוח את פאנל ההשוואה.
+      ניתן לעבור בין תצוגת טבלה מלאה לתצוגת כרטיסים צד-אל-צד, לשנות את משקולות הקריטריונים בסימולטור, ולנעול שידוך.
+    </p>
+  </section>
+
+  <!-- Candidates Selection Strip -->
+  <section class="card" id="candidatesSection" aria-labelledby="candidates-title">
+    <div class="card-header">
+      <h2 id="candidates-title">מועמדי שידוך פוטנציאליים עבור תלמיד P-104 (אזור דרום / אשכול)</h2>
+      <span id="selectedCountText" class="badge-tag warn">נבחרו 0 מועמדים להשוואה</span>
+    </div>
+    <p class="hint">
+      תלמיד P-104 ביקש חיזוק במתמטיקה, פיזיקה ואוריינות בינה מלאכותית (AI Literacy). להלן 4 סטודנטים מועמדים באותו אזור וזמינות:
+    </p>
+
+    <div class="candidate-grid" role="region" aria-label="רשימת מועמדים לבחירה">
+      <!-- Candidate 1 -->
+      <article class="candidate-card" id="card-cand-1" data-id="S-201">
+        <div class="candidate-card-top">
+          <div class="candidate-id-badge">
+            <span>מועמד S-201</span>
+            <span class="candidate-role role-student">סטודנט</span>
+          </div>
+          <span class="candidate-score-pill">94% התאמה</span>
+        </div>
+        <ul class="candidate-meta-list">
+          <li><span>אזור:</span> <strong>דרום (R-SOUTH)</strong></li>
+          <li><span>שעות שבועיות חופפות:</span> <strong>4 שעות (ב', ד')</strong></li>
+          <li><span>מקצועות משותפים:</span> <strong>מתמטיקה, פיזיקה</strong></li>
+          <li><span>נושאי AI חופפים:</span> <strong>AI_LIT_PROMPT, AI_CREATIVE</strong></li>
+          <li><span>שפות:</span> <strong>עברית, אנגלית</strong></li>
+          <li><span>אישור הורים לתלמיד:</span> <span class="badge-tag ok">מאושר ✓</span></li>
+          <li><span>השלמת מלגה:</span> <strong>75% (75/100 שעות)</strong></li>
+        </ul>
+        <label class="compare-checkbox-label">
+          <input type="checkbox" class="match-compare-chk" data-candidate="S-201" aria-controls="matchComparePanel" />
+          <span>הוסף להשוואה</span>
+        </label>
+      </article>
+
+      <!-- Candidate 2 -->
+      <article class="candidate-card" id="card-cand-2" data-id="S-205">
+        <div class="candidate-card-top">
+          <div class="candidate-id-badge">
+            <span>מועמד S-205</span>
+            <span class="candidate-role role-student">סטודנט</span>
+          </div>
+          <span class="candidate-score-pill">88% התאמה</span>
+        </div>
+        <ul class="candidate-meta-list">
+          <li><span>אזור:</span> <strong>דרום (R-SOUTH)</strong></li>
+          <li><span>שעות שבועיות חופפות:</span> <strong>3 שעות (ג', ה')</strong></li>
+          <li><span>מקצועות משותפים:</span> <strong>מתמטיקה, מדעי המחשב</strong></li>
+          <li><span>נושאי AI חופפים:</span> <strong>AI_STEM_CODE, AI_LIT_PROMPT</strong></li>
+          <li><span>שפות:</span> <strong>עברית, רוסית</strong></li>
+          <li><span>אישור הורים לתלמיד:</span> <span class="badge-tag ok">מאושר ✓</span></li>
+          <li><span>השלמת מלגה:</span> <strong>100% (הושלמה)</strong></li>
+        </ul>
+        <label class="compare-checkbox-label">
+          <input type="checkbox" class="match-compare-chk" data-candidate="S-205" aria-controls="matchComparePanel" />
+          <span>הוסף להשוואה</span>
+        </label>
+      </article>
+
+      <!-- Candidate 3 -->
+      <article class="candidate-card" id="card-cand-3" data-id="S-210">
+        <div class="candidate-card-top">
+          <div class="candidate-id-badge">
+            <span>מועמד S-210</span>
+            <span class="candidate-role role-student">סטודנט</span>
+          </div>
+          <span class="candidate-score-pill">79% התאמה</span>
+        </div>
+        <ul class="candidate-meta-list">
+          <li><span>אזור:</span> <strong>דרום (R-SOUTH)</strong></li>
+          <li><span>שעות שבועיות חופפות:</span> <strong>2 שעות (ב')</strong></li>
+          <li><span>מקצועות משותפים:</span> <strong>פיזיקה, אנגלית</strong></li>
+          <li><span>נושאי AI חופפים:</span> <strong>AI_ETHICS_SEC</strong></li>
+          <li><span>שפות:</span> <strong>עברית, ערבית</strong></li>
+          <li><span>אישור הורים לתלמיד:</span> <span class="badge-tag ok">מאושר ✓</span></li>
+          <li><span>השלמת מלגה:</span> <strong>50% (50/100 שעות)</strong></li>
+        </ul>
+        <label class="compare-checkbox-label">
+          <input type="checkbox" class="match-compare-chk" data-candidate="S-210" aria-controls="matchComparePanel" />
+          <span>הוסף להשוואה</span>
+        </label>
+      </article>
+
+      <!-- Candidate 4 -->
+      <article class="candidate-card" id="card-cand-4" data-id="S-218">
+        <div class="candidate-card-top">
+          <div class="candidate-id-badge">
+            <span>מועמד S-218</span>
+            <span class="candidate-role role-student">סטודנט</span>
+          </div>
+          <span class="candidate-score-pill" style="background:#B45309;">68% התאמה</span>
+        </div>
+        <ul class="candidate-meta-list">
+          <li><span>אזור:</span> <strong>דרום (R-SOUTH)</strong></li>
+          <li><span>שעות שבועיות חופפות:</span> <strong>1 שעה (א')</strong></li>
+          <li><span>מקצועות משותפים:</span> <strong>מתמטיקה</strong></li>
+          <li><span>נושאי AI חופפים:</span> <strong>ללא חפיפה ישירה</strong></li>
+          <li><span>שפות:</span> <strong>עברית</strong></li>
+          <li><span>אישור הורים לתלמיד:</span> <span class="badge-tag ok">מאושר ✓</span></li>
+          <li><span>השלמת מלגה:</span> <strong>25% (25/100 שעות)</strong></li>
+        </ul>
+        <label class="compare-checkbox-label">
+          <input type="checkbox" class="match-compare-chk" data-candidate="S-218" aria-controls="matchComparePanel" />
+          <span>הוסף להשוואה</span>
+        </label>
+      </article>
+    </div>
+  </section>
+
+  <!-- Comparison Panel (#matchComparePanel) -->
+  <section id="matchComparePanel" class="card match-compare-panel" aria-live="polite" style="display:none;">
+    <div class="card-header">
+      <div>
+        <h2>השוואת מועמדים לשידוך (#matchComparePanel)</h2>
+        <p class="hint" style="margin:2px 0 0;">ניתוח רב-קריטריוני דטרמיניסטי בהתאם למודל stage 1 ב-PeerEd</p>
+      </div>
+      <div class="actions" style="margin:0;">
+        <button id="clearMatchCompareBtn" type="button" class="ghost danger" aria-describedby="compareStatus">
+          נקה השוואה ✕
+        </button>
+        <button id="exportCompareCsvBtn" type="button" class="ghost" aria-describedby="compareStatus">
+          ייצא השוואה (CSV)
+        </button>
+      </div>
+    </div>
+
+    <!-- View Switcher -->
+    <div class="compare-view-tabs" role="tablist" aria-label="תצוגות השוואה">
+      <button type="button" role="tab" id="tab-view-table" aria-selected="true" aria-controls="view-table-container">תצוגת טבלה מפורטת</button>
+      <button type="button" role="tab" id="tab-view-cards" aria-selected="false" aria-controls="view-cards-container">תצוגת כרטיסים צד-אל-צד</button>
+    </div>
+
+    <!-- Detailed Comparison Container -->
+    <div id="matchCompareContent">
+      <!-- Table View -->
+      <div id="view-table-container" role="tabpanel" aria-labelledby="tab-view-table">
+        <div class="table-wrapper" tabindex="0" role="region" aria-label="טבלת השוואת מועמדים">
+          <table class="compare-table" id="comparisonTable">
+            <thead>
+              <tr id="tableHeaderRow">
+                <th scope="col">קריטריון השוואה</th>
+                <!-- Injected Candidate Headers -->
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <!-- Injected Comparison Rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Cards View (Initially hidden) -->
+      <div id="view-cards-container" role="tabpanel" aria-labelledby="tab-view-cards" style="display:none;">
+        <div class="compare-cards-layout" id="cardsCompareContainer">
+          <!-- Injected Cards -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Criteria Weight Simulator -->
+    <div class="weights-simulator" id="weightsSimulator">
+      <h3>סימולטור משקולות קריטריונים (Dynamic Weights)</h3>
+      <p class="hint">התאם את חשיבות הקריטריונים כדי לראות כיצד מנוע ה-min-cost max-flow מעדכן את הציון בזמן אמת:</p>
+      
+      <div class="slider-row">
+        <label for="weightRegion">אזור גיאוגרפי (Region):</label>
+        <input type="range" id="weightRegion" min="0" max="50" value="25" />
+        <span id="valRegion">25%</span>
+      </div>
+      <div class="slider-row">
+        <label for="weightHours">חפיפת שעות (Hours):</label>
+        <input type="range" id="weightHours" min="0" max="50" value="20" />
+        <span id="valHours">20%</span>
+      </div>
+      <div class="slider-row">
+        <label for="weightSubject">מקצועות לימוד (Subjects):</label>
+        <input type="range" id="weightSubject" min="0" max="50" value="20" />
+        <span id="valSubject">20%</span>
+      </div>
+      <div class="slider-row">
+        <label for="weightAi">נושאי בינה מלאכותית (AI):</label>
+        <input type="range" id="weightAi" min="0" max="50" value="20" />
+        <span id="valAi">20%</span>
+      </div>
+    </div>
+
+    <p id="compareStatus" class="hint" role="status" style="margin-top:12px; font-weight:600; color:var(--key);">
+      ההשוואה פעילה ומעודכנת. כל הנתונים דטרמיניסטיים ואנונימיים לחלוטין.
+    </p>
+  </section>
+
+  <!-- SVG Achievement Badges Gallery & Specifications -->
+  <section class="card" aria-labelledby="badges-gallery-title">
+    <div class="card-header">
+      <div>
+        <h2 id="badges-gallery-title">מערכת אותות הצטיינות ושלבי מלגה (SVG Achievement Badges)</h2>
+        <p class="hint" style="margin:2px 0 0;">עיצוב וקטורי נקי התואם לתקני משרד החינוך, פר"ח, והמל"ג</p>
+      </div>
+      <span class="badge-tag ok">10 אותות פעילים</span>
+    </div>
+
+    <p class="hint">
+      האותות מוטמעים אוטומטית בפרופיל המתנדב והתלמיד ובטבלאות השידוך ב-PeerEd, בהתאם ללוג השעות (attendance.js) ומנוע הניקוד (match2.js):
+    </p>
+
+    <div class="badges-gallery">
+      <!-- 1. Scholarship 25% -->
+      <div class="badge-gallery-item">
+        <img src="badges/scholarship-25.svg" alt="אות מלגה 25%" />
+        <div class="badge-title">מלגה 25%</div>
+        <div class="badge-desc">ציון דרך ראשון - רבע ממכסת שעות המלגה (25 שעות).</div>
+      </div>
+
+      <!-- 2. Scholarship 50% -->
+      <div class="badge-gallery-item">
+        <img src="badges/scholarship-50.svg" alt="אות מלגה 50%" />
+        <div class="badge-title">מלגה 50%</div>
+        <div class="badge-desc">אמצע הדרך - 50 שעות התנדבות מאומתות.</div>
+      </div>
+
+      <!-- 3. Scholarship 75% -->
+      <div class="badge-gallery-item">
+        <img src="badges/scholarship-75.svg" alt="אות מלגה 75%" />
+        <div class="badge-title">מלגה 75%</div>
+        <div class="badge-desc">ישורת אחרונה - 75 שעות בהצלחה.</div>
+      </div>
+
+      <!-- 4. Scholarship 100% -->
+      <div class="badge-gallery-item">
+        <img src="badges/scholarship-100.svg" alt="אות מלגה 100%" />
+        <div class="badge-title">מלגה 100% מושלם</div>
+        <div class="badge-desc">השלמת מלוא 100 שעות המלגה בהצטיינות.</div>
+      </div>
+
+      <!-- 5. AI Mastery -->
+      <div class="badge-gallery-item">
+        <img src="badges/ai-mastery.svg" alt="אות התאמת AI מושלמת" />
+        <div class="badge-title">התאמת AI 100%</div>
+        <div class="badge-desc">חפיפה מלאה בכל נושאי ה-AI: הנחיה, יצירה, קוד ואתיקה.</div>
+      </div>
+
+      <!-- 6. Privacy Guardian -->
+      <div class="badge-gallery-item">
+        <img src="badges/privacy-guardian.svg" alt="אות Zero PII" />
+        <div class="badge-title">שומר הפרטיות (Zero PII)</div>
+        <div class="badge-desc">ציות מחמיר לתיקון 13 ולנוהל משרד החינוך ללא פרטים מזהים.</div>
+      </div>
+
+      <!-- 7. Emergency Responder -->
+      <div class="badge-gallery-item">
+        <img src="badges/emergency-responder.svg" alt="אות מענה חירום" />
+        <div class="badge-title">מענה חירום מהיר</div>
+        <div class="badge-desc">שיבוץ והתייצבות מיידית לחונכות באזורי פינוי ולחימה.</div>
+      </div>
+
+      <!-- 8. Hours Champion -->
+      <div class="badge-gallery-item">
+        <img src="badges/hours-champion.svg" alt="אות 10+ שעות" />
+        <div class="badge-title">אלוף שעות (10+)</div>
+        <div class="badge-desc">רצף הדרכה של מעל 10 שעות שבועיות/חודשיות רצופות.</div>
+      </div>
+
+      <!-- 9. Perfect Attendance -->
+      <div class="badge-gallery-item">
+        <img src="badges/perfect-attendance.svg" alt="אות נוכחות מושלמת" />
+        <div class="badge-title">נוכחות מושלמת 100%</div>
+        <div class="badge-desc">אפס ביטולים ואפס היעדרויות בכל המפגשים שנקבעו.</div>
+      </div>
+
+      <!-- 10. Challenge Finalist -->
+      <div class="badge-gallery-item">
+        <img src="badges/challenge-finalist.svg" alt="אות פיינליסט אתגר" />
+        <div class="badge-title">פיינליסט אתגר</div>
+        <div class="badge-desc">העפלה לשלב הגמר באתגר הלמידה והפיתוח הקהילתי.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Floating Action Dock (Visible when 1+ candidates selected) -->
+<aside class="floating-compare-dock hidden" id="floatingDock" aria-label="פעולות השוואה צפות">
+  <div class="dock-info">
+    <span class="dock-count-badge" id="dockCount">0</span>
+    <span id="dockLabel">מועמדים נבחרו להשוואה</span>
+  </div>
+  <div class="actions" style="margin:0;">
+    <button type="button" class="act" id="dockOpenBtn">פתח השוואה מורחבת</button>
+    <button type="button" class="ghost" id="dockClearBtn" style="background:rgba(255,255,255,0.15); color:#FFFFFF; border-color:rgba(255,255,255,0.3);">ביטול</button>
+  </div>
+</aside>
+
+<script>
+  // Candidate Mock Data
+  const CANDIDATES_DATA = {
+    'S-201': {
+      id: 'S-201',
+      role: 'סטודנט',
+      region: 'R-SOUTH (דרום)',
+      distanceDesc: 'באותו יישוב / מרכז קליטה',
+      hoursWeekly: '4 שעות שבועיות',
+      slots: 'שני 16:00-18:00, רביעי 17:00-19:00',
+      subjects: ['מתמטיקה', 'פיזיקה'],
+      aiTopics: ['AI_LIT_PROMPT', 'AI_CREATIVE'],
+      aiLevel: 'מתקדם (Advanced)',
+      languages: ['עברית', 'אנגלית'],
+      academicLevel: 'רמה 4 (תיכון מוגבר)',
+      parentConsent: true,
+      attendanceRate: '100%',
+      scholarshipProgress: '75%',
+      scholarshipHours: '75 / 100',
+      badges: [
+        { name: 'מלגה 75%', file: 'badges/scholarship-75.svg' },
+        { name: 'נוכחות מושלמת', file: 'badges/perfect-attendance.svg' },
+        { name: 'מענה חירום', file: 'badges/emergency-responder.svg' }
+      ],
+      baseScore: 94
+    },
+    'S-205': {
+      id: 'S-205',
+      role: 'סטודנט',
+      region: 'R-SOUTH (דרום)',
+      distanceDesc: 'יישוב שכן (5 ק"מ)',
+      hoursWeekly: '3 שעות שבועיות',
+      slots: 'שלישי 16:00-17:30, חמישי 16:00-17:30',
+      subjects: ['מתמטיקה', 'מדעי המחשב'],
+      aiTopics: ['AI_STEM_CODE', 'AI_LIT_PROMPT'],
+      aiLevel: 'מתקדם (Advanced)',
+      languages: ['עברית', 'רוסית'],
+      academicLevel: 'רמה 5 (אקדמי / 5 יח"ל)',
+      parentConsent: true,
+      attendanceRate: '96%',
+      scholarshipProgress: '100%',
+      scholarshipHours: '100 / 100 (הושלמה)',
+      badges: [
+        { name: 'מלגה 100%', file: 'badges/scholarship-100.svg' },
+        { name: 'אלוף שעות (10+)', file: 'badges/hours-champion.svg' },
+        { name: 'התאמת AI 100%', file: 'badges/ai-mastery.svg' }
+      ],
+      baseScore: 88
+    },
+    'S-210': {
+      id: 'S-210',
+      role: 'סטודנט',
+      region: 'R-SOUTH (דרום)',
+      distanceDesc: 'באותו יישוב / מרכז קליטה',
+      hoursWeekly: '2 שעות שבועיות',
+      slots: 'שני 18:00-20:00',
+      subjects: ['פיזיקה', 'אנגלית'],
+      aiTopics: ['AI_ETHICS_SEC'],
+      aiLevel: 'מתחיל (Beginner)',
+      languages: ['עברית', 'ערבית'],
+      academicLevel: 'רמה 3 (בסיסי)',
+      parentConsent: true,
+      attendanceRate: '88%',
+      scholarshipProgress: '50%',
+      scholarshipHours: '50 / 100',
+      badges: [
+        { name: 'מלגה 50%', file: 'badges/scholarship-50.svg' },
+        { name: 'שומר פרטיות', file: 'badges/privacy-guardian.svg' }
+      ],
+      baseScore: 79
+    },
+    'S-218': {
+      id: 'S-218',
+      role: 'סטודנט',
+      region: 'R-SOUTH (דרום)',
+      distanceDesc: 'יישוב מרוחק (12 ק"מ)',
+      hoursWeekly: '1 שעה שבועית',
+      slots: 'ראשון 17:00-18:00',
+      subjects: ['מתמטיקה'],
+      aiTopics: ['ללא חפיפה'],
+      aiLevel: 'מתחיל (Beginner)',
+      languages: ['עברית'],
+      academicLevel: 'רמה 2',
+      parentConsent: true,
+      attendanceRate: '80%',
+      scholarshipProgress: '25%',
+      scholarshipHours: '25 / 100',
+      badges: [
+        { name: 'מלגה 25%', file: 'badges/scholarship-25.svg' }
+      ],
+      baseScore: 68
+    }
+  };
+
+  let selectedCandidateIds = [];
+
+  // DOM Elements
+  const compareCheckboxes = document.querySelectorAll('.match-compare-chk');
+  const matchComparePanel = document.getElementById('matchComparePanel');
+  const clearMatchCompareBtn = document.getElementById('clearMatchCompareBtn');
+  const tableHeaderRow = document.getElementById('tableHeaderRow');
+  const tableBody = document.getElementById('tableBody');
+  const cardsCompareContainer = document.getElementById('cardsCompareContainer');
+  const selectedCountText = document.getElementById('selectedCountText');
+  const floatingDock = document.getElementById('floatingDock');
+  const dockCount = document.getElementById('dockCount');
+  const dockOpenBtn = document.getElementById('dockOpenBtn');
+  const dockClearBtn = document.getElementById('dockClearBtn');
+  const tabViewTable = document.getElementById('tab-view-table');
+  const tabViewCards = document.getElementById('tab-view-cards');
+  const viewTableContainer = document.getElementById('view-table-container');
+  const viewCardsContainer = document.getElementById('view-cards-container');
+
+  // Slider Elements
+  const weightRegion = document.getElementById('weightRegion');
+  const weightHours = document.getElementById('weightHours');
+  const weightSubject = document.getElementById('weightSubject');
+  const weightAi = document.getElementById('weightAi');
+  const valRegion = document.getElementById('valRegion');
+  const valHours = document.getElementById('valHours');
+  const valSubject = document.getElementById('valSubject');
+  const valAi = document.getElementById('valAi');
+
+  function updateWeightsUI() {
+    valRegion.textContent = weightRegion.value + '%';
+    valHours.textContent = weightHours.value + '%';
+    valSubject.textContent = weightSubject.value + '%';
+    valAi.textContent = weightAi.value + '%';
+    renderComparison();
+  }
+
+  [weightRegion, weightHours, weightSubject, weightAi].forEach(el => {
+    el.addEventListener('input', updateWeightsUI);
+  });
+
+  // Calculate dynamic score based on weight simulator
+  function calculateScore(cand) {
+    const wReg = parseInt(weightRegion.value, 10);
+    const wHrs = parseInt(weightHours.value, 10);
+    const wSub = parseInt(weightSubject.value, 10);
+    const wAi = parseInt(weightAi.value, 10);
+    const totalW = wReg + wHrs + wSub + wAi;
+    if (totalW === 0) return cand.baseScore;
+
+    let earned = 0;
+    // Region component
+    earned += wReg * (cand.distanceDesc.includes('באותו יישוב') ? 1 : 0.8);
+    // Hours component
+    const hoursNum = parseInt(cand.hoursWeekly, 10) || 1;
+    earned += wHrs * Math.min(1, hoursNum / 4);
+    // Subject component
+    earned += wSub * Math.min(1, cand.subjects.length / 2);
+    // AI component
+    earned += wAi * (cand.aiTopics[0] === 'ללא חפיפה' ? 0.1 : cand.aiTopics.length / 2);
+
+    return Math.round((earned / totalW) * 100);
+  }
+
+  // Handle Checkbox Changes
+  compareCheckboxes.forEach(chk => {
+    chk.addEventListener('change', (e) => {
+      const id = e.target.getAttribute('data-candidate');
+      const card = document.getElementById(`card-cand-${id === 'S-201' ? '1' : id === 'S-205' ? '2' : id === 'S-210' ? '3' : '4'}`);
+      
+      if (e.target.checked) {
+        if (selectedCandidateIds.length >= 3) {
+          alert('ניתן להשוות עד 3 מועמדים בו-זמנית.');
+          e.target.checked = false;
+          return;
+        }
+        if (!selectedCandidateIds.includes(id)) {
+          selectedCandidateIds.push(id);
+          if (card) card.classList.add('selected');
+        }
+      } else {
+        selectedCandidateIds = selectedCandidateIds.filter(item => item !== id);
+        if (card) card.classList.remove('selected');
+      }
+
+      updateSelectionState();
+    });
+  });
+
+  function updateSelectionState() {
+    const count = selectedCandidateIds.length;
+    selectedCountText.textContent = `נבחרו ${count} מועמדים להשוואה`;
+    dockCount.textContent = count;
+
+    if (count > 0) {
+      floatingDock.classList.remove('hidden');
+    } else {
+      floatingDock.classList.add('hidden');
+    }
+
+    if (count >= 2) {
+      matchComparePanel.style.display = 'block';
+      renderComparison();
+    } else if (count === 1) {
+      matchComparePanel.style.display = 'block';
+      renderComparison();
+    } else {
+      matchComparePanel.style.display = 'none';
+    }
+  }
+
+  function clearAllSelections() {
+    selectedCandidateIds = [];
+    compareCheckboxes.forEach(chk => chk.checked = false);
+    document.querySelectorAll('.candidate-card').forEach(card => card.classList.remove('selected'));
+    updateSelectionState();
+  }
+
+  clearMatchCompareBtn.addEventListener('click', clearAllSelections);
+  dockClearBtn.addEventListener('click', clearAllSelections);
+  dockOpenBtn.addEventListener('click', () => {
+    matchComparePanel.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // Switch between Table and Cards view
+  tabViewTable.addEventListener('click', () => {
+    tabViewTable.setAttribute('aria-selected', 'true');
+    tabViewCards.setAttribute('aria-selected', 'false');
+    viewTableContainer.style.display = 'block';
+    viewCardsContainer.style.display = 'none';
+  });
+
+  tabViewCards.addEventListener('click', () => {
+    tabViewTable.setAttribute('aria-selected', 'false');
+    tabViewCards.setAttribute('aria-selected', 'true');
+    viewTableContainer.style.display = 'none';
+    viewCardsContainer.style.display = 'block';
+  });
+
+  // Render Comparison Table & Cards
+  function renderComparison() {
+    if (selectedCandidateIds.length === 0) return;
+
+    const candidates = selectedCandidateIds.map(id => {
+      const c = CANDIDATES_DATA[id];
+      return Object.assign({}, c, { calculatedScore: calculateScore(c) });
+    });
+
+    // 1. Render Table Headers
+    let headerHtml = '<th scope="col" style="background:#E0E7FF;">קריטריון השוואה</th>';
+    candidates.forEach(c => {
+      headerHtml += `
+        <th scope="col" style="text-align:center;">
+          <div style="font-size:1.05rem; font-weight:800;">${c.id}</div>
+          <div style="font-size:0.75rem; color:var(--muted);">${c.role}</div>
+          <div style="margin-top:6px; display:inline-block; background:var(--key); color:#FFFFFF; padding:2px 8px; border-radius:999px; font-size:0.8rem;">
+            ${c.calculatedScore}% ציון משוקלל
+          </div>
+        </th>
+      `;
+    });
+    tableHeaderRow.innerHTML = headerHtml;
+
+    // 2. Render Table Body Rows
+    const rows = [
+      {
+        label: 'ציון התאמה משוקלל',
+        getValue: (c) => `<strong>${c.calculatedScore}%</strong>`,
+        isBest: (c) => c.calculatedScore === Math.max(...candidates.map(x => x.calculatedScore))
+      },
+      {
+        label: 'מרחק ואזור גיאוגרפי',
+        getValue: (c) => `<div>${c.region}</div><small style="color:var(--muted);">${c.distanceDesc}</small>`,
+        isBest: (c) => c.distanceDesc.includes('באותו יישוב')
+      },
+      {
+        label: 'שעות שבועיות חופפות',
+        getValue: (c) => `<div><strong>${c.hoursWeekly}</strong></div><small style="color:var(--muted);">${c.slots}</small>`,
+        isBest: (c) => parseInt(c.hoursWeekly, 10) === Math.max(...candidates.map(x => parseInt(x.hoursWeekly, 10)))
+      },
+      {
+        label: 'מקצועות לימוד משותפים',
+        getValue: (c) => c.subjects.map(s => `<span class="badge-tag ok" style="margin:2px;">${s}</span>`).join(' '),
+        isBest: (c) => c.subjects.length === Math.max(...candidates.map(x => x.subjects.length))
+      },
+      {
+        label: 'נושאי AI והנחיה (AI Topics)',
+        getValue: (c) => c.aiTopics.map(t => `<span class="badge-tag" style="background:#E0E7FF; color:#3730A3; margin:2px;">${t}</span>`).join(' ') + `<br><small style="color:var(--muted);">רמת AI: ${c.aiLevel}</small>`,
+        isBest: (c) => c.aiLevel.includes('Advanced')
+      },
+      {
+        label: 'רמת לימוד אקדמית',
+        getValue: (c) => c.academicLevel,
+        isBest: (c) => c.academicLevel.includes('רמה 4') || c.academicLevel.includes('רמה 5')
+      },
+      {
+        label: 'שפות הנחיה משותפות',
+        getValue: (c) => c.languages.join(', '),
+        isBest: () => false
+      },
+      {
+        label: 'אחוז נוכחות בהיסטוריה',
+        getValue: (c) => `<strong>${c.attendanceRate}</strong>`,
+        isBest: (c) => c.attendanceRate === '100%'
+      },
+      {
+        label: 'השלמת שעות מלגה',
+        getValue: (c) => `<div>${c.scholarshipProgress}</div><small style="color:var(--muted);">${c.scholarshipHours}</small>`,
+        isBest: (c) => c.scholarshipProgress === '100%'
+      },
+      {
+        label: 'אותות הצטיינות שהושגו',
+        getValue: (c) => c.badges.map(b => `
+          <span style="display:inline-flex; align-items:center; gap:4px; margin:2px; font-size:0.75rem; background:#F1F5F9; border:1px solid #CBD5E1; border-radius:999px; padding:2px 6px;">
+            <img src="${b.file}" class="cell-badge-icon" alt="" />
+            <span>${b.name}</span>
+          </span>
+        `).join(' '),
+        isBest: (c) => c.badges.length === Math.max(...candidates.map(x => x.badges.length))
+      },
+      {
+        label: 'פעולת שידוך',
+        getValue: (c) => `
+          <button type="button" class="act" style="font-size:0.8rem; padding:6px 12px; min-height:36px;" onclick="lockCandidateMatch('${c.id}')">
+            נעל שידוך זה 🔒
+          </button>
+        `,
+        isBest: () => false
+      }
+    ];
+
+    let bodyHtml = '';
+    rows.forEach(r => {
+      bodyHtml += `<tr><th scope="row">${r.label}</th>`;
+      candidates.forEach(c => {
+        const bestClass = r.isBest(c) ? 'cell-highlight-best' : '';
+        bodyHtml += `<td class="${bestClass}">${r.getValue(c)}</td>`;
+      });
+      bodyHtml += `</tr>`;
+    });
+    tableBody.innerHTML = bodyHtml;
+
+    // 3. Render Cards View
+    let cardsHtml = '';
+    const maxScore = Math.max(...candidates.map(x => x.calculatedScore));
+    candidates.forEach(c => {
+      const isWinner = c.calculatedScore === maxScore;
+      cardsHtml += `
+        <div class="compare-column-card ${isWinner ? 'is-winner' : ''}">
+          ${isWinner ? '<span class="winner-ribbon">מומלץ ע"פ האלגוריתם ★</span>' : ''}
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0; font-size:1.15rem;">${c.id} (${c.role})</h3>
+            <span class="candidate-score-pill">${c.calculatedScore}%</span>
+          </div>
+
+          <p style="font-size:0.85rem; color:var(--muted); margin:0 0 10px;">${c.region} • ${c.distanceDesc}</p>
+
+          <div style="background:#F8FAFC; border-radius:8px; padding:10px; margin-bottom:10px; font-size:0.82rem;">
+            <div><strong>זמינות:</strong> ${c.hoursWeekly} (${c.slots})</div>
+            <div style="margin-top:4px;"><strong>מקצועות:</strong> ${c.subjects.join(', ')}</div>
+            <div style="margin-top:4px;"><strong>נושאי AI:</strong> ${c.aiTopics.join(', ')}</div>
+            <div style="margin-top:4px;"><strong>רמה:</strong> ${c.academicLevel}</div>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <div style="font-size:0.8rem; font-weight:700; margin-bottom:4px;">אותות הצטיינות:</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              ${c.badges.map(b => `<img src="${b.file}" title="${b.name}" alt="${b.name}" style="width:36px; height:36px;" />`).join('')}
+            </div>
+          </div>
+
+          <button type="button" class="act" style="width:100%;" onclick="lockCandidateMatch('${c.id}')">
+            בחר ונעל שידוך זה 🔒
+          </button>
+        </div>
+      `;
+    });
+    cardsCompareContainer.innerHTML = cardsHtml;
+  }
+
+  // Lock match handler
+  window.lockCandidateMatch = function(id) {
+    alert(`שידוך עם מועמד ${id} ננעל בהצלחה! השיבוץ נשמר בדפדפן (localStorage) ללא PII.`);
+  };
+
+  // Export CSV handler
+  document.getElementById('exportCompareCsvBtn').addEventListener('click', () => {
+    if (selectedCandidateIds.length === 0) return;
+    const candidates = selectedCandidateIds.map(id => CANDIDATES_DATA[id]);
+    let csv = '\uFEFFמועמד,תפקיד,ציון התאמה,אזור,שעות שבועיות,מקצועות,רמת לימוד,נוכחות,השלמת מלגה\n';
+    candidates.forEach(c => {
+      csv += `"${c.id}","${c.role}","${c.baseScore}%","${c.region}","${c.hoursWeekly}","${c.subjects.join('; ')}","${c.academicLevel}","${c.attendanceRate}","${c.scholarshipProgress}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `peer-compare-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Initial Auto-select Candidate 1 & Candidate 2 for demo purposes
+  document.querySelector('input[data-candidate="S-201"]').checked = true;
+  document.querySelector('input[data-candidate="S-205"]').checked = true;
+  document.getElementById('card-cand-1').classList.add('selected');
+  document.getElementById('card-cand-2').classList.add('selected');
+  selectedCandidateIds = ['S-201', 'S-205'];
+  updateSelectionState();
+</script>
+</body>
+</html>

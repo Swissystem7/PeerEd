@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title-hrs desc-hrs">
+  <title id="title-hrs">אות הצטיינות: 10+ שעות הדרכה</title>
+  <desc id="desc-hrs">השלמת מעל 10 שעות הדרכה וליווי של תלמידים במסגרת PeerEd</desc>
+  <defs>
+    <linearGradient id="gold-shimmer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="30%" stop-color="#FBBF24" />
+      <stop offset="70%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+    <filter id="shadow-gold" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#D97706" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Medal Ribbon (Hanging from top) -->
+  <polygon points="44,8 52,36 36,36" fill="#4338CA" />
+  <polygon points="76,8 68,36 84,36" fill="#0F766E" />
+  <polygon points="60,8 68,36 52,36" fill="#6366F1" />
+
+  <!-- Circular Gold Medal -->
+  <circle cx="60" cy="64" r="44" fill="url(#gold-shimmer)" stroke="#FEF3C7" stroke-width="3" filter="url(#shadow-gold)" />
+  <circle cx="60" cy="64" r="37" fill="#78350F" />
+
+  <!-- Trophy Icon -->
+  <path d="M48 48h24v12c0 6.6-5.4 12-12 12s-12-5.4-12-12V48z" fill="#FBBF24" />
+  <!-- Trophy Handles -->
+  <path d="M48 51h-5c-2.2 0-4 1.8-4 4 0 4 3 6.5 7 7v-4c-2 0-3-1-3-3 0-1 1-2 2-2h3v-2zM72 51h5c2.2 0 4 1.8 4 4 0 4-3 6.5-7 7v-4c2 0 3-1 3-3 0-1-1-2-2-2h-3v-2z" fill="#FDE68A" />
+  <!-- Trophy Stem and Base -->
+  <path d="M58 72h4v6h-4z" fill="#F59E0B" />
+  <rect x="52" y="78" width="16" height="5" rx="2" fill="#FBBF24" />
+
+  <!-- Star in Cup -->
+  <polygon points="60,53 61.5,56.5 65,56.5 62,58.5 63,62 60,60 57,62 58,58.5 55,56.5 58.5,56.5" fill="#78350F" />
+
+  <!-- Badge Banner -->
+  <rect x="34" y="86" width="52" height="18" rx="9" fill="#FDE68A" stroke="#78350F" stroke-width="1.2" />
+  <text x="60" y="99" fill="#78350F" font-family="system-ui, -apple-system, Rubik, sans-serif" font-size="10" font-weight="900" text-anchor="middle">10+ שעות</text>
+</svg>
