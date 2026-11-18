@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title-att desc-att">
+  <title id="title-att">אות הצטיינות: נוכחות מלאה 100%</title>
+  <desc id="desc-att">נוכחות בכל המפגשים שנקבעו ללא ביטולים או החמצות</desc>
+  <defs>
+    <linearGradient id="teal-mint" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F766E" />
+      <stop offset="100%" stop-color="#14B8A6" />
+    </linearGradient>
+    <filter id="shadow-att" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#0F766E" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Circular Outer Frame with Sunburst Beads -->
+  <circle cx="60" cy="60" r="52" fill="#F0FDFA" stroke="#0F766E" stroke-width="3" filter="url(#shadow-att)" />
+  <circle cx="60" cy="60" r="45" fill="url(#teal-mint)" />
+
+  <!-- Calendar Base -->
+  <rect x="42" y="38" width="36" height="34" rx="6" fill="#FFFFFF" />
+  <!-- Calendar Header -->
+  <path d="M42 44c0-3.3 2.7-6 6-6h24c3.3 0 6 2.7 6 6v5H42v-5z" fill="#0D9488" />
+  <!-- Rings -->
+  <rect x="48" y="34" width="4" height="7" rx="2" fill="#134E4A" />
+  <rect x="68" y="34" width="4" height="7" rx="2" fill="#134E4A" />
+
+  <!-- Green Big Checkmark on Calendar -->
+  <path d="M50 58l7 7 15-15" fill="none" stroke="#059669" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Banner -->
+  <rect x="32" y="80" width="56" height="18" rx="9" fill="#134E4A" stroke="#5EEAD4" stroke-width="1.2" />
+  <text x="60" y="93" fill="#FFFFFF" font-family="system-ui, -apple-system, Rubik, sans-serif" font-size="9" font-weight="900" text-anchor="middle">נוכחות 100%</text>
+
+  <!-- Accent stars -->
+  <circle cx="60" cy="22" r="3" fill="#2DD4BF" />
+</svg>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title-sch25 desc-sch25">
+  <title id="title-sch25">אות מלגה: 25% שעות</title>
+  <desc id="desc-sch25">ציון דרך ראשון במלגת התנדבות - השלמת 25 אחוזים ממכסת השעות הנדרשת</desc>
+  <defs>
+    <linearGradient id="grad-sch25" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F766E" />
+      <stop offset="100%" stop-color="#0D9488" />
+    </linearGradient>
+    <filter id="shadow-sch25" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#0F766E" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Base Circle -->
+  <circle cx="60" cy="60" r="52" fill="#F0FDFA" stroke="#CCFBF1" stroke-width="4" filter="url(#shadow-sch25)" />
+  
+  <!-- Progress Arc (25%) -->
+  <circle cx="60" cy="60" r="46" fill="none" stroke="#E2E8F0" stroke-width="6" stroke-linecap="round" />
+  <circle cx="60" cy="60" r="46" fill="none" stroke="url(#grad-sch25)" stroke-width="6" stroke-dasharray="289" stroke-dashoffset="216.75" stroke-linecap="round" transform="rotate(-90 60 60)" />
+
+  <!-- Inner Badge Plate -->
+  <circle cx="60" cy="60" r="36" fill="url(#grad-sch25)" />
+
+  <!-- Icon: Sprout / Book / Quarter Milestone -->
+  <path d="M48 55c0-6.6 5.4-12 12-12s12 5.4 12 12v3H48v-3z" fill="#CCFBF1" opacity="0.9" />
+  <path d="M46 64h28v3c0 2.2-1.8 4-4 4H50c-2.2 0-4-1.8-4-4v-3z" fill="#99F6E4" />
+  <path d="M60 48v16" stroke="#0F766E" stroke-width="2" stroke-linecap="round" />
+  <path d="M54 56l6-6 6 6" stroke="#0F766E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Label 25% -->
+  <rect x="38" y="78" width="44" height="18" rx="9" fill="#134E4A" />
+  <text x="60" y="91" fill="#FFFFFF" font-family="system-ui, -apple-system, Rubik, sans-serif" font-size="11" font-weight="800" text-anchor="middle">25%</text>
+
+  <!-- Small accent star -->
+  <circle cx="60" cy="22" r="3" fill="#0D9488" />
+</svg>

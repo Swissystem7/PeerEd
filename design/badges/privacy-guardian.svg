@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title-priv desc-priv">
+  <title id="title-priv">אות הגנת הפרטיות: Zero PII</title>
+  <desc id="desc-priv">ציות מלא לתקנות הגנת פרטיות מחמירות - אפס פרטים אישיים נשמרים במערכת</desc>
+  <defs>
+    <linearGradient id="shield-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#064E3B" />
+    </linearGradient>
+    <linearGradient id="metal-silver" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC" />
+      <stop offset="100%" stop-color="#CBD5E1" />
+    </linearGradient>
+    <filter id="shadow-priv" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#047857" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Outer Shield Contour -->
+  <path d="M60 12C78 18 96 16 96 36c0 36-22 56-36 68-14-12-36-32-36-68 0-20 18-18 36-24z" fill="url(#shield-grad)" stroke="#10B981" stroke-width="3" filter="url(#shadow-priv)" />
+  
+  <!-- Inner Shield Highlight -->
+  <path d="M60 20C73 25 87 23 87 38c0 29-18 45-27 55-9-10-27-26-27-55 0-15 14-13 27-18z" fill="#065F46" />
+
+  <!-- Lock & Checkmark Motif -->
+  <!-- Lock Shackle -->
+  <path d="M52 48v-8c0-4.4 3.6-8 8-8s8 3.6 8 8v8" fill="none" stroke="url(#metal-silver)" stroke-width="3.5" stroke-linecap="round" />
+  <!-- Lock Body -->
+  <rect x="46" y="48" width="28" height="22" rx="5" fill="url(#metal-silver)" />
+  <!-- Keyhole / Checkmark -->
+  <path d="M54 58l4 4 8-8" fill="none" stroke="#047857" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Label ZERO PII -->
+  <rect x="30" y="78" width="60" height="18" rx="9" fill="#022C22" stroke="#10B981" stroke-width="1.2" />
+  <text x="60" y="91" fill="#A7F3D0" font-family="system-ui, -apple-system, Rubik, sans-serif" font-size="9" font-weight="900" text-anchor="middle">ZERO PII</text>
+
+  <!-- Top Security Emblem Star -->
+  <circle cx="60" cy="22" r="2.5" fill="#34D399" />
+</svg>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title-emg desc-emg">
+  <title id="title-emg">אות מענה חירום מהיר</title>
+  <desc id="desc-emg">שידוך דחוף והתייצבות מהירה לחונכות בתקופת חירום ופינוי</desc>
+  <defs>
+    <linearGradient id="fire-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DC2626" />
+      <stop offset="60%" stop-color="#EA580C" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <filter id="shadow-emg" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#DC2626" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Emergency 8-pointed Badge Star -->
+  <polygon points="60,10 74,24 94,20 98,40 114,54 104,72 110,92 90,96 82,114 60,106 38,114 30,96 10,92 16,72 6,54 22,40 26,20 46,24" fill="#7F1D1D" stroke="#F97316" stroke-width="2.5" filter="url(#shadow-emg)" />
+  
+  <!-- Inner Fire Plate -->
+  <circle cx="60" cy="62" r="34" fill="url(#fire-grad)" />
+
+  <!-- Lightning Bolt of Rapid Response -->
+  <polygon points="63,38 48,58 59,58 55,78 74,54 62,54" fill="#FEF3C7" stroke="#9A3412" stroke-width="1.5" stroke-linejoin="round" />
+
+  <!-- Label חירום / RAPID -->
+  <rect x="32" y="82" width="56" height="18" rx="9" fill="#450A0A" stroke="#FDE047" stroke-width="1.2" />
+  <text x="60" y="95" fill="#FEF3C7" font-family="system-ui, -apple-system, Rubik, sans-serif" font-size="9" font-weight="900" text-anchor="middle">חירום מהיר</text>
+
+  <!-- Small radiant sparkles -->
+  <circle cx="42" cy="46" r="2" fill="#FEF08A" />
+  <circle cx="78" cy="46" r="2" fill="#FEF08A" />
+</svg>
