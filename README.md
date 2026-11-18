@@ -32,7 +32,8 @@ npm run test:e2e              # Chromium checks in e2e/ (needs: npm i --no-save 
 To run the app, open `app.html` in a browser. It is a single self-contained file with no external
 requests, so opening it straight from disk (`file://`) works; no server and no build are needed, because
 the committed `app.html` is already built. After any change under `src/lib/` or to `src/app-shell.html`,
-run `npm run build` and commit the regenerated `app.html`.
+run `npm run build` and commit the regenerated `app.html`. How the modules fit together:
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## What works today
 
