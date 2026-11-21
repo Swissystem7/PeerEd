@@ -16,6 +16,7 @@ const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
 const USER_ID_RE = /^p-[0-9a-f]{8}$/;
+const SLOT_RE = /^([A-Z]{3})_(\d{1,2})$/;
 
 function validatorLib() {
   return require('./validator' + '.js');
@@ -28,17 +29,28 @@ function assertPeerUserId(id) {
   return id;
 }
 
-// A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
-// The canonical spelling has no leading zero on the hour: 'SUN_8', never 'SUN_08'. The engine compares
-// slots as strings (match.js hasOverlap / shared), so two spellings of one hour would never meet.
-// normalizeSlot returns the canonical string for any accepted spelling, or null.
-function normalizeSlot(slot) {
+// One parse for every reader: the matcher, the hour helper and the heatmap must all agree on what a
+// slot is. An accepted slot is always returned in its canonical spelling, 'SUN_8' and never 'SUN_08'.
+function parsedSlot(slot) {
   if (typeof slot !== 'string') return null;
-  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
-  if (!m || DAYS.indexOf(m[1]) === -1) return null;
+  const m = SLOT_RE.exec(slot);
+  if (m === null) return null;
+  if (DAYS.indexOf(m[1]) === -1) return null;
   const hour = Number(m[2]);
-  if (!Number.isInteger(hour) || hour < HOUR_MIN || hour > HOUR_MAX) return null;
-  return m[1] + '_' + String(hour);
+  if (!Number.isInteger(hour)) return null;
+  if (hour < HOUR_MIN) return null;
+  if (hour > HOUR_MAX) return null;
+  return { day: m[1], hour: hour };
+}
+
+// A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
+// The canonical spelling has no leading zero on the hour. normalizeSlot returns that string for any
+// accepted spelling, or null. The engine compares slots as strings (match.js hasOverlap / shared), so
+// two spellings of one hour would never meet.
+function normalizeSlot(slot) {
+  const parsed = parsedSlot(slot);
+  if (parsed === null) return null;
+  return parsed.day + '_' + String(parsed.hour);
 }
 
 function isSlot(slot) {
@@ -46,25 +58,39 @@ function isSlot(slot) {
 }
 
 function isAiLevel(level) {
-  return typeof level === 'string' && AI_LEVELS.indexOf(level) !== -1;
+  if (typeof level !== 'string') return false;
+  return AI_LEVELS.indexOf(level) !== -1;
+}
+
+function availabilityOf(p) {
+  if (Array.isArray(p)) return p;
+  if (p === null) return [];
+  if (typeof p !== 'object') return [];
+  if (Array.isArray(p.availability)) return p.availability;
+  return [];
+}
+
+function normalizedSlotSet(list) {
+  const out = new Set();
+  for (let i = 0; i < list.length; i += 1) {
+    const s = normalizeSlot(list[i]);
+    if (s !== null) out.add(s);
+  }
+  return out;
 }
 
 function getWeeklyOverlapSlots(personA, personB) {
-  const a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
-  const b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
-  const right = new Set();
-  for (let i = 0; i < b.length; i += 1) {
-    const s = normalizeSlot(b[i]);
-    if (s !== null) right.add(s);
-  }
+  const right = normalizedSlotSet(availabilityOf(personB));
   const seen = new Set();
   const out = [];
-  for (let i = 0; i < a.length; i += 1) {
-    const s = normalizeSlot(a[i]);
-    if (s !== null && right.has(s) && !seen.has(s)) {
-      seen.add(s);
-      out.push(s);
-    }
+  const left = availabilityOf(personA);
+  for (let i = 0; i < left.length; i += 1) {
+    const s = normalizeSlot(left[i]);
+    if (s === null) continue;
+    if (!right.has(s)) continue;
+    if (seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
   }
   return out.sort();
 }
@@ -80,115 +106,175 @@ function unique(list) {
 }
 
 function getSlotHour(slot) {
-  if (!isSlot(slot)) {
-    throw new Error('invalid slot: ' + String(slot));
-  }
-  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
-  return Number(m[2]);
+  const parsed = parsedSlot(slot);
+  if (parsed === null) throw new Error('invalid slot: ' + String(slot));
+  return parsed.hour;
 }
 
-function makeProfile(input) {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('profile input must be an object with role, region, availability, subjects');
-  }
-  // Privacy gate first: an unknown key is rejected before anything else is looked at.
+function profileInputError() {
+  return new Error('profile input must be an object with role, region, availability, subjects');
+}
+
+function assertProfileInput(input) {
+  if (input === null) throw profileInputError();
+  if (typeof input !== 'object') throw profileInputError();
+  if (Array.isArray(input)) throw profileInputError();
+}
+
+function assertAcceptedFields(input) {
   const keys = Object.keys(input);
   for (let i = 0; i < keys.length; i += 1) {
-    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1 && keys[i] !== 'aiLevel') throw new Error(PERSONAL_DATA_ERROR);
+    if (ACCEPTED_FIELDS.indexOf(keys[i]) !== -1) continue;
+    if (keys[i] === 'aiLevel') continue;
+    throw new Error(PERSONAL_DATA_ERROR);
   }
-  if (input.aiLevel !== undefined && !isAiLevel(input.aiLevel)) {
-    throw new Error('invalid aiLevel: expected beginner or advanced');
-  }
-  const role = input.role;
-  const region = input.region;
-  const availability = input.availability;
-  const subjects = input.subjects;
+}
 
+function assertAiLevelInput(input) {
+  if (input.aiLevel === undefined) return;
+  if (!isAiLevel(input.aiLevel)) throw new Error('invalid aiLevel: expected beginner or advanced');
+}
+
+function assertRole(role) {
   if (ROLES.indexOf(role) === -1) throw new Error('invalid role: expected student or pupil');
+}
+
+function assertRegion(region) {
   if (!isRegion(region)) throw new Error('invalid region: expected one of the REGIONS codes');
-  if (!Array.isArray(availability) || availability.length === 0) {
-    throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
-  }
+}
+
+function normalizedAvailability(availability) {
+  if (!Array.isArray(availability)) throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
+  if (availability.length === 0) throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
   const slots = [];
   for (let i = 0; i < availability.length; i += 1) {
     const slot = normalizeSlot(availability[i]);
     if (slot === null) throw new Error('invalid availability slot: ' + String(availability[i]));
     slots.push(slot);
   }
-  if (!Array.isArray(subjects) || subjects.length === 0) {
-    throw new Error('invalid subjects: expected a non-empty array');
-  }
+  return unique(slots);
+}
+
+function invalidSubject(subject) {
+  return new Error('invalid subjects entry: ' + String(subject));
+}
+
+function assertSubject(subject) {
+  if (typeof subject !== 'string') throw invalidSubject(subject);
+  if (SUBJECTS.indexOf(subject) === -1) throw invalidSubject(subject);
+}
+
+function validatedSubjects(subjects) {
+  if (!Array.isArray(subjects)) throw new Error('invalid subjects: expected a non-empty array');
+  if (subjects.length === 0) throw new Error('invalid subjects: expected a non-empty array');
   for (let i = 0; i < subjects.length; i += 1) {
-    if (typeof subjects[i] !== 'string' || SUBJECTS.indexOf(subjects[i]) === -1) {
-      throw new Error('invalid subjects entry: ' + String(subjects[i]));
-    }
+    assertSubject(subjects[i]);
   }
+  return unique(subjects);
+}
 
-  if (input.parentConsent !== undefined && typeof input.parentConsent !== 'boolean') {
-    throw new Error('invalid parentConsent: expected boolean');
-  }
+function assertParentConsentInput(input) {
+  if (input.parentConsent === undefined) return;
+  if (typeof input.parentConsent !== 'boolean') throw new Error('invalid parentConsent: expected boolean');
+}
 
-  const blockedUsers = [];
-  if (input.blockedUsers !== undefined) {
-    if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
-    for (let i = 0; i < input.blockedUsers.length; i += 1) {
-      const uid = assertPeerUserId(input.blockedUsers[i]);
-      if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
-    }
+function blockedUsersOf(input) {
+  if (input.blockedUsers === undefined) return null;
+  if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
+  const out = [];
+  for (let i = 0; i < input.blockedUsers.length; i += 1) {
+    const uid = assertPeerUserId(input.blockedUsers[i]);
+    if (out.indexOf(uid) === -1) out.push(uid);
   }
+  return out;
+}
 
-  const reportEvents = [];
-  if (input.reportEvent !== undefined) {
-    if (!Array.isArray(input.reportEvent)) throw new Error('invalid reportEvent: expected an array');
-    const makeReportEvent = validatorLib().makeReportEvent;
-    for (let i = 0; i < input.reportEvent.length; i += 1) {
-      reportEvents.push(makeReportEvent(input.reportEvent[i]));
-    }
+function reportEventsOf(input) {
+  if (input.reportEvent === undefined) return null;
+  if (!Array.isArray(input.reportEvent)) throw new Error('invalid reportEvent: expected an array');
+  const makeReportEvent = validatorLib().makeReportEvent;
+  const out = [];
+  for (let i = 0; i < input.reportEvent.length; i += 1) {
+    out.push(makeReportEvent(input.reportEvent[i]));
   }
+  return out;
+}
 
-  const responseToReports = [];
-  if (input.responseToReport !== undefined) {
-    if (!Array.isArray(input.responseToReport)) throw new Error('invalid responseToReport: expected an array');
-    const makeResponseToReport = validatorLib().makeResponseToReport;
-    for (let i = 0; i < input.responseToReport.length; i += 1) {
-      responseToReports.push(makeResponseToReport(input.responseToReport[i]));
-    }
+function responseToReportsOf(input) {
+  if (input.responseToReport === undefined) return null;
+  if (!Array.isArray(input.responseToReport)) throw new Error('invalid responseToReport: expected an array');
+  const makeResponseToReport = validatorLib().makeResponseToReport;
+  const out = [];
+  for (let i = 0; i < input.responseToReport.length; i += 1) {
+    out.push(makeResponseToReport(input.responseToReport[i]));
   }
+  return out;
+}
+
+function profileRetention() {
+  return Object.freeze({ dataCategory: 'profile', maxAgeDays: getRetentionPolicy().profile });
+}
+
+function makeProfile(input) {
+  assertProfileInput(input);
+  assertAcceptedFields(input);
+  assertAiLevelInput(input);
+  assertRole(input.role);
+  assertRegion(input.region);
+  const availability = normalizedAvailability(input.availability);
+  const subjects = validatedSubjects(input.subjects);
+  assertParentConsentInput(input);
+
+  const blockedUsers = blockedUsersOf(input);
+  const reportEvents = reportEventsOf(input);
+  const responseToReports = responseToReportsOf(input);
 
   const profile = {
-    role: role,
-    region: region,
-    availability: Object.freeze(unique(slots)),
-    subjects: Object.freeze(unique(subjects))
+    role: input.role,
+    region: input.region,
+    availability: Object.freeze(availability),
+    subjects: Object.freeze(subjects)
   };
 
-  if (role === 'pupil' || input.parentConsent !== undefined) {
+  if (input.role === 'pupil' || input.parentConsent !== undefined) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
-
-  if (input.blockedUsers !== undefined) {
-    profile.blockedUsers = Object.freeze(blockedUsers.slice());
-  }
-
-  if (input.reportEvent !== undefined) {
-    profile.reportEvent = Object.freeze(reportEvents.slice());
-  }
-
-  if (input.responseToReport !== undefined) {
-    profile.responseToReport = Object.freeze(responseToReports.slice());
-  }
-
-  if (input.aiLevel !== undefined) {
-    profile.aiLevel = input.aiLevel;
-  }
-
-  const policy = getRetentionPolicy();
-  profile.retention = Object.freeze({
-    dataCategory: 'profile',
-    maxAgeDays: policy.profile
-  });
+  if (blockedUsers !== null) profile.blockedUsers = Object.freeze(blockedUsers.slice());
+  if (reportEvents !== null) profile.reportEvent = Object.freeze(reportEvents.slice());
+  if (responseToReports !== null) profile.responseToReport = Object.freeze(responseToReports.slice());
+  if (input.aiLevel !== undefined) profile.aiLevel = input.aiLevel;
+  profile.retention = profileRetention();
 
   return Object.freeze(profile);
+}
+
+function invalidRetention() {
+  return new Error('invalid retention: expected the stamp makeProfile writes');
+}
+
+function assertStampShape(stamp) {
+  if (stamp === null) throw invalidRetention();
+  if (typeof stamp !== 'object') throw invalidRetention();
+  if (Array.isArray(stamp)) throw invalidRetention();
+}
+
+function assertStampKeys(stamp) {
+  const keys = Object.keys(stamp);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+}
+
+function assertStampValues(stamp) {
+  if (stamp.dataCategory !== 'profile') throw invalidRetention();
+  if (!Number.isInteger(stamp.maxAgeDays)) throw invalidRetention();
+  if (stamp.maxAgeDays < 0) throw invalidRetention();
+}
+
+function assertRetentionStamp(stamp) {
+  assertStampShape(stamp);
+  assertStampKeys(stamp);
+  assertStampValues(stamp);
 }
 
 // The one key a profile carries that makeProfile does not take as input: the retention stamp it derives
@@ -202,22 +288,16 @@ function makeProfile(input) {
 // A third field in the stamp is refused with the same message as a name beside it; a stamp of another
 // shape (a string, a list, another category, no day count) is a record the app never wrote.
 function withoutRetentionStamp(profile) {
-  const stamp = profile.retention;
-  if (stamp !== undefined) {
-    if (stamp === null || typeof stamp !== 'object' || Array.isArray(stamp)) {
-      throw new Error('invalid retention: expected the stamp makeProfile writes');
-    }
-    const keys = Object.keys(stamp);
-    for (let i = 0; i < keys.length; i += 1) {
-      if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
-    }
-    if (stamp.dataCategory !== 'profile' || !Number.isInteger(stamp.maxAgeDays) || stamp.maxAgeDays < 0) {
-      throw new Error('invalid retention: expected the stamp makeProfile writes');
-    }
-  }
+  if (profile.retention !== undefined) assertRetentionStamp(profile.retention);
   const input = Object.assign({}, profile);
   delete input.retention;
   return input;
+}
+
+function assertProfileObject(profile) {
+  if (profile === null) throw new Error('profile must be an object');
+  if (typeof profile !== 'object') throw new Error('profile must be an object');
+  if (Array.isArray(profile)) throw new Error('profile must be an object');
 }
 
 // Returns a new frozen profile with parentConsent set. The result goes through makeProfile again, so
@@ -226,14 +306,13 @@ function withoutRetentionStamp(profile) {
 // consent must be a real boolean (or omitted, meaning true): a form value 'false' or 'no' is truthy, and
 // coercing it would record a parent's consent that was never given.
 function setParentConsent(profile, consent) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
+  assertProfileObject(profile);
+  let consentValue;
+  if (consent === undefined) consentValue = true;
+  else {
+    if (typeof consent !== 'boolean') throw new Error('invalid parentConsent: expected boolean');
+    consentValue = consent;
   }
-  if (consent !== undefined && typeof consent !== 'boolean') {
-    throw new Error('invalid parentConsent: expected boolean');
-  }
-  const consentValue = consent === undefined ? true : consent;
-  // retention is derived by makeProfile itself, not an input field: shed it before re-validating.
   const input = withoutRetentionStamp(profile);
   return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
@@ -248,17 +327,13 @@ function revokeParentConsent(profile) {
 
 function checkBlocked(profile, userId) {
   assertPeerUserId(userId);
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   if (!Array.isArray(profile.blockedUsers)) return false;
   return profile.blockedUsers.indexOf(userId) !== -1;
 }
 
 function blockUser(profile, userId) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   assertPeerUserId(userId);
   const input = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.blockedUsers) ? profile.blockedUsers.slice() : [];
@@ -266,96 +341,116 @@ function blockUser(profile, userId) {
   return makeProfile(Object.assign(input, { blockedUsers: current }));
 }
 
-function reportEvent(profile, input) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
-  const event = validatorLib().makeReportEvent(input);
+function appendProfileList(profile, field, makeItem) {
+  assertProfileObject(profile);
+  const item = makeItem();
   const base = withoutRetentionStamp(profile);
-  const current = Array.isArray(profile.reportEvent) ? profile.reportEvent.slice() : [];
-  current.push(event);
-  return makeProfile(Object.assign(base, { reportEvent: current }));
+  const current = Array.isArray(profile[field]) ? profile[field].slice() : [];
+  current.push(item);
+  const patch = {};
+  patch[field] = current;
+  return makeProfile(Object.assign(base, patch));
+}
+
+function reportEvent(profile, input) {
+  return appendProfileList(profile, 'reportEvent', () => validatorLib().makeReportEvent(input));
 }
 
 function responseToReport(profile, input) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
+  return appendProfileList(profile, 'responseToReport', () => validatorLib().makeResponseToReport(input));
+}
+
+function roleOf(p) {
+  if (p === null) return null;
+  if (typeof p !== 'object') return null;
+  if (Array.isArray(p)) return null;
+  if (typeof p.role !== 'string') return null;
+  const role = p.role.trim().toLowerCase();
+  if (role === 'student') return role;
+  if (role === 'pupil') return role;
+  return null;
+}
+
+function countOf(map, key) {
+  const n = map.get(key);
+  if (n === undefined) return 0;
+  return n;
+}
+
+function addAvailabilityCounts(dMap, sMap, p) {
+  const role = roleOf(p);
+  if (role === null) return;
+  const avail = Array.isArray(p.availability) ? p.availability : [];
+  const seenSlots = new Set();
+  const target = role === 'pupil' ? dMap : sMap;
+  for (let j = 0; j < avail.length; j += 1) {
+    const norm = normalizeSlot(avail[j]);
+    if (norm === null) continue;
+    if (seenSlots.has(norm)) continue;
+    seenSlots.add(norm);
+    const previous = target.get(norm);
+    target.set(norm, previous === undefined ? 1 : previous + 1);
   }
-  const response = validatorLib().makeResponseToReport(input);
-  const base = withoutRetentionStamp(profile);
-  const current = Array.isArray(profile.responseToReport) ? profile.responseToReport.slice() : [];
-  current.push(response);
-  return makeProfile(Object.assign(base, { responseToReport: current }));
+}
+
+function slotKeyOf(day, hour) {
+  return day + '_' + hour;
+}
+
+function heatmapSlot(day, hour, demand, supply) {
+  const gap = demand - supply;
+  return Object.freeze({
+    slot: slotKeyOf(day, hour),
+    day: day,
+    hour: hour,
+    demand: demand,
+    supply: supply,
+    gap: gap,
+    shortage: Math.max(gap, 0),
+    pupils: demand,
+    students: supply
+  });
+}
+
+function compareTopShortage(a, b) {
+  if (b.gap !== a.gap) return b.gap - a.gap;
+  if (b.demand !== a.demand) return b.demand - a.demand;
+  const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+  if (dayDiff !== 0) return dayDiff;
+  return a.hour - b.hour;
+}
+
+function addSlotsForDay(day, ctx) {
+  for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
+    const slotKey = slotKeyOf(day, h);
+    const demand = countOf(ctx.dMap, slotKey);
+    const supply = countOf(ctx.sMap, slotKey);
+    const slotObj = heatmapSlot(day, h, demand, supply);
+    ctx.slots.push(slotObj);
+    ctx.slots[slotKey] = slotObj;
+    if (demand > supply) ctx.topShortageSlots.push(slotObj);
+  }
+}
+
+function addHeatmapSlots(ctx) {
+  for (let di = 0; di < DAYS.length; di += 1) {
+    addSlotsForDay(DAYS[di], ctx);
+  }
 }
 
 function computeWeeklyAvailabilityHeatmap(people) {
   const dMap = new Map();
   const sMap = new Map();
-
   if (Array.isArray(people)) {
     for (let i = 0; i < people.length; i += 1) {
-      const p = people[i];
-      if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
-      const role = typeof p.role === 'string' ? p.role.trim().toLowerCase() : '';
-      if (role !== 'student' && role !== 'pupil') continue;
-
-      const avail = Array.isArray(p.availability) ? p.availability : [];
-      const seenSlots = new Set();
-      for (let j = 0; j < avail.length; j += 1) {
-        const norm = normalizeSlot(avail[j]);
-        if (norm !== null && !seenSlots.has(norm)) {
-          seenSlots.add(norm);
-          if (role === 'pupil') {
-            dMap.set(norm, (dMap.get(norm) || 0) + 1);
-          } else if (role === 'student') {
-            sMap.set(norm, (sMap.get(norm) || 0) + 1);
-          }
-        }
-      }
+      addAvailabilityCounts(dMap, sMap, people[i]);
     }
   }
 
   const slots = [];
   const topShortageSlots = [];
-
-  for (let di = 0; di < DAYS.length; di += 1) {
-    const day = DAYS[di];
-    for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
-      const slotKey = day + '_' + h;
-      const demand = dMap.get(slotKey) || 0;
-      const supply = sMap.get(slotKey) || 0;
-      const gap = demand - supply;
-      const shortage = Math.max(gap, 0);
-
-      const slotObj = Object.freeze({
-        slot: slotKey,
-        day: day,
-        hour: h,
-        demand: demand,
-        supply: supply,
-        gap: gap,
-        shortage: shortage,
-        pupils: demand,
-        students: supply
-      });
-
-      slots.push(slotObj);
-      slots[slotKey] = slotObj;
-
-      if (demand > supply) {
-        topShortageSlots.push(slotObj);
-      }
-    }
-  }
-
-  topShortageSlots.sort((a, b) => {
-    if (b.gap !== a.gap) return b.gap - a.gap;
-    if (b.demand !== a.demand) return b.demand - a.demand;
-    const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
-    if (dayDiff !== 0) return dayDiff;
-    return a.hour - b.hour;
-  });
-
+  addHeatmapSlots({ dMap: dMap, sMap: sMap, slots: slots, topShortageSlots: topShortageSlots });
+  topShortageSlots.sort(compareTopShortage);
   return Object.freeze({
     slots: Object.freeze(slots),
     topShortageSlots: Object.freeze(topShortageSlots)
