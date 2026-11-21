@@ -39,6 +39,7 @@ test('module code is inlined verbatim, even a regex holding a replacement patter
   const code = "var RE = new RegExp('^' + 'a' + ')$', 'i'); var AMP = '$&'; var TICK = '$`';";
   const built = build({ modules: { validator: code } });
   assert.ok(built.includes(code), 'module source was rewritten while being inlined');
+  // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
   assert.equal(built.split('<script>').length, fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8')
     .split('<script>').length, 'the shell was duplicated');
 });
@@ -75,3 +76,12 @@ test('the app stores no name, no contact detail and no free text', () => {
   assert.ok(stores.some((call) => /setItem\(storageKey, text\)/.test(call)), 'the store writes serialize() output');
   assert.ok(built.indexOf('__registry["store"] = module.exports') !== -1, 'store.js is inlined');
 });
+
+test('the build eliminates unused exports variable and dead symbols flagged by Qodana', () => {
+  const built = build();
+  assert.equal(built.includes('var exports = module.exports;'), false, 'unused exports variable should not be emitted');
+  assert.equal(built.includes('const wd = weekday(cancelled.date);'), false, 'unused wd constant should be omitted');
+  assert.equal(built.includes('const { SUBJECTS, normalizeSlot,'), false, 'unused normalizeSlot in match2 should be omitted');
+  assert.equal(built.includes('const PII_KEY_RE = /(?:name|'), false, 'unnecessary non-capturing group in PII_KEY_RE should be cleaned');
+});
+
