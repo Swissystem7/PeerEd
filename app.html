@@ -1487,16 +1487,25 @@ function assertPeerUserId(id) {
   return id;
 }
 
+function isPlainObject(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  return !Array.isArray(obj);
+}
+
 // A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
 // The canonical spelling has no leading zero on the hour: 'SUN_8', never 'SUN_08'. The engine compares
 // slots as strings (match.js hasOverlap / shared), so two spellings of one hour would never meet.
 // normalizeSlot returns the canonical string for any accepted spelling, or null.
+function isHourInRange(hour) {
+  return Number.isInteger(hour) && hour >= HOUR_MIN && hour <= HOUR_MAX;
+}
+
 function normalizeSlot(slot) {
   if (typeof slot !== 'string') return null;
   const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
   if (!m || DAYS.indexOf(m[1]) === -1) return null;
   const hour = Number(m[2]);
-  if (!Number.isInteger(hour) || hour < HOUR_MIN || hour > HOUR_MAX) return null;
+  if (!isHourInRange(hour)) return null;
   return m[1] + '_' + String(hour);
 }
 
@@ -1508,21 +1517,28 @@ function isAiLevel(level) {
   return typeof level === 'string' && AI_LEVELS.indexOf(level) !== -1;
 }
 
-function getWeeklyOverlapSlots(personA, personB) {
-  const a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
-  const b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
-  const right = new Set();
-  for (let i = 0; i < b.length; i += 1) {
-    const s = normalizeSlot(b[i]);
-    if (s !== null) right.add(s);
+function extractSlotSet(person) {
+  const raw = Array.isArray(person) ? person : (person && Array.isArray(person.availability) ? person.availability : []);
+  const set = new Set();
+  for (let i = 0; i < raw.length; i += 1) {
+    const s = normalizeSlot(raw[i]);
+    if (s !== null) set.add(s);
   }
+  return set;
+}
+
+function getWeeklyOverlapSlots(personA, personB) {
+  const right = extractSlotSet(personB);
+  const aRaw = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
   const seen = new Set();
   const out = [];
-  for (let i = 0; i < a.length; i += 1) {
-    const s = normalizeSlot(a[i]);
-    if (s !== null && right.has(s) && !seen.has(s)) {
-      seen.add(s);
-      out.push(s);
+  for (let i = 0; i < aRaw.length; i += 1) {
+    const s = normalizeSlot(aRaw[i]);
+    if (s !== null && right.has(s)) {
+      if (!seen.has(s)) {
+        seen.add(s);
+        out.push(s);
+      }
     }
   }
   return out.sort();
@@ -1546,25 +1562,21 @@ function getSlotHour(slot) {
   return Number(m[2]);
 }
 
-function makeProfile(input) {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('profile input must be an object with role, region, availability, subjects');
-  }
-  // Privacy gate first: an unknown key is rejected before anything else is looked at.
+function assertAllowedProfileKeys(input) {
   const keys = Object.keys(input);
   for (let i = 0; i < keys.length; i += 1) {
-    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1 && keys[i] !== 'aiLevel') throw new Error(PERSONAL_DATA_ERROR);
+    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1 && keys[i] !== 'aiLevel') {
+      throw new Error(PERSONAL_DATA_ERROR);
+    }
   }
-  if (input.aiLevel !== undefined && !isAiLevel(input.aiLevel)) {
-    throw new Error('invalid aiLevel: expected beginner or advanced');
-  }
-  const role = input.role;
-  const region = input.region;
-  const availability = input.availability;
-  const subjects = input.subjects;
+}
 
+function assertValidRoleAndRegion(role, region) {
   if (ROLES.indexOf(role) === -1) throw new Error('invalid role: expected student or pupil');
   if (!isRegion(region)) throw new Error('invalid region: expected one of the REGIONS codes');
+}
+
+function parseProfileSlots(availability) {
   if (!Array.isArray(availability) || availability.length === 0) {
     throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
   }
@@ -1574,6 +1586,10 @@ function makeProfile(input) {
     if (slot === null) throw new Error('invalid availability slot: ' + String(availability[i]));
     slots.push(slot);
   }
+  return slots;
+}
+
+function assertValidSubjects(subjects) {
   if (!Array.isArray(subjects) || subjects.length === 0) {
     throw new Error('invalid subjects: expected a non-empty array');
   }
@@ -1582,69 +1598,93 @@ function makeProfile(input) {
       throw new Error('invalid subjects entry: ' + String(subjects[i]));
     }
   }
+}
 
-  if (input.parentConsent !== undefined && typeof input.parentConsent !== 'boolean') {
-    throw new Error('invalid parentConsent: expected boolean');
-  }
-
+function parseBlockedUsers(inputBlocked) {
+  if (inputBlocked === undefined) return undefined;
+  if (!Array.isArray(inputBlocked)) throw new Error('invalid blockedUsers: expected an array');
   const blockedUsers = [];
-  if (input.blockedUsers !== undefined) {
-    if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
-    for (let i = 0; i < input.blockedUsers.length; i += 1) {
-      const uid = assertPeerUserId(input.blockedUsers[i]);
-      if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
-    }
+  for (let i = 0; i < inputBlocked.length; i += 1) {
+    const uid = assertPeerUserId(inputBlocked[i]);
+    if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
   }
+  return Object.freeze(blockedUsers);
+}
 
+function parseReportEvents(inputReport) {
+  if (inputReport === undefined) return undefined;
+  if (!Array.isArray(inputReport)) throw new Error('invalid reportEvent: expected an array');
+  const makeReportEvent = validatorLib().makeReportEvent;
   const reportEvents = [];
-  if (input.reportEvent !== undefined) {
-    if (!Array.isArray(input.reportEvent)) throw new Error('invalid reportEvent: expected an array');
-    const makeReportEvent = validatorLib().makeReportEvent;
-    for (let i = 0; i < input.reportEvent.length; i += 1) {
-      reportEvents.push(makeReportEvent(input.reportEvent[i]));
-    }
+  for (let i = 0; i < inputReport.length; i += 1) {
+    reportEvents.push(makeReportEvent(inputReport[i]));
   }
+  return Object.freeze(reportEvents);
+}
 
+function parseResponseToReports(inputResponse) {
+  if (inputResponse === undefined) return undefined;
+  if (!Array.isArray(inputResponse)) throw new Error('invalid responseToReport: expected an array');
+  const makeResponseToReport = validatorLib().makeResponseToReport;
   const responseToReports = [];
-  if (input.responseToReport !== undefined) {
-    if (!Array.isArray(input.responseToReport)) throw new Error('invalid responseToReport: expected an array');
-    const makeResponseToReport = validatorLib().makeResponseToReport;
-    for (let i = 0; i < input.responseToReport.length; i += 1) {
-      responseToReports.push(makeResponseToReport(input.responseToReport[i]));
-    }
+  for (let i = 0; i < inputResponse.length; i += 1) {
+    responseToReports.push(makeResponseToReport(inputResponse[i]));
   }
+  return Object.freeze(responseToReports);
+}
 
-  const profile = {
-    role: role,
-    region: region,
-    availability: Object.freeze(unique(slots)),
-    subjects: Object.freeze(unique(subjects))
-  };
-
-  if (role === 'pupil' || input.parentConsent !== undefined) {
+function assignOptionalProfileFields(profile, input) {
+  if (input.role === 'pupil' || input.parentConsent !== undefined) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
-
   if (input.blockedUsers !== undefined) {
-    profile.blockedUsers = Object.freeze(blockedUsers.slice());
+    profile.blockedUsers = parseBlockedUsers(input.blockedUsers);
   }
-
   if (input.reportEvent !== undefined) {
-    profile.reportEvent = Object.freeze(reportEvents.slice());
+    profile.reportEvent = parseReportEvents(input.reportEvent);
   }
-
   if (input.responseToReport !== undefined) {
-    profile.responseToReport = Object.freeze(responseToReports.slice());
+    profile.responseToReport = parseResponseToReports(input.responseToReport);
   }
-
   if (input.aiLevel !== undefined) {
     profile.aiLevel = input.aiLevel;
   }
+}
 
-  const policy = getRetentionPolicy();
+function assertValidAiLevel(aiLevel) {
+  if (aiLevel !== undefined && !isAiLevel(aiLevel)) {
+    throw new Error('invalid aiLevel: expected beginner or advanced');
+  }
+}
+
+function assertValidParentConsent(consent) {
+  if (consent !== undefined && typeof consent !== 'boolean') {
+    throw new Error('invalid parentConsent: expected boolean');
+  }
+}
+
+function makeProfile(input) {
+  if (!isPlainObject(input)) {
+    throw new Error('profile input must be an object with role, region, availability, subjects');
+  }
+  assertAllowedProfileKeys(input);
+  assertValidAiLevel(input.aiLevel);
+  assertValidRoleAndRegion(input.role, input.region);
+  const slots = parseProfileSlots(input.availability);
+  assertValidSubjects(input.subjects);
+  assertValidParentConsent(input.parentConsent);
+
+  const profile = {
+    role: input.role,
+    region: input.region,
+    availability: Object.freeze(unique(slots)),
+    subjects: Object.freeze(unique(input.subjects))
+  };
+
+  assignOptionalProfileFields(profile, input);
   profile.retention = Object.freeze({
     dataCategory: 'profile',
-    maxAgeDays: policy.profile
+    maxAgeDays: getRetentionPolicy().profile
   });
 
   return Object.freeze(profile);
@@ -1660,19 +1700,36 @@ function makeProfile(input) {
 // the one it skipped was the one place a name or a phone written on disk could sit without being refused.
 // A third field in the stamp is refused with the same message as a name beside it; a stamp of another
 // shape (a string, a list, another category, no day count) is a record the app never wrote.
+function assertProfileObject(profile) {
+  if (!isPlainObject(profile)) {
+    throw new Error('profile must be an object');
+  }
+}
+
+function isValidRetentionDays(days) {
+  return Number.isInteger(days) && days >= 0;
+}
+
+function assertValidRetentionKeys(keys) {
+  for (let i = 0; i < keys.length; i += 1) {
+    if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+}
+
+function assertValidRetentionStamp(stamp) {
+  if (!isPlainObject(stamp)) {
+    throw new Error('invalid retention: expected the stamp makeProfile writes');
+  }
+  assertValidRetentionKeys(Object.keys(stamp));
+  if (stamp.dataCategory !== 'profile' || !isValidRetentionDays(stamp.maxAgeDays)) {
+    throw new Error('invalid retention: expected the stamp makeProfile writes');
+  }
+}
+
 function withoutRetentionStamp(profile) {
   const stamp = profile.retention;
   if (stamp !== undefined) {
-    if (stamp === null || typeof stamp !== 'object' || Array.isArray(stamp)) {
-      throw new Error('invalid retention: expected the stamp makeProfile writes');
-    }
-    const keys = Object.keys(stamp);
-    for (let i = 0; i < keys.length; i += 1) {
-      if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
-    }
-    if (stamp.dataCategory !== 'profile' || !Number.isInteger(stamp.maxAgeDays) || stamp.maxAgeDays < 0) {
-      throw new Error('invalid retention: expected the stamp makeProfile writes');
-    }
+    assertValidRetentionStamp(stamp);
   }
   const input = Object.assign({}, profile);
   delete input.retention;
@@ -1685,14 +1742,11 @@ function withoutRetentionStamp(profile) {
 // consent must be a real boolean (or omitted, meaning true): a form value 'false' or 'no' is truthy, and
 // coercing it would record a parent's consent that was never given.
 function setParentConsent(profile, consent) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   if (consent !== undefined && typeof consent !== 'boolean') {
     throw new Error('invalid parentConsent: expected boolean');
   }
   const consentValue = consent === undefined ? true : consent;
-  // retention is derived by makeProfile itself, not an input field: shed it before re-validating.
   const input = withoutRetentionStamp(profile);
   return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
@@ -1707,17 +1761,13 @@ function revokeParentConsent(profile) {
 
 function checkBlocked(profile, userId) {
   assertPeerUserId(userId);
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   if (!Array.isArray(profile.blockedUsers)) return false;
   return profile.blockedUsers.indexOf(userId) !== -1;
 }
 
 function blockUser(profile, userId) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   assertPeerUserId(userId);
   const input = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.blockedUsers) ? profile.blockedUsers.slice() : [];
@@ -1726,9 +1776,7 @@ function blockUser(profile, userId) {
 }
 
 function reportEvent(profile, input) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   const event = validatorLib().makeReportEvent(input);
   const base = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.reportEvent) ? profile.reportEvent.slice() : [];
@@ -1737,14 +1785,72 @@ function reportEvent(profile, input) {
 }
 
 function responseToReport(profile, input) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   const response = validatorLib().makeResponseToReport(input);
   const base = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.responseToReport) ? profile.responseToReport.slice() : [];
   current.push(response);
   return makeProfile(Object.assign(base, { responseToReport: current }));
+}
+
+function recordPersonSlots(avail, role, dMap, sMap) {
+  const seenSlots = new Set();
+  for (let j = 0; j < avail.length; j += 1) {
+    const norm = normalizeSlot(avail[j]);
+    if (norm !== null && !seenSlots.has(norm)) {
+      seenSlots.add(norm);
+      if (role === 'pupil') {
+        dMap.set(norm, (dMap.get(norm) || 0) + 1);
+      } else if (role === 'student') {
+        sMap.set(norm, (sMap.get(norm) || 0) + 1);
+      }
+    }
+  }
+}
+
+function processPersonHeatmap(p, dMap, sMap) {
+  if (!isPlainObject(p)) return;
+  const role = typeof p.role === 'string' ? p.role.trim().toLowerCase() : '';
+  if (role !== 'student' && role !== 'pupil') return;
+  const avail = Array.isArray(p.availability) ? p.availability : [];
+  recordPersonSlots(avail, role, dMap, sMap);
+}
+
+function compareShortageSlots(a, b) {
+  if (b.gap !== a.gap) return b.gap - a.gap;
+  if (b.demand !== a.demand) return b.demand - a.demand;
+  const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+  if (dayDiff !== 0) return dayDiff;
+  return a.hour - b.hour;
+}
+
+function buildSlotForHour(day, h, dMap, sMap) {
+  const slotKey = day + '_' + h;
+  const demand = dMap.get(slotKey) || 0;
+  const supply = sMap.get(slotKey) || 0;
+  const gap = demand - supply;
+  return Object.freeze({
+    slot: slotKey,
+    day: day,
+    hour: h,
+    demand: demand,
+    supply: supply,
+    gap: gap,
+    shortage: Math.max(gap, 0),
+    pupils: demand,
+    students: supply
+  });
+}
+
+function populateDaySlots(day, maps, out) {
+  for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
+    const slotObj = buildSlotForHour(day, h, maps.dMap, maps.sMap);
+    out.slots.push(slotObj);
+    out.slots[slotObj.slot] = slotObj;
+    if (slotObj.demand > slotObj.supply) {
+      out.topShortageSlots.push(slotObj);
+    }
+  }
 }
 
 function computeWeeklyAvailabilityHeatmap(people) {
@@ -1753,71 +1859,22 @@ function computeWeeklyAvailabilityHeatmap(people) {
 
   if (Array.isArray(people)) {
     for (let i = 0; i < people.length; i += 1) {
-      const p = people[i];
-      if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
-      const role = typeof p.role === 'string' ? p.role.trim().toLowerCase() : '';
-      if (role !== 'student' && role !== 'pupil') continue;
-
-      const avail = Array.isArray(p.availability) ? p.availability : [];
-      const seenSlots = new Set();
-      for (let j = 0; j < avail.length; j += 1) {
-        const norm = normalizeSlot(avail[j]);
-        if (norm !== null && !seenSlots.has(norm)) {
-          seenSlots.add(norm);
-          if (role === 'pupil') {
-            dMap.set(norm, (dMap.get(norm) || 0) + 1);
-          } else if (role === 'student') {
-            sMap.set(norm, (sMap.get(norm) || 0) + 1);
-          }
-        }
-      }
+      processPersonHeatmap(people[i], dMap, sMap);
     }
   }
 
-  const slots = [];
-  const topShortageSlots = [];
+  const maps = { dMap, sMap };
+  const out = { slots: [], topShortageSlots: [] };
 
   for (let di = 0; di < DAYS.length; di += 1) {
-    const day = DAYS[di];
-    for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
-      const slotKey = day + '_' + h;
-      const demand = dMap.get(slotKey) || 0;
-      const supply = sMap.get(slotKey) || 0;
-      const gap = demand - supply;
-      const shortage = Math.max(gap, 0);
-
-      const slotObj = Object.freeze({
-        slot: slotKey,
-        day: day,
-        hour: h,
-        demand: demand,
-        supply: supply,
-        gap: gap,
-        shortage: shortage,
-        pupils: demand,
-        students: supply
-      });
-
-      slots.push(slotObj);
-      slots[slotKey] = slotObj;
-
-      if (demand > supply) {
-        topShortageSlots.push(slotObj);
-      }
-    }
+    populateDaySlots(DAYS[di], maps, out);
   }
 
-  topShortageSlots.sort((a, b) => {
-    if (b.gap !== a.gap) return b.gap - a.gap;
-    if (b.demand !== a.demand) return b.demand - a.demand;
-    const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
-    if (dayDiff !== 0) return dayDiff;
-    return a.hour - b.hour;
-  });
+  out.topShortageSlots.sort(compareShortageSlots);
 
   return Object.freeze({
-    slots: Object.freeze(slots),
-    topShortageSlots: Object.freeze(topShortageSlots)
+    slots: Object.freeze(out.slots),
+    topShortageSlots: Object.freeze(out.topShortageSlots)
   });
 }
 
@@ -1894,7 +1951,8 @@ function shared(a, b) {
 // region, the hours and the subjects fit, so no screen and no stored roster can pair a pupil whose
 // parent has not said yes. Only an explicit true counts; a missing flag is treated as no.
 function hasParentConsent(pupil) {
-  return pupil !== null && typeof pupil === 'object' && pupil.parentConsent === true;
+  if (pupil === null || typeof pupil !== 'object') return false;
+  return pupil.parentConsent === true;
 }
 
 function compareCandidates(x, y) {
@@ -1904,30 +1962,91 @@ function compareCandidates(x, y) {
     (x.pupilIndex - y.pupilIndex);
 }
 
+function buildCandidate(s, p, si, pi) {
+  if (!hasParentConsent(p) || p.region !== s.region) return null;
+  if (!hasOverlap(s.availability, p.availability)) return null;
+  const subjects = shared(s.subjects, p.subjects);
+  if (subjects.length === 0) return null;
+  const slots = shared(s.availability, p.availability);
+  return {
+    studentIndex: si,
+    pupilIndex: pi,
+    region: s.region,
+    sharedSlots: slots,
+    sharedSubjects: subjects
+  };
+}
+
+function findCandidatesForStudent(s, si, P) {
+  if (!s || typeof s.region !== 'string') return [];
+  const list = [];
+  for (let pi = 0; pi < P.length; pi += 1) {
+    const candidate = buildCandidate(s, P[pi], si, pi);
+    if (candidate) list.push(candidate);
+  }
+  return list;
+}
+
 // All valid (student, pupil) candidates, best first. A pupil without parent consent is in no candidate.
 function candidatesOf(S, P) {
   const candidates = [];
   for (let si = 0; si < S.length; si += 1) {
-    const s = S[si];
-    if (!s || typeof s.region !== 'string') continue;
-    for (let pi = 0; pi < P.length; pi += 1) {
-      const p = P[pi];
-      if (!hasParentConsent(p)) continue;
-      if (p.region !== s.region) continue;
-      if (!hasOverlap(s.availability, p.availability)) continue;
-      const slots = shared(s.availability, p.availability);
-      const subjects = shared(s.subjects, p.subjects);
-      if (subjects.length === 0) continue;
-      candidates.push({
-        studentIndex: si,
-        pupilIndex: pi,
-        region: s.region,
-        sharedSlots: slots,
-        sharedSubjects: subjects
-      });
+    const studentCandidates = findCandidatesForStudent(S[si], si, P);
+    for (let k = 0; k < studentCandidates.length; k += 1) {
+      candidates.push(studentCandidates[k]);
     }
   }
   return candidates.sort(compareCandidates);
+}
+
+function groupCandidatesByStudent(candidates) {
+  const byStudent = new Map();
+  for (let i = 0; i < candidates.length; i += 1) {
+    const c = candidates[i];
+    let list = byStudent.get(c.studentIndex);
+    if (!list) {
+      list = [];
+      byStudent.set(c.studentIndex, list);
+    }
+    list.push(c);
+  }
+  return byStudent;
+}
+
+function greedyAssign(candidates, ofStudent, ofPupil) {
+  for (let i = 0; i < candidates.length; i += 1) {
+    const c = candidates[i];
+    if (ofStudent.has(c.studentIndex) || ofPupil.has(c.pupilIndex)) continue;
+    ofStudent.set(c.studentIndex, c);
+    ofPupil.set(c.pupilIndex, c);
+  }
+}
+
+function searchAugmentingPath(si, seen, state) {
+  const list = state.byStudent.get(si) || [];
+  for (let i = 0; i < list.length; i += 1) {
+    const c = list[i];
+    if (seen.has(c.pupilIndex)) continue;
+    seen.add(c.pupilIndex);
+    const holder = state.ofPupil.get(c.pupilIndex);
+    if (!holder || searchAugmentingPath(holder.studentIndex, seen, state)) {
+      state.ofStudent.set(si, c);
+      state.ofPupil.set(c.pupilIndex, c);
+      return true;
+    }
+  }
+  return false;
+}
+
+function runAugmentation(S, candidates, state) {
+  const reachablePupils = new Set(candidates.map((c) => c.pupilIndex)).size;
+  let seen = new Set();
+  for (let si = 0; si < S.length && state.ofPupil.size < reachablePupils; si += 1) {
+    if (state.ofStudent.has(si) || !state.byStudent.has(si)) continue;
+    if (searchAugmentingPath(si, seen, state)) {
+      seen = new Set();
+    }
+  }
 }
 
 // students / pupils: arrays of profiles ({ region, availability, subjects }, pupils also parentConsent).
@@ -1941,78 +2060,35 @@ function matchPairs(students, pupils) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
   const candidates = candidatesOf(S, P);
-  const byStudent = new Map();
-  for (let i = 0; i < candidates.length; i += 1) {
-    const c = candidates[i];
-    if (!byStudent.has(c.studentIndex)) byStudent.set(c.studentIndex, []);
-    byStudent.get(c.studentIndex).push(c);
-  }
-  const ofStudent = new Map();   // studentIndex -> candidate
-  const ofPupil = new Map();     // pupilIndex -> candidate
-  for (let i = 0; i < candidates.length; i += 1) {
-    const c = candidates[i];
-    if (ofStudent.has(c.studentIndex) || ofPupil.has(c.pupilIndex)) continue;
-    ofStudent.set(c.studentIndex, c);
-    ofPupil.set(c.pupilIndex, c);
-  }
-  function augment(si, seen) {
-    const list = byStudent.get(si) || [];
-    for (let i = 0; i < list.length; i += 1) {
-      const c = list[i];
-      if (seen.has(c.pupilIndex)) continue;
-      seen.add(c.pupilIndex);
-      const holder = ofPupil.get(c.pupilIndex);
-      if (!holder || augment(holder.studentIndex, seen)) {
-        ofStudent.set(si, c);
-        ofPupil.set(c.pupilIndex, c);
-        return true;
-      }
-    }
-    return false;
-  }
-  // A failed search leaves every pupil it visited unable to reach a free pupil until some search
-  // succeeds, so the visited set is kept across failures and cleared only after a success.
-  const reachablePupils = new Set(candidates.map((c) => c.pupilIndex)).size;
-  let seen = new Set();
-  for (let si = 0; si < S.length && ofPupil.size < reachablePupils; si += 1) {
-    if (ofStudent.has(si) || !byStudent.has(si)) continue;
-    if (augment(si, seen)) seen = new Set();
-  }
+  const byStudent = groupCandidatesByStudent(candidates);
+  const ofStudent = new Map();
+  const ofPupil = new Map();
+  greedyAssign(candidates, ofStudent, ofPupil);
+  runAugmentation(S, candidates, { byStudent, ofStudent, ofPupil });
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
 
 const PAIR_ERROR = 'match pair must be an object from matchPairs()';
-
-// The UTC calendar day of a timestamp, as YYYY-MM-DD. Retention is counted in days, so the day is
-// everything a stored row needs - and the hour at which a particular minor was matched says more about
-// the person than the policy ever asks.
-// A string must be an ISO day, or an ISO timestamp that says its own offset: the engine's legacy parser
-// reads '3/4/2026' on the machine's clock, '12' as the year 2001 and rolls '2026-02-30' into March, and
-// the row would then be stored - and later swept - under a day nobody wrote down.
 const ISO_DATE = /^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+
+function parseDateString(value, bad) {
+  if (typeof value !== 'string') throw bad;
+  const m = ISO_DATE.exec(value);
+  if (m === null) throw bad;
+  const written = new Date(m[1] + 'T00:00:00Z');
+  if (Number.isNaN(written.getTime()) || written.toISOString().slice(0, 10) !== m[1]) throw bad;
+  return new Date(value);
+}
 
 function utcDay(value) {
   const bad = new Error('invalid recordedAt: expected a Date or an ISO date string');
-  let d = value;
-  if (!(value instanceof Date)) {
-    const m = typeof value === 'string' ? ISO_DATE.exec(value) : null;
-    if (m === null) throw bad;
-    const written = new Date(m[1] + 'T00:00:00Z');
-    if (Number.isNaN(written.getTime()) || written.toISOString().slice(0, 10) !== m[1]) throw bad;
-    d = new Date(value);
-  }
+  const d = (value instanceof Date) ? value : parseDateString(value, bad);
   if (Number.isNaN(d.getTime())) throw bad;
-  // Only a year the sweep can read back. Past 9999 toISOString writes '+010000-01-01...' and the row
-  // would keep '+010000-01'; before the year 0 it writes '-000001-...' and the row would keep '-000001-1'.
-  // Either way the cycle manager refuses the stored row, and with it the whole sweep. The years 0-99 the
-  // sweep reads in their own century, so they are stored like any other day.
   const year = d.getUTCFullYear();
   if (year < 0 || year > 9999) throw bad;
   return d.toISOString().slice(0, 10);
 }
 
-// A non-empty list in which every item is a code: what shared() leaves on a pair, since candidatesOf
-// drops a pair with no shared hour or no shared subject before it is ever returned.
 function isCodeList(list, isCode) {
   if (!Array.isArray(list) || list.length === 0) return false;
   for (let i = 0; i < list.length; i += 1) {
@@ -2021,8 +2097,6 @@ function isCodeList(list, isCode) {
   return true;
 }
 
-// The pair's slots come from makeProfile, so they are already in the one spelling it writes ('SUN_8',
-// never 'SUN_08'); a slot in any other spelling is not one of them.
 function isCanonicalSlot(slot) {
   return normalizeSlot(slot) === slot;
 }
@@ -2031,36 +2105,54 @@ function isSubject(code) {
   return typeof code === 'string' && SUBJECTS.indexOf(code) !== -1;
 }
 
-// A pair on its way into storage: a matchPairs() candidate plus the day it was kept and the retention
-// category a cycle sweep reads. Frozen and JSON-serializable, and with no clock of its own - the caller
-// passes recordedAt, so the same arguments always produce the same row. Still a module: nothing on
-// screen stores a match yet.
-// A candidate holds nothing but codes: a region from REGIONS (one for a local pair, two for a
-// matchAcrossRegions() pair), slots from makeProfile and subjects from SUBJECTS, at least one of each.
-// Those are checked here, not taken on trust. Until this check only the indexes and the day were read
-// and the three lists were copied as handed in, so a hand-built "pair" with a name or a phone in
-// sharedSlots became a stored row - the one row the privacy gate never looked at - and the sweep later
-// kept or dropped it on the policy's terms like any other. A pair with anything else in it is not a
-// pair from matchPairs() and is refused as one, with the same message as a missing index.
-function makeMatchRecord(pair, recordedAt) {
-  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) throw new Error(PAIR_ERROR);
-  // an index is a position in the students / pupils arrays: -1 would be a stored row that points at nobody
-  if (!Number.isInteger(pair.studentIndex) || pair.studentIndex < 0) throw new Error(PAIR_ERROR);
-  if (!Number.isInteger(pair.pupilIndex) || pair.pupilIndex < 0) throw new Error(PAIR_ERROR);
-  if (!isCodeList(pair.sharedSlots, isCanonicalSlot) || !isCodeList(pair.sharedSubjects, isSubject)) {
-    throw new Error(PAIR_ERROR);
+function isPlainObject(val) {
+  return val !== null && typeof val === 'object' && !Array.isArray(val);
+}
+
+function isValidIndex(idx) {
+  return Number.isInteger(idx) && idx >= 0;
+}
+
+function resolveCrossRegions(pair) {
+  if (!isRegion(pair.studentRegion)) throw new Error(PAIR_ERROR);
+  if (!isRegion(pair.pupilRegion)) throw new Error(PAIR_ERROR);
+  return { studentRegion: pair.studentRegion, pupilRegion: pair.pupilRegion };
+}
+
+function resolvePairRegions(pair) {
+  if (typeof pair.region === 'string') {
+    if (!isRegion(pair.region)) throw new Error(PAIR_ERROR);
+    return { region: pair.region };
   }
-  // a local pair names one region, a matchAcrossRegions() pair names both; a row with neither would be
-  // stored with no region at all (JSON drops an undefined key). 'ANY', the placeholder the cross-region
-  // pass matches under, is not a region either: a pair that still carries it never left that pass.
-  const local = typeof pair.region === 'string';
-  if (local ? !isRegion(pair.region) : (!isRegion(pair.studentRegion) || !isRegion(pair.pupilRegion))) {
-    throw new Error(PAIR_ERROR);
-  }
+  return resolveCrossRegions(pair);
+}
+
+function assertValidCodes(pair) {
+  if (!isCodeList(pair.sharedSlots, isCanonicalSlot)) throw new Error(PAIR_ERROR);
+  if (!isCodeList(pair.sharedSubjects, isSubject)) throw new Error(PAIR_ERROR);
+}
+
+function assertValidIndexes(pair) {
+  if (!isValidIndex(pair.studentIndex)) throw new Error(PAIR_ERROR);
+  if (!isValidIndex(pair.pupilIndex)) throw new Error(PAIR_ERROR);
+}
+
+function assertValidRecordedAt(recordedAt) {
   if (recordedAt === undefined || recordedAt === null) {
     throw new Error('invalid recordedAt: expected a Date or an ISO date string');
   }
-  const where = local ? { region: pair.region } : { studentRegion: pair.studentRegion, pupilRegion: pair.pupilRegion };
+}
+
+function assertValidPairRecord(pair, recordedAt) {
+  if (!isPlainObject(pair)) throw new Error(PAIR_ERROR);
+  assertValidIndexes(pair);
+  assertValidCodes(pair);
+  assertValidRecordedAt(recordedAt);
+}
+
+function makeMatchRecord(pair, recordedAt) {
+  assertValidPairRecord(pair, recordedAt);
+  const where = resolvePairRegions(pair);
   return Object.freeze(Object.assign({
     studentIndex: pair.studentIndex,
     pupilIndex: pair.pupilIndex
@@ -2072,23 +2164,43 @@ function makeMatchRecord(pair, recordedAt) {
   }));
 }
 
-// A second, opt-in pass for an emergency: sessions are text only, so a pupil whose own region has no
-// free student (an evacuated town, a region whose students left) can still learn with a student from
-// another region. Only the people `pairs` left out take part; the region rule is the only one dropped
-// (a shared hour and a shared subject are still required), and the same largest-matching engine runs on
-// them, so the parent-consent gate holds here too. The local pairs are never touched, so this can only
-// add pairs. Each result names both regions;
-// indexes are positions in the original students / pupils arrays. Same input -> same output.
+function collectUsedIndexes(pairs) {
+  const usedS = new Set();
+  const usedP = new Set();
+  const list = Array.isArray(pairs) ? pairs : [];
+  for (let i = 0; i < list.length; i += 1) {
+    usedS.add(list[i].studentIndex);
+    usedP.add(list[i].pupilIndex);
+  }
+  return { usedS, usedP };
+}
+
+function findFreeProfiles(list, used) {
+  const free = [];
+  for (let i = 0; i < list.length; i += 1) {
+    const item = list[i];
+    const hasRegion = item && typeof item.region === 'string';
+    if (hasRegion && !used.has(i)) {
+      free.push(i);
+    }
+  }
+  return free;
+}
+
+function toAnywhereProfile(x) {
+  return { region: 'ANY', availability: x.availability, subjects: x.subjects, parentConsent: x.parentConsent };
+}
+
 function matchAcrossRegions(students, pupils, pairs) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
-  const usedS = new Set(); const usedP = new Set();
-  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
-  const freeS = []; const freeP = [];
-  S.forEach((s, i) => { if (s && typeof s.region === 'string' && !usedS.has(i)) freeS.push(i); });
-  P.forEach((p, i) => { if (p && typeof p.region === 'string' && !usedP.has(i)) freeP.push(i); });
-  const anywhere = (x) => ({ region: 'ANY', availability: x.availability, subjects: x.subjects, parentConsent: x.parentConsent });
-  return matchPairs(freeS.map((i) => anywhere(S[i])), freeP.map((i) => anywhere(P[i]))).map((c) => ({
+  const { usedS, usedP } = collectUsedIndexes(pairs);
+  const freeS = findFreeProfiles(S, usedS);
+  const freeP = findFreeProfiles(P, usedP);
+  const poolS = freeS.map((i) => toAnywhereProfile(S[i]));
+  const poolP = freeP.map((i) => toAnywhereProfile(P[i]));
+
+  return matchPairs(poolS, poolP).map((c) => ({
     studentIndex: freeS[c.studentIndex],
     pupilIndex: freeP[c.pupilIndex],
     studentRegion: S[freeS[c.studentIndex]].region,
@@ -2098,29 +2210,99 @@ function matchAcrossRegions(students, pupils, pairs) {
   }));
 }
 
+function checkOverlapReasons(me, local) {
+  const hour = local.filter((o) => shared(me.availability, o.availability).length > 0);
+  const subject = local.filter((o) => shared(me.subjects, o.subjects).length > 0);
+  if (hour.length === 0) return 'NO_SHARED_HOUR';
+  if (subject.length === 0) return 'NO_SHARED_SUBJECT';
+  const both = hour.filter((o) => subject.indexOf(o) !== -1);
+  return both.length === 0 ? 'NO_HOUR_AND_SUBJECT_TOGETHER' : 'PARTNERS_TAKEN';
+}
+
+function diagnoseUnmatchedReason(me, others, isPupil) {
+  if (isPupil && !hasParentConsent(me)) return 'NO_PARENT_CONSENT';
+  const inRegion = others.filter((o) => o && o.region === me.region);
+  if (inRegion.length === 0) return 'NO_ONE_IN_REGION';
+  const local = isPupil ? inRegion : inRegion.filter(hasParentConsent);
+  if (local.length === 0) return 'NO_PARENT_CONSENT';
+  return checkOverlapReasons(me, local);
+}
+
+function mapUnmatched(list, used, others, isPupil) {
+  const out = [];
+  for (let i = 0; i < list.length; i += 1) {
+    const item = list[i];
+    if (item && !used.has(i)) {
+      out.push({ index: i, reason: diagnoseUnmatchedReason(item, others, isPupil) });
+    }
+  }
+  return out;
+}
+
 function explainUnmatched(students, pupils, pairs) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
-  const usedS = new Set(); const usedP = new Set();
-  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
-  function reason(me, others, isPupil) {
-    if (isPupil && !hasParentConsent(me)) return 'NO_PARENT_CONSENT';
-    const inRegion = others.filter((o) => o && o.region === me.region);
-    if (inRegion.length === 0) return 'NO_ONE_IN_REGION';
-    // the same gate candidatesOf applies: a pupil without consent is no partner for a student
-    const local = isPupil ? inRegion : inRegion.filter(hasParentConsent);
-    if (local.length === 0) return 'NO_PARENT_CONSENT';
-    const hour = local.filter((o) => shared(me.availability, o.availability).length > 0);
-    const subject = local.filter((o) => shared(me.subjects, o.subjects).length > 0);
-    if (hour.length === 0) return 'NO_SHARED_HOUR';
-    if (subject.length === 0) return 'NO_SHARED_SUBJECT';
-    const both = hour.filter((o) => subject.indexOf(o) !== -1);
-    return both.length === 0 ? 'NO_HOUR_AND_SUBJECT_TOGETHER' : 'PARTNERS_TAKEN';
+  const { usedS, usedP } = collectUsedIndexes(pairs);
+  return {
+    students: mapUnmatched(S, usedS, P, false),
+    pupils: mapUnmatched(P, usedP, S, true)
+  };
+}
+
+function studentMatchesPupil(s, me) {
+  if (!s || s.region !== me.region) return false;
+  if (!hasOverlap(s.availability, me.availability)) return false;
+  return hasOverlap(s.subjects, me.subjects);
+}
+
+function hasMatchingStudent(me, students) {
+  for (let i = 0; i < students.length; i += 1) {
+    if (studentMatchesPupil(students[i], me)) return true;
   }
-  const out = { students: [], pupils: [] };
-  S.forEach((s, i) => { if (s && !usedS.has(i)) out.students.push({ index: i, reason: reason(s, P, false) }); });
-  P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S, true) }); });
-  return out;
+  return false;
+}
+
+function computeConsentStats(shortPupils, students) {
+  let noConsent = 0;
+  let noConsentNoStudent = 0;
+  for (let i = 0; i < shortPupils.length; i += 1) {
+    const x = shortPupils[i];
+    if (!x || x.reason !== 'NO_PARENT_CONSENT') continue;
+    noConsent += 1;
+    const me = x.e && x.e.person;
+    if (!me || !hasMatchingStudent(me, students)) {
+      noConsentNoStudent += 1;
+    }
+  }
+  return {
+    noConsent,
+    noConsentNoStudent,
+    noConsentFits: noConsent - noConsentNoStudent
+  };
+}
+
+function recordMissingPupilSubjects(p, missingCounts) {
+  const reg = p.region || 'UNKNOWN';
+  const subs = Array.isArray(p.subjects) ? p.subjects : [];
+  for (let j = 0; j < subs.length; j += 1) {
+    const code = reg + '_' + subs[j];
+    missingCounts[code] = (missingCounts[code] || 0) + 1;
+  }
+}
+
+function computeMissingRegionSubjects(shortPupils) {
+  const missingCounts = {};
+  for (let i = 0; i < shortPupils.length; i += 1) {
+    const x = shortPupils[i];
+    if (!x || x.reason === 'NO_PARENT_CONSENT') continue;
+    const p = x.e && x.e.person;
+    if (p) recordMissingPupilSubjects(p, missingCounts);
+  }
+  return missingCounts;
+}
+
+function getArrayLength(obj, prop) {
+  return (obj && Array.isArray(obj[prop])) ? obj[prop].length : 0;
 }
 
 function summarizeMatch(m, people) {
@@ -2128,39 +2310,16 @@ function summarizeMatch(m, people) {
   const left = (m && Array.isArray(m.left)) ? m.left : [];
   const shortPupils = left.filter((x) => x && x.role === 'pupil');
   const shortStudents = left.length - shortPupils.length;
-
-  const noConsent = shortPupils.filter((x) => x && x.reason === 'NO_PARENT_CONSENT').length;
-  const noConsentNoStudent = shortPupils.filter((x) => {
-    if (!x || x.reason !== 'NO_PARENT_CONSENT') return false;
-    const me = x.e && x.e.person;
-    if (!me) return false;
-    return !S.some((s) =>
-      s && s.region === me.region &&
-      hasOverlap(s.availability, me.availability) &&
-      hasOverlap(s.subjects, me.subjects)
-    );
-  }).length;
-  const noConsentFits = noConsent - noConsentNoStudent;
-
-  const missingCounts = {};
-  shortPupils.forEach((x) => {
-    if (!x || x.reason === 'NO_PARENT_CONSENT') return;
-    const p = x.e && x.e.person;
-    if (!p) return;
-    const reg = p.region || 'UNKNOWN';
-    (Array.isArray(p.subjects) ? p.subjects : []).forEach((sub) => {
-      const code = reg + '_' + sub;
-      missingCounts[code] = (missingCounts[code] || 0) + 1;
-    });
-  });
+  const consent = computeConsentStats(shortPupils, S);
+  const missingCounts = computeMissingRegionSubjects(shortPupils);
 
   return {
-    pairs: (m && Array.isArray(m.pairs)) ? m.pairs.length : 0,
-    pupilsWithoutStudent: shortPupils.length - noConsent,
+    pairs: getArrayLength(m, 'pairs'),
+    pupilsWithoutStudent: shortPupils.length - consent.noConsent,
     studentsWithoutPupil: shortStudents,
-    crossRegionPairs: (m && Array.isArray(m.across)) ? m.across.length : 0,
-    waitingConsentFits: noConsentFits,
-    waitingConsentNoStudent: noConsentNoStudent,
+    crossRegionPairs: getArrayLength(m, 'across'),
+    waitingConsentFits: consent.noConsentFits,
+    waitingConsentNoStudent: consent.noConsentNoStudent,
     missingByRegionSubject: missingCounts
   };
 }
@@ -2211,38 +2370,124 @@ const GAP_REASON_LABELS = Object.freeze({
 
 const AI_TOPIC_RE = /^[A-Z0-9_]+$/;
 
+function parseSingleSlot(rawItem, seen) {
+  const s = normalizeSlot(rawItem);
+  if (s === null || seen.has(s)) return null;
+  seen.add(s);
+  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(s);
+  if (!m) return null;
+  return { day: m[1], hour: Number(m[2]), slot: s };
+}
+
 function extractValidSlots(p) {
   if (!p) return [];
-  const raw = Array.isArray(p) ? p : (p && Array.isArray(p.availability) ? p.availability : []);
+  const raw = Array.isArray(p) ? p : (Array.isArray(p.availability) ? p.availability : []);
   const seen = new Set();
   const out = [];
   for (let i = 0; i < raw.length; i += 1) {
-    const s = normalizeSlot(raw[i]);
-    if (s !== null && !seen.has(s)) {
-      seen.add(s);
-      const m = /^([A-Z]{3})_(\d{1,2})$/.exec(s);
-      if (m) {
-        out.push({ day: m[1], hour: Number(m[2]), slot: s });
-      }
-    }
+    const parsed = parseSingleSlot(raw[i], seen);
+    if (parsed) out.push(parsed);
   }
   return out;
 }
 
+function extractRawTopicList(x) {
+  if (Array.isArray(x)) return x;
+  if (!x || typeof x !== 'object') return [];
+  if (Array.isArray(x.target_ai_topics)) return x.target_ai_topics;
+  if (Array.isArray(x.aiTopics)) return x.aiTopics;
+  if (Array.isArray(x.topics)) return x.topics;
+  return [];
+}
+
 function getCleanTopics(x) {
-  const raw = Array.isArray(x)
-    ? x
-    : (x && Array.isArray(x.target_ai_topics)
-      ? x.target_ai_topics
-      : (x && Array.isArray(x.aiTopics)
-        ? x.aiTopics
-        : (x && Array.isArray(x.topics) ? x.topics : [])));
+  const raw = extractRawTopicList(x);
   return raw.filter((v) => typeof v === 'string' && AI_TOPIC_RE.test(v));
 }
 
 function getLevel(x) {
   const n = x && x.level;
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+function isCloserShift(diff, aSlot, best) {
+  if (best === null) return true;
+  if (diff < best.shiftHours) return true;
+  return diff === best.shiftHours && aSlot < best.slotA;
+}
+
+function createShiftCandidate(a, b, diff) {
+  return {
+    shiftHours: diff,
+    day: a.day,
+    slotA: a.slot,
+    slotB: b.slot,
+    fromSlot: a.slot,
+    toSlot: b.slot,
+    targetSlot: b.slot,
+    suggestedSlot: b.slot,
+    hourA: a.hour,
+    hourB: b.hour
+  };
+}
+
+function updateBestShiftForSlot(a, slotsB, currentBest) {
+  let best = currentBest;
+  for (let j = 0; j < slotsB.length; j += 1) {
+    const b = slotsB[j];
+    if (a.day !== b.day) continue;
+    const diff = Math.abs(a.hour - b.hour);
+    if (isCloserShift(diff, a.slot, best)) {
+      best = createShiftCandidate(a, b, diff);
+    }
+  }
+  return best;
+}
+
+function findBestShift(slotsA, slotsB) {
+  let best = null;
+  for (let i = 0; i < slotsA.length; i += 1) {
+    best = updateBestShiftForSlot(slotsA[i], slotsB, best);
+  }
+  return best;
+}
+
+function getDayName(lang, day) {
+  const dict = DAY_LABELS[lang];
+  return (dict && dict[day]) || day;
+}
+
+function getShiftTexts(hours, dayName, targetSlot, slotA) {
+  if (hours === 0) {
+    return {
+      he: `יש חפיפת שעות ב-${dayName.he} (${slotA})`,
+      ar: `يوجد تداخل ساعات في ${dayName.ar} (${slotA})`,
+      ru: `Есть совпадение часов в ${dayName.ru} (${slotA})`
+    };
+  }
+  if (hours === 1) {
+    return {
+      he: `הזזה מומלצת: שעה אחת ב-${dayName.he} לקראת חפיפה ב-${targetSlot}`,
+      ar: `الإזاحة المقترحة: ساعة واحدة في ${dayName.ar} نحو التوافق في ${targetSlot}`,
+      ru: `Рекомендуемый сдвиг: 1 час в ${dayName.ru} для совпадения в ${targetSlot}`
+    };
+  }
+  return {
+    he: `הזזה מומלצת: ${hours} שעות ב-${dayName.he} לקראת חפיפה ב-${targetSlot}`,
+    ar: `الإזاحة المقترحة: ${hours} ساعات في ${dayName.ar} نحو التوافق في ${targetSlot}`,
+    ru: `Рекомендуемый сдвиг: ${hours} ч. в ${dayName.ru} для совпадения в ${targetSlot}`
+  };
+}
+
+function formatShiftExplanation(best) {
+  const d = best.day;
+  const dayName = {
+    he: getDayName('he', d),
+    ar: getDayName('ar', d),
+    ru: getDayName('ru', d)
+  };
+  const texts = getShiftTexts(best.shiftHours, dayName, best.targetSlot, best.slotA);
+  return Object.freeze(texts);
 }
 
 // suggestScheduleShift(personA, personB):
@@ -2253,217 +2498,208 @@ function suggestScheduleShift(personA, personB) {
   if (slotsA.length === 0 || slotsB.length === 0) {
     return null;
   }
-
-  let best = null;
-  for (let i = 0; i < slotsA.length; i += 1) {
-    const a = slotsA[i];
-    for (let j = 0; j < slotsB.length; j += 1) {
-      const b = slotsB[j];
-      if (a.day === b.day) {
-        const diff = Math.abs(a.hour - b.hour);
-        if (best === null || diff < best.shiftHours || (diff === best.shiftHours && a.slot < best.slotA)) {
-          best = {
-            shiftHours: diff,
-            day: a.day,
-            slotA: a.slot,
-            slotB: b.slot,
-            fromSlot: a.slot,
-            toSlot: b.slot,
-            targetSlot: b.slot,
-            suggestedSlot: b.slot,
-            hourA: a.hour,
-            hourB: b.hour
-          };
-        }
-      }
-    }
-  }
-
+  const best = findBestShift(slotsA, slotsB);
   if (!best) {
     return null;
   }
+  return Object.freeze(Object.assign({}, best, {
+    explanation: formatShiftExplanation(best)
+  }));
+}
 
-  const d = best.day;
-  const dayHe = (DAY_LABELS.he && DAY_LABELS.he[d]) || d;
-  const dayAr = (DAY_LABELS.ar && DAY_LABELS.ar[d]) || d;
-  const dayRu = (DAY_LABELS.ru && DAY_LABELS.ru[d]) || d;
+function checkMissingOneSlot(sharedSl, shift) {
+  return sharedSl.length === 0 && Boolean(shift && shift.shiftHours === 1);
+}
 
-  let textHe;
-  let textAr;
-  let textRu;
-
-  if (best.shiftHours === 0) {
-    textHe = `יש חפיפת שעות ב-${dayHe} (${best.slotA})`;
-    textAr = `يوجد تداخل ساعات في ${dayAr} (${best.slotA})`;
-    textRu = `Есть совпадение часов в ${dayRu} (${best.slotA})`;
-  } else if (best.shiftHours === 1) {
-    textHe = `הזזה מומלצת: שעה אחת ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`;
-    textAr = `الإزاحة المقترحة: ساعة واحدة في ${dayAr} نحو التوافق في ${best.targetSlot}`;
-    textRu = `Рекомендуемый сдвиг: 1 час в ${dayRu} для совпадения в ${best.targetSlot}`;
-  } else {
-    textHe = `הזזה מומלצת: ${best.shiftHours} שעות ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`;
-    textAr = `الإزاحة المقترحة: ${best.shiftHours} ساعات في ${dayAr} نحو التوافق في ${best.targetSlot}`;
-    textRu = `Рекомендуемый сдвиг: ${best.shiftHours} ч. в ${dayRu} для совпадения в ${best.targetSlot}`;
+function checkAdjacentLevel(pLevel, cLevel, personAiLevel, cAiLevel) {
+  if (pLevel !== null && cLevel !== null) {
+    return Math.abs(pLevel - cLevel) === 1;
   }
+  if (pLevel === null && cLevel === null) {
+    return Boolean(personAiLevel && cAiLevel && personAiLevel !== cAiLevel);
+  }
+  return false;
+}
 
+function checkPartialAiTopic(pTopics, cTopics, sharedTop) {
+  if (pTopics.length === 0) return false;
+  if (cTopics.length === 0) return false;
+  const sCount = sharedTop.length;
+  if (sCount === 0) return false;
+  return sCount < pTopics.length || sCount < cTopics.length;
+}
+
+function extractCleanPersonSubjects(p) {
+  const subs = Array.isArray(p.subjects) ? p.subjects : [];
+  return subs.filter((s) => SUBJECTS.indexOf(s) !== -1);
+}
+
+function buildCandidateSummary(cIdx, c, details) {
   return Object.freeze({
-    shiftHours: best.shiftHours,
-    day: best.day,
-    slotA: best.slotA,
-    slotB: best.slotB,
-    fromSlot: best.fromSlot,
-    toSlot: best.toSlot,
-    targetSlot: best.targetSlot,
-    suggestedSlot: best.suggestedSlot,
-    hourA: best.hourA,
-    hourB: best.hourB,
-    explanation: Object.freeze({
-      he: textHe,
-      ar: textAr,
-      ru: textRu
-    })
+    index: cIdx,
+    candidateIndex: cIdx,
+    role: c.role || null,
+    region: c.region || null,
+    subjects: Object.freeze(details.cSubjects.slice()),
+    availability: Object.freeze(details.cSlots.slice()),
+    level: details.cLevel,
+    aiLevel: c.aiLevel || null,
+    target_ai_topics: Object.freeze(details.cTopics.slice())
   });
 }
 
-// findNearMissCandidates(person, candidates, options):
-// Finds near-miss backup candidates with explicit gap reasons ('missing_one_slot', 'adjacent_level', 'partial_ai_topic').
-function findNearMissCandidates(person, candidates, options) {
-  if (!person || typeof person !== 'object' || !Array.isArray(candidates) || candidates.length === 0) {
-    return [];
+function getReasonExplanations(primaryReason) {
+  const labelObj = GAP_REASON_LABELS[primaryReason];
+  return {
+    he: (labelObj && labelObj.he) || primaryReason,
+    ar: (labelObj && labelObj.ar) || primaryReason,
+    ru: (labelObj && labelObj.ru) || primaryReason
+  };
+}
+
+function buildNearMissRecord(cIdx, c, details) {
+  const primaryReason = details.reasons[0];
+  const candidateSummary = buildCandidateSummary(cIdx, c, details);
+
+  return Object.freeze({
+    index: cIdx,
+    candidateIndex: cIdx,
+    candidate: candidateSummary,
+    role: c.role || null,
+    region: c.region || null,
+    subjects: candidateSummary.subjects,
+    availability: candidateSummary.availability,
+    level: details.cLevel,
+    aiLevel: c.aiLevel || null,
+    target_ai_topics: candidateSummary.target_ai_topics,
+    reason: primaryReason,
+    gapReason: primaryReason,
+    reasons: Object.freeze(details.reasons.slice()),
+    sharedSubjects: Object.freeze(details.sharedSubs),
+    sharedSlots: Object.freeze(details.sharedSl),
+    sharedAiTopics: Object.freeze(details.sharedTop),
+    shift: details.shift,
+    suggestedShift: details.shift,
+    explanation: Object.freeze(getReasonExplanations(primaryReason))
+  });
+}
+
+function isCandidateRoleBlocked(personRole, cRole, allowSameRole) {
+  if (allowSameRole) return false;
+  if (!personRole || !cRole) return false;
+  return personRole === cRole;
+}
+
+function isCandidateRegionBlocked(personRegion, cRegion, requireSameRegion) {
+  if (!requireSameRegion) return false;
+  if (!personRegion || !cRegion) return false;
+  return personRegion !== cRegion;
+}
+
+function collectCandidateDetails(c) {
+  return {
+    cSubjects: extractCleanPersonSubjects(c),
+    cSlots: extractValidSlots(c).map((s) => s.slot),
+    cTopics: getCleanTopics(c),
+    cLevel: getLevel(c),
+    aiLevel: c.aiLevel || null
+  };
+}
+
+function collectGapReasons(pData, cDetails, sharedTop, shift) {
+  const reasons = [];
+  if (checkMissingOneSlot(cDetails.sharedSl, shift)) {
+    reasons.push('missing_one_slot');
   }
-  const opts = options || {};
-
-  // A pupil must have parent consent
-  if (person.role === 'pupil' && !hasParentConsent(person)) {
-    return [];
+  if (checkAdjacentLevel(pData.level, cDetails.cLevel, pData.aiLevel, cDetails.aiLevel)) {
+    reasons.push('adjacent_level');
   }
+  if (checkPartialAiTopic(pData.topics, cDetails.cTopics, sharedTop)) {
+    reasons.push('partial_ai_topic');
+  }
+  return reasons;
+}
 
-  const pSubjects = Array.isArray(person.subjects) ? person.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [];
-  const pSlots = extractValidSlots(person).map((s) => s.slot);
-  const pTopics = getCleanTopics(person);
-  const pLevel = getLevel(person);
+function isCandidateBlocked(person, c, opts) {
+  if (isCandidateRoleBlocked(person.role, c.role, opts.allowSameRole)) return true;
+  if (c.role === 'pupil' && !hasParentConsent(c)) return true;
+  return isCandidateRegionBlocked(person.region, c.region, opts.requireSameRegion);
+}
 
+function evaluateCandidateMatch(person, pData, candidateContext, opts) {
+  const { c, cIdx } = candidateContext;
+  if (isCandidateBlocked(person, c, opts)) return null;
+
+  const cDetails = collectCandidateDetails(c);
+  const sharedSubs = shared(pData.subjects, cDetails.cSubjects);
+  const sharedSl = shared(pData.slots, cDetails.cSlots);
+  const sharedTop = shared(pData.topics, cDetails.cTopics);
+
+  if (sharedSubs.length === 0 && sharedTop.length === 0) return null;
+
+  const shift = suggestScheduleShift(person, c);
+  cDetails.sharedSl = sharedSl;
+  const reasons = collectGapReasons(pData, cDetails, sharedTop, shift);
+
+  if (reasons.length === 0) return null;
+  if (opts.reason && !reasons.includes(opts.reason)) return null;
+
+  cDetails.reasons = reasons;
+  cDetails.sharedSubs = sharedSubs;
+  cDetails.sharedTop = sharedTop;
+  cDetails.shift = shift;
+  return buildNearMissRecord(cIdx, c, cDetails);
+}
+
+function compareNearMissCandidates(x, y) {
+  const shiftX = (x.suggestedShift && x.suggestedShift.shiftHours !== null) ? x.suggestedShift.shiftHours : 999;
+  const shiftY = (y.suggestedShift && y.suggestedShift.shiftHours !== null) ? y.suggestedShift.shiftHours : 999;
+  return (shiftX - shiftY) ||
+    (y.sharedSubjects.length - x.sharedSubjects.length) ||
+    (y.sharedAiTopics.length - x.sharedAiTopics.length) ||
+    (x.candidateIndex - y.candidateIndex);
+}
+
+function isValidCandidateSearch(person, candidates) {
+  if (!isPlainObject(person)) return false;
+  if (!Array.isArray(candidates) || candidates.length === 0) return false;
+  if (person.role === 'pupil' && !hasParentConsent(person)) return false;
+  return true;
+}
+
+function collectNearMissResults(person, pData, candidates, opts) {
   const results = [];
-
   for (let idx = 0; idx < candidates.length; idx += 1) {
     const raw = candidates[idx];
     if (!raw || typeof raw !== 'object') continue;
     const c = raw.person || raw;
     const cIdx = Number.isInteger(raw.index) ? raw.index : idx;
-
-    if (person.role && c.role && person.role === c.role && !opts.allowSameRole) {
-      continue;
-    }
-
-    if (c.role === 'pupil' && !hasParentConsent(c)) {
-      continue;
-    }
-
-    if (opts.requireSameRegion && person.region && c.region && person.region !== c.region) {
-      continue;
-    }
-
-    const cSubjects = Array.isArray(c.subjects) ? c.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [];
-    const cSlots = extractValidSlots(c).map((s) => s.slot);
-    const cTopics = getCleanTopics(c);
-    const cLevel = getLevel(c);
-
-    const sharedSubs = shared(pSubjects, cSubjects);
-    const sharedSl = shared(pSlots, cSlots);
-    const sharedTop = shared(pTopics, cTopics);
-
-    const hasSubjectOrTopic = sharedSubs.length > 0 || sharedTop.length > 0;
-    if (!hasSubjectOrTopic) {
-      continue;
-    }
-
-    const shift = suggestScheduleShift(person, c);
-    const reasons = [];
-
-    // Reason 1: missing_one_slot
-    if (sharedSl.length === 0 && shift && shift.shiftHours === 1) {
-      reasons.push('missing_one_slot');
-    }
-
-    // Reason 2: adjacent_level
-    if (pLevel !== null && cLevel !== null && Math.abs(pLevel - cLevel) === 1) {
-      reasons.push('adjacent_level');
-    } else if (pLevel === null && cLevel === null && person.aiLevel && c.aiLevel && person.aiLevel !== c.aiLevel) {
-      reasons.push('adjacent_level');
-    }
-
-    // Reason 3: partial_ai_topic
-    if (pTopics.length > 0 && cTopics.length > 0 && sharedTop.length > 0 &&
-        (sharedTop.length < pTopics.length || sharedTop.length < cTopics.length)) {
-      reasons.push('partial_ai_topic');
-    }
-
-    if (reasons.length === 0) {
-      continue;
-    }
-
-    if (opts.reason && !reasons.includes(opts.reason)) {
-      continue;
-    }
-
-    const primaryReason = reasons[0];
-    const reasonExplHe = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].he) || primaryReason;
-    const reasonExplAr = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].ar) || primaryReason;
-    const reasonExplRu = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].ru) || primaryReason;
-
-    const candidateSummary = Object.freeze({
-      index: cIdx,
-      candidateIndex: cIdx,
-      role: c.role || null,
-      region: c.region || null,
-      subjects: Object.freeze(cSubjects.slice()),
-      availability: Object.freeze(cSlots.slice()),
-      level: cLevel,
-      aiLevel: c.aiLevel || null,
-      target_ai_topics: Object.freeze(cTopics.slice())
-    });
-
-    const item = {
-      index: cIdx,
-      candidateIndex: cIdx,
-      candidate: candidateSummary,
-      role: c.role || null,
-      region: c.region || null,
-      subjects: Object.freeze(cSubjects.slice()),
-      availability: Object.freeze(cSlots.slice()),
-      level: cLevel,
-      aiLevel: c.aiLevel || null,
-      target_ai_topics: Object.freeze(cTopics.slice()),
-      reason: primaryReason,
-      gapReason: primaryReason,
-      reasons: Object.freeze(reasons.slice()),
-      sharedSubjects: Object.freeze(sharedSubs),
-      sharedSlots: Object.freeze(sharedSl),
-      sharedAiTopics: Object.freeze(sharedTop),
-      shift: shift,
-      suggestedShift: shift,
-      explanation: Object.freeze({
-        he: reasonExplHe,
-        ar: reasonExplAr,
-        ru: reasonExplRu
-      })
-    };
-    results.push(Object.freeze(item));
+    const item = evaluateCandidateMatch(person, pData, { c, cIdx }, opts);
+    if (item) results.push(item);
   }
+  return results;
+}
 
-  results.sort((x, y) => {
-    const shiftX = (x.suggestedShift && x.suggestedShift.shiftHours !== null) ? x.suggestedShift.shiftHours : 999;
-    const shiftY = (y.suggestedShift && y.suggestedShift.shiftHours !== null) ? y.suggestedShift.shiftHours : 999;
-    return (shiftX - shiftY) ||
-      (y.sharedSubjects.length - x.sharedSubjects.length) ||
-      (y.sharedAiTopics.length - x.sharedAiTopics.length) ||
-      (x.candidateIndex - y.candidateIndex);
-  });
+// findNearMissCandidates(person, candidates, options):
+// Finds near-miss backup candidates with explicit gap reasons ('missing_one_slot', 'adjacent_level', 'partial_ai_topic').
+function findNearMissCandidates(person, candidates, options) {
+  if (!isValidCandidateSearch(person, candidates)) {
+    return [];
+  }
+  const opts = options || {};
+  const pData = {
+    subjects: extractCleanPersonSubjects(person),
+    slots: extractValidSlots(person).map((s) => s.slot),
+    topics: getCleanTopics(person),
+    level: getLevel(person),
+    aiLevel: person.aiLevel || null
+  };
 
+  const results = collectNearMissResults(person, pData, candidates, opts);
+  results.sort(compareNearMissCandidates);
   if (Number.isInteger(opts.limit) && opts.limit > 0) {
     return results.slice(0, opts.limit);
   }
-
   return results;
 }
 
@@ -5838,7 +6074,8 @@ const TRACKS = Object.freeze(['elementary', 'middle']);
 const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
 const LESSON_MINUTES = 45;
 
-function lesson(track, index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe) {
+function lesson(track, index, slug, ...details) {
+  const [titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe] = details;
   return Object.freeze({
     id: track + '-' + slug, track, index,
     titleKey: 'cur.' + track + '.' + slug, titleHe,
@@ -6038,9 +6275,16 @@ function trackForGrade(grade) {
   throw new Error('invalid grade: expected an integer 3..9');
 }
 function lessonsForTrack(track) { return BY_TRACK[assertTrack(track)]; }
+function isValidLessonIndex(index, max) {
+  if (!Number.isInteger(index)) return false;
+  return index >= 0 && index < max;
+}
+
 function getLesson(track, index) {
   const list = lessonsForTrack(track);
-  if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error('invalid lesson index for track ' + track);
+  if (!isValidLessonIndex(index, list.length)) {
+    throw new Error('invalid lesson index for track ' + track);
+  }
   return list[index];
 }
 function lessonById(id) {
@@ -6050,25 +6294,42 @@ function lessonById(id) {
 }
 function flowMinutes(lesson) { return lesson.flowHe.reduce((sum, f) => sum + f.minutes, 0); }
 
+function isValidMinutes(m) {
+  return Number.isInteger(m) && m > 0;
+}
+
+function assertValidFlowStep(f) {
+  if (!f || !isValidMinutes(f.minutes)) {
+    throw new Error('invalid lesson: flowHe');
+  }
+  if (typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
+    throw new Error('invalid lesson: flowHe');
+  }
+}
+
+function parseFlowStep(f, i) {
+  assertValidFlowStep(f);
+  const cut = f.stepHe.indexOf(': ');
+  const hasTitle = cut > 0 && cut <= 28;
+  return Object.freeze({
+    minutes: f.minutes,
+    titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
+    bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
+  });
+}
+
+function hasFlowSteps(lesson) {
+  return Boolean(lesson && Array.isArray(lesson.flowHe) && lesson.flowHe.length > 0);
+}
+
 // The 45-minute flow as timeline steps for the lesson screen: a short title, the
 // duration and the body of each step. Steps are written "title: body"; a step
 // without that prefix keeps its whole text as the body under a numbered title.
 function flowTimeline(lesson) {
-  if (!lesson || !Array.isArray(lesson.flowHe) || lesson.flowHe.length === 0) {
+  if (!hasFlowSteps(lesson)) {
     throw new Error('invalid lesson: flowHe');
   }
-  return Object.freeze(lesson.flowHe.map((f, i) => {
-    if (!f || !Number.isInteger(f.minutes) || f.minutes <= 0 || typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
-      throw new Error('invalid lesson: flowHe');
-    }
-    const cut = f.stepHe.indexOf(': ');
-    const hasTitle = cut > 0 && cut <= 28;
-    return Object.freeze({
-      minutes: f.minutes,
-      titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
-      bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
-    });
-  }));
+  return Object.freeze(lesson.flowHe.map(parseFlowStep));
 }
 
 function resolveTrack(trackByPair, pairIndex) {
@@ -6081,29 +6342,72 @@ function resolveTrack(trackByPair, pairIndex) {
 function sessionOrderKey(s) {
   return [Number.isInteger(s.week) ? s.week : 0, typeof s.slot === 'string' ? s.slot : '', typeof s.date === 'string' ? s.date : ''];
 }
+
+function isValidPairIndex(idx) {
+  return Number.isInteger(idx) && idx >= 0;
+}
+
+function assertValidSessionList(list) {
+  for (let i = 0; i < list.length; i += 1) {
+    const s = list[i];
+    if (!s || !isValidPairIndex(s.pairIndex)) {
+      throw new Error('invalid session: pairIndex');
+    }
+  }
+}
+
+function groupSessionIndexesByPair(list) {
+  const byPair = new Map();
+  for (let i = 0; i < list.length; i += 1) {
+    const pIdx = list[i].pairIndex;
+    let arr = byPair.get(pIdx);
+    if (!arr) {
+      arr = [];
+      byPair.set(pIdx, arr);
+    }
+    arr.push(i);
+  }
+  return byPair;
+}
+
+function compareSessionOrders(sA, sB, idxA, idxB) {
+  const ka = sessionOrderKey(sA);
+  const kb = sessionOrderKey(sB);
+  for (let k = 0; k < ka.length; k += 1) {
+    if (ka[k] < kb[k]) return -1;
+    if (ka[k] > kb[k]) return 1;
+  }
+  return idxA - idxB;
+}
+
+function assignTrackLessons(indexes, ctx, out) {
+  const { list, lessons, track } = ctx;
+  const ordered = indexes.slice().sort((a, b) => compareSessionOrders(list[a], list[b], a, b));
+  for (let pos = 0; pos < ordered.length; pos += 1) {
+    const sessionIdx = ordered[pos];
+    const lessonIndex = pos % lessons.length;
+    out[sessionIdx] = Object.freeze(Object.assign({}, list[sessionIdx], {
+      track,
+      sessionIndex: pos,
+      cycle: Math.floor(pos / lessons.length) + 1,
+      lessonIndex,
+      lessonId: lessons[lessonIndex].id,
+      titleKey: lessons[lessonIndex].titleKey
+    }));
+  }
+}
+
 // Each session gets the next lesson of its group's track, in session order within the group.
 // More sessions than lessons start a new cycle (cycle 2 repeats the track from lesson 1).
 function assignLessons(sessions, trackByPair) {
   const list = Array.isArray(sessions) ? sessions : [];
-  list.forEach((s) => { if (!s || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) throw new Error('invalid session: pairIndex'); });
-  const byPair = new Map();
-  list.forEach((s, i) => { if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, []); byPair.get(s.pairIndex).push(i); });
+  assertValidSessionList(list);
+  const byPair = groupSessionIndexesByPair(list);
   const out = new Array(list.length);
   byPair.forEach((indexes, pairIndex) => {
     const track = resolveTrack(trackByPair, pairIndex);
     const lessons = lessonsForTrack(track);
-    const ordered = indexes.slice().sort((a, b) => {
-      const ka = sessionOrderKey(list[a]); const kb = sessionOrderKey(list[b]);
-      for (let k = 0; k < ka.length; k += 1) { if (ka[k] < kb[k]) return -1; if (ka[k] > kb[k]) return 1; }
-      return a - b;
-    });
-    ordered.forEach((sessionIdx, pos) => {
-      const lessonIndex = pos % lessons.length;
-      out[sessionIdx] = Object.freeze(Object.assign({}, list[sessionIdx], {
-        track, sessionIndex: pos, cycle: Math.floor(pos / lessons.length) + 1,
-        lessonIndex, lessonId: lessons[lessonIndex].id, titleKey: lessons[lessonIndex].titleKey
-      }));
-    });
+    assignTrackLessons(indexes, { list, lessons, track }, out);
   });
   return Object.freeze(out);
 }
@@ -6189,11 +6493,20 @@ const JUDGE_ROLE_WEIGHTS = Object.freeze({
   industry_guest: 0.3
 });
 
-function submitChallengeEntry(entries, entry) {
-  if (entries !== undefined && entries !== null && !Array.isArray(entries)) {
+function isPlainObject(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  return !Array.isArray(obj);
+}
+
+function assertValidEntries(entries) {
+  if (entries != null && !Array.isArray(entries)) {
     throw new Error('invalid entries: expected array');
   }
-  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+}
+
+function assertValidChallengeShape(entries, entry) {
+  assertValidEntries(entries);
+  if (!isPlainObject(entry)) {
     throw new Error('invalid challenge entry: expected an object');
   }
   const keys = Object.keys(entry);
@@ -6202,7 +6515,10 @@ function submitChallengeEntry(entries, entry) {
       throw new Error('personal data is not accepted');
     }
   }
-  if (!Number.isInteger(entry.pairIndex) || entry.pairIndex < 0) {
+}
+
+function assertValidChallengeFields(entry) {
+  if (!isValidPairIndex(entry.pairIndex)) {
     throw new Error('invalid pairIndex: expected non-negative integer');
   }
   if (typeof entry.aiTopic !== 'string' || VALID_AI_TOPICS.indexOf(entry.aiTopic) === -1) {
@@ -6211,18 +6527,25 @@ function submitChallengeEntry(entries, entry) {
   if (typeof entry.toolTitle !== 'string') {
     throw new Error('invalid toolTitle: expected string');
   }
-  const cleanTitle = assertCleanText(entry.toolTitle, { minLength: 1, maxLength: 80 });
+}
 
+function isScoreInRange(val) {
+  return Number.isInteger(val) && val >= 1 && val <= 5;
+}
+
+function assertValidChallengeScores(entry) {
   for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
     const val = entry[scoreKey];
-    if (!Number.isInteger(val) || val < 1 || val > 5) {
+    if (!isScoreInRange(val)) {
       throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
     }
   }
+}
 
+function createChallengeRecord(entry, cleanTitle) {
   const totalScore = entry.innovation + entry.usefulness + entry.safety;
   const averageScore = Math.round((totalScore / 3) * 100) / 100;
-  const record = Object.freeze({
+  return Object.freeze({
     pairIndex: entry.pairIndex,
     aiTopic: entry.aiTopic,
     toolTitle: cleanTitle,
@@ -6233,75 +6556,80 @@ function submitChallengeEntry(entries, entry) {
     averageScore: averageScore,
     score: totalScore
   });
+}
+
+function submitChallengeEntry(entries, entry) {
+  assertValidChallengeShape(entries, entry);
+  assertValidChallengeFields(entry);
+  const cleanTitle = assertCleanText(entry.toolTitle, { minLength: 1, maxLength: 80 });
+  assertValidChallengeScores(entry);
+  const record = createChallengeRecord(entry, cleanTitle);
 
   const prev = Array.isArray(entries) ? entries : [];
   const idx = prev.findIndex((e) => e && e.pairIndex === record.pairIndex);
-  let next;
   if (idx >= 0) {
-    next = prev.slice();
+    const next = prev.slice();
     next[idx] = record;
-  } else {
-    next = prev.concat([record]);
+    return Object.freeze(next);
   }
-  return Object.freeze(next);
+  return Object.freeze(prev.concat([record]));
 }
 
-function addJudgeEvaluation(entries, entryIndex, evaluation) {
+function searchTargetEntryIndex(entries, entryIndex) {
+  if (entryIndex < entries.length && entries[entryIndex]) {
+    return entryIndex;
+  }
+  return entries.findIndex((e) => e && e.pairIndex === entryIndex);
+}
+
+function findTargetEntryIndex(entries, entryIndex) {
   if (!Array.isArray(entries)) {
     throw new Error('invalid entries: expected array');
   }
-  if (!Number.isInteger(entryIndex) || entryIndex < 0) {
+  if (!isValidPairIndex(entryIndex)) {
     throw new Error('invalid entryIndex: expected non-negative integer');
   }
-  let targetIdx = -1;
-  if (entryIndex < entries.length && entries[entryIndex]) {
-    targetIdx = entryIndex;
-  } else {
-    targetIdx = entries.findIndex((e) => e && e.pairIndex === entryIndex);
-  }
-  if (targetIdx === -1) {
+  const idx = searchTargetEntryIndex(entries, entryIndex);
+  if (idx === -1) {
     throw new Error('entry not found');
   }
+  return idx;
+}
 
-  if (!evaluation || typeof evaluation !== 'object' || Array.isArray(evaluation)) {
-    throw new Error('invalid evaluation: expected an object');
-  }
-
+function assertEvaluationKeys(evaluation) {
   const keys = Object.keys(evaluation);
   for (let i = 0; i < keys.length; i += 1) {
     if (ALLOWED_JUDGE_EVAL_KEYS.indexOf(keys[i]) === -1) {
       throw new Error('personal data is not accepted');
     }
   }
+}
 
-  if (typeof evaluation.judgeRole !== 'string' || VALID_JUDGE_ROLES.indexOf(evaluation.judgeRole) === -1) {
+function assertEvaluationRole(role) {
+  if (typeof role !== 'string' || VALID_JUDGE_ROLES.indexOf(role) === -1) {
     throw new Error("invalid judgeRole: expected 'coordinator', 'mentor_peer', or 'industry_guest'");
   }
+}
 
+function assertEvaluationScores(evaluation) {
   for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
     const val = evaluation[scoreKey];
-    if (!Number.isInteger(val) || val < 1 || val > 5) {
+    if (!isScoreInRange(val)) {
       throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
     }
   }
+}
 
-  const currentEntry = entries[targetIdx];
-  const prevEvals = Array.isArray(currentEntry.evaluations) ? currentEntry.evaluations : [];
-  if (prevEvals.some((ev) => ev && ev.judgeRole === evaluation.judgeRole)) {
-    throw new Error(`duplicate judgeRole: evaluation already exists for role '${evaluation.judgeRole}'`);
+function assertValidEvaluationShape(evaluation) {
+  if (!isPlainObject(evaluation)) {
+    throw new Error('invalid evaluation: expected an object');
   }
+  assertEvaluationKeys(evaluation);
+  assertEvaluationRole(evaluation.judgeRole);
+  assertEvaluationScores(evaluation);
+}
 
-  const evalRecord = Object.freeze({
-    judgeRole: evaluation.judgeRole,
-    innovation: evaluation.innovation,
-    usefulness: evaluation.usefulness,
-    safety: evaluation.safety,
-    totalScore: evaluation.innovation + evaluation.usefulness + evaluation.safety,
-    averageScore: Math.round(((evaluation.innovation + evaluation.usefulness + evaluation.safety) / 3) * 100) / 100
-  });
-
-  const nextEvals = prevEvals.concat([evalRecord]);
-
+function computeWeightedScores(nextEvals) {
   let totalWeight = 0;
   let weightedInnoSum = 0;
   let weightedUseSum = 0;
@@ -6321,14 +6649,42 @@ function addJudgeEvaluation(entries, entryIndex, evaluation) {
   const weightedSafe = Math.round((weightedSafeSum / totalWeight) * 100) / 100;
   const totalScore = Math.round((weightedInno + weightedUse + weightedSafe) * 100) / 100;
   const averageScore = Math.round((totalScore / 3) * 100) / 100;
+  return { weightedInno, weightedUse, weightedSafe, totalScore, averageScore };
+}
+
+function createJudgeRecord(evaluation) {
+  const sum = evaluation.innovation + evaluation.usefulness + evaluation.safety;
+  return Object.freeze({
+    judgeRole: evaluation.judgeRole,
+    innovation: evaluation.innovation,
+    usefulness: evaluation.usefulness,
+    safety: evaluation.safety,
+    totalScore: sum,
+    averageScore: Math.round((sum / 3) * 100) / 100
+  });
+}
+
+function addJudgeEvaluation(entries, entryIndex, evaluation) {
+  const targetIdx = findTargetEntryIndex(entries, entryIndex);
+  assertValidEvaluationShape(evaluation);
+
+  const currentEntry = entries[targetIdx];
+  const prevEvals = Array.isArray(currentEntry.evaluations) ? currentEntry.evaluations : [];
+  if (prevEvals.some((ev) => ev && ev.judgeRole === evaluation.judgeRole)) {
+    throw new Error(`duplicate judgeRole: evaluation already exists for role '${evaluation.judgeRole}'`);
+  }
+
+  const evalRecord = createJudgeRecord(evaluation);
+  const nextEvals = prevEvals.concat([evalRecord]);
+  const scores = computeWeightedScores(nextEvals);
 
   const updatedEntry = Object.freeze(Object.assign({}, currentEntry, {
-    innovation: weightedInno,
-    usefulness: weightedUse,
-    safety: weightedSafe,
-    totalScore: totalScore,
-    averageScore: averageScore,
-    score: totalScore,
+    innovation: scores.weightedInno,
+    usefulness: scores.weightedUse,
+    safety: scores.weightedSafe,
+    totalScore: scores.totalScore,
+    averageScore: scores.averageScore,
+    score: scores.totalScore,
     evaluations: Object.freeze(nextEvals),
     judgeCount: nextEvals.length
   }));
@@ -6338,39 +6694,48 @@ function addJudgeEvaluation(entries, entryIndex, evaluation) {
   return Object.freeze(nextEntries);
 }
 
+function computeEntryScores(e, innovation, usefulness, safety) {
+  const totalScore = e.totalScore !== undefined
+    ? Math.round(Number(e.totalScore) * 100) / 100
+    : Math.round((innovation + usefulness + safety) * 100) / 100;
+  const averageScore = e.averageScore !== undefined
+    ? Math.round(Number(e.averageScore) * 100) / 100
+    : Math.round((totalScore / 3) * 100) / 100;
+  return { totalScore, averageScore };
+}
+
+function parseLeaderboardEntry(e) {
+  if (!isPlainObject(e)) {
+    throw new Error('invalid challenge entry in leaderboard');
+  }
+  const pairIndex = Number(e.pairIndex);
+  const innovation = Number(e.innovation);
+  const usefulness = Number(e.usefulness);
+  const safety = Number(e.safety);
+  const { totalScore, averageScore } = computeEntryScores(e, innovation, usefulness, safety);
+  const evals = Array.isArray(e.evaluations) ? e.evaluations : Object.freeze([]);
+  const judgeCount = Number.isInteger(e.judgeCount) ? e.judgeCount : evals.length;
+
+  return {
+    pairIndex,
+    aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
+    toolTitle: typeof e.toolTitle === 'string' ? e.toolTitle : '',
+    innovation,
+    usefulness,
+    safety,
+    totalScore,
+    averageScore,
+    score: totalScore,
+    evaluations: evals,
+    judgeCount
+  };
+}
+
 function rankChallengeLeaderboard(entries) {
-  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+  if (!Array.isArray(entries) || entries.length === 0) {
     return Object.freeze([]);
   }
-  const items = entries.map((e) => {
-    if (!e || typeof e !== 'object' || Array.isArray(e)) {
-      throw new Error('invalid challenge entry in leaderboard');
-    }
-    const pairIndex = Number(e.pairIndex);
-    const innovation = Number(e.innovation);
-    const usefulness = Number(e.usefulness);
-    const safety = Number(e.safety);
-    const totalScore = e.totalScore !== undefined
-      ? Math.round(Number(e.totalScore) * 100) / 100
-      : Math.round((innovation + usefulness + safety) * 100) / 100;
-    const averageScore = e.averageScore !== undefined
-      ? Math.round(Number(e.averageScore) * 100) / 100
-      : Math.round((totalScore / 3) * 100) / 100;
-    return {
-      pairIndex: pairIndex,
-      aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
-      toolTitle: typeof e.toolTitle === 'string' ? e.toolTitle : '',
-      innovation: innovation,
-      usefulness: usefulness,
-      safety: safety,
-      totalScore: totalScore,
-      averageScore: averageScore,
-      score: totalScore,
-      evaluations: Array.isArray(e.evaluations) ? e.evaluations : Object.freeze([]),
-      judgeCount: Number.isInteger(e.judgeCount) ? e.judgeCount : (Array.isArray(e.evaluations) ? e.evaluations.length : 0)
-    };
-  });
-
+  const items = entries.map(parseLeaderboardEntry);
   items.sort((a, b) => {
     if (b.totalScore !== a.totalScore) {
       return b.totalScore - a.totalScore;
@@ -6378,24 +6743,11 @@ function rankChallengeLeaderboard(entries) {
     return a.pairIndex - b.pairIndex;
   });
 
-  return Object.freeze(items.map((item, index) => Object.freeze({
-    rank: index + 1,
-    pairIndex: item.pairIndex,
-    aiTopic: item.aiTopic,
-    toolTitle: item.toolTitle,
-    innovation: item.innovation,
-    usefulness: item.usefulness,
-    safety: item.safety,
-    totalScore: item.totalScore,
-    averageScore: item.averageScore,
-    score: item.score,
-    evaluations: item.evaluations,
-    judgeCount: item.judgeCount
-  })));
+  return Object.freeze(items.map((item, index) => Object.freeze(Object.assign({ rank: index + 1 }, item))));
 }
 
 function selectChallengeFinalists(entries, topN) {
-  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+  if (!Array.isArray(entries) || entries.length === 0) {
     return Object.freeze([]);
   }
   const n = (topN !== undefined && Number.isInteger(topN)) ? Math.max(0, topN) : 3;
@@ -6557,23 +6909,38 @@ const AI_CHALLENGE_TEMPLATES = Object.freeze([
   })
 ]);
 
-function generateChallengeCertificateText(entry, rank, lang) {
-  if (!entry || typeof entry !== 'object') {
-    return '';
+const SUPPORTED_CERT_LANGS = Object.freeze(['he', 'ar', 'ru']);
+
+function normalizeTargetRankAndLang(rank, lang) {
+  if (typeof rank === 'string' && SUPPORTED_CERT_LANGS.indexOf(rank) !== -1) {
+    return { targetLang: rank, targetRank: undefined };
   }
-  let targetLang = lang;
-  let targetRank = rank;
-  if (typeof rank === 'string' && (rank === 'he' || rank === 'ar' || rank === 'ru')) {
-    targetLang = rank;
-    targetRank = undefined;
-  }
-  const l = (targetLang === 'ar' || targetLang === 'ru' || targetLang === 'he') ? targetLang : 'he';
-  const actualRank = targetRank != null ? targetRank : (entry.rank != null ? entry.rank : 1);
+  return { targetLang: lang, targetRank: rank };
+}
+
+function resolveRank(targetRank, entryRank) {
+  if (targetRank != null) return targetRank;
+  return entryRank != null ? entryRank : 1;
+}
+
+function resolveScore(totalScore, score) {
+  if (totalScore != null) return totalScore;
+  return score != null ? score : 0;
+}
+
+function resolveCertificateParams(entry, rank, lang) {
+  const { targetLang, targetRank } = normalizeTargetRankAndLang(rank, lang);
+  const l = SUPPORTED_CERT_LANGS.indexOf(targetLang) !== -1 ? targetLang : 'he';
+  const actualRank = resolveRank(targetRank, entry.rank);
   const pairIndex = entry.pairIndex !== undefined ? entry.pairIndex : '';
   const toolTitle = entry.toolTitle || '';
   const aiTopic = entry.aiTopic || entry.topic || '';
-  const totalScore = entry.totalScore != null ? entry.totalScore : (entry.score != null ? entry.score : 0);
+  const totalScore = resolveScore(entry.totalScore, entry.score);
+  return { l, actualRank, pairIndex, toolTitle, aiTopic, totalScore };
+}
 
+function formatCertificateByLang(info) {
+  const { l, actualRank, pairIndex, toolTitle, aiTopic, totalScore } = info;
   if (l === 'ar') {
     return [
       'شهادة تقدير ومشاركة - تحدي أدوات الذكاء الاصطناعي',
@@ -6604,6 +6971,14 @@ function generateChallengeCertificateText(entry, rank, lang) {
     `נושא AI: ${aiTopic}`,
     `ציון כולל: ${totalScore}`
   ].join('\n');
+}
+
+function generateChallengeCertificateText(entry, rank, lang) {
+  if (!entry || typeof entry !== 'object') {
+    return '';
+  }
+  const info = resolveCertificateParams(entry, rank, lang);
+  return formatCertificateByLang(info);
 }
 
 module.exports = {
