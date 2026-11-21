@@ -1475,6 +1475,7 @@ const PERSONAL_DATA_ERROR = 'personal data is not accepted';
 const HOUR_MIN = 8;
 const HOUR_MAX = 22;
 const USER_ID_RE = /^p-[0-9a-f]{8}$/;
+const SLOT_RE = /^([A-Z]{3})_(\d{1,2})$/;
 
 function validatorLib() {
   return require('./validator' + '.js');
@@ -1487,17 +1488,28 @@ function assertPeerUserId(id) {
   return id;
 }
 
-// A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
-// The canonical spelling has no leading zero on the hour: 'SUN_8', never 'SUN_08'. The engine compares
-// slots as strings (match.js hasOverlap / shared), so two spellings of one hour would never meet.
-// normalizeSlot returns the canonical string for any accepted spelling, or null.
-function normalizeSlot(slot) {
+// One parse for every reader: the matcher, the hour helper and the heatmap must all agree on what a
+// slot is. An accepted slot is always returned in its canonical spelling, 'SUN_8' and never 'SUN_08'.
+function parsedSlot(slot) {
   if (typeof slot !== 'string') return null;
-  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
-  if (!m || DAYS.indexOf(m[1]) === -1) return null;
+  const m = SLOT_RE.exec(slot);
+  if (m === null) return null;
+  if (DAYS.indexOf(m[1]) === -1) return null;
   const hour = Number(m[2]);
-  if (!Number.isInteger(hour) || hour < HOUR_MIN || hour > HOUR_MAX) return null;
-  return m[1] + '_' + String(hour);
+  if (!Number.isInteger(hour)) return null;
+  if (hour < HOUR_MIN) return null;
+  if (hour > HOUR_MAX) return null;
+  return { day: m[1], hour: hour };
+}
+
+// A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
+// The canonical spelling has no leading zero on the hour. normalizeSlot returns that string for any
+// accepted spelling, or null. The engine compares slots as strings (match.js hasOverlap / shared), so
+// two spellings of one hour would never meet.
+function normalizeSlot(slot) {
+  const parsed = parsedSlot(slot);
+  if (parsed === null) return null;
+  return parsed.day + '_' + String(parsed.hour);
 }
 
 function isSlot(slot) {
@@ -1505,25 +1517,39 @@ function isSlot(slot) {
 }
 
 function isAiLevel(level) {
-  return typeof level === 'string' && AI_LEVELS.indexOf(level) !== -1;
+  if (typeof level !== 'string') return false;
+  return AI_LEVELS.indexOf(level) !== -1;
+}
+
+function availabilityOf(p) {
+  if (Array.isArray(p)) return p;
+  if (p === null) return [];
+  if (typeof p !== 'object') return [];
+  if (Array.isArray(p.availability)) return p.availability;
+  return [];
+}
+
+function normalizedSlotSet(list) {
+  const out = new Set();
+  for (let i = 0; i < list.length; i += 1) {
+    const s = normalizeSlot(list[i]);
+    if (s !== null) out.add(s);
+  }
+  return out;
 }
 
 function getWeeklyOverlapSlots(personA, personB) {
-  const a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
-  const b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
-  const right = new Set();
-  for (let i = 0; i < b.length; i += 1) {
-    const s = normalizeSlot(b[i]);
-    if (s !== null) right.add(s);
-  }
+  const right = normalizedSlotSet(availabilityOf(personB));
   const seen = new Set();
   const out = [];
-  for (let i = 0; i < a.length; i += 1) {
-    const s = normalizeSlot(a[i]);
-    if (s !== null && right.has(s) && !seen.has(s)) {
-      seen.add(s);
-      out.push(s);
-    }
+  const left = availabilityOf(personA);
+  for (let i = 0; i < left.length; i += 1) {
+    const s = normalizeSlot(left[i]);
+    if (s === null) continue;
+    if (!right.has(s)) continue;
+    if (seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
   }
   return out.sort();
 }
@@ -1539,115 +1565,175 @@ function unique(list) {
 }
 
 function getSlotHour(slot) {
-  if (!isSlot(slot)) {
-    throw new Error('invalid slot: ' + String(slot));
-  }
-  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
-  return Number(m[2]);
+  const parsed = parsedSlot(slot);
+  if (parsed === null) throw new Error('invalid slot: ' + String(slot));
+  return parsed.hour;
 }
 
-function makeProfile(input) {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('profile input must be an object with role, region, availability, subjects');
-  }
-  // Privacy gate first: an unknown key is rejected before anything else is looked at.
+function profileInputError() {
+  return new Error('profile input must be an object with role, region, availability, subjects');
+}
+
+function assertProfileInput(input) {
+  if (input === null) throw profileInputError();
+  if (typeof input !== 'object') throw profileInputError();
+  if (Array.isArray(input)) throw profileInputError();
+}
+
+function assertAcceptedFields(input) {
   const keys = Object.keys(input);
   for (let i = 0; i < keys.length; i += 1) {
-    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1 && keys[i] !== 'aiLevel') throw new Error(PERSONAL_DATA_ERROR);
+    if (ACCEPTED_FIELDS.indexOf(keys[i]) !== -1) continue;
+    if (keys[i] === 'aiLevel') continue;
+    throw new Error(PERSONAL_DATA_ERROR);
   }
-  if (input.aiLevel !== undefined && !isAiLevel(input.aiLevel)) {
-    throw new Error('invalid aiLevel: expected beginner or advanced');
-  }
-  const role = input.role;
-  const region = input.region;
-  const availability = input.availability;
-  const subjects = input.subjects;
+}
 
+function assertAiLevelInput(input) {
+  if (input.aiLevel === undefined) return;
+  if (!isAiLevel(input.aiLevel)) throw new Error('invalid aiLevel: expected beginner or advanced');
+}
+
+function assertRole(role) {
   if (ROLES.indexOf(role) === -1) throw new Error('invalid role: expected student or pupil');
+}
+
+function assertRegion(region) {
   if (!isRegion(region)) throw new Error('invalid region: expected one of the REGIONS codes');
-  if (!Array.isArray(availability) || availability.length === 0) {
-    throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
-  }
+}
+
+function normalizedAvailability(availability) {
+  if (!Array.isArray(availability)) throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
+  if (availability.length === 0) throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
   const slots = [];
   for (let i = 0; i < availability.length; i += 1) {
     const slot = normalizeSlot(availability[i]);
     if (slot === null) throw new Error('invalid availability slot: ' + String(availability[i]));
     slots.push(slot);
   }
-  if (!Array.isArray(subjects) || subjects.length === 0) {
-    throw new Error('invalid subjects: expected a non-empty array');
-  }
+  return unique(slots);
+}
+
+function invalidSubject(subject) {
+  return new Error('invalid subjects entry: ' + String(subject));
+}
+
+function assertSubject(subject) {
+  if (typeof subject !== 'string') throw invalidSubject(subject);
+  if (SUBJECTS.indexOf(subject) === -1) throw invalidSubject(subject);
+}
+
+function validatedSubjects(subjects) {
+  if (!Array.isArray(subjects)) throw new Error('invalid subjects: expected a non-empty array');
+  if (subjects.length === 0) throw new Error('invalid subjects: expected a non-empty array');
   for (let i = 0; i < subjects.length; i += 1) {
-    if (typeof subjects[i] !== 'string' || SUBJECTS.indexOf(subjects[i]) === -1) {
-      throw new Error('invalid subjects entry: ' + String(subjects[i]));
-    }
+    assertSubject(subjects[i]);
   }
+  return unique(subjects);
+}
 
-  if (input.parentConsent !== undefined && typeof input.parentConsent !== 'boolean') {
-    throw new Error('invalid parentConsent: expected boolean');
-  }
+function assertParentConsentInput(input) {
+  if (input.parentConsent === undefined) return;
+  if (typeof input.parentConsent !== 'boolean') throw new Error('invalid parentConsent: expected boolean');
+}
 
-  const blockedUsers = [];
-  if (input.blockedUsers !== undefined) {
-    if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
-    for (let i = 0; i < input.blockedUsers.length; i += 1) {
-      const uid = assertPeerUserId(input.blockedUsers[i]);
-      if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
-    }
+function blockedUsersOf(input) {
+  if (input.blockedUsers === undefined) return null;
+  if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
+  const out = [];
+  for (let i = 0; i < input.blockedUsers.length; i += 1) {
+    const uid = assertPeerUserId(input.blockedUsers[i]);
+    if (out.indexOf(uid) === -1) out.push(uid);
   }
+  return out;
+}
 
-  const reportEvents = [];
-  if (input.reportEvent !== undefined) {
-    if (!Array.isArray(input.reportEvent)) throw new Error('invalid reportEvent: expected an array');
-    const makeReportEvent = validatorLib().makeReportEvent;
-    for (let i = 0; i < input.reportEvent.length; i += 1) {
-      reportEvents.push(makeReportEvent(input.reportEvent[i]));
-    }
+function reportEventsOf(input) {
+  if (input.reportEvent === undefined) return null;
+  if (!Array.isArray(input.reportEvent)) throw new Error('invalid reportEvent: expected an array');
+  const makeReportEvent = validatorLib().makeReportEvent;
+  const out = [];
+  for (let i = 0; i < input.reportEvent.length; i += 1) {
+    out.push(makeReportEvent(input.reportEvent[i]));
   }
+  return out;
+}
 
-  const responseToReports = [];
-  if (input.responseToReport !== undefined) {
-    if (!Array.isArray(input.responseToReport)) throw new Error('invalid responseToReport: expected an array');
-    const makeResponseToReport = validatorLib().makeResponseToReport;
-    for (let i = 0; i < input.responseToReport.length; i += 1) {
-      responseToReports.push(makeResponseToReport(input.responseToReport[i]));
-    }
+function responseToReportsOf(input) {
+  if (input.responseToReport === undefined) return null;
+  if (!Array.isArray(input.responseToReport)) throw new Error('invalid responseToReport: expected an array');
+  const makeResponseToReport = validatorLib().makeResponseToReport;
+  const out = [];
+  for (let i = 0; i < input.responseToReport.length; i += 1) {
+    out.push(makeResponseToReport(input.responseToReport[i]));
   }
+  return out;
+}
+
+function profileRetention() {
+  return Object.freeze({ dataCategory: 'profile', maxAgeDays: getRetentionPolicy().profile });
+}
+
+function makeProfile(input) {
+  assertProfileInput(input);
+  assertAcceptedFields(input);
+  assertAiLevelInput(input);
+  assertRole(input.role);
+  assertRegion(input.region);
+  const availability = normalizedAvailability(input.availability);
+  const subjects = validatedSubjects(input.subjects);
+  assertParentConsentInput(input);
+
+  const blockedUsers = blockedUsersOf(input);
+  const reportEvents = reportEventsOf(input);
+  const responseToReports = responseToReportsOf(input);
 
   const profile = {
-    role: role,
-    region: region,
-    availability: Object.freeze(unique(slots)),
-    subjects: Object.freeze(unique(subjects))
+    role: input.role,
+    region: input.region,
+    availability: Object.freeze(availability),
+    subjects: Object.freeze(subjects)
   };
 
-  if (role === 'pupil' || input.parentConsent !== undefined) {
+  if (input.role === 'pupil' || input.parentConsent !== undefined) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
-
-  if (input.blockedUsers !== undefined) {
-    profile.blockedUsers = Object.freeze(blockedUsers.slice());
-  }
-
-  if (input.reportEvent !== undefined) {
-    profile.reportEvent = Object.freeze(reportEvents.slice());
-  }
-
-  if (input.responseToReport !== undefined) {
-    profile.responseToReport = Object.freeze(responseToReports.slice());
-  }
-
-  if (input.aiLevel !== undefined) {
-    profile.aiLevel = input.aiLevel;
-  }
-
-  const policy = getRetentionPolicy();
-  profile.retention = Object.freeze({
-    dataCategory: 'profile',
-    maxAgeDays: policy.profile
-  });
+  if (blockedUsers !== null) profile.blockedUsers = Object.freeze(blockedUsers.slice());
+  if (reportEvents !== null) profile.reportEvent = Object.freeze(reportEvents.slice());
+  if (responseToReports !== null) profile.responseToReport = Object.freeze(responseToReports.slice());
+  if (input.aiLevel !== undefined) profile.aiLevel = input.aiLevel;
+  profile.retention = profileRetention();
 
   return Object.freeze(profile);
+}
+
+function invalidRetention() {
+  return new Error('invalid retention: expected the stamp makeProfile writes');
+}
+
+function assertStampShape(stamp) {
+  if (stamp === null) throw invalidRetention();
+  if (typeof stamp !== 'object') throw invalidRetention();
+  if (Array.isArray(stamp)) throw invalidRetention();
+}
+
+function assertStampKeys(stamp) {
+  const keys = Object.keys(stamp);
+  for (let i = 0; i < keys.length; i += 1) {
+    if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+}
+
+function assertStampValues(stamp) {
+  if (stamp.dataCategory !== 'profile') throw invalidRetention();
+  if (!Number.isInteger(stamp.maxAgeDays)) throw invalidRetention();
+  if (stamp.maxAgeDays < 0) throw invalidRetention();
+}
+
+function assertRetentionStamp(stamp) {
+  assertStampShape(stamp);
+  assertStampKeys(stamp);
+  assertStampValues(stamp);
 }
 
 // The one key a profile carries that makeProfile does not take as input: the retention stamp it derives
@@ -1661,22 +1747,16 @@ function makeProfile(input) {
 // A third field in the stamp is refused with the same message as a name beside it; a stamp of another
 // shape (a string, a list, another category, no day count) is a record the app never wrote.
 function withoutRetentionStamp(profile) {
-  const stamp = profile.retention;
-  if (stamp !== undefined) {
-    if (stamp === null || typeof stamp !== 'object' || Array.isArray(stamp)) {
-      throw new Error('invalid retention: expected the stamp makeProfile writes');
-    }
-    const keys = Object.keys(stamp);
-    for (let i = 0; i < keys.length; i += 1) {
-      if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
-    }
-    if (stamp.dataCategory !== 'profile' || !Number.isInteger(stamp.maxAgeDays) || stamp.maxAgeDays < 0) {
-      throw new Error('invalid retention: expected the stamp makeProfile writes');
-    }
-  }
+  if (profile.retention !== undefined) assertRetentionStamp(profile.retention);
   const input = Object.assign({}, profile);
   delete input.retention;
   return input;
+}
+
+function assertProfileObject(profile) {
+  if (profile === null) throw new Error('profile must be an object');
+  if (typeof profile !== 'object') throw new Error('profile must be an object');
+  if (Array.isArray(profile)) throw new Error('profile must be an object');
 }
 
 // Returns a new frozen profile with parentConsent set. The result goes through makeProfile again, so
@@ -1685,14 +1765,13 @@ function withoutRetentionStamp(profile) {
 // consent must be a real boolean (or omitted, meaning true): a form value 'false' or 'no' is truthy, and
 // coercing it would record a parent's consent that was never given.
 function setParentConsent(profile, consent) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
+  assertProfileObject(profile);
+  let consentValue;
+  if (consent === undefined) consentValue = true;
+  else {
+    if (typeof consent !== 'boolean') throw new Error('invalid parentConsent: expected boolean');
+    consentValue = consent;
   }
-  if (consent !== undefined && typeof consent !== 'boolean') {
-    throw new Error('invalid parentConsent: expected boolean');
-  }
-  const consentValue = consent === undefined ? true : consent;
-  // retention is derived by makeProfile itself, not an input field: shed it before re-validating.
   const input = withoutRetentionStamp(profile);
   return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
@@ -1707,17 +1786,13 @@ function revokeParentConsent(profile) {
 
 function checkBlocked(profile, userId) {
   assertPeerUserId(userId);
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   if (!Array.isArray(profile.blockedUsers)) return false;
   return profile.blockedUsers.indexOf(userId) !== -1;
 }
 
 function blockUser(profile, userId) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   assertPeerUserId(userId);
   const input = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.blockedUsers) ? profile.blockedUsers.slice() : [];
@@ -1725,96 +1800,116 @@ function blockUser(profile, userId) {
   return makeProfile(Object.assign(input, { blockedUsers: current }));
 }
 
-function reportEvent(profile, input) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
-  const event = validatorLib().makeReportEvent(input);
+function appendProfileList(profile, field, makeItem) {
+  assertProfileObject(profile);
+  const item = makeItem();
   const base = withoutRetentionStamp(profile);
-  const current = Array.isArray(profile.reportEvent) ? profile.reportEvent.slice() : [];
-  current.push(event);
-  return makeProfile(Object.assign(base, { reportEvent: current }));
+  const current = Array.isArray(profile[field]) ? profile[field].slice() : [];
+  current.push(item);
+  const patch = {};
+  patch[field] = current;
+  return makeProfile(Object.assign(base, patch));
+}
+
+function reportEvent(profile, input) {
+  return appendProfileList(profile, 'reportEvent', () => validatorLib().makeReportEvent(input));
 }
 
 function responseToReport(profile, input) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
+  return appendProfileList(profile, 'responseToReport', () => validatorLib().makeResponseToReport(input));
+}
+
+function roleOf(p) {
+  if (p === null) return null;
+  if (typeof p !== 'object') return null;
+  if (Array.isArray(p)) return null;
+  if (typeof p.role !== 'string') return null;
+  const role = p.role.trim().toLowerCase();
+  if (role === 'student') return role;
+  if (role === 'pupil') return role;
+  return null;
+}
+
+function countOf(map, key) {
+  const n = map.get(key);
+  if (n === undefined) return 0;
+  return n;
+}
+
+function addAvailabilityCounts(dMap, sMap, p) {
+  const role = roleOf(p);
+  if (role === null) return;
+  const avail = Array.isArray(p.availability) ? p.availability : [];
+  const seenSlots = new Set();
+  const target = role === 'pupil' ? dMap : sMap;
+  for (let j = 0; j < avail.length; j += 1) {
+    const norm = normalizeSlot(avail[j]);
+    if (norm === null) continue;
+    if (seenSlots.has(norm)) continue;
+    seenSlots.add(norm);
+    const previous = target.get(norm);
+    target.set(norm, previous === undefined ? 1 : previous + 1);
   }
-  const response = validatorLib().makeResponseToReport(input);
-  const base = withoutRetentionStamp(profile);
-  const current = Array.isArray(profile.responseToReport) ? profile.responseToReport.slice() : [];
-  current.push(response);
-  return makeProfile(Object.assign(base, { responseToReport: current }));
+}
+
+function slotKeyOf(day, hour) {
+  return day + '_' + hour;
+}
+
+function heatmapSlot(day, hour, demand, supply) {
+  const gap = demand - supply;
+  return Object.freeze({
+    slot: slotKeyOf(day, hour),
+    day: day,
+    hour: hour,
+    demand: demand,
+    supply: supply,
+    gap: gap,
+    shortage: Math.max(gap, 0),
+    pupils: demand,
+    students: supply
+  });
+}
+
+function compareTopShortage(a, b) {
+  if (b.gap !== a.gap) return b.gap - a.gap;
+  if (b.demand !== a.demand) return b.demand - a.demand;
+  const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+  if (dayDiff !== 0) return dayDiff;
+  return a.hour - b.hour;
+}
+
+function addSlotsForDay(day, ctx) {
+  for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
+    const slotKey = slotKeyOf(day, h);
+    const demand = countOf(ctx.dMap, slotKey);
+    const supply = countOf(ctx.sMap, slotKey);
+    const slotObj = heatmapSlot(day, h, demand, supply);
+    ctx.slots.push(slotObj);
+    ctx.slots[slotKey] = slotObj;
+    if (demand > supply) ctx.topShortageSlots.push(slotObj);
+  }
+}
+
+function addHeatmapSlots(ctx) {
+  for (let di = 0; di < DAYS.length; di += 1) {
+    addSlotsForDay(DAYS[di], ctx);
+  }
 }
 
 function computeWeeklyAvailabilityHeatmap(people) {
   const dMap = new Map();
   const sMap = new Map();
-
   if (Array.isArray(people)) {
     for (let i = 0; i < people.length; i += 1) {
-      const p = people[i];
-      if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
-      const role = typeof p.role === 'string' ? p.role.trim().toLowerCase() : '';
-      if (role !== 'student' && role !== 'pupil') continue;
-
-      const avail = Array.isArray(p.availability) ? p.availability : [];
-      const seenSlots = new Set();
-      for (let j = 0; j < avail.length; j += 1) {
-        const norm = normalizeSlot(avail[j]);
-        if (norm !== null && !seenSlots.has(norm)) {
-          seenSlots.add(norm);
-          if (role === 'pupil') {
-            dMap.set(norm, (dMap.get(norm) || 0) + 1);
-          } else if (role === 'student') {
-            sMap.set(norm, (sMap.get(norm) || 0) + 1);
-          }
-        }
-      }
+      addAvailabilityCounts(dMap, sMap, people[i]);
     }
   }
 
   const slots = [];
   const topShortageSlots = [];
-
-  for (let di = 0; di < DAYS.length; di += 1) {
-    const day = DAYS[di];
-    for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
-      const slotKey = day + '_' + h;
-      const demand = dMap.get(slotKey) || 0;
-      const supply = sMap.get(slotKey) || 0;
-      const gap = demand - supply;
-      const shortage = Math.max(gap, 0);
-
-      const slotObj = Object.freeze({
-        slot: slotKey,
-        day: day,
-        hour: h,
-        demand: demand,
-        supply: supply,
-        gap: gap,
-        shortage: shortage,
-        pupils: demand,
-        students: supply
-      });
-
-      slots.push(slotObj);
-      slots[slotKey] = slotObj;
-
-      if (demand > supply) {
-        topShortageSlots.push(slotObj);
-      }
-    }
-  }
-
-  topShortageSlots.sort((a, b) => {
-    if (b.gap !== a.gap) return b.gap - a.gap;
-    if (b.demand !== a.demand) return b.demand - a.demand;
-    const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
-    if (dayDiff !== 0) return dayDiff;
-    return a.hour - b.hour;
-  });
-
+  addHeatmapSlots({ dMap: dMap, sMap: sMap, slots: slots, topShortageSlots: topShortageSlots });
+  topShortageSlots.sort(compareTopShortage);
   return Object.freeze({
     slots: Object.freeze(slots),
     topShortageSlots: Object.freeze(topShortageSlots)
@@ -1904,28 +1999,37 @@ function compareCandidates(x, y) {
     (x.pupilIndex - y.pupilIndex);
 }
 
+// One (student, pupil) candidate, or null when the pair is not eligible: a pupil without parent consent,
+// another region, no shared hour, or no shared subject.
+function candidateFor(si, s, pi, p) {
+  if (!hasParentConsent(p)) return null;
+  if (p.region !== s.region) return null;
+  if (!hasOverlap(s.availability, p.availability)) return null;
+  const subjects = shared(s.subjects, p.subjects);
+  if (subjects.length === 0) return null;
+  return {
+    studentIndex: si,
+    pupilIndex: pi,
+    region: s.region,
+    sharedSlots: shared(s.availability, p.availability),
+    sharedSubjects: subjects
+  };
+}
+
+function addCandidatesForStudent(candidates, si, s, P) {
+  for (let pi = 0; pi < P.length; pi += 1) {
+    const candidate = candidateFor(si, s, pi, P[pi]);
+    if (candidate !== null) candidates.push(candidate);
+  }
+}
+
 // All valid (student, pupil) candidates, best first. A pupil without parent consent is in no candidate.
 function candidatesOf(S, P) {
   const candidates = [];
   for (let si = 0; si < S.length; si += 1) {
     const s = S[si];
     if (!s || typeof s.region !== 'string') continue;
-    for (let pi = 0; pi < P.length; pi += 1) {
-      const p = P[pi];
-      if (!hasParentConsent(p)) continue;
-      if (p.region !== s.region) continue;
-      if (!hasOverlap(s.availability, p.availability)) continue;
-      const slots = shared(s.availability, p.availability);
-      const subjects = shared(s.subjects, p.subjects);
-      if (subjects.length === 0) continue;
-      candidates.push({
-        studentIndex: si,
-        pupilIndex: pi,
-        region: s.region,
-        sharedSlots: slots,
-        sharedSubjects: subjects
-      });
-    }
+    addCandidatesForStudent(candidates, si, s, P);
   }
   return candidates.sort(compareCandidates);
 }
@@ -1937,16 +2041,21 @@ function candidatesOf(S, P) {
 // then, for every student still alone (in index order), an augmenting path is searched in that same
 // candidate order (Kuhn's algorithm), which can only add a pair, never lose one. Pairs are returned in
 // candidate order. No clock, no randomness.
-function matchPairs(students, pupils) {
-  const S = Array.isArray(students) ? students : [];
-  const P = Array.isArray(pupils) ? pupils : [];
-  const candidates = candidatesOf(S, P);
+// Candidates grouped by the student that could take each: a Map studentIndex -> candidate list in the
+// same (best-first) order the candidates were returned.
+function groupCandidatesByStudent(candidates) {
   const byStudent = new Map();
   for (let i = 0; i < candidates.length; i += 1) {
     const c = candidates[i];
     if (!byStudent.has(c.studentIndex)) byStudent.set(c.studentIndex, []);
     byStudent.get(c.studentIndex).push(c);
   }
+  return byStudent;
+}
+
+// First pass: take each candidate in order while both its student and its pupil are still free. One map
+// per direction records who took whom; a candidate already claimed on either side is skipped.
+function greedyAssign(candidates) {
   const ofStudent = new Map();   // studentIndex -> candidate
   const ofPupil = new Map();     // pupilIndex -> candidate
   for (let i = 0; i < candidates.length; i += 1) {
@@ -1955,28 +2064,46 @@ function matchPairs(students, pupils) {
     ofStudent.set(c.studentIndex, c);
     ofPupil.set(c.pupilIndex, c);
   }
-  function augment(si, seen) {
-    const list = byStudent.get(si) || [];
-    for (let i = 0; i < list.length; i += 1) {
-      const c = list[i];
-      if (seen.has(c.pupilIndex)) continue;
-      seen.add(c.pupilIndex);
-      const holder = ofPupil.get(c.pupilIndex);
-      if (!holder || augment(holder.studentIndex, seen)) {
-        ofStudent.set(si, c);
-        ofPupil.set(c.pupilIndex, c);
-        return true;
-      }
+  return { ofStudent: ofStudent, ofPupil: ofPupil };
+}
+
+// Kuhn's augmenting path: try to give student `si` a pupil, displacing the student that currently holds
+// one when that student can itself find another. `seen` guards against revisiting a pupil in one search.
+function augmentMatching(si, seen, matching) {
+  const list = matching.byStudent.get(si) || [];
+  for (let i = 0; i < list.length; i += 1) {
+    const c = list[i];
+    if (seen.has(c.pupilIndex)) continue;
+    seen.add(c.pupilIndex);
+    const holder = matching.ofPupil.get(c.pupilIndex);
+    if (!holder || augmentMatching(holder.studentIndex, seen, matching)) {
+      matching.ofStudent.set(si, c);
+      matching.ofPupil.set(c.pupilIndex, c);
+      return true;
     }
-    return false;
   }
+  return false;
+}
+
+function matchPairs(students, pupils) {
+  const S = Array.isArray(students) ? students : [];
+  const P = Array.isArray(pupils) ? pupils : [];
+  const candidates = candidatesOf(S, P);
+  const greedy = greedyAssign(candidates);
+  const matching = {
+    byStudent: groupCandidatesByStudent(candidates),
+    ofStudent: greedy.ofStudent,
+    ofPupil: greedy.ofPupil
+  };
+  const ofStudent = matching.ofStudent;
+  const ofPupil = matching.ofPupil;
   // A failed search leaves every pupil it visited unable to reach a free pupil until some search
   // succeeds, so the visited set is kept across failures and cleared only after a success.
   const reachablePupils = new Set(candidates.map((c) => c.pupilIndex)).size;
   let seen = new Set();
   for (let si = 0; si < S.length && ofPupil.size < reachablePupils; si += 1) {
-    if (ofStudent.has(si) || !byStudent.has(si)) continue;
-    if (augment(si, seen)) seen = new Set();
+    if (ofStudent.has(si) || !matching.byStudent.has(si)) continue;
+    if (augmentMatching(si, seen, matching)) seen = new Set();
   }
   return Array.from(ofStudent.values()).sort(compareCandidates);
 }
@@ -1991,23 +2118,31 @@ const PAIR_ERROR = 'match pair must be an object from matchPairs()';
 // the row would then be stored - and later swept - under a day nobody wrote down.
 const ISO_DATE = /^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
 
-function utcDay(value) {
-  const bad = new Error('invalid recordedAt: expected a Date or an ISO date string');
-  let d = value;
-  if (!(value instanceof Date)) {
-    const m = typeof value === 'string' ? ISO_DATE.exec(value) : null;
-    if (m === null) throw bad;
-    const written = new Date(m[1] + 'T00:00:00Z');
-    if (Number.isNaN(written.getTime()) || written.toISOString().slice(0, 10) !== m[1]) throw bad;
-    d = new Date(value);
-  }
-  if (Number.isNaN(d.getTime())) throw bad;
-  // Only a year the sweep can read back. Past 9999 toISOString writes '+010000-01-01...' and the row
-  // would keep '+010000-01'; before the year 0 it writes '-000001-...' and the row would keep '-000001-1'.
-  // Either way the cycle manager refuses the stored row, and with it the whole sweep. The years 0-99 the
-  // sweep reads in their own century, so they are stored like any other day.
+function invalidRecordedAt() {
+  return new Error('invalid recordedAt: expected a Date or an ISO date string');
+}
+
+function parseIsoDay(value) {
+  const m = typeof value === 'string' ? ISO_DATE.exec(value) : null;
+  if (m === null) throw invalidRecordedAt();
+  const written = new Date(m[1] + 'T00:00:00Z');
+  if (Number.isNaN(written.getTime()) || written.toISOString().slice(0, 10) !== m[1]) throw invalidRecordedAt();
+  return new Date(value);
+}
+
+// Only a year the sweep can read back. Past 9999 toISOString writes '+010000-01-01...' and the row
+// would keep '+010000-01'; before the year 0 it writes '-000001-...' and the row would keep '-000001-1'.
+// Either way the cycle manager refuses the stored row, and with it the whole sweep. The years 0-99 the
+// sweep reads in their own century, so they are stored like any other day.
+function assertStorableYear(d) {
   const year = d.getUTCFullYear();
-  if (year < 0 || year > 9999) throw bad;
+  if (year < 0 || year > 9999) throw invalidRecordedAt();
+}
+
+function utcDay(value) {
+  const d = value instanceof Date ? value : parseIsoDay(value);
+  if (Number.isNaN(d.getTime())) throw invalidRecordedAt();
+  assertStorableYear(d);
   return d.toISOString().slice(0, 10);
 }
 
@@ -2042,25 +2177,53 @@ function isSubject(code) {
 // sharedSlots became a stored row - the one row the privacy gate never looked at - and the sweep later
 // kept or dropped it on the policy's terms like any other. A pair with anything else in it is not a
 // pair from matchPairs() and is refused as one, with the same message as a missing index.
-function makeMatchRecord(pair, recordedAt) {
-  if (pair === null || typeof pair !== 'object' || Array.isArray(pair)) throw new Error(PAIR_ERROR);
-  // an index is a position in the students / pupils arrays: -1 would be a stored row that points at nobody
-  if (!Number.isInteger(pair.studentIndex) || pair.studentIndex < 0) throw new Error(PAIR_ERROR);
-  if (!Number.isInteger(pair.pupilIndex) || pair.pupilIndex < 0) throw new Error(PAIR_ERROR);
+// The regions a pair names: a local pair has one region, a matchAcrossRegions() pair has two. Returns
+// null when neither holds - a missing region, or a region that is not one of REGIONS (the cross-region
+// placeholder 'ANY' is not one either). The caller turns null into the same refusal a bad index gets.
+function pairRegions(pair) {
+  if (typeof pair.region === 'string') {
+    return isRegion(pair.region) ? { region: pair.region } : null;
+  }
+  if (isRegion(pair.studentRegion) && isRegion(pair.pupilRegion)) {
+    return { studentRegion: pair.studentRegion, pupilRegion: pair.pupilRegion };
+  }
+  return null;
+}
+
+// an index is a position in the students / pupils arrays: -1 would be a stored row that points at nobody
+function assertPairIndex(value) {
+  if (!Number.isInteger(value) || value < 0) throw new Error(PAIR_ERROR);
+}
+
+function assertPairCodes(pair) {
   if (!isCodeList(pair.sharedSlots, isCanonicalSlot) || !isCodeList(pair.sharedSubjects, isSubject)) {
     throw new Error(PAIR_ERROR);
   }
+}
+
+function isPlainObject(value) {
+  if (value === null || typeof value !== 'object') return false;
+  return !Array.isArray(value);
+}
+
+function assertRecordPair(pair) {
+  if (!isPlainObject(pair)) throw new Error(PAIR_ERROR);
+  assertPairIndex(pair.studentIndex);
+  assertPairIndex(pair.pupilIndex);
+  assertPairCodes(pair);
   // a local pair names one region, a matchAcrossRegions() pair names both; a row with neither would be
   // stored with no region at all (JSON drops an undefined key). 'ANY', the placeholder the cross-region
   // pass matches under, is not a region either: a pair that still carries it never left that pass.
-  const local = typeof pair.region === 'string';
-  if (local ? !isRegion(pair.region) : (!isRegion(pair.studentRegion) || !isRegion(pair.pupilRegion))) {
-    throw new Error(PAIR_ERROR);
-  }
+  const where = pairRegions(pair);
+  if (where === null) throw new Error(PAIR_ERROR);
+  return where;
+}
+
+function makeMatchRecord(pair, recordedAt) {
+  const where = assertRecordPair(pair);
   if (recordedAt === undefined || recordedAt === null) {
     throw new Error('invalid recordedAt: expected a Date or an ISO date string');
   }
-  const where = local ? { region: pair.region } : { studentRegion: pair.studentRegion, pupilRegion: pair.pupilRegion };
   return Object.freeze(Object.assign({
     studentIndex: pair.studentIndex,
     pupilIndex: pair.pupilIndex
@@ -2079,70 +2242,105 @@ function makeMatchRecord(pair, recordedAt) {
 // them, so the parent-consent gate holds here too. The local pairs are never touched, so this can only
 // add pairs. Each result names both regions;
 // indexes are positions in the original students / pupils arrays. Same input -> same output.
+function isFreeRegionProfile(x, used, index) {
+  if (!x || typeof x.region !== 'string') return false;
+  return !used.has(index);
+}
+
+function freeRegionIndexes(list, used) {
+  const free = [];
+  for (let i = 0; i < list.length; i += 1) {
+    if (isFreeRegionProfile(list[i], used, i)) free.push(i);
+  }
+  return free;
+}
+
+function anyRegionProfile(x) {
+  return { region: 'ANY', availability: x.availability, subjects: x.subjects, parentConsent: x.parentConsent };
+}
+
+function crossRegionPair(c, free, people) {
+  const studentIndex = free.students[c.studentIndex];
+  const pupilIndex = free.pupils[c.pupilIndex];
+  return {
+    studentIndex: studentIndex,
+    pupilIndex: pupilIndex,
+    studentRegion: people.S[studentIndex].region,
+    pupilRegion: people.P[pupilIndex].region,
+    sharedSlots: c.sharedSlots,
+    sharedSubjects: c.sharedSubjects
+  };
+}
+
 function matchAcrossRegions(students, pupils, pairs) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
-  const usedS = new Set(); const usedP = new Set();
-  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
-  const freeS = []; const freeP = [];
-  S.forEach((s, i) => { if (s && typeof s.region === 'string' && !usedS.has(i)) freeS.push(i); });
-  P.forEach((p, i) => { if (p && typeof p.region === 'string' && !usedP.has(i)) freeP.push(i); });
-  const anywhere = (x) => ({ region: 'ANY', availability: x.availability, subjects: x.subjects, parentConsent: x.parentConsent });
-  return matchPairs(freeS.map((i) => anywhere(S[i])), freeP.map((i) => anywhere(P[i]))).map((c) => ({
-    studentIndex: freeS[c.studentIndex],
-    pupilIndex: freeP[c.pupilIndex],
-    studentRegion: S[freeS[c.studentIndex]].region,
-    pupilRegion: P[freeP[c.pupilIndex]].region,
-    sharedSlots: c.sharedSlots,
-    sharedSubjects: c.sharedSubjects
-  }));
+  const used = usedIndexes(pairs);
+  const free = { students: freeRegionIndexes(S, used.students), pupils: freeRegionIndexes(P, used.pupils) };
+  const localPairs = matchPairs(
+    free.students.map((i) => anyRegionProfile(S[i])),
+    free.pupils.map((i) => anyRegionProfile(P[i]))
+  );
+  return localPairs.map((c) => crossRegionPair(c, free, { S: S, P: P }));
+}
+
+// The indexes already taken by the pairs a previous pass returned: student indexes in one set, pupil
+// indexes in the other. Anything here is skipped when explaining who is still unmatched.
+function usedIndexes(pairs) {
+  const students = new Set();
+  const pupils = new Set();
+  (Array.isArray(pairs) ? pairs : []).forEach((p) => { students.add(p.studentIndex); pupils.add(p.pupilIndex); });
+  return { students: students, pupils: pupils };
+}
+
+// Why one person is still unmatched, checked against everyone on the other side: a missing consent, an
+// empty region, a partner without consent, no shared hour, no shared subject, or no one with both.
+function inSameRegion(me, others) {
+  return others.filter((o) => o && o.region === me.region);
+}
+
+function overlapReason(me, local) {
+  const hour = local.filter((o) => hasOverlap(me.availability, o.availability));
+  if (hour.length === 0) return 'NO_SHARED_HOUR';
+  const subject = local.filter((o) => hasOverlap(me.subjects, o.subjects));
+  if (subject.length === 0) return 'NO_SHARED_SUBJECT';
+  return hour.some((o) => subject.indexOf(o) !== -1) ? 'PARTNERS_TAKEN' : 'NO_HOUR_AND_SUBJECT_TOGETHER';
+}
+
+function unmatchedReason(me, others, isPupil) {
+  if (isPupil && !hasParentConsent(me)) return 'NO_PARENT_CONSENT';
+  const inRegion = inSameRegion(me, others);
+  if (inRegion.length === 0) return 'NO_ONE_IN_REGION';
+  // the same gate candidatesOf applies: a pupil without consent is no partner for a student
+  const local = isPupil ? inRegion : inRegion.filter(hasParentConsent);
+  if (local.length === 0) return 'NO_PARENT_CONSENT';
+  return overlapReason(me, local);
 }
 
 function explainUnmatched(students, pupils, pairs) {
   const S = Array.isArray(students) ? students : [];
   const P = Array.isArray(pupils) ? pupils : [];
-  const usedS = new Set(); const usedP = new Set();
-  (Array.isArray(pairs) ? pairs : []).forEach((p) => { usedS.add(p.studentIndex); usedP.add(p.pupilIndex); });
-  function reason(me, others, isPupil) {
-    if (isPupil && !hasParentConsent(me)) return 'NO_PARENT_CONSENT';
-    const inRegion = others.filter((o) => o && o.region === me.region);
-    if (inRegion.length === 0) return 'NO_ONE_IN_REGION';
-    // the same gate candidatesOf applies: a pupil without consent is no partner for a student
-    const local = isPupil ? inRegion : inRegion.filter(hasParentConsent);
-    if (local.length === 0) return 'NO_PARENT_CONSENT';
-    const hour = local.filter((o) => shared(me.availability, o.availability).length > 0);
-    const subject = local.filter((o) => shared(me.subjects, o.subjects).length > 0);
-    if (hour.length === 0) return 'NO_SHARED_HOUR';
-    if (subject.length === 0) return 'NO_SHARED_SUBJECT';
-    const both = hour.filter((o) => subject.indexOf(o) !== -1);
-    return both.length === 0 ? 'NO_HOUR_AND_SUBJECT_TOGETHER' : 'PARTNERS_TAKEN';
-  }
+  const used = usedIndexes(pairs);
   const out = { students: [], pupils: [] };
-  S.forEach((s, i) => { if (s && !usedS.has(i)) out.students.push({ index: i, reason: reason(s, P, false) }); });
-  P.forEach((p, i) => { if (p && !usedP.has(i)) out.pupils.push({ index: i, reason: reason(p, S, true) }); });
+  S.forEach((s, i) => { if (s && !used.students.has(i)) out.students.push({ index: i, reason: unmatchedReason(s, P, false) }); });
+  P.forEach((p, i) => { if (p && !used.pupils.has(i)) out.pupils.push({ index: i, reason: unmatchedReason(p, S, true) }); });
   return out;
 }
 
-function summarizeMatch(m, people) {
-  const S = (Array.isArray(people) ? people : []).filter((p) => p && p.role === 'student');
-  const left = (m && Array.isArray(m.left)) ? m.left : [];
-  const shortPupils = left.filter((x) => x && x.role === 'pupil');
-  const shortStudents = left.length - shortPupils.length;
+// Whether any student on the roster could take this pupil on region, hour and subject - the test behind
+// "waiting for consent but a partner fits". A person with no person record is never counted as fitting.
+function hasFittingStudent(students, me) {
+  return students.some((s) =>
+    s && s.region === me.region &&
+    hasOverlap(s.availability, me.availability) &&
+    hasOverlap(s.subjects, me.subjects)
+  );
+}
 
-  const noConsent = shortPupils.filter((x) => x && x.reason === 'NO_PARENT_CONSENT').length;
-  const noConsentNoStudent = shortPupils.filter((x) => {
-    if (!x || x.reason !== 'NO_PARENT_CONSENT') return false;
-    const me = x.e && x.e.person;
-    if (!me) return false;
-    return !S.some((s) =>
-      s && s.region === me.region &&
-      hasOverlap(s.availability, me.availability) &&
-      hasOverlap(s.subjects, me.subjects)
-    );
-  }).length;
-  const noConsentFits = noConsent - noConsentNoStudent;
-
-  const missingCounts = {};
+// Count, per "REGION_SUBJECT" code, how many short pupils each region/subject is missing a partner for.
+// A pupil already waiting on consent is skipped here: its gap is a consent gap, not a subject gap.
+function missingByRegionSubject(shortPupils) {
+  const counts = {};
   shortPupils.forEach((x) => {
     if (!x || x.reason === 'NO_PARENT_CONSENT') return;
     const p = x.e && x.e.person;
@@ -2150,18 +2348,43 @@ function summarizeMatch(m, people) {
     const reg = p.region || 'UNKNOWN';
     (Array.isArray(p.subjects) ? p.subjects : []).forEach((sub) => {
       const code = reg + '_' + sub;
-      missingCounts[code] = (missingCounts[code] || 0) + 1;
+      counts[code] = (counts[code] || 0) + 1;
     });
   });
+  return counts;
+}
+
+function consentGapCounts(shortPupils, students) {
+  let noConsent = 0;
+  let noConsentNoStudent = 0;
+  shortPupils.forEach((x) => {
+    if (!x || x.reason !== 'NO_PARENT_CONSENT') return;
+    noConsent += 1;
+    const me = x.e && x.e.person;
+    if (me && !hasFittingStudent(students, me)) noConsentNoStudent += 1;
+  });
+  return { noConsent: noConsent, noConsentNoStudent: noConsentNoStudent, noConsentFits: noConsent - noConsentNoStudent };
+}
+
+function listLength(m, key) {
+  return (m && Array.isArray(m[key])) ? m[key].length : 0;
+}
+
+function summarizeMatch(m, people) {
+  const S = (Array.isArray(people) ? people : []).filter((p) => p && p.role === 'student');
+  const left = (m && Array.isArray(m.left)) ? m.left : [];
+  const shortPupils = left.filter((x) => x && x.role === 'pupil');
+  const shortStudents = left.length - shortPupils.length;
+  const gaps = consentGapCounts(shortPupils, S);
 
   return {
-    pairs: (m && Array.isArray(m.pairs)) ? m.pairs.length : 0,
-    pupilsWithoutStudent: shortPupils.length - noConsent,
+    pairs: listLength(m, 'pairs'),
+    pupilsWithoutStudent: shortPupils.length - gaps.noConsent,
     studentsWithoutPupil: shortStudents,
-    crossRegionPairs: (m && Array.isArray(m.across)) ? m.across.length : 0,
-    waitingConsentFits: noConsentFits,
-    waitingConsentNoStudent: noConsentNoStudent,
-    missingByRegionSubject: missingCounts
+    crossRegionPairs: listLength(m, 'across'),
+    waitingConsentFits: gaps.noConsentFits,
+    waitingConsentNoStudent: gaps.noConsentNoStudent,
+    missingByRegionSubject: missingByRegionSubject(shortPupils)
   };
 }
 
@@ -2211,38 +2434,124 @@ const GAP_REASON_LABELS = Object.freeze({
 
 const AI_TOPIC_RE = /^[A-Z0-9_]+$/;
 
-function extractValidSlots(p) {
+function slotEntry(slot) {
+  const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
+  return m ? { day: m[1], hour: Number(m[2]), slot: slot } : null;
+}
+
+function availabilityList(p) {
   if (!p) return [];
-  const raw = Array.isArray(p) ? p : (p && Array.isArray(p.availability) ? p.availability : []);
+  if (Array.isArray(p)) return p;
+  return Array.isArray(p.availability) ? p.availability : [];
+}
+
+function extractValidSlots(p) {
+  const raw = availabilityList(p);
   const seen = new Set();
   const out = [];
   for (let i = 0; i < raw.length; i += 1) {
     const s = normalizeSlot(raw[i]);
-    if (s !== null && !seen.has(s)) {
-      seen.add(s);
-      const m = /^([A-Z]{3})_(\d{1,2})$/.exec(s);
-      if (m) {
-        out.push({ day: m[1], hour: Number(m[2]), slot: s });
-      }
-    }
+    if (s === null || seen.has(s)) continue;
+    seen.add(s);
+    const entry = slotEntry(s);
+    if (entry !== null) out.push(entry);
   }
   return out;
 }
 
+// The topic list a person carries, under any of the three spellings a caller might hand in: an array
+// itself, a target_ai_topics / aiTopics / topics field, in that order of preference. A field that is not
+// an array is skipped (an empty array is still chosen, it just holds no topics).
+function topicSource(x) {
+  if (Array.isArray(x)) return x;
+  if (x && Array.isArray(x.target_ai_topics)) return x.target_ai_topics;
+  if (x && Array.isArray(x.aiTopics)) return x.aiTopics;
+  if (x && Array.isArray(x.topics)) return x.topics;
+  return [];
+}
+
 function getCleanTopics(x) {
-  const raw = Array.isArray(x)
-    ? x
-    : (x && Array.isArray(x.target_ai_topics)
-      ? x.target_ai_topics
-      : (x && Array.isArray(x.aiTopics)
-        ? x.aiTopics
-        : (x && Array.isArray(x.topics) ? x.topics : [])));
-  return raw.filter((v) => typeof v === 'string' && AI_TOPIC_RE.test(v));
+  return topicSource(x).filter((v) => typeof v === 'string' && AI_TOPIC_RE.test(v));
 }
 
 function getLevel(x) {
   const n = x && x.level;
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+function betterSlotPair(diff, slotA, best) {
+  if (best === null) return true;
+  if (diff !== best.shiftHours) return diff < best.shiftHours;
+  return slotA < best.slotA;
+}
+
+// The pair of slots (one from each side) that is closest together on the same day: the smallest hour
+// gap, ties broken by the smaller slotA. Returns null when the two share no day at all.
+function closestSlotPair(slotsA, slotsB) {
+  let best = null;
+  for (let i = 0; i < slotsA.length; i += 1) {
+    const a = slotsA[i];
+    for (let j = 0; j < slotsB.length; j += 1) {
+      const b = slotsB[j];
+      if (a.day !== b.day) continue;
+      const diff = Math.abs(a.hour - b.hour);
+      if (betterSlotPair(diff, a.slot, best)) {
+        best = {
+          shiftHours: diff,
+          day: a.day,
+          slotA: a.slot,
+          slotB: b.slot,
+          fromSlot: a.slot,
+          toSlot: b.slot,
+          targetSlot: b.slot,
+          suggestedSlot: b.slot,
+          hourA: a.hour,
+          hourB: b.hour
+        };
+      }
+    }
+  }
+  return best;
+}
+
+function dayLabel(lang, day) {
+  const labels = DAY_LABELS[lang];
+  return (labels && labels[day]) || day;
+}
+
+function zeroShiftExplanation(dayHe, dayAr, dayRu, best) {
+  return {
+    he: `יש חפיפת שעות ב-${dayHe} (${best.slotA})`,
+    ar: `يوجد تداخل ساعات في ${dayAr} (${best.slotA})`,
+    ru: `Есть совпадение часов в ${dayRu} (${best.slotA})`
+  };
+}
+
+function oneHourShiftExplanation(dayHe, dayAr, dayRu, best) {
+  return {
+    he: `הזזה מומלצת: שעה אחת ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`,
+    ar: `الإزاحة المقترحة: ساعة واحدة في ${dayAr} نحو التوافق في ${best.targetSlot}`,
+    ru: `Рекомендуемый сдвиг: 1 час в ${dayRu} для совпадения в ${best.targetSlot}`
+  };
+}
+
+function manyHoursShiftExplanation(dayHe, dayAr, dayRu, best) {
+  return {
+    he: `הזזה מומלצת: ${best.shiftHours} שעות ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`,
+    ar: `الإزاحة المقترحة: ${best.shiftHours} ساعات في ${dayAr} نحو التوافق ב-${best.targetSlot}`,
+    ru: `Рекомендуемый сдвиг: ${best.shiftHours} ч. в ${dayRu} для совпадения в ${best.targetSlot}`
+  };
+}
+
+// The three-language sentence for a closest-slot pair: "already overlap" at 0, "one hour" at 1, and a
+// general "N hours" beyond that, each language written independently but for the same shift and slot.
+function shiftExplanation(best) {
+  const dayHe = dayLabel('he', best.day);
+  const dayAr = dayLabel('ar', best.day);
+  const dayRu = dayLabel('ru', best.day);
+  if (best.shiftHours === 0) return zeroShiftExplanation(dayHe, dayAr, dayRu, best);
+  if (best.shiftHours === 1) return oneHourShiftExplanation(dayHe, dayAr, dayRu, best);
+  return manyHoursShiftExplanation(dayHe, dayAr, dayRu, best);
 }
 
 // suggestScheduleShift(personA, personB):
@@ -2254,56 +2563,9 @@ function suggestScheduleShift(personA, personB) {
     return null;
   }
 
-  let best = null;
-  for (let i = 0; i < slotsA.length; i += 1) {
-    const a = slotsA[i];
-    for (let j = 0; j < slotsB.length; j += 1) {
-      const b = slotsB[j];
-      if (a.day === b.day) {
-        const diff = Math.abs(a.hour - b.hour);
-        if (best === null || diff < best.shiftHours || (diff === best.shiftHours && a.slot < best.slotA)) {
-          best = {
-            shiftHours: diff,
-            day: a.day,
-            slotA: a.slot,
-            slotB: b.slot,
-            fromSlot: a.slot,
-            toSlot: b.slot,
-            targetSlot: b.slot,
-            suggestedSlot: b.slot,
-            hourA: a.hour,
-            hourB: b.hour
-          };
-        }
-      }
-    }
-  }
-
+  const best = closestSlotPair(slotsA, slotsB);
   if (!best) {
     return null;
-  }
-
-  const d = best.day;
-  const dayHe = (DAY_LABELS.he && DAY_LABELS.he[d]) || d;
-  const dayAr = (DAY_LABELS.ar && DAY_LABELS.ar[d]) || d;
-  const dayRu = (DAY_LABELS.ru && DAY_LABELS.ru[d]) || d;
-
-  let textHe;
-  let textAr;
-  let textRu;
-
-  if (best.shiftHours === 0) {
-    textHe = `יש חפיפת שעות ב-${dayHe} (${best.slotA})`;
-    textAr = `يوجد تداخل ساعات في ${dayAr} (${best.slotA})`;
-    textRu = `Есть совпадение часов в ${dayRu} (${best.slotA})`;
-  } else if (best.shiftHours === 1) {
-    textHe = `הזזה מומלצת: שעה אחת ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`;
-    textAr = `الإزاحة المقترحة: ساعة واحدة في ${dayAr} نحو التوافق في ${best.targetSlot}`;
-    textRu = `Рекомендуемый сдвиг: 1 час в ${dayRu} для совпадения в ${best.targetSlot}`;
-  } else {
-    textHe = `הזזה מומלצת: ${best.shiftHours} שעות ב-${dayHe} לקראת חפיפה ב-${best.targetSlot}`;
-    textAr = `الإزاحة المقترحة: ${best.shiftHours} ساعات في ${dayAr} نحو التوافق في ${best.targetSlot}`;
-    textRu = `Рекомендуемый сдвиг: ${best.shiftHours} ч. в ${dayRu} для совпадения в ${best.targetSlot}`;
   }
 
   return Object.freeze({
@@ -2317,154 +2579,197 @@ function suggestScheduleShift(personA, personB) {
     suggestedSlot: best.suggestedSlot,
     hourA: best.hourA,
     hourB: best.hourB,
-    explanation: Object.freeze({
-      he: textHe,
-      ar: textAr,
-      ru: textRu
-    })
+    explanation: Object.freeze(shiftExplanation(best))
   });
+}
+
+// A person reduced to the codes the matcher understands: valid SUBJECTS, canonical slot strings, clean
+// AI-topic keys, and the numeric level (or null). The same view is used for both sides of a comparison.
+function profileFacts(p) {
+  return {
+    subjects: Array.isArray(p.subjects) ? p.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [],
+    slots: extractValidSlots(p).map((s) => s.slot),
+    topics: getCleanTopics(p),
+    level: getLevel(p)
+  };
+}
+
+function sameRoleClash(person, c, opts) {
+  return !!(person.role && c.role && person.role === c.role && !opts.allowSameRole);
+}
+
+function isUnconsentedPupil(c) {
+  return c.role === 'pupil' && !hasParentConsent(c);
+}
+
+function regionMismatch(person, c, opts) {
+  return !!(opts.requireSameRegion && person.region && c.region && person.region !== c.region);
+}
+
+// Whether a candidate is filtered out before any comparison: a role clash (unless allowSameRole), a pupil
+// without parent consent, or a region mismatch when the caller asked for same-region matches only.
+function skipCandidate(person, c, opts) {
+  return sameRoleClash(person, c, opts) || isUnconsentedPupil(c) || regionMismatch(person, c, opts);
+}
+
+// Neighbouring levels: one numeric step apart, or - when neither side has a numeric level - a differing
+// aiLevel on both sides. A side with no level at all (null) on one side only is never adjacent.
+function hasAdjacentLevel(pLevel, cLevel, pAiLevel, cAiLevel) {
+  if (pLevel !== null && cLevel !== null) return Math.abs(pLevel - cLevel) === 1;
+  return pLevel === null && cLevel === null && !!pAiLevel && !!cAiLevel && pAiLevel !== cAiLevel;
+}
+
+// A partial topic overlap: both sides list topics, they share at least one, but not all of either side's.
+function hasPartialTopic(pCount, cCount, sharedCount) {
+  return pCount > 0 && cCount > 0 && sharedCount > 0 && (sharedCount < pCount || sharedCount < cCount);
+}
+
+// The gap reasons a candidate is a near-miss for, in the fixed order the report shows them. `ctx` bundles
+// the person and its facts, the candidate and its facts, the three shared lists, and the schedule shift
+// already computed for the pair (null when the pair shares no day).
+function isMissingOneSlot(sharedSl, shift) {
+  return sharedSl.length === 0 && !!shift && shift.shiftHours === 1;
+}
+
+function nearMissReasons(ctx) {
+  const { person, pFacts, c, cFacts, sharedSl, sharedTop, shift } = ctx;
+  const reasons = [];
+  if (isMissingOneSlot(sharedSl, shift)) reasons.push('missing_one_slot');
+  if (hasAdjacentLevel(pFacts.level, cFacts.level, person.aiLevel, c.aiLevel)) reasons.push('adjacent_level');
+  if (hasPartialTopic(pFacts.topics.length, cFacts.topics.length, sharedTop.length)) reasons.push('partial_ai_topic');
+  return reasons;
+}
+
+function candidateSummary(c, cIdx, cFacts) {
+  return Object.freeze({
+    index: cIdx,
+    candidateIndex: cIdx,
+    role: c.role || null,
+    region: c.region || null,
+    subjects: Object.freeze(cFacts.subjects.slice()),
+    availability: Object.freeze(cFacts.slots.slice()),
+    level: cFacts.level,
+    aiLevel: c.aiLevel || null,
+    target_ai_topics: Object.freeze(cFacts.topics.slice())
+  });
+}
+
+function reasonExplanation(primaryReason) {
+  const label = GAP_REASON_LABELS[primaryReason] || {};
+  return Object.freeze({
+    he: label.he || primaryReason,
+    ar: label.ar || primaryReason,
+    ru: label.ru || primaryReason
+  });
+}
+
+// The frozen backup-candidate item the report renders: the candidate's public facts (never any PII),
+// the primary reason and all reasons, the three shared lists, and the schedule shift. `ctx` is the same
+// bundle nearMissReasons read.
+function nearMissItem(ctx, reasons) {
+  const { c, cIdx, cFacts, sharedSubs, sharedSl, sharedTop, shift } = ctx;
+  const primaryReason = reasons[0];
+  const summary = candidateSummary(c, cIdx, cFacts);
+  return Object.freeze({
+    index: cIdx,
+    candidateIndex: cIdx,
+    candidate: summary,
+    role: summary.role,
+    region: summary.region,
+    subjects: summary.subjects,
+    availability: summary.availability,
+    level: summary.level,
+    aiLevel: summary.aiLevel,
+    target_ai_topics: summary.target_ai_topics,
+    reason: primaryReason,
+    gapReason: primaryReason,
+    reasons: Object.freeze(reasons.slice()),
+    sharedSubjects: Object.freeze(sharedSubs),
+    sharedSlots: Object.freeze(sharedSl),
+    sharedAiTopics: Object.freeze(sharedTop),
+    shift: shift,
+    suggestedShift: shift,
+    explanation: reasonExplanation(primaryReason)
+  });
+}
+
+function nearMissContext(self, raw, index, opts) {
+  if (!raw || typeof raw !== 'object') return null;
+  const { person, facts: pFacts } = self;
+  const c = raw.person || raw;
+  if (skipCandidate(person, c, opts)) return null;
+  const cFacts = profileFacts(c);
+  const sharedSubs = shared(pFacts.subjects, cFacts.subjects);
+  const sharedSl = shared(pFacts.slots, cFacts.slots);
+  const sharedTop = shared(pFacts.topics, cFacts.topics);
+  if (sharedSubs.length === 0 && sharedTop.length === 0) return null;
+  return {
+    person: person,
+    pFacts: pFacts,
+    c: c,
+    cIdx: Number.isInteger(raw.index) ? raw.index : index,
+    cFacts: cFacts,
+    sharedSubs: sharedSubs,
+    sharedSl: sharedSl,
+    sharedTop: sharedTop,
+    shift: suggestScheduleShift(person, c)
+  };
+}
+
+// One candidate -> a near-miss item, or null when it is filtered out or not a near-miss at all. `self`
+// is the person together with its facts, computed once; everything else is per candidate.
+function evaluateCandidate(self, raw, index, opts) {
+  const ctx = nearMissContext(self, raw, index, opts);
+  if (ctx === null) return null;
+  const reasons = nearMissReasons(ctx);
+  if (reasons.length === 0) return null;
+  if (opts.reason && !reasons.includes(opts.reason)) return null;
+  return nearMissItem(ctx, reasons);
+}
+
+// Closest shift first (999 when a candidate shares no day), then most shared subjects, then most shared
+// AI topics, then the original candidate order.
+function nearMissShiftOf(item) {
+  return (item.suggestedShift && item.suggestedShift.shiftHours !== null) ? item.suggestedShift.shiftHours : 999;
+}
+
+function compareNearMisses(x, y) {
+  return (nearMissShiftOf(x) - nearMissShiftOf(y)) ||
+    (y.sharedSubjects.length - x.sharedSubjects.length) ||
+    (y.sharedAiTopics.length - x.sharedAiTopics.length) ||
+    (x.candidateIndex - y.candidateIndex);
+}
+
+function collectNearMisses(person, candidates, opts) {
+  const self = { person: person, facts: profileFacts(person) };
+  const results = [];
+  for (let idx = 0; idx < candidates.length; idx += 1) {
+    const item = evaluateCandidate(self, candidates[idx], idx, opts);
+    if (item !== null) results.push(item);
+  }
+  results.sort(compareNearMisses);
+  return results;
+}
+
+function isNonEmptyArray(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function hasNearMissInput(person, candidates) {
+  return !!person && typeof person === 'object' && isNonEmptyArray(candidates);
 }
 
 // findNearMissCandidates(person, candidates, options):
 // Finds near-miss backup candidates with explicit gap reasons ('missing_one_slot', 'adjacent_level', 'partial_ai_topic').
 function findNearMissCandidates(person, candidates, options) {
-  if (!person || typeof person !== 'object' || !Array.isArray(candidates) || candidates.length === 0) {
-    return [];
-  }
+  if (!hasNearMissInput(person, candidates)) return [];
   const opts = options || {};
-
   // A pupil must have parent consent
   if (person.role === 'pupil' && !hasParentConsent(person)) {
     return [];
   }
-
-  const pSubjects = Array.isArray(person.subjects) ? person.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [];
-  const pSlots = extractValidSlots(person).map((s) => s.slot);
-  const pTopics = getCleanTopics(person);
-  const pLevel = getLevel(person);
-
-  const results = [];
-
-  for (let idx = 0; idx < candidates.length; idx += 1) {
-    const raw = candidates[idx];
-    if (!raw || typeof raw !== 'object') continue;
-    const c = raw.person || raw;
-    const cIdx = Number.isInteger(raw.index) ? raw.index : idx;
-
-    if (person.role && c.role && person.role === c.role && !opts.allowSameRole) {
-      continue;
-    }
-
-    if (c.role === 'pupil' && !hasParentConsent(c)) {
-      continue;
-    }
-
-    if (opts.requireSameRegion && person.region && c.region && person.region !== c.region) {
-      continue;
-    }
-
-    const cSubjects = Array.isArray(c.subjects) ? c.subjects.filter((s) => SUBJECTS.indexOf(s) !== -1) : [];
-    const cSlots = extractValidSlots(c).map((s) => s.slot);
-    const cTopics = getCleanTopics(c);
-    const cLevel = getLevel(c);
-
-    const sharedSubs = shared(pSubjects, cSubjects);
-    const sharedSl = shared(pSlots, cSlots);
-    const sharedTop = shared(pTopics, cTopics);
-
-    const hasSubjectOrTopic = sharedSubs.length > 0 || sharedTop.length > 0;
-    if (!hasSubjectOrTopic) {
-      continue;
-    }
-
-    const shift = suggestScheduleShift(person, c);
-    const reasons = [];
-
-    // Reason 1: missing_one_slot
-    if (sharedSl.length === 0 && shift && shift.shiftHours === 1) {
-      reasons.push('missing_one_slot');
-    }
-
-    // Reason 2: adjacent_level
-    if (pLevel !== null && cLevel !== null && Math.abs(pLevel - cLevel) === 1) {
-      reasons.push('adjacent_level');
-    } else if (pLevel === null && cLevel === null && person.aiLevel && c.aiLevel && person.aiLevel !== c.aiLevel) {
-      reasons.push('adjacent_level');
-    }
-
-    // Reason 3: partial_ai_topic
-    if (pTopics.length > 0 && cTopics.length > 0 && sharedTop.length > 0 &&
-        (sharedTop.length < pTopics.length || sharedTop.length < cTopics.length)) {
-      reasons.push('partial_ai_topic');
-    }
-
-    if (reasons.length === 0) {
-      continue;
-    }
-
-    if (opts.reason && !reasons.includes(opts.reason)) {
-      continue;
-    }
-
-    const primaryReason = reasons[0];
-    const reasonExplHe = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].he) || primaryReason;
-    const reasonExplAr = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].ar) || primaryReason;
-    const reasonExplRu = (GAP_REASON_LABELS[primaryReason] && GAP_REASON_LABELS[primaryReason].ru) || primaryReason;
-
-    const candidateSummary = Object.freeze({
-      index: cIdx,
-      candidateIndex: cIdx,
-      role: c.role || null,
-      region: c.region || null,
-      subjects: Object.freeze(cSubjects.slice()),
-      availability: Object.freeze(cSlots.slice()),
-      level: cLevel,
-      aiLevel: c.aiLevel || null,
-      target_ai_topics: Object.freeze(cTopics.slice())
-    });
-
-    const item = {
-      index: cIdx,
-      candidateIndex: cIdx,
-      candidate: candidateSummary,
-      role: c.role || null,
-      region: c.region || null,
-      subjects: Object.freeze(cSubjects.slice()),
-      availability: Object.freeze(cSlots.slice()),
-      level: cLevel,
-      aiLevel: c.aiLevel || null,
-      target_ai_topics: Object.freeze(cTopics.slice()),
-      reason: primaryReason,
-      gapReason: primaryReason,
-      reasons: Object.freeze(reasons.slice()),
-      sharedSubjects: Object.freeze(sharedSubs),
-      sharedSlots: Object.freeze(sharedSl),
-      sharedAiTopics: Object.freeze(sharedTop),
-      shift: shift,
-      suggestedShift: shift,
-      explanation: Object.freeze({
-        he: reasonExplHe,
-        ar: reasonExplAr,
-        ru: reasonExplRu
-      })
-    };
-    results.push(Object.freeze(item));
-  }
-
-  results.sort((x, y) => {
-    const shiftX = (x.suggestedShift && x.suggestedShift.shiftHours !== null) ? x.suggestedShift.shiftHours : 999;
-    const shiftY = (y.suggestedShift && y.suggestedShift.shiftHours !== null) ? y.suggestedShift.shiftHours : 999;
-    return (shiftX - shiftY) ||
-      (y.sharedSubjects.length - x.sharedSubjects.length) ||
-      (y.sharedAiTopics.length - x.sharedAiTopics.length) ||
-      (x.candidateIndex - y.candidateIndex);
-  });
-
-  if (Number.isInteger(opts.limit) && opts.limit > 0) {
-    return results.slice(0, opts.limit);
-  }
-
-  return results;
+  const results = collectNearMisses(person, candidates, opts);
+  return (Number.isInteger(opts.limit) && opts.limit > 0) ? results.slice(0, opts.limit) : results;
 }
 
 module.exports = {
@@ -5838,7 +6143,8 @@ const TRACKS = Object.freeze(['elementary', 'middle']);
 const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
 const LESSON_MINUTES = 45;
 
-function lesson(track, index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe) {
+function lesson(track, spec) {
+  const { index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe } = spec;
   return Object.freeze({
     id: track + '-' + slug, track, index,
     titleKey: 'cur.' + track + '.' + slug, titleHe,
@@ -5851,177 +6157,273 @@ function lesson(track, index, slug, titleHe, goalsHe, flowHe, activityHe, unplug
 }
 
 const ELEMENTARY = Object.freeze([
-  lesson('elementary', 0, 'what-is-ai', 'מה זו בינה מלאכותית?',
-    ['להבחין בין מכונה רגילה למכונה שלומדת', 'לתת דוגמה אחת של בינה מלאכותית מהבית'],
-    [[5, 'פתיחה: מציגים שני חפצים ושואלים מה ההבדל בין מנורה למצלמה שמזהה פנים'], [10, 'הסבר קצר עם כרטיסיות: מכונה פועלת לפי הוראות, מכונה לומדת מדוגמאות'], [20, 'פעילות: משחק מיון - התלמידים ממיינים כרטיסיות למשימה שמכונה יודעת ולמשימה שלא'], [10, 'סיכום ושאלות הבנה בזוגות']],
-    'משחק מיון כרטיסיות: כל זוג ממיין משימות ומנמק בקול.',
-    'בלי מחשב: התלמידים הם המכונה - אחד נותן הוראות מדויקות והשני מבצע בדיוק, ומגלים למה הוראות מעורפלות נכשלות.',
-    ['כרטיסיות משימות', 'לוח וטוש'],
-    ['מה ההבדל בין הוראה לדוגמה?', 'איזו משימה הייתם מלמדים מכונה קודם?']),
-  lesson('elementary', 1, 'learn-examples', 'למידה מדוגמאות',
-    ['להבין שמכונה לומדת מהרבה דוגמאות', 'להבחין בין דוגמה טובה לרועשת'],
-    [[5, 'פתיחה: מראים תמונה אחת של חתול ושואלים אם מספיקה דוגמה אחת'], [10, 'הסבר: מלמדים מכונה עם עשר דוגמאות ומסבירים למה צריך הרבה'], [20, 'פעילות: מאמנים בן זוג - מראים כרטיסי צורות והוא מנחש את הכלל'], [10, 'סיכום: מה קורה כשכל הדוגמאות דומות מדי']],
-    'אימון בזוגות: מדריך כרטיסים מלמד כלל סודי ובן הזוג מנחש, ואז מחליפים תפקידים.',
-    'אותה פעילות בכרטיסי נייר בלבד, בלי מסך: הכלל הסודי כתוב על פתק מקופל.',
-    ['כרטיסי צורות', 'פתקי כלל'],
-    ['למה דוגמה אחת לא מספיקה?', 'מהי דוגמה שמבלבלת מכונה?']),
-  lesson('elementary', 2, 'image-recognition', 'זיהוי תמונות ודפוסים',
-    ['להבין איך מכונה מזהה תמונה לפי חלקים ודפוסים', 'להסביר למה זיהוי לפעמים טועה'],
-    [[5, 'פתיחה: מנחשים חפץ מתמונה חתוכה לחלקים'], [10, 'הסבר: מכונה מחפשת קצוות, צורות וצבעים ואז מנחשת'], [20, 'פעילות: מציירים אותה חיה בסגנונות שונים ובודקים אם הכיתה מזהה'], [10, 'סיכום: מתי הזיהוי נכשל - חושך, הסתרה, זווית מוזרה']],
-    'ציור ובדיקה: כל תלמיד מצייר חיה והכיתה מנחשת, עם רמזים מהחלקים.',
-    'בלי מחשב: משחק עשרים שאלות על תמונה מוסתרת - שואלים רק על חלקים ודפוסים.',
-    ['דפי ציור', 'תמונות חתוכות מודפסות'],
-    ['איך מכונה יודעת שזה חתול?', 'מתי גם אנחנו טועים בזיהוי?']),
-  lesson('elementary', 3, 'chatbots', 'צ׳אטבוטים ושיחה עם מכונה',
-    ['להבין שצ׳אטבוט בונה תשובה ממילים ולא חושב כמו אדם', 'לנסח שאלה ברורה למכונה'],
-    [[5, 'פתיחה: קוראים שיחה מצחיקה עם מכונה ושואלים מה חסר בה'], [10, 'הסבר: המכונה משלימה את המילה הבאה הסבירה, בלי להבין באמת'], [20, 'פעילות: משחק השלמת משפטים שרשרת - בונים סיפור מילה אחרי מילה כמו מכונה'], [10, 'סיכום: למה תשובת מכונה יכולה להישמע בטוחה וגם לטעות']],
-    'סיפור שרשרת: כל תלמיד מוסיף מילה אחת סבירה, ומקבלים סיפור מפתיע.',
-    'בלי מחשב: אחד משחק מכונה ועונה רק מהשלמת המילה הסבירה, והשאר מנסים לבלבל אותו בנימוס.',
-    ['כרטיסי משפט פתיחה'],
-    ['האם המכונה מבינה את הסיפור?', 'איך נשאל שאלה שהמכונה תענה עליה טוב?']),
-  lesson('elementary', 4, 'data-bias', 'נתונים והוגנות',
-    ['להבין שמכונה לומדת ממה שמראים לה', 'לזהות אימון לא הוגן שמפספס קבוצה שלמה'],
-    [[5, 'פתיחה: מלמדים כלל רק מדוגמאות של ילדים ושואלים מה עם מבוגרים'], [10, 'הסבר: אם הדוגמאות חד-צדדיות, המכונה תטעה על מי שלא הראה לה'], [20, 'פעילות: בונים ערכת אימון הוגנת ולא הוגנת לציור דמויות ומשווים תוצאות ניחוש'], [10, 'סיכום: הוגנות מתחילה במי שמראים למכונה']],
-    'בניית ערכות: שתי קבוצות בונות דוגמאות שונות ובודקות זו את זו.',
-    'בלי מחשב: קופסת דוגמאות מנייר - מוציאים דוגמאות חד-צדדיות ורואים את הניחוש מוטה.',
-    ['כרטיסי דמויות', 'שתי קופסאות'],
-    ['למי המכונה תטעה אם לא הראו לה אותו?', 'איך עושים אימון הוגן יותר?']),
-  lesson('elementary', 5, 'safety-privacy', 'בטיחות ופרטיות',
-    ['לזהות מה לא משתפים עם מכונה או ברשת', 'לנסח כלל בטיחות אחד למשפחה'],
-    [[5, 'פתיחה: ממיינים כרטיסי מידע למה שמותר ומה שאסור לשתף'], [10, 'הסבר: מכונה שומרת מה שכותבים לה, ולכן לא כותבים פרטים אישיים'], [20, 'פעילות: בונים שלט כללי בטיחות לכיתה עם ציורים'], [10, 'סיכום ובחירת הכלל החשוב ביותר בהצבעה']],
-    'מיון כרטיסים ובניית שלט כיתתי משותף.',
-    'בלי מחשב: משחק תפקידים - מה עונים למכונה ששואלת שאלה אישית מדי.',
-    ['כרטיסי מידע', 'דף גדול וטושים'],
-    ['מה לעולם לא נכתוב למכונה?', 'למי מספרים אם משהו מרגיש לא בטוח?']),
-  lesson('elementary', 6, 'creative-ai', 'יצירה עם בינה מלאכותית',
-    ['להבין שמכונה יכולה לעזור ליצור אבל הרעיון שלנו', 'לבנות יצירה משותפת אדם ומכונה בדמיון'],
-    [[5, 'פתיחה: משלימים ציור חצי גמור של חבר ושואלים מי היוצר'], [10, 'הסבר: מכונה מציעה המשכים, והאדם בוחר ועורך'], [20, 'פעילות: סיפור מאויר בזוגות - אחד מציע שלושה המשכים והשני בוחר וממשיך'], [10, 'סיכום: למה הבחירה האנושית היא היצירה']],
-    'סיפור מאויר בזוגות עם בחירת המשכים.',
-    'בלי מחשב: קוביית רעיונות - מטילים ובונים המשך לסיפור לפי הפאה שיצאה.',
-    ['דפים', 'צבעים', 'קובייה'],
-    ['מי יצר את הסיפור, המציע או הבוחר?', 'מתי עזרת מכונה היא כבר לא היצירה שלי?']),
-  lesson('elementary', 7, 'good-questions', 'שאלות טובות למכונה',
-    ['לנסח בקשה ברורה עם פרטים חשובים', 'לשפר בקשה מעורפלת בשני צעדים'],
-    [[5, 'פתיחה: מבצעים הוראה מעורפלת וצוחקים מהתוצאה'], [10, 'הסבר: בקשה טובה אומרת מה, למי, באיזה אורך ובאיזה סגנון'], [20, 'פעילות: מתקנים בקשות מעורפלות על כרטיסים עד שהכיתה מבינה בדיוק'], [10, 'סיכום: בודקים בקשה מתוקנת על בן זוג אנושי']],
-    'תיקון בקשות על כרטיסים בזוגות.',
-    'בלי מחשב: משחק ההוראות המדויקות - מציירים לפי הוראות של חבר בלי לראות את המקור.',
-    ['כרטיסי בקשות מעורפלות'],
-    ['מה הופך שאלה לברורה?', 'איזה פרט הכי חשוב להוסיף ראשון?']),
-  lesson('elementary', 8, 'ai-at-home', 'בינה מלאכותית בבית ובבית הספר',
-    ['לזהות בינה מלאכותית במכשירים יומיומיים', 'להחליט מתי עזרת מכונה מתאימה ומתי לא'],
-    [[5, 'פתיחה: סופרים כמה מכונות חכמות פגשנו מהבוקר'], [10, 'הסבר: המלצות, ניווט, תרגום ועוזרות קוליות - כולן מנחשות מדוגמאות'], [20, 'פעילות: מצביעים בכרטיסים על מצבים - מכונה עוזרת או עדיף לבד, ומנמקים'], [10, 'סיכום: שיעורי בית ולמידה - מה נשאר שלנו']],
-    'הצבעת מצבים עם כרטיסי כן ולא ונימוקים.',
-    'בלי מחשב: ציד חפצים חכמים בציור של בית - מסמנים ומסבירים מה כל אחד מנחש.',
-    ['כרטיסי הצבעה', 'ציור בית'],
-    ['איפה מכונה עוזרת לכם הכי הרבה?', 'מה תמיד תעשו בעצמכם?']),
-  lesson('elementary', 9, 'robots-sensors', 'חיישנים ורובוטים חכמים',
-    ['להבין שרובוט חש בעזרת חיישנים ומחליט לפי כללים ולמידה', 'לתאר מסלול החלטה של רובוט'],
-    [[5, 'פתיחה: צועדים בעיניים עצומות לפי הוראות ושואלים מה חסר'], [10, 'הסבר: חיישן הוא העין והאוזן של הרובוט, והמוח מחליט מה לעשות'], [20, 'פעילות: מנווטים חבר רובוט במסלול מכשולים בהוראות צעד וסיבוב'], [10, 'סיכום: מה רובוט עדיין לא יודע לעשות']],
-    'ניווט רובוט אנושי במסלול מכשולים בכיתה.',
-    'בלי מחשב: אותה פעילות היא הלא-מחוברת - רובוט הוא תלמיד, בלי שום מסך.',
-    ['כיסאות כמכשולים', 'סרט סימון'],
-    ['מהו חיישן?', 'איזו החלטה קשה לרובוט?']),
-  lesson('elementary', 10, 'truth-check', 'בודקים אם זה אמיתי',
-    ['לזהות תמונה או סיפור שמכונה המציאה', 'להשתמש בשתי בדיקות לפני שמאמינים'],
-    [[5, 'פתיחה: שתי תמונות, אחת מצוירת ואחת מומצאת, מנחשים איזו'], [10, 'הסבר: מכונות יכולות להמציא תמונות וסיפורים שנשמעים אמיתיים'], [20, 'פעילות: בלשי אמת - מחפשים שלושה רמזים חשודים בתמונות ובסיפורים קצרים'], [10, 'סיכום: שואלים מבוגר ובודקים במקום נוסף לפני שמשתפים']],
-    'בלשי אמת בקבוצות: מוצאים רמזים חשודים ומציגים לכיתה.',
-    'בלי מחשב: סיפורים מודפסים, אחד אמיתי ואחד מומצא, מחפשים רמזים בטקסט בלבד.',
-    ['תמונות מודפסות', 'סיפורים קצרים מודפסים'],
-    ['מהו רמז שמשהו מומצא?', 'מה עושים לפני שמשתפים תמונה מפתיעה?']),
-  lesson('elementary', 11, 'mini-project', 'מיני-פרויקט סיום: ממציאים עוזר חכם',
-    ['לתכנן עוזר חכם שפותר בעיה אמיתית', 'להציג מה העוזר לומד ומה הוא לא ישתף לעולם'],
-    [[5, 'פתיחה: נזכרים בכל השיעורים ובוחרים בעיה אחת מהכיתה'], [15, 'תכנון בזוגות: מציירים את העוזר, מה הוא חש, ומאילו דוגמאות ילמד'], [15, 'בניית כרזה: שם, ציור, שלושה כללי הוגנות ובטיחות'], [10, 'הצגות קצרות ושאלה אחת מכל זוג למציגים']],
-    'בניית כרזת עוזר חכם והצגה לכיתה.',
-    'בלי מחשב: כל הפרויקט על נייר - כרזה, ציור וכללים, בלי מסכים בכלל.',
-    ['דפים גדולים', 'טושים וצבעים'],
-    ['איזו בעיה העוזר שלכם פותר?', 'מאילו דוגמאות הוא ילמד כדי להיות הוגן?'])
+  lesson('elementary', {
+    index: 0,
+    slug: 'what-is-ai',
+    titleHe: 'מה זו בינה מלאכותית?',
+    goalsHe: ['להבחין בין מכונה רגילה למכונה שלומדת', 'לתת דוגמה אחת של בינה מלאכותית מהבית'],
+    flowHe: [[5, 'פתיחה: מציגים שני חפצים ושואלים מה ההבדל בין מנורה למצלמה שמזהה פנים'], [10, 'הסבר קצר עם כרטיסיות: מכונה פועלת לפי הוראות, מכונה לומדת מדוגמאות'], [20, 'פעילות: משחק מיון - התלמידים ממיינים כרטיסיות למשימה שמכונה יודעת ולמשימה שלא'], [10, 'סיכום ושאלות הבנה בזוגות']],
+    activityHe: 'משחק מיון כרטיסיות: כל זוג ממיין משימות ומנמק בקול.',
+    unpluggedHe: 'בלי מחשב: התלמידים הם המכונה - אחד נותן הוראות מדויקות והשני מבצע בדיוק, ומגלים למה הוראות מעורפלות נכשלות.',
+    materialsHe: ['כרטיסיות משימות', 'לוח וטוש'],
+    wrapUpHe: ['מה ההבדל בין הוראה לדוגמה?', 'איזו משימה הייתם מלמדים מכונה קודם?']
+  }),
+  lesson('elementary', {
+    index: 1,
+    slug: 'learn-examples',
+    titleHe: 'למידה מדוגמאות',
+    goalsHe: ['להבין שמכונה לומדת מהרבה דוגמאות', 'להבחין בין דוגמה טובה לרועשת'],
+    flowHe: [[5, 'פתיחה: מראים תמונה אחת של חתול ושואלים אם מספיקה דוגמה אחת'], [10, 'הסבר: מלמדים מכונה עם עשר דוגמאות ומסבירים למה צריך הרבה'], [20, 'פעילות: מאמנים בן זוג - מראים כרטיסי צורות והוא מנחש את הכלל'], [10, 'סיכום: מה קורה כשכל הדוגמאות דומות מדי']],
+    activityHe: 'אימון בזוגות: מדריך כרטיסים מלמד כלל סודי ובן הזוג מנחש, ואז מחליפים תפקידים.',
+    unpluggedHe: 'אותה פעילות בכרטיסי נייר בלבד, בלי מסך: הכלל הסודי כתוב על פתק מקופל.',
+    materialsHe: ['כרטיסי צורות', 'פתקי כלל'],
+    wrapUpHe: ['למה דוגמה אחת לא מספיקה?', 'מהי דוגמה שמבלבלת מכונה?']
+  }),
+  lesson('elementary', {
+    index: 2,
+    slug: 'image-recognition',
+    titleHe: 'זיהוי תמונות ודפוסים',
+    goalsHe: ['להבין איך מכונה מזהה תמונה לפי חלקים ודפוסים', 'להסביר למה זיהוי לפעמים טועה'],
+    flowHe: [[5, 'פתיחה: מנחשים חפץ מתמונה חתוכה לחלקים'], [10, 'הסבר: מכונה מחפשת קצוות, צורות וצבעים ואז מנחשת'], [20, 'פעילות: מציירים אותה חיה בסגנונות שונים ובודקים אם הכיתה מזהה'], [10, 'סיכום: מתי הזיהוי נכשל - חושך, הסתרה, זווית מוזרה']],
+    activityHe: 'ציור ובדיקה: כל תלמיד מצייר חיה והכיתה מנחשת, עם רמזים מהחלקים.',
+    unpluggedHe: 'בלי מחשב: משחק עשרים שאלות על תמונה מוסתרת - שואלים רק על חלקים ודפוסים.',
+    materialsHe: ['דפי ציור', 'תמונות חתוכות מודפסות'],
+    wrapUpHe: ['איך מכונה יודעת שזה חתול?', 'מתי גם אנחנו טועים בזיהוי?']
+  }),
+  lesson('elementary', {
+    index: 3,
+    slug: 'chatbots',
+    titleHe: 'צ׳אטבוטים ושיחה עם מכונה',
+    goalsHe: ['להבין שצ׳אטבוט בונה תשובה ממילים ולא חושב כמו אדם', 'לנסח שאלה ברורה למכונה'],
+    flowHe: [[5, 'פתיחה: קוראים שיחה מצחיקה עם מכונה ושואלים מה חסר בה'], [10, 'הסבר: המכונה משלימה את המילה הבאה הסבירה, בלי להבין באמת'], [20, 'פעילות: משחק השלמת משפטים שרשרת - בונים סיפור מילה אחרי מילה כמו מכונה'], [10, 'סיכום: למה תשובת מכונה יכולה להישמע בטוחה וגם לטעות']],
+    activityHe: 'סיפור שרשרת: כל תלמיד מוסיף מילה אחת סבירה, ומקבלים סיפור מפתיע.',
+    unpluggedHe: 'בלי מחשב: אחד משחק מכונה ועונה רק מהשלמת המילה הסבירה, והשאר מנסים לבלבל אותו בנימוס.',
+    materialsHe: ['כרטיסי משפט פתיחה'],
+    wrapUpHe: ['האם המכונה מבינה את הסיפור?', 'איך נשאל שאלה שהמכונה תענה עליה טוב?']
+  }),
+  lesson('elementary', {
+    index: 4,
+    slug: 'data-bias',
+    titleHe: 'נתונים והוגנות',
+    goalsHe: ['להבין שמכונה לומדת ממה שמראים לה', 'לזהות אימון לא הוגן שמפספס קבוצה שלמה'],
+    flowHe: [[5, 'פתיחה: מלמדים כלל רק מדוגמאות של ילדים ושואלים מה עם מבוגרים'], [10, 'הסבר: אם הדוגמאות חד-צדדיות, המכונה תטעה על מי שלא הראה לה'], [20, 'פעילות: בונים ערכת אימון הוגנת ולא הוגנת לציור דמויות ומשווים תוצאות ניחוש'], [10, 'סיכום: הוגנות מתחילה במי שמראים למכונה']],
+    activityHe: 'בניית ערכות: שתי קבוצות בונות דוגמאות שונות ובודקות זו את זו.',
+    unpluggedHe: 'בלי מחשב: קופסת דוגמאות מנייר - מוציאים דוגמאות חד-צדדיות ורואים את הניחוש מוטה.',
+    materialsHe: ['כרטיסי דמויות', 'שתי קופסאות'],
+    wrapUpHe: ['למי המכונה תטעה אם לא הראו לה אותו?', 'איך עושים אימון הוגן יותר?']
+  }),
+  lesson('elementary', {
+    index: 5,
+    slug: 'safety-privacy',
+    titleHe: 'בטיחות ופרטיות',
+    goalsHe: ['לזהות מה לא משתפים עם מכונה או ברשת', 'לנסח כלל בטיחות אחד למשפחה'],
+    flowHe: [[5, 'פתיחה: ממיינים כרטיסי מידע למה שמותר ומה שאסור לשתף'], [10, 'הסבר: מכונה שומרת מה שכותבים לה, ולכן לא כותבים פרטים אישיים'], [20, 'פעילות: בונים שלט כללי בטיחות לכיתה עם ציורים'], [10, 'סיכום ובחירת הכלל החשוב ביותר בהצבעה']],
+    activityHe: 'מיון כרטיסים ובניית שלט כיתתי משותף.',
+    unpluggedHe: 'בלי מחשב: משחק תפקידים - מה עונים למכונה ששואלת שאלה אישית מדי.',
+    materialsHe: ['כרטיסי מידע', 'דף גדול וטושים'],
+    wrapUpHe: ['מה לעולם לא נכתוב למכונה?', 'למי מספרים אם משהו מרגיש לא בטוח?']
+  }),
+  lesson('elementary', {
+    index: 6,
+    slug: 'creative-ai',
+    titleHe: 'יצירה עם בינה מלאכותית',
+    goalsHe: ['להבין שמכונה יכולה לעזור ליצור אבל הרעיון שלנו', 'לבנות יצירה משותפת אדם ומכונה בדמיון'],
+    flowHe: [[5, 'פתיחה: משלימים ציור חצי גמור של חבר ושואלים מי היוצר'], [10, 'הסבר: מכונה מציעה המשכים, והאדם בוחר ועורך'], [20, 'פעילות: סיפור מאויר בזוגות - אחד מציע שלושה המשכים והשני בוחר וממשיך'], [10, 'סיכום: למה הבחירה האנושית היא היצירה']],
+    activityHe: 'סיפור מאויר בזוגות עם בחירת המשכים.',
+    unpluggedHe: 'בלי מחשב: קוביית רעיונות - מטילים ובונים המשך לסיפור לפי הפאה שיצאה.',
+    materialsHe: ['דפים', 'צבעים', 'קובייה'],
+    wrapUpHe: ['מי יצר את הסיפור, המציע או הבוחר?', 'מתי עזרת מכונה היא כבר לא היצירה שלי?']
+  }),
+  lesson('elementary', {
+    index: 7,
+    slug: 'good-questions',
+    titleHe: 'שאלות טובות למכונה',
+    goalsHe: ['לנסח בקשה ברורה עם פרטים חשובים', 'לשפר בקשה מעורפלת בשני צעדים'],
+    flowHe: [[5, 'פתיחה: מבצעים הוראה מעורפלת וצוחקים מהתוצאה'], [10, 'הסבר: בקשה טובה אומרת מה, למי, באיזה אורך ובאיזה סגנון'], [20, 'פעילות: מתקנים בקשות מעורפלות על כרטיסים עד שהכיתה מבינה בדיוק'], [10, 'סיכום: בודקים בקשה מתוקנת על בן זוג אנושי']],
+    activityHe: 'תיקון בקשות על כרטיסים בזוגות.',
+    unpluggedHe: 'בלי מחשב: משחק ההוראות המדויקות - מציירים לפי הוראות של חבר בלי לראות את המקור.',
+    materialsHe: ['כרטיסי בקשות מעורפלות'],
+    wrapUpHe: ['מה הופך שאלה לברורה?', 'איזה פרט הכי חשוב להוסיף ראשון?']
+  }),
+  lesson('elementary', {
+    index: 8,
+    slug: 'ai-at-home',
+    titleHe: 'בינה מלאכותית בבית ובבית הספר',
+    goalsHe: ['לזהות בינה מלאכותית במכשירים יומיומיים', 'להחליט מתי עזרת מכונה מתאימה ומתי לא'],
+    flowHe: [[5, 'פתיחה: סופרים כמה מכונות חכמות פגשנו מהבוקר'], [10, 'הסבר: המלצות, ניווט, תרגום ועוזרות קוליות - כולן מנחשות מדוגמאות'], [20, 'פעילות: מצביעים בכרטיסים על מצבים - מכונה עוזרת או עדיף לבד, ומנמקים'], [10, 'סיכום: שיעורי בית ולמידה - מה נשאר שלנו']],
+    activityHe: 'הצבעת מצבים עם כרטיסי כן ולא ונימוקים.',
+    unpluggedHe: 'בלי מחשב: ציד חפצים חכמים בציור של בית - מסמנים ומסבירים מה כל אחד מנחש.',
+    materialsHe: ['כרטיסי הצבעה', 'ציור בית'],
+    wrapUpHe: ['איפה מכונה עוזרת לכם הכי הרבה?', 'מה תמיד תעשו בעצמכם?']
+  }),
+  lesson('elementary', {
+    index: 9,
+    slug: 'robots-sensors',
+    titleHe: 'חיישנים ורובוטים חכמים',
+    goalsHe: ['להבין שרובוט חש בעזרת חיישנים ומחליט לפי כללים ולמידה', 'לתאר מסלול החלטה של רובוט'],
+    flowHe: [[5, 'פתיחה: צועדים בעיניים עצומות לפי הוראות ושואלים מה חסר'], [10, 'הסבר: חיישן הוא העין והאוזן של הרובוט, והמוח מחליט מה לעשות'], [20, 'פעילות: מנווטים חבר רובוט במסלול מכשולים בהוראות צעד וסיבוב'], [10, 'סיכום: מה רובוט עדיין לא יודע לעשות']],
+    activityHe: 'ניווט רובוט אנושי במסלול מכשולים בכיתה.',
+    unpluggedHe: 'בלי מחשב: אותה פעילות היא הלא-מחוברת - רובוט הוא תלמיד, בלי שום מסך.',
+    materialsHe: ['כיסאות כמכשולים', 'סרט סימון'],
+    wrapUpHe: ['מהו חיישן?', 'איזו החלטה קשה לרובוט?']
+  }),
+  lesson('elementary', {
+    index: 10,
+    slug: 'truth-check',
+    titleHe: 'בודקים אם זה אמיתי',
+    goalsHe: ['לזהות תמונה או סיפור שמכונה המציאה', 'להשתמש בשתי בדיקות לפני שמאמינים'],
+    flowHe: [[5, 'פתיחה: שתי תמונות, אחת מצוירת ואחת מומצאת, מנחשים איזו'], [10, 'הסבר: מכונות יכולות להמציא תמונות וסיפורים שנשמעים אמיתיים'], [20, 'פעילות: בלשי אמת - מחפשים שלושה רמזים חשודים בתמונות ובסיפורים קצרים'], [10, 'סיכום: שואלים מבוגר ובודקים במקום נוסף לפני שמשתפים']],
+    activityHe: 'בלשי אמת בקבוצות: מוצאים רמזים חשודים ומציגים לכיתה.',
+    unpluggedHe: 'בלי מחשב: סיפורים מודפסים, אחד אמיתי ואחד מומצא, מחפשים רמזים בטקסט בלבד.',
+    materialsHe: ['תמונות מודפסות', 'סיפורים קצרים מודפסים'],
+    wrapUpHe: ['מהו רמז שמשהו מומצא?', 'מה עושים לפני שמשתפים תמונה מפתיעה?']
+  }),
+  lesson('elementary', {
+    index: 11,
+    slug: 'mini-project',
+    titleHe: 'מיני-פרויקט סיום: ממציאים עוזר חכם',
+    goalsHe: ['לתכנן עוזר חכם שפותר בעיה אמיתית', 'להציג מה העוזר לומד ומה הוא לא ישתף לעולם'],
+    flowHe: [[5, 'פתיחה: נזכרים בכל השיעורים ובוחרים בעיה אחת מהכיתה'], [15, 'תכנון בזוגות: מציירים את העוזר, מה הוא חש, ומאילו דוגמאות ילמד'], [15, 'בניית כרזה: שם, ציור, שלושה כללי הוגנות ובטיחות'], [10, 'הצגות קצרות ושאלה אחת מכל זוג למציגים']],
+    activityHe: 'בניית כרזת עוזר חכם והצגה לכיתה.',
+    unpluggedHe: 'בלי מחשב: כל הפרויקט על נייר - כרזה, ציור וכללים, בלי מסכים בכלל.',
+    materialsHe: ['דפים גדולים', 'טושים וצבעים'],
+    wrapUpHe: ['איזו בעיה העוזר שלכם פותר?', 'מאילו דוגמאות הוא ילמד כדי להיות הוגן?']
+  })
 ]);
 
 const MIDDLE = Object.freeze([
-  lesson('middle', 0, 'what-is-ai', 'מה זו בינה מלאכותית ולמידת מכונה',
-    ['להבחין בין תוכנה מבוססת כללים למודל שלמד מנתונים', 'לתאר מחזור אימון: נתונים, אימון, בדיקה'],
-    [[5, 'פתיחה: שני פתרונות לאותה בעיה - כללים ידניים מול למידה מדוגמאות'], [12, 'הסבר: מודל, נתוני אימון וטעות - איך מודל משתפר מהרבה ניסיונות'], [18, 'פעילות: ממיינים מערכות מוכרות לכללים או ללמידה ומנמקים'], [10, 'סיכום: מתי כללים עדיפים ומתי למידה']],
-    'מיון מערכות ונימוק בקבוצות, עם הגנה על בחירה אחת מול הכיתה.',
-    'בלי מחשב: בניית מסווג אנושי - כללים כתובים על לוח מול ניחוש מדוגמאות בכרטיסים.',
-    ['כרטיסי מערכות', 'לוח'],
-    ['מה ההבדל בין כלל למודל?', 'מתי לא הייתם סומכים על למידה?']),
-  lesson('middle', 1, 'training-data', 'למידה מדוגמאות ונתוני אימון',
-    ['להסביר אימון, אימות ובדיקה ומהי התאמת-יתר בפשטות', 'לבנות ערכת דוגמאות מאוזנת למשימה'],
-    [[5, 'פתיחה: מודל שנבחן על אותן שאלות שלמד - למה זה לא הוגן'], [12, 'הסבר: חלוקת נתונים לאימון ובדיקה, וטעויות משני הסוגים'], [18, 'פעילות: בונים ערכת אימון למסווג ציורים ומחליפים ערכות לבדיקה צולבת'], [10, 'סיכום: מה ערכת בדיקה טובה חייבת להכיל']],
-    'בניית ערכות אימון ובדיקה צולבת בין קבוצות.',
-    'בלי מחשב: כרטיסי ציור וטבלת רישום ניחושים על נייר, עם ספירת טעויות ידנית.',
-    ['כרטיסי ציור', 'טבלאות רישום'],
-    ['למה בודקים על דוגמאות חדשות?', 'איך נראית ערכת אימון גרועה?']),
-  lesson('middle', 2, 'image-recognition', 'זיהוי תמונות ורשתות עצביות',
-    ['לתאר בשכבות איך רשת מזהה תמונה מקצוות לצורות לאובייקט', 'להסביר טעות זיהוי אחת ולתקן בדוגמאות'],
-    [[5, 'פתיחה: מזהים תמונה שמתגלה שכבה אחרי שכבה'], [12, 'הסבר: שכבות של מאפיינים - קווים, צורות, חלקים, וציון ביטחון'], [18, 'פעילות: צוות אחד בונה רמזי שכבות והשני מנחש, ואז מנתחים טעות'], [10, 'סיכום: ביטחון גבוה הוא לא הוכחה לנכונות']],
-    'משחק שכבות רמזים וניתוח טעויות בזוגות צוותים.',
-    'בלי מחשב: תמונות מודפסות בחיתוכים הולכים וגדלים, ורישום שלב הניחוש הנכון.',
-    ['תמונות מודפסות בשכבות'],
-    ['מה רואה השכבה הראשונה של רשת?', 'למה ביטחון גבוה עדיין יכול לטעות?']),
-  lesson('middle', 3, 'llm-chatbots', 'מודלי שפה וצ׳אטבוטים',
-    ['להסביר חיזוי המילה הבאה והקשרה בשפה פשוטה', 'לזהות הזיה של מודל ולהצליב עם מקור נוסף'],
-    [[5, 'פתיחה: מנחשים את המילה הבאה במשפטים ורואים כמה אפשרויות סבירות יש'], [12, 'הסבר: אימון על המון טקסט, חיזוי הסתברותי, ולמה נוצרות הזיות'], [18, 'פעילות: מחבר שרשרת - ממשיכים טקסט כמו מודל, ואז בודקים עובדה אחת שהמציא'], [10, 'סיכום: כלל אצבע - מודל הוא מקור ראשון, לא מקור אחרון']],
-    'המשכת טקסט כמו מודל ובדיקת עובדות מומצאות.',
-    'בלי מחשב: משחק חיזוי מילה הבאה על לוח, עם הצבעה על ההמשך הסביר ביותר.',
-    ['לוח', 'דפי טקסט קצרים'],
-    ['מה המודל באמת עושה כשהוא עונה?', 'איך תפסנו הזיה אחת היום?']),
-  lesson('middle', 4, 'prompting-verify', 'הנחיות יעילות ובדיקת תשובות',
-    ['לנסח הנחיה עם מטרה, הקשר, פורמט ודוגמה', 'לאמת תשובת מודל בשני מקורות בלתי תלויים'],
-    [[5, 'פתיחה: אותה שאלה בשתי ניסוחים ותוצאות שונות לגמרי'], [12, 'הסבר: מבנה הנחיה טובה - תפקיד, משימה, אילוצים, פורמט פלט'], [18, 'פעילות: משפרים הנחיות חלשות על כרטיסים ומשווים תשובות אנושיות לתשובות מודל בדמיון'], [10, 'סיכום: רשימת בדיקת אימות לפני שמשתמשים בתשובה']],
-    'סדנת שיפור הנחיות על כרטיסים בזוגות.',
-    'בלי מחשב: בן זוג משחק מודל צייתן ופשוטו כמשמעו - הנחיה מעורפלת נכשלת מיד.',
-    ['כרטיסי הנחיות'],
-    ['איזה חלק בהנחיה שינה הכי הרבה?', 'מהי בדיקת האימות הראשונה שלכם?']),
-  lesson('middle', 5, 'data-bias', 'נתונים, הטיה והוגנות',
-    ['להסביר הטיית נתונים, הטיית תוויות ומדידת פער בין קבוצות', 'להציע תיקון אחד לנתונים ואחד לבדיקה'],
-    [[5, 'פתיחה: מודל שלמד רק מקבוצה אחת נבחן על אחרת - צופים בפער'], [12, 'הסבר: מאיפה הטיה נכנסת - איסוף, תיוג, ומי חסר בנתונים'], [18, 'פעילות: חוקרים טבלת תוצאות קטנה, מוצאים פער ומציעים תיקון'], [10, 'סיכום: הוגנות נמדדת בתוצאות לפי קבוצות, לא בכוונות']],
-    'חקירת טבלת תוצאות וכתיבת המלצת תיקון.',
-    'בלי מחשב: טבלה מודפסת וספירת תאים ידנית בשני צבעים.',
-    ['טבלאות מודפסות', 'טושים בשני צבעים'],
-    ['איפה נכנסה ההטיה בדוגמה?', 'איך הייתם מודדים שהתיקון עבד?']),
-  lesson('middle', 6, 'deepfakes-verify', 'זיופים עמוקים ואימות מידע',
-    ['לזהות סימני זיוף בתמונה, בקול ובסרטון', 'ליישם בדיקת מקור, הקשר ואישוש צולב'],
-    [[5, 'פתיחה: שתי כותרות מפתיעות - מה בודקים לפני שמשתפים'], [12, 'הסבר: איך נוצר זיוף עמוק ולמה העין כבר לא מספיקה'], [18, 'פעילות: תחנות אימות - כל קבוצה מאמתת פריט אחר ומדווחת ודאות ורמזים'], [10, 'סיכום: שיתוף הוא פעולה - עוצרים כשלא בטוחים']],
-    'תחנות אימות בקבוצות עם דיווח ודאות מנומק.',
-    'בלי מחשב: פריטים מודפסים בלבד - בודקים מקור, תאריך והקשר על הנייר.',
-    ['פריטים מודפסים לאימות'],
-    ['מהו סימן הזיוף הכי אמין שמצאתם?', 'מתי נכון לא לשתף גם אם זה נראה אמיתי?']),
-  lesson('middle', 7, 'privacy-safety', 'פרטיות ובטיחות בעידן הבינה המלאכותית',
-    ['למפות אילו נתונים שירות אוסף ולמה', 'לנסח מדיניות אישית: מה לא מזינים למודל לעולם'],
-    [[5, 'פתיחה: מה מודל יכול לזכור משיחה אחת תמימה'], [12, 'הסבר: הזנת נתונים לאימון, הרשאות, ומחיקה - מה בשליטתנו ומה לא'], [18, 'פעילות: בונים תווית פרטיות לשירות דמיוני - אוסף, שומר, משתף, מוחק'], [10, 'סיכום: שלושה קווים אדומים אישיים שכל אחד כותב לעצמו']],
-    'בניית תווית פרטיות לשירות דמיוני בקבוצות.',
-    'בלי מחשב: כרטיסי תרחישים - ממיינים מה מזינים ומה לא, ומנמקים.',
-    ['כרטיסי תרחישים', 'דפי תווית'],
-    ['מה לא תזינו למודל לעולם?', 'איך יודעים אם שירות מוחק באמת?']),
-  lesson('middle', 8, 'ai-creativity', 'בינה מלאכותית ויצירה',
-    ['להבחין בין יצירה, עריכה וייצור המוני בעזרת מודל', 'להפיק יצירה עם קרדיט הוגן לתהליך'],
-    [[5, 'פתיחה: מי חתום על יצירה שהמודל הציע ואדם ערך'], [12, 'הסבר: מודלים יוצרים מהמשכים סטטיסטיים של יצירות קודמות - וזכויות וקרדיט'], [18, 'פעילות: יוצרים סיפור או כרזה עם שלבי הצעה, בחירה ועריכה מתועדים'], [10, 'סיכום: מתי שימוש במודל פוגע בלמידה שלנו']],
-    'יצירה מתועדת-שלבים בזוגות: הצעה, בחירה, עריכה.',
-    'בלי מחשב: מגזין גזירי משפטים - מרכיבים סיפור מגזרים כמו מודל ובוחרים עריכה.',
-    ['גזירי משפטים מודפסים', 'דפים וצבעים'],
-    ['מי היוצר כשמודל מציע ואדם בוחר?', 'איך נותנים קרדיט הוגן?']),
-  lesson('middle', 9, 'ai-society-work', 'בינה מלאכותית, עבודה וחברה',
-    ['למפות מטלות במקצוע שמודל משנה ומטלות שנשארות אנושיות', 'לטעון בעד ונגד אוטומציה של מטלה אחת'],
-    [[5, 'פתיחה: מקצוע אחד על הלוח - אילו מטלות שלו משתנות'], [12, 'הסבר: אוטומציה של מטלות, לא של מקצועות שלמים, ומקצועות חדשים שנוצרים'], [18, 'פעילות: דיבייט קצר - כל קבוצה טוענת צד אחר על מטלה שבחרה'], [10, 'סיכום: מיומנות אנושית אחת להשקיע בה']],
-    'דיבייט מטלות בקבוצות עם שופטי כיתה.',
-    'בלי מחשב: כרטיסי מטלות מקצוע על נייר - ממיינים למשתנה, נשאר, וחדש.',
-    ['כרטיסי מטלות'],
-    ['מטלה שהשתנתה, או מקצוע שלם?', 'באיזו מיומנות אנושית תשקיעו?']),
-  lesson('middle', 10, 'ethics-responsibility', 'אתיקה: מי אחראי כשהמכונה טועה',
-    ['לנתח תרחיש נזק: מפתח, מפעיל, משתמש ונתונים', 'לנסח כלל אחריות אחד למערכת בית-ספרית'],
-    [[5, 'פתיחה: תרחיש קצר - מודל טעה ומישהו נפגע, מי אשם'], [12, 'הסבר: אחריות מבוזרת, פיקוח אנושי, וזכות ערעור על החלטת מכונה'], [18, 'פעילות: בית דין כיתתי - טוענים תפקידים שונים על אותו תרחיש'], [10, 'סיכום: כלל זהב - החלטה חשובה תמיד עם אדם אחראי וערעור']],
-    'בית דין כיתתי על תרחיש נזק.',
-    'בלי מחשב: כרטיסי תפקידים ותרחיש מודפס, בלי מסכים.',
-    ['כרטיסי תפקידים', 'תרחיש מודפס'],
-    ['מי אחראי כשהמודל טועה?', 'מהו כלל האחריות שלכם?']),
-  lesson('middle', 11, 'mini-project', 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית',
-    ['להגדיר בעיה, קהל ונתונים לפרויקט צוותי', 'להציג סיכונים, הוגנות ובדיקת אימות בתוכנית'],
-    [[5, 'פתיחה: בוחרים בעיה אמיתית מבית הספר או מהשכונה'], [15, 'תכנון: בעיה, קהל, אילו נתונים צריך, ואיך נאמן ונבדוק'], [15, 'בניית מצגת או כרזה: פתרון, סיכוני הוגנות ופרטיות, ותוכנית אימות'], [10, 'הצגות ושאלות - כל צוות מקבל שאלת אתיקה אחת']],
-    'תכנון ובניית מצגת פרויקט בצוותים.',
-    'בלי מחשב: כל הפרויקט ככרזה על נייר, כולל תוכנית הנתונים והאימות.',
-    ['דפים גדולים', 'טושים'],
-    ['איזו בעיה הפרויקט פותר ולמי?', 'מהו הסיכון הכי גדול בתוכנית שלכם?'])
+  lesson('middle', {
+    index: 0,
+    slug: 'what-is-ai',
+    titleHe: 'מה זו בינה מלאכותית ולמידת מכונה',
+    goalsHe: ['להבחין בין תוכנה מבוססת כללים למודל שלמד מנתונים', 'לתאר מחזור אימון: נתונים, אימון, בדיקה'],
+    flowHe: [[5, 'פתיחה: שני פתרונות לאותה בעיה - כללים ידניים מול למידה מדוגמאות'], [12, 'הסבר: מודל, נתוני אימון וטעות - איך מודל משתפר מהרבה ניסיונות'], [18, 'פעילות: ממיינים מערכות מוכרות לכללים או ללמידה ומנמקים'], [10, 'סיכום: מתי כללים עדיפים ומתי למידה']],
+    activityHe: 'מיון מערכות ונימוק בקבוצות, עם הגנה על בחירה אחת מול הכיתה.',
+    unpluggedHe: 'בלי מחשב: בניית מסווג אנושי - כללים כתובים על לוח מול ניחוש מדוגמאות בכרטיסים.',
+    materialsHe: ['כרטיסי מערכות', 'לוח'],
+    wrapUpHe: ['מה ההבדל בין כלל למודל?', 'מתי לא הייתם סומכים על למידה?']
+  }),
+  lesson('middle', {
+    index: 1,
+    slug: 'training-data',
+    titleHe: 'למידה מדוגמאות ונתוני אימון',
+    goalsHe: ['להסביר אימון, אימות ובדיקה ומהי התאמת-יתר בפשטות', 'לבנות ערכת דוגמאות מאוזנת למשימה'],
+    flowHe: [[5, 'פתיחה: מודל שנבחן על אותן שאלות שלמד - למה זה לא הוגן'], [12, 'הסבר: חלוקת נתונים לאימון ובדיקה, וטעויות משני הסוגים'], [18, 'פעילות: בונים ערכת אימון למסווג ציורים ומחליפים ערכות לבדיקה צולבת'], [10, 'סיכום: מה ערכת בדיקה טובה חייבת להכיל']],
+    activityHe: 'בניית ערכות אימון ובדיקה צולבת בין קבוצות.',
+    unpluggedHe: 'בלי מחשב: כרטיסי ציור וטבלת רישום ניחושים על נייר, עם ספירת טעויות ידנית.',
+    materialsHe: ['כרטיסי ציור', 'טבלאות רישום'],
+    wrapUpHe: ['למה בודקים על דוגמאות חדשות?', 'איך נראית ערכת אימון גרועה?']
+  }),
+  lesson('middle', {
+    index: 2,
+    slug: 'image-recognition',
+    titleHe: 'זיהוי תמונות ורשתות עצביות',
+    goalsHe: ['לתאר בשכבות איך רשת מזהה תמונה מקצוות לצורות לאובייקט', 'להסביר טעות זיהוי אחת ולתקן בדוגמאות'],
+    flowHe: [[5, 'פתיחה: מזהים תמונה שמתגלה שכבה אחרי שכבה'], [12, 'הסבר: שכבות של מאפיינים - קווים, צורות, חלקים, וציון ביטחון'], [18, 'פעילות: צוות אחד בונה רמזי שכבות והשני מנחש, ואז מנתחים טעות'], [10, 'סיכום: ביטחון גבוה הוא לא הוכחה לנכונות']],
+    activityHe: 'משחק שכבות רמזים וניתוח טעויות בזוגות צוותים.',
+    unpluggedHe: 'בלי מחשב: תמונות מודפסות בחיתוכים הולכים וגדלים, ורישום שלב הניחוש הנכון.',
+    materialsHe: ['תמונות מודפסות בשכבות'],
+    wrapUpHe: ['מה רואה השכבה הראשונה של רשת?', 'למה ביטחון גבוה עדיין יכול לטעות?']
+  }),
+  lesson('middle', {
+    index: 3,
+    slug: 'llm-chatbots',
+    titleHe: 'מודלי שפה וצ׳אטבוטים',
+    goalsHe: ['להסביר חיזוי המילה הבאה והקשרה בשפה פשוטה', 'לזהות הזיה של מודל ולהצליב עם מקור נוסף'],
+    flowHe: [[5, 'פתיחה: מנחשים את המילה הבאה במשפטים ורואים כמה אפשרויות סבירות יש'], [12, 'הסבר: אימון על המון טקסט, חיזוי הסתברותי, ולמה נוצרות הזיות'], [18, 'פעילות: מחבר שרשרת - ממשיכים טקסט כמו מודל, ואז בודקים עובדה אחת שהמציא'], [10, 'סיכום: כלל אצבע - מודל הוא מקור ראשון, לא מקור אחרון']],
+    activityHe: 'המשכת טקסט כמו מודל ובדיקת עובדות מומצאות.',
+    unpluggedHe: 'בלי מחשב: משחק חיזוי מילה הבאה על לוח, עם הצבעה על ההמשך הסביר ביותר.',
+    materialsHe: ['לוח', 'דפי טקסט קצרים'],
+    wrapUpHe: ['מה המודל באמת עושה כשהוא עונה?', 'איך תפסנו הזיה אחת היום?']
+  }),
+  lesson('middle', {
+    index: 4,
+    slug: 'prompting-verify',
+    titleHe: 'הנחיות יעילות ובדיקת תשובות',
+    goalsHe: ['לנסח הנחיה עם מטרה, הקשר, פורמט ודוגמה', 'לאמת תשובת מודל בשני מקורות בלתי תלויים'],
+    flowHe: [[5, 'פתיחה: אותה שאלה בשתי ניסוחים ותוצאות שונות לגמרי'], [12, 'הסבר: מבנה הנחיה טובה - תפקיד, משימה, אילוצים, פורמט פלט'], [18, 'פעילות: משפרים הנחיות חלשות על כרטיסים ומשווים תשובות אנושיות לתשובות מודל בדמיון'], [10, 'סיכום: רשימת בדיקת אימות לפני שמשתמשים בתשובה']],
+    activityHe: 'סדנת שיפור הנחיות על כרטיסים בזוגות.',
+    unpluggedHe: 'בלי מחשב: בן זוג משחק מודל צייתן ופשוטו כמשמעו - הנחיה מעורפלת נכשלת מיד.',
+    materialsHe: ['כרטיסי הנחיות'],
+    wrapUpHe: ['איזה חלק בהנחיה שינה הכי הרבה?', 'מהי בדיקת האימות הראשונה שלכם?']
+  }),
+  lesson('middle', {
+    index: 5,
+    slug: 'data-bias',
+    titleHe: 'נתונים, הטיה והוגנות',
+    goalsHe: ['להסביר הטיית נתונים, הטיית תוויות ומדידת פער בין קבוצות', 'להציע תיקון אחד לנתונים ואחד לבדיקה'],
+    flowHe: [[5, 'פתיחה: מודל שלמד רק מקבוצה אחת נבחן על אחרת - צופים בפער'], [12, 'הסבר: מאיפה הטיה נכנסת - איסוף, תיוג, ומי חסר בנתונים'], [18, 'פעילות: חוקרים טבלת תוצאות קטנה, מוצאים פער ומציעים תיקון'], [10, 'סיכום: הוגנות נמדדת בתוצאות לפי קבוצות, לא בכוונות']],
+    activityHe: 'חקירת טבלת תוצאות וכתיבת המלצת תיקון.',
+    unpluggedHe: 'בלי מחשב: טבלה מודפסת וספירת תאים ידנית בשני צבעים.',
+    materialsHe: ['טבלאות מודפסות', 'טושים בשני צבעים'],
+    wrapUpHe: ['איפה נכנסה ההטיה בדוגמה?', 'איך הייתם מודדים שהתיקון עבד?']
+  }),
+  lesson('middle', {
+    index: 6,
+    slug: 'deepfakes-verify',
+    titleHe: 'זיופים עמוקים ואימות מידע',
+    goalsHe: ['לזהות סימני זיוף בתמונה, בקול ובסרטון', 'ליישם בדיקת מקור, הקשר ואישוש צולב'],
+    flowHe: [[5, 'פתיחה: שתי כותרות מפתיעות - מה בודקים לפני שמשתפים'], [12, 'הסבר: איך נוצר זיוף עמוק ולמה העין כבר לא מספיקה'], [18, 'פעילות: תחנות אימות - כל קבוצה מאמתת פריט אחר ומדווחת ודאות ורמזים'], [10, 'סיכום: שיתוף הוא פעולה - עוצרים כשלא בטוחים']],
+    activityHe: 'תחנות אימות בקבוצות עם דיווח ודאות מנומק.',
+    unpluggedHe: 'בלי מחשב: פריטים מודפסים בלבד - בודקים מקור, תאריך והקשר על הנייר.',
+    materialsHe: ['פריטים מודפסים לאימות'],
+    wrapUpHe: ['מהו סימן הזיוף הכי אמין שמצאתם?', 'מתי נכון לא לשתף גם אם זה נראה אמיתי?']
+  }),
+  lesson('middle', {
+    index: 7,
+    slug: 'privacy-safety',
+    titleHe: 'פרטיות ובטיחות בעידן הבינה המלאכותית',
+    goalsHe: ['למפות אילו נתונים שירות אוסף ולמה', 'לנסח מדיניות אישית: מה לא מזינים למודל לעולם'],
+    flowHe: [[5, 'פתיחה: מה מודל יכול לזכור משיחה אחת תמימה'], [12, 'הסבר: הזנת נתונים לאימון, הרשאות, ומחיקה - מה בשליטתנו ומה לא'], [18, 'פעילות: בונים תווית פרטיות לשירות דמיוני - אוסף, שומר, משתף, מוחק'], [10, 'סיכום: שלושה קווים אדומים אישיים שכל אחד כותב לעצמו']],
+    activityHe: 'בניית תווית פרטיות לשירות דמיוני בקבוצות.',
+    unpluggedHe: 'בלי מחשב: כרטיסי תרחישים - ממיינים מה מזינים ומה לא, ומנמקים.',
+    materialsHe: ['כרטיסי תרחישים', 'דפי תווית'],
+    wrapUpHe: ['מה לא תזינו למודל לעולם?', 'איך יודעים אם שירות מוחק באמת?']
+  }),
+  lesson('middle', {
+    index: 8,
+    slug: 'ai-creativity',
+    titleHe: 'בינה מלאכותית ויצירה',
+    goalsHe: ['להבחין בין יצירה, עריכה וייצור המוני בעזרת מודל', 'להפיק יצירה עם קרדיט הוגן לתהליך'],
+    flowHe: [[5, 'פתיחה: מי חתום על יצירה שהמודל הציע ואדם ערך'], [12, 'הסבר: מודלים יוצרים מהמשכים סטטיסטיים של יצירות קודמות - וזכויות וקרדיט'], [18, 'פעילות: יוצרים סיפור או כרזה עם שלבי הצעה, בחירה ועריכה מתועדים'], [10, 'סיכום: מתי שימוש במודל פוגע בלמידה שלנו']],
+    activityHe: 'יצירה מתועדת-שלבים בזוגות: הצעה, בחירה, עריכה.',
+    unpluggedHe: 'בלי מחשב: מגזין גזירי משפטים - מרכיבים סיפור מגזרים כמו מודל ובוחרים עריכה.',
+    materialsHe: ['גזירי משפטים מודפסים', 'דפים וצבעים'],
+    wrapUpHe: ['מי היוצר כשמודל מציע ואדם בוחר?', 'איך נותנים קרדיט הוגן?']
+  }),
+  lesson('middle', {
+    index: 9,
+    slug: 'ai-society-work',
+    titleHe: 'בינה מלאכותית, עבודה וחברה',
+    goalsHe: ['למפות מטלות במקצוע שמודל משנה ומטלות שנשארות אנושיות', 'לטעון בעד ונגד אוטומציה של מטלה אחת'],
+    flowHe: [[5, 'פתיחה: מקצוע אחד על הלוח - אילו מטלות שלו משתנות'], [12, 'הסבר: אוטומציה של מטלות, לא של מקצועות שלמים, ומקצועות חדשים שנוצרים'], [18, 'פעילות: דיבייט קצר - כל קבוצה טוענת צד אחר על מטלה שבחרה'], [10, 'סיכום: מיומנות אנושית אחת להשקיע בה']],
+    activityHe: 'דיבייט מטלות בקבוצות עם שופטי כיתה.',
+    unpluggedHe: 'בלי מחשב: כרטיסי מטלות מקצוע על נייר - ממיינים למשתנה, נשאר, וחדש.',
+    materialsHe: ['כרטיסי מטלות'],
+    wrapUpHe: ['מטלה שהשתנתה, או מקצוע שלם?', 'באיזו מיומנות אנושית תשקיעו?']
+  }),
+  lesson('middle', {
+    index: 10,
+    slug: 'ethics-responsibility',
+    titleHe: 'אתיקה: מי אחראי כשהמכונה טועה',
+    goalsHe: ['לנתח תרחיש נזק: מפתח, מפעיל, משתמש ונתונים', 'לנסח כלל אחריות אחד למערכת בית-ספרית'],
+    flowHe: [[5, 'פתיחה: תרחיש קצר - מודל טעה ומישהו נפגע, מי אשם'], [12, 'הסבר: אחריות מבוזרת, פיקוח אנושי, וזכות ערעור על החלטת מכונה'], [18, 'פעילות: בית דין כיתתי - טוענים תפקידים שונים על אותו תרחיש'], [10, 'סיכום: כלל זהב - החלטה חשובה תמיד עם אדם אחראי וערעור']],
+    activityHe: 'בית דין כיתתי על תרחיש נזק.',
+    unpluggedHe: 'בלי מחשב: כרטיסי תפקידים ותרחיש מודפס, בלי מסכים.',
+    materialsHe: ['כרטיסי תפקידים', 'תרחיש מודפס'],
+    wrapUpHe: ['מי אחראי כשהמודל טועה?', 'מהו כלל האחריות שלכם?']
+  }),
+  lesson('middle', {
+    index: 11,
+    slug: 'mini-project',
+    titleHe: 'מיני-פרויקט סיום: פותרים בעיה עם בינה מלאכותית',
+    goalsHe: ['להגדיר בעיה, קהל ונתונים לפרויקט צוותי', 'להציג סיכונים, הוגנות ובדיקת אימות בתוכנית'],
+    flowHe: [[5, 'פתיחה: בוחרים בעיה אמיתית מבית הספר או מהשכונה'], [15, 'תכנון: בעיה, קהל, אילו נתונים צריך, ואיך נאמן ונבדוק'], [15, 'בניית מצגת או כרזה: פתרון, סיכוני הוגנות ופרטיות, ותוכנית אימות'], [10, 'הצגות ושאלות - כל צוות מקבל שאלת אתיקה אחת']],
+    activityHe: 'תכנון ובניית מצגת פרויקט בצוותים.',
+    unpluggedHe: 'בלי מחשב: כל הפרויקט ככרזה על נייר, כולל תוכנית הנתונים והאימות.',
+    materialsHe: ['דפים גדולים', 'טושים'],
+    wrapUpHe: ['איזו בעיה הפרויקט פותר ולמי?', 'מהו הסיכון הכי גדול בתוכנית שלכם?']
+  })
 ]);
 
 const BY_TRACK = Object.freeze({ elementary: ELEMENTARY, middle: MIDDLE });
@@ -6038,9 +6440,18 @@ function trackForGrade(grade) {
   throw new Error('invalid grade: expected an integer 3..9');
 }
 function lessonsForTrack(track) { return BY_TRACK[assertTrack(track)]; }
+function invalidLessonIndex(track) {
+  return new Error('invalid lesson index for track ' + track);
+}
+
+function assertLessonIndex(index, list, track) {
+  if (!Number.isInteger(index)) throw invalidLessonIndex(track);
+  if (index < 0) throw invalidLessonIndex(track);
+  if (index >= list.length) throw invalidLessonIndex(track);
+}
 function getLesson(track, index) {
   const list = lessonsForTrack(track);
-  if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error('invalid lesson index for track ' + track);
+  assertLessonIndex(index, list, track);
   return list[index];
 }
 function lessonById(id) {
@@ -6050,25 +6461,36 @@ function lessonById(id) {
 }
 function flowMinutes(lesson) { return lesson.flowHe.reduce((sum, f) => sum + f.minutes, 0); }
 
+function assertFlow(lesson) {
+  if (!lesson) throw new Error('invalid lesson: flowHe');
+  if (!Array.isArray(lesson.flowHe)) throw new Error('invalid lesson: flowHe');
+  if (lesson.flowHe.length === 0) throw new Error('invalid lesson: flowHe');
+}
+
+function isValidStep(f) {
+  if (!f) return false;
+  if (!Number.isInteger(f.minutes) || f.minutes <= 0) return false;
+  if (typeof f.stepHe !== 'string') return false;
+  return f.stepHe.trim() !== '';
+}
+
+function timelineStep(f, i) {
+  if (!isValidStep(f)) throw new Error('invalid lesson: flowHe');
+  const cut = f.stepHe.indexOf(': ');
+  const hasTitle = cut > 0 && cut <= 28;
+  return Object.freeze({
+    minutes: f.minutes,
+    titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
+    bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
+  });
+}
+
 // The 45-minute flow as timeline steps for the lesson screen: a short title, the
 // duration and the body of each step. Steps are written "title: body"; a step
 // without that prefix keeps its whole text as the body under a numbered title.
 function flowTimeline(lesson) {
-  if (!lesson || !Array.isArray(lesson.flowHe) || lesson.flowHe.length === 0) {
-    throw new Error('invalid lesson: flowHe');
-  }
-  return Object.freeze(lesson.flowHe.map((f, i) => {
-    if (!f || !Number.isInteger(f.minutes) || f.minutes <= 0 || typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
-      throw new Error('invalid lesson: flowHe');
-    }
-    const cut = f.stepHe.indexOf(': ');
-    const hasTitle = cut > 0 && cut <= 28;
-    return Object.freeze({
-      minutes: f.minutes,
-      titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
-      bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
-    });
-  }));
+  assertFlow(lesson);
+  return Object.freeze(lesson.flowHe.map(timelineStep));
 }
 
 function resolveTrack(trackByPair, pairIndex) {
@@ -6081,31 +6503,55 @@ function resolveTrack(trackByPair, pairIndex) {
 function sessionOrderKey(s) {
   return [Number.isInteger(s.week) ? s.week : 0, typeof s.slot === 'string' ? s.slot : '', typeof s.date === 'string' ? s.date : ''];
 }
+function assertSession(s) {
+  if (!s) throw new Error('invalid session: pairIndex');
+  if (!Number.isInteger(s.pairIndex)) throw new Error('invalid session: pairIndex');
+  if (s.pairIndex < 0) throw new Error('invalid session: pairIndex');
+}
+
+function groupSessionIndexes(list) {
+  const byPair = new Map();
+  list.forEach((s, i) => {
+    if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, []);
+    byPair.get(s.pairIndex).push(i);
+  });
+  return byPair;
+}
+
+function compareSessionOrder(list, a, b) {
+  const ka = sessionOrderKey(list[a]);
+  const kb = sessionOrderKey(list[b]);
+  for (let k = 0; k < ka.length; k += 1) {
+    if (ka[k] < kb[k]) return -1;
+    if (ka[k] > kb[k]) return 1;
+  }
+  return a - b;
+}
+
+function assignPairLessons(context, indexes, pairIndex) {
+  const track = resolveTrack(context.trackByPair, pairIndex);
+  const lessons = lessonsForTrack(track);
+  const ordered = indexes.slice().sort((a, b) => compareSessionOrder(context.list, a, b));
+  ordered.forEach((sessionIdx, pos) => {
+    const lessonIndex = pos % lessons.length;
+    context.out[sessionIdx] = Object.freeze(Object.assign({}, context.list[sessionIdx], {
+      track, sessionIndex: pos, cycle: Math.floor(pos / lessons.length) + 1,
+      lessonIndex, lessonId: lessons[lessonIndex].id, titleKey: lessons[lessonIndex].titleKey
+    }));
+  });
+}
+
 // Each session gets the next lesson of its group's track, in session order within the group.
 // More sessions than lessons start a new cycle (cycle 2 repeats the track from lesson 1).
 function assignLessons(sessions, trackByPair) {
   const list = Array.isArray(sessions) ? sessions : [];
-  list.forEach((s) => { if (!s || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) throw new Error('invalid session: pairIndex'); });
-  const byPair = new Map();
-  list.forEach((s, i) => { if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, []); byPair.get(s.pairIndex).push(i); });
-  const out = new Array(list.length);
+  list.forEach(assertSession);
+  const byPair = groupSessionIndexes(list);
+  const context = { list: list, trackByPair: trackByPair, out: new Array(list.length) };
   byPair.forEach((indexes, pairIndex) => {
-    const track = resolveTrack(trackByPair, pairIndex);
-    const lessons = lessonsForTrack(track);
-    const ordered = indexes.slice().sort((a, b) => {
-      const ka = sessionOrderKey(list[a]); const kb = sessionOrderKey(list[b]);
-      for (let k = 0; k < ka.length; k += 1) { if (ka[k] < kb[k]) return -1; if (ka[k] > kb[k]) return 1; }
-      return a - b;
-    });
-    ordered.forEach((sessionIdx, pos) => {
-      const lessonIndex = pos % lessons.length;
-      out[sessionIdx] = Object.freeze(Object.assign({}, list[sessionIdx], {
-        track, sessionIndex: pos, cycle: Math.floor(pos / lessons.length) + 1,
-        lessonIndex, lessonId: lessons[lessonIndex].id, titleKey: lessons[lessonIndex].titleKey
-      }));
-    });
+    assignPairLessons(context, indexes, pairIndex);
   });
-  return Object.freeze(out);
+  return Object.freeze(context.out);
 }
 function todayLesson(assigned, pairIndex, delivered) {
   const rows = (Array.isArray(assigned) ? assigned : []).filter((s) => s && s.pairIndex === pairIndex);
@@ -6177,6 +6623,8 @@ const ALLOWED_JUDGE_EVAL_KEYS = Object.freeze([
   'safety'
 ]);
 
+const SCORE_KEYS = Object.freeze(['innovation', 'usefulness', 'safety']);
+
 const VALID_JUDGE_ROLES = Object.freeze([
   'coordinator',
   'mentor_peer',
@@ -6189,40 +6637,34 @@ const JUDGE_ROLE_WEIGHTS = Object.freeze({
   industry_guest: 0.3
 });
 
-function submitChallengeEntry(entries, entry) {
-  if (entries !== undefined && entries !== null && !Array.isArray(entries)) {
-    throw new Error('invalid entries: expected array');
-  }
-  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-    throw new Error('invalid challenge entry: expected an object');
-  }
-  const keys = Object.keys(entry);
+function assertPlainObject(value, message) {
+  if (!value) throw new Error(message);
+  if (typeof value !== 'object') throw new Error(message);
+  if (Array.isArray(value)) throw new Error(message);
+}
+
+function assertAllowedKeys(value, allowed) {
+  const keys = Object.keys(value);
   for (let i = 0; i < keys.length; i += 1) {
-    if (ALLOWED_CHALLENGE_KEYS.indexOf(keys[i]) === -1) {
-      throw new Error('personal data is not accepted');
-    }
+    if (allowed.indexOf(keys[i]) === -1) throw new Error('personal data is not accepted');
   }
-  if (!Number.isInteger(entry.pairIndex) || entry.pairIndex < 0) {
-    throw new Error('invalid pairIndex: expected non-negative integer');
-  }
-  if (typeof entry.aiTopic !== 'string' || VALID_AI_TOPICS.indexOf(entry.aiTopic) === -1) {
-    throw new Error('invalid aiTopic: expected valid AI topic key');
-  }
-  if (typeof entry.toolTitle !== 'string') {
-    throw new Error('invalid toolTitle: expected string');
-  }
-  const cleanTitle = assertCleanText(entry.toolTitle, { minLength: 1, maxLength: 80 });
+}
 
-  for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
-    const val = entry[scoreKey];
-    if (!Number.isInteger(val) || val < 1 || val > 5) {
-      throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
-    }
-  }
+function assertScore(scoreKey, val) {
+  if (!Number.isInteger(val)) throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
+  if (val < 1) throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
+  if (val > 5) throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
+}
 
+function assertScores(value) {
+  for (const scoreKey of SCORE_KEYS) {
+    assertScore(scoreKey, value[scoreKey]);
+  }
+}
+
+function challengeRecord(entry, cleanTitle) {
   const totalScore = entry.innovation + entry.usefulness + entry.safety;
-  const averageScore = Math.round((totalScore / 3) * 100) / 100;
-  const record = Object.freeze({
+  return Object.freeze({
     pairIndex: entry.pairIndex,
     aiTopic: entry.aiTopic,
     toolTitle: cleanTitle,
@@ -6230,85 +6672,92 @@ function submitChallengeEntry(entries, entry) {
     usefulness: entry.usefulness,
     safety: entry.safety,
     totalScore: totalScore,
-    averageScore: averageScore,
+    averageScore: Math.round((totalScore / 3) * 100) / 100,
     score: totalScore
   });
-
-  const prev = Array.isArray(entries) ? entries : [];
-  const idx = prev.findIndex((e) => e && e.pairIndex === record.pairIndex);
-  let next;
-  if (idx >= 0) {
-    next = prev.slice();
-    next[idx] = record;
-  } else {
-    next = prev.concat([record]);
-  }
-  return Object.freeze(next);
 }
 
-function addJudgeEvaluation(entries, entryIndex, evaluation) {
-  if (!Array.isArray(entries)) {
-    throw new Error('invalid entries: expected array');
-  }
-  if (!Number.isInteger(entryIndex) || entryIndex < 0) {
-    throw new Error('invalid entryIndex: expected non-negative integer');
-  }
-  let targetIdx = -1;
-  if (entryIndex < entries.length && entries[entryIndex]) {
-    targetIdx = entryIndex;
-  } else {
-    targetIdx = entries.findIndex((e) => e && e.pairIndex === entryIndex);
-  }
-  if (targetIdx === -1) {
-    throw new Error('entry not found');
-  }
+function upsertChallengeEntry(prev, record) {
+  const idx = prev.findIndex((e) => e && e.pairIndex === record.pairIndex);
+  if (idx < 0) return prev.concat([record]);
+  const next = prev.slice();
+  next[idx] = record;
+  return next;
+}
 
-  if (!evaluation || typeof evaluation !== 'object' || Array.isArray(evaluation)) {
-    throw new Error('invalid evaluation: expected an object');
-  }
+function assertEntriesInput(entries) {
+  if (entries === undefined) return;
+  if (entries === null) return;
+  if (!Array.isArray(entries)) throw new Error('invalid entries: expected array');
+}
 
-  const keys = Object.keys(evaluation);
-  for (let i = 0; i < keys.length; i += 1) {
-    if (ALLOWED_JUDGE_EVAL_KEYS.indexOf(keys[i]) === -1) {
-      throw new Error('personal data is not accepted');
-    }
-  }
+function assertPairIndexField(entry) {
+  if (!Number.isInteger(entry.pairIndex)) throw new Error('invalid pairIndex: expected non-negative integer');
+  if (entry.pairIndex < 0) throw new Error('invalid pairIndex: expected non-negative integer');
+}
 
+function assertAiTopicField(entry) {
+  if (typeof entry.aiTopic !== 'string') throw new Error('invalid aiTopic: expected valid AI topic key');
+  if (VALID_AI_TOPICS.indexOf(entry.aiTopic) === -1) throw new Error('invalid aiTopic: expected valid AI topic key');
+}
+
+function assertToolTitleField(entry) {
+  if (typeof entry.toolTitle !== 'string') throw new Error('invalid toolTitle: expected string');
+}
+
+function submitChallengeEntry(entries, entry) {
+  assertEntriesInput(entries);
+  assertPlainObject(entry, 'invalid challenge entry: expected an object');
+  assertAllowedKeys(entry, ALLOWED_CHALLENGE_KEYS);
+  assertPairIndexField(entry);
+  assertAiTopicField(entry);
+  assertToolTitleField(entry);
+  const cleanTitle = assertCleanText(entry.toolTitle, { minLength: 1, maxLength: 80 });
+  assertScores(entry);
+  const record = challengeRecord(entry, cleanTitle);
+  return Object.freeze(upsertChallengeEntry(Array.isArray(entries) ? entries : [], record));
+}
+
+function resolveEntryIndex(entries, entryIndex) {
+  if (entryIndex < entries.length && entries[entryIndex]) return entryIndex;
+  return entries.findIndex((e) => e && e.pairIndex === entryIndex);
+}
+
+function assertJudgeEvaluation(evaluation) {
+  assertPlainObject(evaluation, 'invalid evaluation: expected an object');
+  assertAllowedKeys(evaluation, ALLOWED_JUDGE_EVAL_KEYS);
   if (typeof evaluation.judgeRole !== 'string' || VALID_JUDGE_ROLES.indexOf(evaluation.judgeRole) === -1) {
     throw new Error("invalid judgeRole: expected 'coordinator', 'mentor_peer', or 'industry_guest'");
   }
+  assertScores(evaluation);
+}
 
-  for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
-    const val = evaluation[scoreKey];
-    if (!Number.isInteger(val) || val < 1 || val > 5) {
-      throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
-    }
+function assertNoDuplicateRole(prevEvals, role) {
+  if (prevEvals.some((ev) => ev && ev.judgeRole === role)) {
+    throw new Error(`duplicate judgeRole: evaluation already exists for role '${role}'`);
   }
+}
 
-  const currentEntry = entries[targetIdx];
-  const prevEvals = Array.isArray(currentEntry.evaluations) ? currentEntry.evaluations : [];
-  if (prevEvals.some((ev) => ev && ev.judgeRole === evaluation.judgeRole)) {
-    throw new Error(`duplicate judgeRole: evaluation already exists for role '${evaluation.judgeRole}'`);
-  }
-
-  const evalRecord = Object.freeze({
+function evaluationRecord(evaluation) {
+  const totalScore = evaluation.innovation + evaluation.usefulness + evaluation.safety;
+  return Object.freeze({
     judgeRole: evaluation.judgeRole,
     innovation: evaluation.innovation,
     usefulness: evaluation.usefulness,
     safety: evaluation.safety,
-    totalScore: evaluation.innovation + evaluation.usefulness + evaluation.safety,
-    averageScore: Math.round(((evaluation.innovation + evaluation.usefulness + evaluation.safety) / 3) * 100) / 100
+    totalScore: totalScore,
+    averageScore: Math.round((totalScore / 3) * 100) / 100
   });
+}
 
-  const nextEvals = prevEvals.concat([evalRecord]);
-
+function weightedScores(evals) {
   let totalWeight = 0;
   let weightedInnoSum = 0;
   let weightedUseSum = 0;
   let weightedSafeSum = 0;
 
-  for (let i = 0; i < nextEvals.length; i += 1) {
-    const ev = nextEvals[i];
+  for (let i = 0; i < evals.length; i += 1) {
+    const ev = evals[i];
     const weight = JUDGE_ROLE_WEIGHTS[ev.judgeRole] || 1;
     totalWeight += weight;
     weightedInnoSum += ev.innovation * weight;
@@ -6316,19 +6765,44 @@ function addJudgeEvaluation(entries, entryIndex, evaluation) {
     weightedSafeSum += ev.safety * weight;
   }
 
-  const weightedInno = Math.round((weightedInnoSum / totalWeight) * 100) / 100;
-  const weightedUse = Math.round((weightedUseSum / totalWeight) * 100) / 100;
-  const weightedSafe = Math.round((weightedSafeSum / totalWeight) * 100) / 100;
-  const totalScore = Math.round((weightedInno + weightedUse + weightedSafe) * 100) / 100;
-  const averageScore = Math.round((totalScore / 3) * 100) / 100;
-
-  const updatedEntry = Object.freeze(Object.assign({}, currentEntry, {
-    innovation: weightedInno,
-    usefulness: weightedUse,
-    safety: weightedSafe,
+  const innovation = Math.round((weightedInnoSum / totalWeight) * 100) / 100;
+  const usefulness = Math.round((weightedUseSum / totalWeight) * 100) / 100;
+  const safety = Math.round((weightedSafeSum / totalWeight) * 100) / 100;
+  const totalScore = Math.round((innovation + usefulness + safety) * 100) / 100;
+  return {
+    innovation: innovation,
+    usefulness: usefulness,
+    safety: safety,
     totalScore: totalScore,
-    averageScore: averageScore,
-    score: totalScore,
+    averageScore: Math.round((totalScore / 3) * 100) / 100
+  };
+}
+
+function assertEntryIndex(entryIndex) {
+  if (!Number.isInteger(entryIndex)) throw new Error('invalid entryIndex: expected non-negative integer');
+  if (entryIndex < 0) throw new Error('invalid entryIndex: expected non-negative integer');
+}
+
+function addJudgeEvaluation(entries, entryIndex, evaluation) {
+  if (!Array.isArray(entries)) {
+    throw new Error('invalid entries: expected array');
+  }
+  assertEntryIndex(entryIndex);
+  const targetIdx = resolveEntryIndex(entries, entryIndex);
+  if (targetIdx === -1) {
+    throw new Error('entry not found');
+  }
+
+  assertJudgeEvaluation(evaluation);
+
+  const currentEntry = entries[targetIdx];
+  const prevEvals = Array.isArray(currentEntry.evaluations) ? currentEntry.evaluations : [];
+  assertNoDuplicateRole(prevEvals, evaluation.judgeRole);
+
+  const nextEvals = prevEvals.concat([evaluationRecord(evaluation)]);
+  const scores = weightedScores(nextEvals);
+  const updatedEntry = Object.freeze(Object.assign({}, currentEntry, scores, {
+    score: scores.totalScore,
     evaluations: Object.freeze(nextEvals),
     judgeCount: nextEvals.length
   }));
@@ -6338,47 +6812,52 @@ function addJudgeEvaluation(entries, entryIndex, evaluation) {
   return Object.freeze(nextEntries);
 }
 
-function rankChallengeLeaderboard(entries) {
-  if (!entries || !Array.isArray(entries) || entries.length === 0) {
-    return Object.freeze([]);
-  }
-  const items = entries.map((e) => {
-    if (!e || typeof e !== 'object' || Array.isArray(e)) {
-      throw new Error('invalid challenge entry in leaderboard');
-    }
-    const pairIndex = Number(e.pairIndex);
-    const innovation = Number(e.innovation);
-    const usefulness = Number(e.usefulness);
-    const safety = Number(e.safety);
-    const totalScore = e.totalScore !== undefined
-      ? Math.round(Number(e.totalScore) * 100) / 100
-      : Math.round((innovation + usefulness + safety) * 100) / 100;
-    const averageScore = e.averageScore !== undefined
-      ? Math.round(Number(e.averageScore) * 100) / 100
-      : Math.round((totalScore / 3) * 100) / 100;
-    return {
-      pairIndex: pairIndex,
-      aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
-      toolTitle: typeof e.toolTitle === 'string' ? e.toolTitle : '',
-      innovation: innovation,
-      usefulness: usefulness,
-      safety: safety,
-      totalScore: totalScore,
-      averageScore: averageScore,
-      score: totalScore,
-      evaluations: Array.isArray(e.evaluations) ? e.evaluations : Object.freeze([]),
-      judgeCount: Number.isInteger(e.judgeCount) ? e.judgeCount : (Array.isArray(e.evaluations) ? e.evaluations.length : 0)
-    };
-  });
+function textOr(value, fallback) {
+  if (typeof value === 'string') return value;
+  return fallback;
+}
 
-  items.sort((a, b) => {
-    if (b.totalScore !== a.totalScore) {
-      return b.totalScore - a.totalScore;
-    }
-    return a.pairIndex - b.pairIndex;
-  });
+function roundedOr(value, fallback) {
+  if (value !== undefined) return Math.round(Number(value) * 100) / 100;
+  return fallback;
+}
 
-  return Object.freeze(items.map((item, index) => Object.freeze({
+function judgeCountOf(e) {
+  if (Number.isInteger(e.judgeCount)) return e.judgeCount;
+  if (Array.isArray(e.evaluations)) return e.evaluations.length;
+  return 0;
+}
+
+function leaderboardItem(e) {
+  assertPlainObject(e, 'invalid challenge entry in leaderboard');
+  const pairIndex = Number(e.pairIndex);
+  const innovation = Number(e.innovation);
+  const usefulness = Number(e.usefulness);
+  const safety = Number(e.safety);
+  const totalScore = roundedOr(e.totalScore, Math.round((innovation + usefulness + safety) * 100) / 100);
+  const averageScore = roundedOr(e.averageScore, Math.round((totalScore / 3) * 100) / 100);
+  return {
+    pairIndex: pairIndex,
+    aiTopic: textOr(e.aiTopic, ''),
+    toolTitle: textOr(e.toolTitle, ''),
+    innovation: innovation,
+    usefulness: usefulness,
+    safety: safety,
+    totalScore: totalScore,
+    averageScore: averageScore,
+    score: totalScore,
+    evaluations: Array.isArray(e.evaluations) ? e.evaluations : Object.freeze([]),
+    judgeCount: judgeCountOf(e)
+  };
+}
+
+function compareLeaderboardItems(a, b) {
+  if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+  return a.pairIndex - b.pairIndex;
+}
+
+function rankedItem(item, index) {
+  return Object.freeze({
     rank: index + 1,
     pairIndex: item.pairIndex,
     aiTopic: item.aiTopic,
@@ -6391,14 +6870,33 @@ function rankChallengeLeaderboard(entries) {
     score: item.score,
     evaluations: item.evaluations,
     judgeCount: item.judgeCount
-  })));
+  });
+}
+
+function hasRankableEntries(entries) {
+  if (!entries) return false;
+  if (!Array.isArray(entries)) return false;
+  return entries.length > 0;
+}
+
+function rankChallengeLeaderboard(entries) {
+  if (!hasRankableEntries(entries)) {
+    return Object.freeze([]);
+  }
+  const items = entries.map(leaderboardItem);
+  items.sort(compareLeaderboardItems);
+  return Object.freeze(items.map(rankedItem));
+}
+
+function finalistLimit(topN) {
+  return (topN !== undefined && Number.isInteger(topN)) ? Math.max(0, topN) : 3;
 }
 
 function selectChallengeFinalists(entries, topN) {
-  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+  if (!hasRankableEntries(entries)) {
     return Object.freeze([]);
   }
-  const n = (topN !== undefined && Number.isInteger(topN)) ? Math.max(0, topN) : 3;
+  const n = finalistLimit(topN);
   if (n === 0) {
     return Object.freeze([]);
   }
@@ -6557,53 +7055,80 @@ const AI_CHALLENGE_TEMPLATES = Object.freeze([
   })
 ]);
 
+const CERTIFICATE_LANGS = Object.freeze(['he', 'ar', 'ru']);
+
+function certificateLanguage(lang, rank) {
+  if (typeof rank === 'string' && CERTIFICATE_LANGS.indexOf(rank) !== -1) {
+    return { lang: rank, rank: undefined };
+  }
+  return { lang: CERTIFICATE_LANGS.indexOf(lang) !== -1 ? lang : 'he', rank: rank };
+}
+
+function isPresent(value) {
+  if (value === undefined) return false;
+  if (value === null) return false;
+  return true;
+}
+
+function firstPresent(a, b, fallback) {
+  if (isPresent(a)) return a;
+  if (isPresent(b)) return b;
+  return fallback;
+}
+
+function firstTruthy(a, b, fallback) {
+  if (a) return a;
+  if (b) return b;
+  return fallback;
+}
+
+function certificateFields(entry, rank) {
+  return {
+    actualRank: firstPresent(rank, entry.rank, 1),
+    pairIndex: entry.pairIndex !== undefined ? entry.pairIndex : '',
+    toolTitle: firstTruthy(entry.toolTitle, undefined, ''),
+    aiTopic: firstTruthy(entry.aiTopic, entry.topic, ''),
+    totalScore: firstPresent(entry.totalScore, entry.score, 0)
+  };
+}
+
+function certificateLines(l, f) {
+  if (l === 'ar') {
+    return [
+      'شهادة تقدير ومشاركة - تحدي أدوات الذكاء الاصطناعي',
+      `المرتبة: #${f.actualRank}`,
+      `الثنائي: زوج ${f.pairIndex}`,
+      `اسم الأداة: ${f.toolTitle}`,
+      `موضوع الذكاء الاصطناعي: ${f.aiTopic}`,
+      `الدرجة الكلية: ${f.totalScore}`
+    ];
+  }
+  if (l === 'ru') {
+    return [
+      'Почётная грамота и сертификат участия - Конкурс инструментов ИИ',
+      `Место: #${f.actualRank}`,
+      `Пара: Пара ${f.pairIndex}`,
+      `Название инструмента: ${f.toolTitle}`,
+      `Тема ИИ: ${f.aiTopic}`,
+      `Итоговый балл: ${f.totalScore}`
+    ];
+  }
+  return [
+    'תעודת הוקרה והשתתפות - אתגר כלי AI',
+    `מקום: #${f.actualRank}`,
+    `זוג: זוג ${f.pairIndex}`,
+    `שם הכלי: ${f.toolTitle}`,
+    `נושא AI: ${f.aiTopic}`,
+    `ציון כולל: ${f.totalScore}`
+  ];
+}
+
 function generateChallengeCertificateText(entry, rank, lang) {
   if (!entry || typeof entry !== 'object') {
     return '';
   }
-  let targetLang = lang;
-  let targetRank = rank;
-  if (typeof rank === 'string' && (rank === 'he' || rank === 'ar' || rank === 'ru')) {
-    targetLang = rank;
-    targetRank = undefined;
-  }
-  const l = (targetLang === 'ar' || targetLang === 'ru' || targetLang === 'he') ? targetLang : 'he';
-  const actualRank = targetRank != null ? targetRank : (entry.rank != null ? entry.rank : 1);
-  const pairIndex = entry.pairIndex !== undefined ? entry.pairIndex : '';
-  const toolTitle = entry.toolTitle || '';
-  const aiTopic = entry.aiTopic || entry.topic || '';
-  const totalScore = entry.totalScore != null ? entry.totalScore : (entry.score != null ? entry.score : 0);
-
-  if (l === 'ar') {
-    return [
-      'شهادة تقدير ومشاركة - تحدي أدوات الذكاء الاصطناعي',
-      `المرتبة: #${actualRank}`,
-      `الثنائي: زوج ${pairIndex}`,
-      `اسم الأداة: ${toolTitle}`,
-      `موضوع الذكاء الاصطناعي: ${aiTopic}`,
-      `الدرجة الكلية: ${totalScore}`
-    ].join('\n');
-  }
-
-  if (l === 'ru') {
-    return [
-      'Почётная грамота и сертификат участия - Конкурс инструментов ИИ',
-      `Место: #${actualRank}`,
-      `Пара: Пара ${pairIndex}`,
-      `Название инструмента: ${toolTitle}`,
-      `Тема ИИ: ${aiTopic}`,
-      `Итоговый балл: ${totalScore}`
-    ].join('\n');
-  }
-
-  return [
-    'תעודת הוקרה והשתתפות - אתגר כלי AI',
-    `מקום: #${actualRank}`,
-    `זוג: זוג ${pairIndex}`,
-    `שם הכלי: ${toolTitle}`,
-    `נושא AI: ${aiTopic}`,
-    `ציון כולל: ${totalScore}`
-  ].join('\n');
+  const language = certificateLanguage(lang, rank);
+  return certificateLines(language.lang, certificateFields(entry, language.rank)).join('\n');
 }
 
 module.exports = {
