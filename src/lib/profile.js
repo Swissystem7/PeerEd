@@ -28,16 +28,25 @@ function assertPeerUserId(id) {
   return id;
 }
 
+function isPlainObject(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  return !Array.isArray(obj);
+}
+
 // A slot is DAY_HOUR, e.g. 'SUN_16' or 'MON_18': day from DAYS, hour an integer 8..22.
 // The canonical spelling has no leading zero on the hour: 'SUN_8', never 'SUN_08'. The engine compares
 // slots as strings (match.js hasOverlap / shared), so two spellings of one hour would never meet.
 // normalizeSlot returns the canonical string for any accepted spelling, or null.
+function isHourInRange(hour) {
+  return Number.isInteger(hour) && hour >= HOUR_MIN && hour <= HOUR_MAX;
+}
+
 function normalizeSlot(slot) {
   if (typeof slot !== 'string') return null;
   const m = /^([A-Z]{3})_(\d{1,2})$/.exec(slot);
   if (!m || DAYS.indexOf(m[1]) === -1) return null;
   const hour = Number(m[2]);
-  if (!Number.isInteger(hour) || hour < HOUR_MIN || hour > HOUR_MAX) return null;
+  if (!isHourInRange(hour)) return null;
   return m[1] + '_' + String(hour);
 }
 
@@ -49,21 +58,28 @@ function isAiLevel(level) {
   return typeof level === 'string' && AI_LEVELS.indexOf(level) !== -1;
 }
 
-function getWeeklyOverlapSlots(personA, personB) {
-  const a = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
-  const b = Array.isArray(personB) ? personB : (personB && Array.isArray(personB.availability) ? personB.availability : []);
-  const right = new Set();
-  for (let i = 0; i < b.length; i += 1) {
-    const s = normalizeSlot(b[i]);
-    if (s !== null) right.add(s);
+function extractSlotSet(person) {
+  const raw = Array.isArray(person) ? person : (person && Array.isArray(person.availability) ? person.availability : []);
+  const set = new Set();
+  for (let i = 0; i < raw.length; i += 1) {
+    const s = normalizeSlot(raw[i]);
+    if (s !== null) set.add(s);
   }
+  return set;
+}
+
+function getWeeklyOverlapSlots(personA, personB) {
+  const right = extractSlotSet(personB);
+  const aRaw = Array.isArray(personA) ? personA : (personA && Array.isArray(personA.availability) ? personA.availability : []);
   const seen = new Set();
   const out = [];
-  for (let i = 0; i < a.length; i += 1) {
-    const s = normalizeSlot(a[i]);
-    if (s !== null && right.has(s) && !seen.has(s)) {
-      seen.add(s);
-      out.push(s);
+  for (let i = 0; i < aRaw.length; i += 1) {
+    const s = normalizeSlot(aRaw[i]);
+    if (s !== null && right.has(s)) {
+      if (!seen.has(s)) {
+        seen.add(s);
+        out.push(s);
+      }
     }
   }
   return out.sort();
@@ -87,25 +103,21 @@ function getSlotHour(slot) {
   return Number(m[2]);
 }
 
-function makeProfile(input) {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('profile input must be an object with role, region, availability, subjects');
-  }
-  // Privacy gate first: an unknown key is rejected before anything else is looked at.
+function assertAllowedProfileKeys(input) {
   const keys = Object.keys(input);
   for (let i = 0; i < keys.length; i += 1) {
-    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1 && keys[i] !== 'aiLevel') throw new Error(PERSONAL_DATA_ERROR);
+    if (ACCEPTED_FIELDS.indexOf(keys[i]) === -1 && keys[i] !== 'aiLevel') {
+      throw new Error(PERSONAL_DATA_ERROR);
+    }
   }
-  if (input.aiLevel !== undefined && !isAiLevel(input.aiLevel)) {
-    throw new Error('invalid aiLevel: expected beginner or advanced');
-  }
-  const role = input.role;
-  const region = input.region;
-  const availability = input.availability;
-  const subjects = input.subjects;
+}
 
+function assertValidRoleAndRegion(role, region) {
   if (ROLES.indexOf(role) === -1) throw new Error('invalid role: expected student or pupil');
   if (!isRegion(region)) throw new Error('invalid region: expected one of the REGIONS codes');
+}
+
+function parseProfileSlots(availability) {
   if (!Array.isArray(availability) || availability.length === 0) {
     throw new Error('invalid availability: expected a non-empty array of DAY_HOUR slots');
   }
@@ -115,6 +127,10 @@ function makeProfile(input) {
     if (slot === null) throw new Error('invalid availability slot: ' + String(availability[i]));
     slots.push(slot);
   }
+  return slots;
+}
+
+function assertValidSubjects(subjects) {
   if (!Array.isArray(subjects) || subjects.length === 0) {
     throw new Error('invalid subjects: expected a non-empty array');
   }
@@ -123,69 +139,93 @@ function makeProfile(input) {
       throw new Error('invalid subjects entry: ' + String(subjects[i]));
     }
   }
+}
 
-  if (input.parentConsent !== undefined && typeof input.parentConsent !== 'boolean') {
-    throw new Error('invalid parentConsent: expected boolean');
-  }
-
+function parseBlockedUsers(inputBlocked) {
+  if (inputBlocked === undefined) return undefined;
+  if (!Array.isArray(inputBlocked)) throw new Error('invalid blockedUsers: expected an array');
   const blockedUsers = [];
-  if (input.blockedUsers !== undefined) {
-    if (!Array.isArray(input.blockedUsers)) throw new Error('invalid blockedUsers: expected an array');
-    for (let i = 0; i < input.blockedUsers.length; i += 1) {
-      const uid = assertPeerUserId(input.blockedUsers[i]);
-      if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
-    }
+  for (let i = 0; i < inputBlocked.length; i += 1) {
+    const uid = assertPeerUserId(inputBlocked[i]);
+    if (blockedUsers.indexOf(uid) === -1) blockedUsers.push(uid);
   }
+  return Object.freeze(blockedUsers);
+}
 
+function parseReportEvents(inputReport) {
+  if (inputReport === undefined) return undefined;
+  if (!Array.isArray(inputReport)) throw new Error('invalid reportEvent: expected an array');
+  const makeReportEvent = validatorLib().makeReportEvent;
   const reportEvents = [];
-  if (input.reportEvent !== undefined) {
-    if (!Array.isArray(input.reportEvent)) throw new Error('invalid reportEvent: expected an array');
-    const makeReportEvent = validatorLib().makeReportEvent;
-    for (let i = 0; i < input.reportEvent.length; i += 1) {
-      reportEvents.push(makeReportEvent(input.reportEvent[i]));
-    }
+  for (let i = 0; i < inputReport.length; i += 1) {
+    reportEvents.push(makeReportEvent(inputReport[i]));
   }
+  return Object.freeze(reportEvents);
+}
 
+function parseResponseToReports(inputResponse) {
+  if (inputResponse === undefined) return undefined;
+  if (!Array.isArray(inputResponse)) throw new Error('invalid responseToReport: expected an array');
+  const makeResponseToReport = validatorLib().makeResponseToReport;
   const responseToReports = [];
-  if (input.responseToReport !== undefined) {
-    if (!Array.isArray(input.responseToReport)) throw new Error('invalid responseToReport: expected an array');
-    const makeResponseToReport = validatorLib().makeResponseToReport;
-    for (let i = 0; i < input.responseToReport.length; i += 1) {
-      responseToReports.push(makeResponseToReport(input.responseToReport[i]));
-    }
+  for (let i = 0; i < inputResponse.length; i += 1) {
+    responseToReports.push(makeResponseToReport(inputResponse[i]));
   }
+  return Object.freeze(responseToReports);
+}
 
-  const profile = {
-    role: role,
-    region: region,
-    availability: Object.freeze(unique(slots)),
-    subjects: Object.freeze(unique(subjects))
-  };
-
-  if (role === 'pupil' || input.parentConsent !== undefined) {
+function assignOptionalProfileFields(profile, input) {
+  if (input.role === 'pupil' || input.parentConsent !== undefined) {
     profile.parentConsent = typeof input.parentConsent === 'boolean' ? input.parentConsent : false;
   }
-
   if (input.blockedUsers !== undefined) {
-    profile.blockedUsers = Object.freeze(blockedUsers.slice());
+    profile.blockedUsers = parseBlockedUsers(input.blockedUsers);
   }
-
   if (input.reportEvent !== undefined) {
-    profile.reportEvent = Object.freeze(reportEvents.slice());
+    profile.reportEvent = parseReportEvents(input.reportEvent);
   }
-
   if (input.responseToReport !== undefined) {
-    profile.responseToReport = Object.freeze(responseToReports.slice());
+    profile.responseToReport = parseResponseToReports(input.responseToReport);
   }
-
   if (input.aiLevel !== undefined) {
     profile.aiLevel = input.aiLevel;
   }
+}
 
-  const policy = getRetentionPolicy();
+function assertValidAiLevel(aiLevel) {
+  if (aiLevel !== undefined && !isAiLevel(aiLevel)) {
+    throw new Error('invalid aiLevel: expected beginner or advanced');
+  }
+}
+
+function assertValidParentConsent(consent) {
+  if (consent !== undefined && typeof consent !== 'boolean') {
+    throw new Error('invalid parentConsent: expected boolean');
+  }
+}
+
+function makeProfile(input) {
+  if (!isPlainObject(input)) {
+    throw new Error('profile input must be an object with role, region, availability, subjects');
+  }
+  assertAllowedProfileKeys(input);
+  assertValidAiLevel(input.aiLevel);
+  assertValidRoleAndRegion(input.role, input.region);
+  const slots = parseProfileSlots(input.availability);
+  assertValidSubjects(input.subjects);
+  assertValidParentConsent(input.parentConsent);
+
+  const profile = {
+    role: input.role,
+    region: input.region,
+    availability: Object.freeze(unique(slots)),
+    subjects: Object.freeze(unique(input.subjects))
+  };
+
+  assignOptionalProfileFields(profile, input);
   profile.retention = Object.freeze({
     dataCategory: 'profile',
-    maxAgeDays: policy.profile
+    maxAgeDays: getRetentionPolicy().profile
   });
 
   return Object.freeze(profile);
@@ -201,19 +241,36 @@ function makeProfile(input) {
 // the one it skipped was the one place a name or a phone written on disk could sit without being refused.
 // A third field in the stamp is refused with the same message as a name beside it; a stamp of another
 // shape (a string, a list, another category, no day count) is a record the app never wrote.
+function assertProfileObject(profile) {
+  if (!isPlainObject(profile)) {
+    throw new Error('profile must be an object');
+  }
+}
+
+function isValidRetentionDays(days) {
+  return Number.isInteger(days) && days >= 0;
+}
+
+function assertValidRetentionKeys(keys) {
+  for (let i = 0; i < keys.length; i += 1) {
+    if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
+  }
+}
+
+function assertValidRetentionStamp(stamp) {
+  if (!isPlainObject(stamp)) {
+    throw new Error('invalid retention: expected the stamp makeProfile writes');
+  }
+  assertValidRetentionKeys(Object.keys(stamp));
+  if (stamp.dataCategory !== 'profile' || !isValidRetentionDays(stamp.maxAgeDays)) {
+    throw new Error('invalid retention: expected the stamp makeProfile writes');
+  }
+}
+
 function withoutRetentionStamp(profile) {
   const stamp = profile.retention;
   if (stamp !== undefined) {
-    if (stamp === null || typeof stamp !== 'object' || Array.isArray(stamp)) {
-      throw new Error('invalid retention: expected the stamp makeProfile writes');
-    }
-    const keys = Object.keys(stamp);
-    for (let i = 0; i < keys.length; i += 1) {
-      if (RETENTION_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
-    }
-    if (stamp.dataCategory !== 'profile' || !Number.isInteger(stamp.maxAgeDays) || stamp.maxAgeDays < 0) {
-      throw new Error('invalid retention: expected the stamp makeProfile writes');
-    }
+    assertValidRetentionStamp(stamp);
   }
   const input = Object.assign({}, profile);
   delete input.retention;
@@ -226,14 +283,11 @@ function withoutRetentionStamp(profile) {
 // consent must be a real boolean (or omitted, meaning true): a form value 'false' or 'no' is truthy, and
 // coercing it would record a parent's consent that was never given.
 function setParentConsent(profile, consent) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   if (consent !== undefined && typeof consent !== 'boolean') {
     throw new Error('invalid parentConsent: expected boolean');
   }
   const consentValue = consent === undefined ? true : consent;
-  // retention is derived by makeProfile itself, not an input field: shed it before re-validating.
   const input = withoutRetentionStamp(profile);
   return makeProfile(Object.assign(input, { parentConsent: consentValue }));
 }
@@ -248,17 +302,13 @@ function revokeParentConsent(profile) {
 
 function checkBlocked(profile, userId) {
   assertPeerUserId(userId);
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   if (!Array.isArray(profile.blockedUsers)) return false;
   return profile.blockedUsers.indexOf(userId) !== -1;
 }
 
 function blockUser(profile, userId) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   assertPeerUserId(userId);
   const input = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.blockedUsers) ? profile.blockedUsers.slice() : [];
@@ -267,9 +317,7 @@ function blockUser(profile, userId) {
 }
 
 function reportEvent(profile, input) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   const event = validatorLib().makeReportEvent(input);
   const base = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.reportEvent) ? profile.reportEvent.slice() : [];
@@ -278,14 +326,72 @@ function reportEvent(profile, input) {
 }
 
 function responseToReport(profile, input) {
-  if (profile === null || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error('profile must be an object');
-  }
+  assertProfileObject(profile);
   const response = validatorLib().makeResponseToReport(input);
   const base = withoutRetentionStamp(profile);
   const current = Array.isArray(profile.responseToReport) ? profile.responseToReport.slice() : [];
   current.push(response);
   return makeProfile(Object.assign(base, { responseToReport: current }));
+}
+
+function recordPersonSlots(avail, role, dMap, sMap) {
+  const seenSlots = new Set();
+  for (let j = 0; j < avail.length; j += 1) {
+    const norm = normalizeSlot(avail[j]);
+    if (norm !== null && !seenSlots.has(norm)) {
+      seenSlots.add(norm);
+      if (role === 'pupil') {
+        dMap.set(norm, (dMap.get(norm) || 0) + 1);
+      } else if (role === 'student') {
+        sMap.set(norm, (sMap.get(norm) || 0) + 1);
+      }
+    }
+  }
+}
+
+function processPersonHeatmap(p, dMap, sMap) {
+  if (!isPlainObject(p)) return;
+  const role = typeof p.role === 'string' ? p.role.trim().toLowerCase() : '';
+  if (role !== 'student' && role !== 'pupil') return;
+  const avail = Array.isArray(p.availability) ? p.availability : [];
+  recordPersonSlots(avail, role, dMap, sMap);
+}
+
+function compareShortageSlots(a, b) {
+  if (b.gap !== a.gap) return b.gap - a.gap;
+  if (b.demand !== a.demand) return b.demand - a.demand;
+  const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+  if (dayDiff !== 0) return dayDiff;
+  return a.hour - b.hour;
+}
+
+function buildSlotForHour(day, h, dMap, sMap) {
+  const slotKey = day + '_' + h;
+  const demand = dMap.get(slotKey) || 0;
+  const supply = sMap.get(slotKey) || 0;
+  const gap = demand - supply;
+  return Object.freeze({
+    slot: slotKey,
+    day: day,
+    hour: h,
+    demand: demand,
+    supply: supply,
+    gap: gap,
+    shortage: Math.max(gap, 0),
+    pupils: demand,
+    students: supply
+  });
+}
+
+function populateDaySlots(day, maps, out) {
+  for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
+    const slotObj = buildSlotForHour(day, h, maps.dMap, maps.sMap);
+    out.slots.push(slotObj);
+    out.slots[slotObj.slot] = slotObj;
+    if (slotObj.demand > slotObj.supply) {
+      out.topShortageSlots.push(slotObj);
+    }
+  }
 }
 
 function computeWeeklyAvailabilityHeatmap(people) {
@@ -294,71 +400,22 @@ function computeWeeklyAvailabilityHeatmap(people) {
 
   if (Array.isArray(people)) {
     for (let i = 0; i < people.length; i += 1) {
-      const p = people[i];
-      if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
-      const role = typeof p.role === 'string' ? p.role.trim().toLowerCase() : '';
-      if (role !== 'student' && role !== 'pupil') continue;
-
-      const avail = Array.isArray(p.availability) ? p.availability : [];
-      const seenSlots = new Set();
-      for (let j = 0; j < avail.length; j += 1) {
-        const norm = normalizeSlot(avail[j]);
-        if (norm !== null && !seenSlots.has(norm)) {
-          seenSlots.add(norm);
-          if (role === 'pupil') {
-            dMap.set(norm, (dMap.get(norm) || 0) + 1);
-          } else if (role === 'student') {
-            sMap.set(norm, (sMap.get(norm) || 0) + 1);
-          }
-        }
-      }
+      processPersonHeatmap(people[i], dMap, sMap);
     }
   }
 
-  const slots = [];
-  const topShortageSlots = [];
+  const maps = { dMap, sMap };
+  const out = { slots: [], topShortageSlots: [] };
 
   for (let di = 0; di < DAYS.length; di += 1) {
-    const day = DAYS[di];
-    for (let h = HOUR_MIN; h <= HOUR_MAX; h += 1) {
-      const slotKey = day + '_' + h;
-      const demand = dMap.get(slotKey) || 0;
-      const supply = sMap.get(slotKey) || 0;
-      const gap = demand - supply;
-      const shortage = Math.max(gap, 0);
-
-      const slotObj = Object.freeze({
-        slot: slotKey,
-        day: day,
-        hour: h,
-        demand: demand,
-        supply: supply,
-        gap: gap,
-        shortage: shortage,
-        pupils: demand,
-        students: supply
-      });
-
-      slots.push(slotObj);
-      slots[slotKey] = slotObj;
-
-      if (demand > supply) {
-        topShortageSlots.push(slotObj);
-      }
-    }
+    populateDaySlots(DAYS[di], maps, out);
   }
 
-  topShortageSlots.sort((a, b) => {
-    if (b.gap !== a.gap) return b.gap - a.gap;
-    if (b.demand !== a.demand) return b.demand - a.demand;
-    const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
-    if (dayDiff !== 0) return dayDiff;
-    return a.hour - b.hour;
-  });
+  out.topShortageSlots.sort(compareShortageSlots);
 
   return Object.freeze({
-    slots: Object.freeze(slots),
-    topShortageSlots: Object.freeze(topShortageSlots)
+    slots: Object.freeze(out.slots),
+    topShortageSlots: Object.freeze(out.topShortageSlots)
   });
 }
 
