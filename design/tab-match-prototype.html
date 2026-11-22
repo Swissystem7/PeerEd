@@ -393,7 +393,7 @@
   }
 
   .cell-highlight-best {
-    background: #ECFDF5 !important;
+    background: #ECFDF5;
     font-weight: 700;
     color: var(--ok);
   }
@@ -728,7 +728,7 @@
     <div id="matchCompareContent">
       <!-- Table View -->
       <div id="view-table-container" role="tabpanel" aria-labelledby="tab-view-table">
-        <div class="table-wrapper" tabindex="0" role="region" aria-label="טבלת השוואת מועמדים">
+        <div class="table-wrapper" role="region" aria-label="טבלת השוואת מועמדים">
           <table class="compare-table" id="comparisonTable">
             <thead>
               <tr id="tableHeaderRow">
@@ -1007,10 +1007,10 @@
   const valAi = document.getElementById('valAi');
 
   function updateWeightsUI() {
-    valRegion.textContent = weightRegion.value + '%';
-    valHours.textContent = weightHours.value + '%';
-    valSubject.textContent = weightSubject.value + '%';
-    valAi.textContent = weightAi.value + '%';
+    valRegion.textContent = `${weightRegion.value}%`;
+    valHours.textContent = `${weightHours.value}%`;
+    valSubject.textContent = `${weightSubject.value}%`;
+    valAi.textContent = `${weightAi.value}%`;
     renderComparison();
   }
 
@@ -1164,7 +1164,7 @@
       },
       {
         label: 'נושאי AI והנחיה (AI Topics)',
-        getValue: (c) => c.aiTopics.map(t => `<span class="badge-tag" style="background:#E0E7FF; color:#3730A3; margin:2px;">${t}</span>`).join(' ') + `<br><small style="color:var(--muted);">רמת AI: ${c.aiLevel}</small>`,
+        getValue: (c) => `${c.aiTopics.map(t => `<span class="badge-tag" style="background:#E0E7FF; color:#3730A3; margin:2px;">${t}</span>`).join(' ')}<br><small style="color:var(--muted);">רמת AI: ${c.aiLevel}</small>`,
         isBest: (c) => c.aiLevel.includes('Advanced')
       },
       {
@@ -1258,7 +1258,7 @@
   }
 
   // Lock match handler
-  window.lockCandidateMatch = function(id) {
+  window.lockCandidateMatch = (id) => {
     alert(`שידוך עם מועמד ${id} ננעל בהצלחה! השיבוץ נשמר בדפדפן (localStorage) ללא PII.`);
   };
 
