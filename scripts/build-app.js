@@ -1,4 +1,4 @@
-'use strict';
+
 // Build app.html: the shell plus every tested module inlined, so the app is ONE file that opens from a
 // phone or a static host with no bundler and no second copy of the logic. The modules are the same files
 // the test suite runs; test/app-build.test.js fails if app.html is stale.
@@ -44,7 +44,7 @@ function cleanModule(name, code) {
 function moduleBlock(name, code) {
   const usesExports = /(^|[^.\w$])exports\b/.test(code);
   const lines = [
-    '/* ===== src/lib/' + name + '.js ===== */',
+    `/* ===== src/lib/${name}.js ===== */`,
     '(function () {',
     '  var module = { exports: {} };'
   ];
@@ -53,7 +53,7 @@ function moduleBlock(name, code) {
   }
   lines.push(
     code.replace(/\s+$/, ''),
-    '  __registry[' + JSON.stringify(name) + '] = module.exports;',
+    `  __registry[${JSON.stringify(name)}] = module.exports;`,
     '})();'
   );
   return lines.join('\n');
@@ -82,7 +82,7 @@ function assertOrder(modules, order = ORDER) {
 
 function build(opts = {}) {
   const shell = lf(fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8'));
-  if (shell.indexOf(MARKER) === -1) throw new Error('src/app-shell.html has no ' + MARKER + ' marker');
+  if (shell.indexOf(MARKER) === -1) throw new Error(`src/app-shell.html has no ${MARKER} marker`);
   const banner = '/* Built by scripts/build-app.js from src/lib/*.js - do not edit this block by hand. */';
 
   const overrides = opts.modules || {};
@@ -90,7 +90,7 @@ function build(opts = {}) {
   for (const name of ORDER) {
     const raw = overrides[name] !== undefined
       ? overrides[name]
-      : fs.readFileSync(path.join(ROOT, 'src', 'lib', name + '.js'), 'utf8');
+      : fs.readFileSync(path.join(ROOT, 'src', 'lib', `${name}.js`), 'utf8');
     modules[name] = lf(overrides[name] !== undefined ? raw : cleanModule(name, raw));
   }
   assertOrder(modules);
@@ -99,7 +99,7 @@ function build(opts = {}) {
 
   // A function replacer, not a replacement string: module code is arbitrary JavaScript, and a "$&" or
   // "$'" inside a regex or a string literal would otherwise be expanded here and inline the wrong text.
-  const payload = banner + '\n' + blocks.join('\n\n');
+  const payload = `${banner}\n${blocks.join('\n\n')}`;
   return shell.replace(MARKER, () => payload);
 }
 
@@ -116,7 +116,7 @@ function main() {
     return;
   }
   fs.writeFileSync(target, built, 'utf8');
-  process.stdout.write('wrote app.html (' + built.length + ' bytes, ' + ORDER.length + ' modules)\n');
+  process.stdout.write(`wrote app.html (${built.length} bytes, ${ORDER.length} modules)\n`);
 }
 
 if (require.main === module) main();
