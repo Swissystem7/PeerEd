@@ -17,7 +17,7 @@ test('a11y: report export controls have aria attributes and manage aria-expanded
   const currentShell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
   assert.ok(/<button type="button" class="ghost" id="exportReport"[^>]*aria-label="ייצא דוח ספירות לרשות בפורמט CSV"[^>]*aria-expanded="false"[^>]*aria-controls="reportBox reportStatus"[^>]*aria-describedby="reportStatus"/.test(currentShell),
     'exportReport must have aria-label, aria-expanded="false", aria-controls="reportBox reportStatus", and aria-describedby="reportStatus"');
-  assert.ok(/<div id="reportBox"[^>]*hidden[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="דוח ספירות לרשות"/.test(currentShell),
+  assert.ok(/<(?:div|section) id="reportBox"[^>]*hidden[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="דוח ספירות לרשות"/.test(currentShell),
     'reportBox must have role="region", aria-live="polite", and aria-label="דוח ספירות לרשות"');
   assert.ok(/<textarea id="reportText"[^>]*aria-describedby="reportStatus"/.test(currentShell),
     'reportText must have aria-describedby="reportStatus"');

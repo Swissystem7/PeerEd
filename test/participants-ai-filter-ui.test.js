@@ -13,7 +13,7 @@ test("select with 5 options exists in #tab-people and app.html contains the sele
 	const html = fs.readFileSync(path.join(ROOT, "app.html"), "utf8");
 	const peopleTabIndex = html.indexOf('id="tab-people"');
 	assert.ok(peopleTabIndex !== -1, "#tab-people must exist in app.html");
-	const peopleTabEndIndex = html.indexOf("</section>", peopleTabIndex);
+	const peopleTabEndIndex = html.indexOf('id="tab-', peopleTabIndex + 10);
 	assert.ok(peopleTabEndIndex !== -1, "#tab-people closing tag must exist");
 	const peopleSection = html.slice(peopleTabIndex, peopleTabEndIndex);
 

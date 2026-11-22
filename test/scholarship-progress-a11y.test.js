@@ -101,7 +101,7 @@ test('#scholarshipProgress container has accessible label and aria-live="polite"
   assert.equal(container.getAttribute('aria-live'), 'polite');
 
   // Verify container element in shell markup
-  const containerTagMatch = shell.match(/<div\b[^>]*\bid="scholarshipProgress"[^>]*>/);
+  const containerTagMatch = shell.match(/<(?:div|section)\b[^>]*\bid="scholarshipProgress"[^>]*>/);
   assert.ok(containerTagMatch, 'shell must define element with id="scholarshipProgress"');
   assert.match(containerTagMatch[0], /\baria-label="התקדמות מלגה"/, 'shell must include aria-label on #scholarshipProgress');
   assert.match(containerTagMatch[0], /\baria-live="polite"/, 'shell must include aria-live="polite" on #scholarshipProgress');

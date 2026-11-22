@@ -233,7 +233,9 @@ function match2(students, pupils, opts) {
   });
   pairs.sort((a, b) => (a.studentIndex - b.studentIndex) || (a.pupilIndex - b.pupilIndex));
   const pairedP = new Set(pairs.map((x) => x.pupilIndex)); const countS = new Map();
-  pairs.forEach((x) => countS.set(x.studentIndex, (countS.get(x.studentIndex) || 0) + 1));
+  pairs.forEach(x => {
+    countS.set(x.studentIndex, (countS.get(x.studentIndex) || 0) + 1);
+  });
   const unmatchedPupils = P.map((p, i) => i).filter((i) => !pairedP.has(i)).map((i) => ({ pupilIndex: i, reason: !hasParentConsent(P[i]) ? 'NO_PARENT_CONSENT' : 'NO_FEASIBLE_PAIR' }));
   const unmatchedStudents = S.map((s, i) => i).filter((i) => (countS.get(i) || 0) < capacityOf(S[i], o)).map((i) => ({ studentIndex: i, reason: 'NO_FEASIBLE_PAIR' }));
   return { pairs, unmatchedPupils, unmatchedStudents, totalScore: pairs.reduce((a, x) => a + x.score, 0), weights: w };

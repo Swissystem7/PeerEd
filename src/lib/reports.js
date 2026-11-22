@@ -45,9 +45,15 @@ function semesterReport(data, semester) {
 function reportToCsv(report) {
   const lines = ['measure,code,count'];
   lines.push('scheduled,,' + report.scheduled);
-  ['held', 'missed', 'postponed', 'cancelled'].forEach((s) => lines.push('status_' + s + ',,' + report.byStatus[s]));
-  Object.keys(report.bySubject).sort().forEach((k) => lines.push('subject,' + k + ',' + report.bySubject[k]));
-  Object.keys(report.byRegion).sort().forEach((k) => lines.push('region,' + k + ',' + report.byRegion[k]));
+  ['held', 'missed', 'postponed', 'cancelled'].forEach(s => {
+    lines.push('status_' + s + ',,' + report.byStatus[s]);
+  });
+  Object.keys(report.bySubject).sort().forEach(k => {
+    lines.push('subject,' + k + ',' + report.bySubject[k]);
+  });
+  Object.keys(report.byRegion).sort().forEach(k => {
+    lines.push('region,' + k + ',' + report.byRegion[k]);
+  });
   lines.push('stale_pairs,,' + report.stale.length);
   return lines.join('\n') + '\n';
 }

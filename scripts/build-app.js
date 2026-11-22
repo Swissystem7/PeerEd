@@ -12,7 +12,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 // dependency order: a module may only require one listed before it
 const ORDER = ['i18n', 'regions', 'retention', 'audit-report', 'cycle-manager', 'profile', 'match', 'match2', 'capacity', 'schedule', 'semester', 'attendance', 'reports', 'validator', 'curriculum', 'unit', 'approval', 'session', 'import-availability', 'wizard-link', 'pwa', 'backup', 'modes', 'lang-he', 'lang-ar', 'lang-ru', 'lang-extra', 'flow', 'guide-he', 'store', 'tabnav', 'contact'];
-const MARKER = '<!--MODULES-->';
+const MARKER = '/*MODULES*/';
 
 // Every input is normalized to LF before it is joined. On a Windows checkout (git autocrlf) the shell and
 // the modules arrive with CRLF while the blocks are joined with LF, so the build was a mixed-ending file
@@ -39,8 +39,8 @@ function assertOrder(modules, order = ORDER) {
     const name = order[index];
     const code = modules[name];
     const reqRe = /require\(\s*['"]\.\/([^'"]+?)(?:\.js)?['"]\s*\)/g;
-    let m;
-    while ((m = reqRe.exec(code)) !== null) {
+    let m = reqRe.exec(code);
+    while (m !== null) {
       const dep = m[1];
       const depIdx = order.indexOf(dep);
       if (depIdx === -1) {
@@ -49,6 +49,7 @@ function assertOrder(modules, order = ORDER) {
       if (depIdx >= index) {
         throw new Error(`Module '${name}' requires '${dep}', which is loaded after it in ORDER.`);
       }
+      m = reqRe.exec(code);
     }
   }
 }

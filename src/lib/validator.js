@@ -87,7 +87,7 @@ function assertUserId(id) {
 var DEFAULT_MAX_LENGTH = 4000;
 var DEFAULT_MIN_LENGTH = 1;
 // every C0 control character except \t (09) and \n (0a), plus DEL
-var CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f]/g;
+var CONTROL_RE = new RegExp("[\\u0000-\\u0008\\u000b-\\u001f\\u007f]", "g");
 // Characters that take no space on the screen: soft hyphen, zero-width space/joiners, the bidi marks a
 // Hebrew keyboard or WhatsApp drops into text (RLM, LRM, embeddings, isolates), word joiner, BOM. A
 // reader does not see them, so "050<RLM>1234567" is a phone number to a reader and to nobody else.
@@ -140,19 +140,26 @@ var SPELLED_RE = new RegExp('(?<!' + LETTER + ')' + LETTER + '([-.*_\\u00b7\\s])
 var SPELLED_MIN_LETTERS = 4;
 
 function findSpelledProfanity(text) {
-  var whole = new RegExp('^' + HEBREW_PREFIX + '(?:' + profanityAlternatives() + ')$', 'i');
-  var re = new RegExp(SPELLED_RE.source, 'g');
-  var hits = [];
-  var m;
-  while ((m = re.exec(text)) !== null) {
-    var run = m[0];
-    // the position of every letter in the run: letters sit at even offsets, one mark between each two
-    var letters = [];
-    for (var k = 0; k < run.length; k += 2) letters.push(k);
-    for (var i = 0; i + SPELLED_MIN_LETTERS <= letters.length; i++) {
-      for (var j = letters.length; j - i >= SPELLED_MIN_LETTERS; j--) {
-        var word = '';
-        for (var n = i; n < j; n++) word += run.charAt(letters[n]);
+  var whole, re, hits, m, run, letters, k, i, j, word, n;
+  whole = new RegExp('^' + HEBREW_PREFIX + '(?:' + profanityAlternatives() + ')$', 'i');
+  re = new RegExp(SPELLED_RE.source, 'g');
+  hits = [];
+
+  while (true) {
+    m = re.exec(text);
+
+    if (!(m !== null))
+      break;
+
+    run = m[0];
+    letters = [];
+    for (k = 0; k < run.length; k += 2)
+      letters.push(k);
+    for (i = 0; i + SPELLED_MIN_LETTERS <= letters.length; i++) {
+      for (j = letters.length; j - i >= SPELLED_MIN_LETTERS; j--) {
+        word = '';
+        for (n = i; n < j; n++)
+          word += run.charAt(letters[n]);
         if (!whole.test(word)) continue;
         // a cleared word ("מזונות") takes its letters with it, so the "זונות" inside is not tried next
         if (!NOT_PROFANITY_RE.test(word)) hits.push({ kind: 'profanity', match: run.slice(letters[i], letters[j - 1] + 1), index: m.index + letters[i] });
@@ -161,17 +168,25 @@ function findSpelledProfanity(text) {
       }
     }
   }
+
   return hits;
 }
 
 function findProfanity(text) {
-  var re = profanityRegex();
-  var hits = [];
-  var m;
-  while ((m = re.exec(text)) !== null) {
+  var re, hits, m;
+  re = profanityRegex();
+  hits = [];
+
+  while (true) {
+    m = re.exec(text);
+
+    if (!(m !== null))
+      break;
+
     if (NOT_PROFANITY_RE.test(m[0])) continue;
     hits.push({ kind: 'profanity', match: m[0], index: m.index });
   }
+
   return hits.concat(findSpelledProfanity(text)).sort(function (a, b) { return a.index - b.index; });
 }
 
@@ -192,17 +207,24 @@ function contains(outer, inner) {
 // Each index is a position in the text as typed, since the check screen shows it as "תו N" next to that
 // text: with niqqud or an RLM before the hit, the folded position pointed at an earlier character.
 function findPersonalData(text) {
+  var typed, toTyped, raw, kept;
   if (typeof text !== 'string') return [];
-  var typed = text;
+  typed = text;
   text = text.replace(INVISIBLE_RE, '').normalize('NFKC').replace(HEBREW_POINT_RE, '')
     .replace(OTHER_DIGIT_RE, asciiDigit);
   if (text === '') return [];
-  var toTyped = typedPositions(typed, text);
-  var raw = findProfanity(text);
+  toTyped = typedPositions(typed, text);
+  raw = findProfanity(text);
   Object.keys(PATTERNS).forEach(function (kind) {
-    var re = new RegExp(PATTERNS[kind].source, 'g');
-    var m;
-    while ((m = re.exec(text)) !== null) {
+    var re, m;
+    re = new RegExp(PATTERNS[kind].source, 'g');
+
+    while (true) {
+      m = re.exec(text);
+
+      if (!(m !== null))
+        break;
+
       if (m[0] === '') { re.lastIndex += 1; continue; }
       raw.push({ kind: kind, match: m[0], index: m.index });
     }
@@ -212,12 +234,16 @@ function findPersonalData(text) {
     return (a.index - b.index) || (b.match.length - a.match.length) ||
       (a.kind < b.kind ? -1 : (a.kind > b.kind ? 1 : 0));
   });
-  var kept = [];
+  kept = [];
   raw.forEach(function (hit) {
-    var swallowed = kept.some(function (k) {
-      var sameSpan = k.index === hit.index && k.match.length === hit.match.length;
+    var swallowed;
+
+    swallowed = kept.some(function (k) {
+      var sameSpan;
+      sameSpan = k.index === hit.index && k.match.length === hit.match.length;
       return !sameSpan && contains(k, hit);
     });
+
     if (!swallowed) kept.push(hit);
   });
   kept.sort(function (a, b) {
@@ -231,14 +257,17 @@ function findPersonalData(text) {
 // redone one character at a time; when NFKC joins characters across a boundary (a letter and a
 // combining accent) that no longer gives the same text, and null keeps the folded positions.
 function typedPositions(typed, folded) {
-  var out = '';
-  var map = [];
-  var at = 0;
-  var invisible = new RegExp(INVISIBLE_RE.source);
+  var out, map, at, invisible;
+  out = '';
+  map = [];
+  at = 0;
+  invisible = new RegExp(INVISIBLE_RE.source);
   Array.from(typed).forEach(function (ch) {
+    var f, k;
     if (!invisible.test(ch)) {
-      var f = ch.normalize('NFKC').replace(HEBREW_POINT_RE, '').replace(OTHER_DIGIT_RE, asciiDigit);
-      for (var k = 0; k < f.length; k += 1) map.push(at);
+      f = ch.normalize('NFKC').replace(HEBREW_POINT_RE, '').replace(OTHER_DIGIT_RE, asciiDigit);
+      for (k = 0; k < f.length; k += 1)
+        map.push(at);
       out += f;
     }
     at += ch.length;
@@ -252,10 +281,11 @@ function assertSafeText(text) {
 }
 
 function cleanText(text) {
-  var s = String(text == null ? '' : text);
+  var s;
+  s = String(text == null ? '' : text);
   // A line break pasted from Windows (CR LF) or an old Mac (CR alone) is a line break, and a vertical tab
   // or form feed is a space. Stripped as control characters they glued the words on both sides together.
-  s = s.replace(/\r\n?/g, '\n').replace(/[\x0b\x0c]/g, ' ');
+  s = s.replace(/\r\n?/g, '\n').replace(new RegExp("[\\u000b\\u000c]", "g"), ' ');
   s = s.replace(CONTROL_RE, '');
   s = s.replace(/[^\S\n]+/g, ' ');   // collapse horizontal whitespace, keep newlines
   s = s.replace(/ *\n */g, '\n');    // no padding around a newline
@@ -272,11 +302,12 @@ function charCount(text) {
 }
 
 function assertCleanText(text, opts) {
+  var maxLength, minLength, cleaned, hits;
   opts = opts || {};
-  var maxLength = typeof opts.maxLength === 'number' ? opts.maxLength : DEFAULT_MAX_LENGTH;
-  var minLength = typeof opts.minLength === 'number' ? opts.minLength : DEFAULT_MIN_LENGTH;
-  var cleaned = cleanText(text);
-  var hits = findPersonalData(cleaned);
+  maxLength = typeof opts.maxLength === 'number' ? opts.maxLength : DEFAULT_MAX_LENGTH;
+  minLength = typeof opts.minLength === 'number' ? opts.minLength : DEFAULT_MIN_LENGTH;
+  cleaned = cleanText(text);
+  hits = findPersonalData(cleaned);
   // Both refuse the text. Personal data is named first because exposing it cannot be taken back,
   // so when a message carries both, that is the reason the writer is told about.
   if (hits.some(function (h) { return h.kind !== 'profanity'; })) throw new Error(PERSONAL_DATA_ERROR);
@@ -301,33 +332,35 @@ var RESPONSE_TO_REPORT_FIELDS = Object.freeze(['reportIndex', 'detail']);
 var RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH = 300;
 
 function makeReportEvent(input) {
+  var keys, i, userId, detail;
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('report event input must be an object with userId, detail');
   }
-  var keys = Object.keys(input);
-  for (var i = 0; i < keys.length; i += 1) {
+  keys = Object.keys(input);
+  for (i = 0; i < keys.length; i += 1) {
     if (REPORT_EVENT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   if (typeof input.detail !== 'string') throw new Error('invalid detail: expected a string');
-  var userId = assertUserId(input.userId);
-  var detail = assertCleanText(input.detail, { maxLength: REPORT_EVENT_DETAIL_MAX_LENGTH });
+  userId = assertUserId(input.userId);
+  detail = assertCleanText(input.detail, { maxLength: REPORT_EVENT_DETAIL_MAX_LENGTH });
   return Object.freeze({ userId: userId, detail: detail });
 }
 
 function makeResponseToReport(input) {
+  var keys, i, reportIndex, detail;
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('response to report input must be an object with reportIndex, detail');
   }
-  var keys = Object.keys(input);
-  for (var i = 0; i < keys.length; i += 1) {
+  keys = Object.keys(input);
+  for (i = 0; i < keys.length; i += 1) {
     if (RESPONSE_TO_REPORT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   if (typeof input.detail !== 'string') throw new Error('invalid detail: expected a string');
-  var reportIndex = input.reportIndex;
+  reportIndex = input.reportIndex;
   if (!Number.isInteger(reportIndex) || reportIndex < 0) {
     throw new Error('invalid reportIndex: expected a non-negative integer');
   }
-  var detail = assertCleanText(input.detail, { maxLength: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH });
+  detail = assertCleanText(input.detail, { maxLength: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH });
   return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
