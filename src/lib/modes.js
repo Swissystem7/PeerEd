@@ -204,7 +204,9 @@ function emptyModeState() { return Object.freeze({ mode: 'routine', groups: Obje
 function groupReport(groups, assignment) {
   const assigned = new Map();
   (assignment && Array.isArray(assignment.assignments) ? assignment.assignments : [])
-    .forEach((a) => assigned.set(a.key + '|' + a.part, a.students));
+    .forEach(a => {
+    assigned.set(a.key + '|' + a.part, a.students);
+  });
   const byKey = new Map();
   (Array.isArray(groups) ? groups : []).forEach((g) => {
     if (!byKey.has(g.key)) byKey.set(g.key, { key: g.key, mode: g.mode, children: 0, groups: 0, students: 0 });

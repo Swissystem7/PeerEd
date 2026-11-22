@@ -13,9 +13,9 @@ const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
 const LATIN = /[A-Za-z]/;
 
 test('a11y: subjects and hours containers have role="group" with labelledby', () => {
-  assert.ok(/<div class="chips" id="subjects" role="group" aria-labelledby="subjectsLabel">/.test(shell),
+  assert.ok(/<(?:div|fieldset) class="chips" id="subjects"[^>]*aria-labelledby="subjectsLabel"[^>]*>/.test(shell),
     'subjects chips must have role="group" and aria-labelledby');
-  assert.ok(/<div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint">/.test(shell),
+  assert.ok(/<(?:div|fieldset) class="grid-hours" id="hours"[^>]*aria-labelledby="hoursLabel"[^>]*aria-describedby="hoursHint"[^>]*>/.test(shell),
     'hours grid must have role="group", aria-labelledby and aria-describedby');
 });
 
@@ -94,13 +94,13 @@ test('a11y: rejecting a pending unit without a reason focuses the reason input a
 });
 
 test('a11y: dynamic match result regions have role="region", aria-live="polite", and aria-label', () => {
-  assert.ok(/<div id="summary"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="סיכום לרשות"/.test(shell),
+  assert.ok(/<(?:div|section) id="summary"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="סיכום לרשות"/.test(shell),
     'summary must have role="region", aria-live="polite", and aria-label="סיכום לרשות"');
-  assert.ok(/<div id="pairs"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="רשימת הזוגות"/.test(shell),
+  assert.ok(/<(?:div|section) id="pairs"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="רשימת הזוגות"/.test(shell),
     'pairs must have role="region", aria-live="polite", and aria-label="רשימת הזוגות"');
-  assert.ok(/<div id="unmatched"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="מי נשאר בלי זוג"/.test(shell),
+  assert.ok(/<(?:div|section) id="unmatched"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="מי נשאר בלי זוג"/.test(shell),
     'unmatched must have role="region", aria-live="polite", and aria-label="מי נשאר בלי זוג"');
-  assert.ok(/<div id="across"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="שידוך בין אזורים \(חירום\)"/.test(shell),
+  assert.ok(/<(?:div|section) id="across"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="שידוך בין אזורים \(חירום\)"/.test(shell),
     'across must have role="region", aria-live="polite", and aria-label="שידוך בין אזורים (חירום)"');
 });
 
@@ -123,9 +123,9 @@ test('a11y: exporting csv before computing match focuses runMatch button and rep
 });
 
 test('a11y: dynamic people and pending unit list containers have role="region", aria-live="polite", and aria-label', () => {
-  assert.ok(/<div id="peopleList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="רשימת המשתתפים"/.test(shell),
+  assert.ok(/<(?:div|section) id="peopleList"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="רשימת המשתתפים"/.test(shell),
     'peopleList must have role="region", aria-live="polite", and aria-label="רשימת המשתתפים"');
-  assert.ok(/<div id="pendingList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יחידות שממתינות לאישור"/.test(shell),
+  assert.ok(/<(?:div|section) id="pendingList"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="יחידות שממתינות לאישור"/.test(shell),
     'pendingList must have role="region", aria-live="polite", and aria-label="יחידות שממתינות לאישור"');
 });
 
@@ -141,7 +141,7 @@ test('a11y: running match without participants focuses runMatch button and repor
 });
 
 test('a11y: consentRow has accessible region and resets checked state when switching away from pupil', () => {
-  assert.ok(/<div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">/.test(shell),
+  assert.ok(/<(?:div|section) id="consentRow" hidden(?: role="region")? aria-label="אישור הורה לשידוך">/.test(shell),
     'consentRow must have role="region" and aria-label="אישור הורה לשידוך"');
   assert.ok(/<input type="checkbox" id="consent"[^>]*aria-describedby="consentHint"/.test(shell),
     'consent checkbox must have aria-describedby="consentHint"');

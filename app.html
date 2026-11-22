@@ -33,7 +33,7 @@
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .chip:focus-visible, a:focus-visible {
     outline:2px solid var(--key); outline-offset:2px;
   }
-  section[role="tabpanel"][hidden] { display:none; }
+  [role="tabpanel"][hidden] { display:none; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:24px; padding:16px; margin:12px 0; box-shadow:0 8px 24px rgba(49,46,129,.10); }
   .card h2 { font-size:1rem; margin:0 0 8px; }
   label { display:block; color:var(--muted); font-size:.78rem; margin:9px 0 4px; }
@@ -41,8 +41,7 @@
                             background:#FFFFFF; color:var(--ink); font:inherit; font-size:1rem; }
   textarea { min-height:110px; resize:vertical; font-size:.92rem; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px; }
-  button.act { background:var(--key); background-image:linear-gradient(90deg,#0F766E,#4338CA); color:#FFFFFF; border-radius:999px; min-height:48px; border:0; border-radius:9px; padding:11px 15px;
-               font:inherit; font-weight:700; cursor:pointer; }
+  button.act { background:var(--key); background-image:linear-gradient(90deg,#0F766E,#4338CA); color:#FFFFFF; min-height:48px; border:0; border-radius:9px; padding:11px 15px; font:inherit; font-weight:700; cursor:pointer; }
   button.ghost { background:#EEF2FF; color:var(--ink); border:1px solid var(--line); border-radius:9px;
                  padding:9px 13px; min-height:44px; font:inherit; cursor:pointer; }
   button.small { padding:5px 9px; font-size:.76rem; }
@@ -140,14 +139,15 @@
   </header>
 
   <!-- ============ אנשים ============ -->
-  <section role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">
+  <!-- biome-ignore lint/a11y/noNoninteractiveTabindex: WAI-ARIA tabs pattern focuses the selected tabpanel -->
+  <div role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">
     <div class="hero" id="homeHero">
       <h2>שלום, רכז/ת</h2>
       <p>שלוש פעולות עיקריות: מוסיפים משתתף, משבצים קבוצות, ופותחים את השיעור של היום. כל השאר מחכה תחת "מתקדם".</p>
-      <div class="mode-toggle" role="group" aria-label="מצב עבודה: שגרה או חירום">
+      <fieldset class="mode-toggle" aria-label="מצב עבודה: שגרה או חירום" style="border:0;margin:0;padding:0;min-inline-size:0;">
         <button type="button" id="modeRoutine" aria-pressed="true">שגרה</button>
         <button type="button" id="modeEmergency" aria-pressed="false">חירום</button>
-      </div>
+      </fieldset>
     </div>
     <div class="emg-banner" id="emgBanner" hidden>מצב חירום: קבוצות לפי מקום מפגש, ספירות וקבוצות גיל בלבד — בלי שמות ובלי כתובות מדויקות. שיעורים קצרים של 20–30 דקות, גם בלי חיבור.</div>
     <div class="card">
@@ -172,7 +172,7 @@
           <option value="elementary">יסודי (ג׳–ו׳)</option><option value="middle">חטיבה (ז׳–ט׳)</option></select></div>
         <div><label for="todayIndex">שיעור מספר</label><input id="todayIndex" type="number" min="1" max="12" value="1" aria-describedby="todayStatus"></div>
       </div>
-      <div id="todayLesson" role="region" aria-live="polite" aria-label="השיעור של היום"></div>
+      <section id="todayLesson" aria-live="polite" aria-label="השיעור של היום"></section>
       <label class="check"><input type="checkbox" id="todayDelivered" aria-describedby="todayStatus"> הועבר</label>
       <p class="status" id="todayStatus" role="status"></p>
     </div>
@@ -201,25 +201,25 @@
             <option value="advanced">מתקדם</option>
           </select></div>
       </div>
-      <div id="consentRow" hidden role="region" aria-label="אישור הורה לשידוך">
+      <section id="consentRow" hidden aria-label="אישור הורה לשידוך">
         <label class="check"><input type="checkbox" id="consent" aria-describedby="consentHint"> התקבל אישור הורה לשידוך</label>
         <p class="hint" id="consentHint">נשמר רק כן או לא: בלי שם ההורה, בלי תאריך, בלי מסמך. תלמיד בלי אישור נשמר ברשימה אבל לא נכנס
           לשידוך בכלל, עד שמסמנים לו אישור.</p>
-      </div>
-      <label id="subjectsLabel">מקצועות</label>
-      <div class="chips" id="subjects" role="group" aria-labelledby="subjectsLabel"></div>
+      </section>
+      <span id="subjectsLabel">מקצועות</span>
+      <fieldset class="chips" id="subjects" aria-labelledby="subjectsLabel" style="border:0;margin:0;padding:0;min-inline-size:0;"></fieldset>
       <fieldset id="aiTopicsFieldset">
         <legend id="aiTopicsLabel">נושאי בינה מלאכותית</legend>
-        <div class="chips" id="aiTopics" role="group" aria-labelledby="aiTopicsLabel"></div>
+        <fieldset class="chips" id="aiTopics" aria-labelledby="aiTopicsLabel" style="border:0;margin:0;padding:0;min-inline-size:0;"></fieldset>
       </fieldset>
-      <label id="periodLabel">זמינות לפי חלקי יום</label>
+      <span id="periodLabel">זמינות לפי חלקי יום</span>
       <p class="hint" id="periodHint">בוחרים בוקר, צהריים או אחה״צ לכל יום. זה מספיק לשיבוץ; שעות מדויקות נמצאות תחת "מתקדם".</p>
-      <div class="chips" id="periodChips" role="group" aria-labelledby="periodLabel" aria-describedby="periodHint"></div>
+      <fieldset class="chips" id="periodChips" aria-labelledby="periodLabel" aria-describedby="periodHint" style="border:0;margin:0;padding:0;min-inline-size:0;"></fieldset>
       <details class="advanced">
       <summary>מתקדם: שעות מדויקות</summary>
-      <label id="hoursLabel">שעות פנויות</label>
+      <span id="hoursLabel">שעות פנויות</span>
       <p class="hint" id="hoursHint">לוחצים על משבצת יום ושעה. אפשר לבחור כמה שרוצים.</p>
-      <div class="grid-hours" id="hours" role="group" aria-labelledby="hoursLabel" aria-describedby="hoursHint"></div>
+      <fieldset class="grid-hours" id="hours" aria-labelledby="hoursLabel" aria-describedby="hoursHint" style="border:0;margin:0;padding:0;min-inline-size:0;"></fieldset>
       </details>
       <div class="actions"><button type="button" class="act" id="addPerson" aria-describedby="addStatus">הוסף</button>
         <button type="button" class="ghost" id="demoBtn" aria-label="טען דוגמה – טען משתתפים לדוגמה" aria-describedby="addStatus">טען דוגמה</button></div>
@@ -245,7 +245,7 @@
         <button type="button" class="act" id="previewPilotCsvBtn" aria-describedby="pilotCsvStatus">תצוגה מקדימה</button>
         <button type="button" class="act" id="commitPilotCsvBtn" aria-describedby="pilotCsvStatus">אישור ייבוא</button>
       </div>
-      <div id="pilotCsvPreviewOut" role="region" aria-live="polite" aria-label="תצוגה מקדימה של ייבוא CSV"></div>
+      <section id="pilotCsvPreviewOut" aria-live="polite" aria-label="תצוגה מקדימה של ייבוא CSV"></section>
       <p class="status" id="pilotCsvStatus" role="status"></p>
     </div>
     <div class="card">
@@ -261,7 +261,7 @@
         "הורד זוגות (CSV)" במסך השידוך מוריד את תוצאת השידוך לפי מספרי הרשימה, לא את הרשימה: שעות שאינן משותפות
         לזוג לא נמצאות בקובץ, אישור הורה מופיע בו רק כסיבה אצל מי שנשאר בלי זוג בגללו, ואי אפשר לטעון אותו בחזרה.</p>
       <label for="peopleAiFilter" id="peopleAiFilterLabel">נושאי בינה מלאכותית</label>
-      <select id="peopleAiFilter" role="combobox" aria-expanded="false" aria-controls="peopleList">
+      <select id="peopleAiFilter" aria-expanded="false" aria-controls="peopleList">
         <option value="">כל הנושאים</option>
         <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
         <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
@@ -272,7 +272,7 @@
       <button type="button" class="ghost small" id="btn-filter-missing-ai" aria-pressed="false" aria-controls="peopleList">ללא נושאי AI</button>
       <p class="hint" id="ai-filter-count" aria-live="polite">0</p>
       <p class="empty" id="ai-filter-empty-message" hidden aria-live="polite"></p>
-      <div id="peopleList" role="region" aria-live="polite" aria-label="רשימת המשתתפים"></div>
+      <section id="peopleList" aria-live="polite" aria-label="רשימת המשתתפים"></section>
     </div>
     <div class="card">
       <h2>מחיקה מהמכשיר הזה</h2>
@@ -283,10 +283,10 @@
         <button type="button" class="ghost" id="wipeCancel" aria-label="בטל מחיקה מהמכשיר" aria-describedby="wipeStatus" hidden>ביטול</button></div>
       <p class="status" id="wipeStatus" role="status"></p>
     </div>
-  </section>
+  </div>
 
   <!-- ============ שידוך ============ -->
-  <section role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
+  <div role="tabpanel" id="tab-match" aria-labelledby="nav-match" tabindex="-1" hidden>
     <div class="match-conflict-badge" style="display:none;" data-i18n="matchConflictDetected"></div>
     <label><input type="checkbox" class="match-compare-chk" data-i18n="matchCompareCheckbox" /> Compare</label>
     <div id="matchComparePanel" class="card match-compare-panel" style="display:none;" aria-live="polite">
@@ -309,8 +309,8 @@
       <div class="actions"><button type="button" class="act" id="formGroups" aria-describedby="groupStatus">צור קבוצות</button>
         <button type="button" class="ghost" id="groupReportBtn" aria-label="הצג דוח קבוצות לפי בית ספר או מקום" aria-describedby="groupStatus">דוח לפי בית ספר / מקום</button></div>
       <p class="status" id="groupStatus" role="status"></p>
-      <div id="groupList" role="region" aria-live="polite" aria-label="קבוצות שנוצרו"></div>
-      <div id="groupReport" role="region" aria-live="polite" aria-label="דוח קבוצות"></div>
+      <section id="groupList" aria-live="polite" aria-label="קבוצות שנוצרו"></section>
+      <section id="groupReport" aria-live="polite" aria-label="דוח קבוצות"></section>
     </div>
     <div class="card">
       <h2>שידוך</h2>
@@ -330,16 +330,16 @@
     </div>
     <div class="card">
       <h2>סיכום לרשות</h2>
-      <div id="summary" role="region" aria-live="polite" aria-label="סיכום לרשות"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <section id="summary" aria-live="polite" aria-label="סיכום לרשות"><p class="empty">מופיע אחרי חישוב שידוך.</p></section>
       <div class="actions"><button type="button" class="ghost" id="exportMatchSummary" aria-label="הורד קובץ סיכום לרשות בפורמט CSV" aria-describedby="matchStatus">הורד סיכום לרשות (CSV)</button></div>
     </div>
     <div class="card">
       <h2>הזוגות</h2>
-      <div id="pairs" role="region" aria-live="polite" aria-label="רשימת הזוגות"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <section id="pairs" aria-live="polite" aria-label="רשימת הזוגות"><p class="empty">מופיע אחרי חישוב שידוך.</p></section>
     </div>
     <div class="card">
       <h2>מי נשאר בלי זוג</h2>
-      <div id="unmatched" role="region" aria-live="polite" aria-label="מי נשאר בלי זוג"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <section id="unmatched" aria-live="polite" aria-label="מי נשאר בלי זוג"><p class="empty">מופיע אחרי חישוב שידוך.</p></section>
     </div>
     <div class="card">
       <h2>שידוך מתקדם</h2>
@@ -350,7 +350,7 @@
         <button type="button" class="ghost" id="btn-filter-ai-only" aria-pressed="false" aria-describedby="match2Status">התאמת AI בלבד</button></div>
       <p class="status" id="match2Status" role="status"></p>
       <p class="empty" id="matchAiOnlyEmpty" hidden aria-live="polite"></p>
-      <div id="match2Out" role="region" aria-live="polite" aria-label="תוצאות שידוך מתקדם"></div>
+      <section id="match2Out" aria-live="polite" aria-label="תוצאות שידוך מתקדם"></section>
     </div>
     <div class="card" id="availabilityHeatmapPanel">
       <h2 id="availabilityHeatmapTitle">מפת פערי זמינות שבועית</h2>
@@ -358,7 +358,7 @@
       <div class="actions">
         <button type="button" class="ghost" id="toggleAvailabilityHeatmapBtn" aria-expanded="false" aria-describedby="match2Status">הצג מפת פערי זמינות</button>
       </div>
-      <div id="availabilityHeatmapOut" role="region" aria-live="polite" aria-label="מפת פערי זמינות שבועית" hidden></div>
+      <section id="availabilityHeatmapOut" aria-live="polite" aria-label="מפת פערי זמינות שבועית" hidden></section>
     </div>
     <div class="card" id="backupMatchesPanel">
       <h2 id="backupMatchesTitle">הצעות גיבוי קרובות והזזת שעה</h2>
@@ -366,14 +366,14 @@
       <div class="actions">
         <button type="button" class="ghost" id="toggleBackupMatchesBtn" aria-expanded="false" aria-describedby="match2Status">הצג הצעות גיבוי</button>
       </div>
-      <div id="backupMatchesOut" role="region" aria-live="polite" aria-label="הצעות גיבוי קרובות" hidden></div>
+      <section id="backupMatchesOut" aria-live="polite" aria-label="הצעות גיבוי קרובות" hidden></section>
     </div>
     <div class="card">
       <h2>לוח וקיבולת</h2>
       <p class="hint">בונה לוח מהזוגות של השידוך המתקדם, בודק התנגשויות, מציע עד 3 חלופות, ומתריע כשיש יותר ביקוש מהיצע.</p>
       <div class="actions"><button type="button" class="act" id="runSchedule" aria-describedby="scheduleStatus">בנה לוח</button></div>
       <p class="status" id="scheduleStatus" role="status"></p>
-      <div id="scheduleOut" role="region" aria-live="polite" aria-label="לוח, התנגשויות וקיבולת"></div>
+      <section id="scheduleOut" aria-live="polite" aria-label="לוח, התנגשויות וקיבולת"></section>
     </div>
     <div class="card">
       <!-- "הרכז מחליט" left the coordinator who says yes to a suggestion looking for that pair in the lessons
@@ -385,12 +385,12 @@
         מאזור אחר. כאן רק מי שנשאר בלי זוג, עם שעה ומקצוע משותפים, ולתלמיד גם אישור הורה; הזוגות באותו אזור לא משתנים.
         זו הצעה: הרכז מחליט. יומן השיעורים רושם רק זוג מאותו אזור, אז זוג כזה לא מופיע במסך "שיעורים", שיעור שלו
         לא נרשם ביומן ולא נספר בסיכום לרשות.</p>
-      <div id="across" role="region" aria-live="polite" aria-label="שידוך בין אזורים (חירום)"><p class="empty">מופיע אחרי חישוב שידוך.</p></div>
+      <section id="across" aria-live="polite" aria-label="שידוך בין אזורים (חירום)"><p class="empty">מופיע אחרי חישוב שידוך.</p></section>
     </div>
-  </section>
+  </div>
 
   <!-- ============ טקסט ============ -->
-  <section role="tabpanel" id="tab-text" aria-labelledby="nav-text" tabindex="-1" hidden>
+  <div role="tabpanel" id="tab-text" aria-labelledby="nav-text" tabindex="-1" hidden>
     <div class="card">
       <h2>הדגמה: שער הטקסט</h2>
       <p class="hint">הטקסט החופשי שהאפליקציה שומרת הוא כותרת ותוכן של יחידה, סיבת דחייה, והפירוט של דיווח או
@@ -404,7 +404,7 @@
         <button type="button" class="ghost" id="clearTextBtn" aria-label="נקה טקסט לבדיקה" aria-describedby="checkStatus">נקה טקסט</button>
       </div>
       <p class="status" id="checkStatus" role="status"></p>
-      <div id="findings" role="region" aria-live="polite" aria-label="ממצאי בדיקת טקסט"></div>
+      <section id="findings" aria-live="polite" aria-label="ממצאי בדיקת טקסט"></section>
     </div>
     <div class="card">
       <h2>הדגמה: שדה אסור נדחה</h2>
@@ -412,10 +412,10 @@
       <div class="actions"><button type="button" class="ghost" id="gateBtn" aria-label="נסה לשמור משתתף עם שדה טלפון אסור" aria-describedby="gateStatus">נסה לשמור עם טלפון</button></div>
       <p class="status" id="gateStatus" role="status"></p>
     </div>
-  </section>
+  </div>
 
   <!-- ============ יחידות ============ -->
-  <section role="tabpanel" id="tab-units" aria-labelledby="nav-units" tabindex="-1" hidden>
+  <div role="tabpanel" id="tab-units" aria-labelledby="nav-units" tabindex="-1" hidden>
     <div class="banner">
       יחידת העשרה היא שיעור טקסט קצר שמורה מגיש. היא לא מגיעה לאף תלמיד עד שהמאשר קרא אותה ואישר.
       התור שומר רק שהתפקיד החליט, לא מי. אותה כותרת, מקצוע ומשך — אותו מזהה, גם אם הטקסט תוקן.
@@ -441,21 +441,21 @@
     <div class="card">
       <h2>ממתינות לאישור</h2>
       <p class="hint">המאשר ב-MVP הוא אבירן. דחייה דורשת סיבה שעוברת את שער הטקסט — היא מוצגת למורה.</p>
-      <div id="pendingList" role="region" aria-live="polite" aria-label="יחידות שממתינות לאישור"></div>
+      <section id="pendingList" aria-live="polite" aria-label="יחידות שממתינות לאישור"></section>
       <p class="status" id="decideStatus" role="status"></p>
     </div>
     <div class="card">
       <h2>מאושרות — מה שתלמיד רואה</h2>
-      <div id="approvedList" role="region" aria-live="polite" aria-label="יחידות מאושרות"></div>
+      <section id="approvedList" aria-live="polite" aria-label="יחידות מאושרות"></section>
     </div>
     <div class="card">
       <h2>נדחו</h2>
-      <div id="rejectedList" role="region" aria-live="polite" aria-label="יחידות שנדחו"></div>
+      <section id="rejectedList" aria-live="polite" aria-label="יחידות שנדחו"></section>
     </div>
-  </section>
+  </div>
 
   <!-- ============ שיעורים ============ -->
-  <section role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
+  <div role="tabpanel" id="tab-sessions" aria-labelledby="nav-sessions" tabindex="-1" hidden>
     <div class="card session-history-filter-card">
       <h2>סינון היסטוריית מפגשים</h2>
       <div class="row">
@@ -490,7 +490,7 @@
         <span id="sessionHistoryCount" class="pill" aria-live="polite">0 מפגשים</span>
       </div>
       <div id="sessionHistoryEmpty" class="empty-state" style="display:none;" aria-live="polite">אין מפגשים להצגה</div>
-      <div id="sessionHistoryList" role="region" aria-live="polite" aria-label="היסטוריית מפגשים"></div>
+      <section id="sessionHistoryList" aria-live="polite" aria-label="היסטוריית מפגשים"></section>
       <p class="status" id="sessionHistoryStatus" role="status"></p>
     </div>
     <!-- A row is a lesson set for a matched pair, whatever became of it: "איך הסתיים" offers "לא התקיים"
@@ -510,12 +510,12 @@
       <select id="sessionPair" aria-required="true" aria-describedby="sessionStatus pairTotalHoursBadge pairZeroHoursHint"></select>
       <span id="pairTotalHoursBadge" class="pair-total-hours-badge meta" role="status" aria-live="polite">סך שעות: 0</span>
       <p id="pairZeroHoursHint" class="hint empty" role="status" aria-live="polite" hidden></p>
-      <div id="scholarshipProgress" class="scholarship-progress" aria-label="התקדמות מלגה" aria-live="polite">
+      <section id="scholarshipProgress" class="scholarship-progress" aria-label="התקדמות מלגה" aria-live="polite">
         <div class="scholarship-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="התקדמות שעות מלגה" aria-live="polite" id="scholarshipProgressBar">
           <div class="scholarship-progress-fill" id="scholarshipProgressFill" style="width:0%"></div>
         </div>
         <p class="hint" id="scholarshipProgressLabel" role="status" aria-live="polite"></p>
-      </div>
+      </section>
       <div class="row">
         <div><label for="sessionSlot">שעה</label><select id="sessionSlot" aria-required="true" aria-describedby="sessionStatus sessionFormHint"></select></div>
         <div><label for="sessionSubject">מקצוע</label><select id="sessionSubject" aria-required="true" aria-describedby="sessionStatus"></select></div>
@@ -568,7 +568,7 @@
           <input type="date" id="sessionEndDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
         </div>
       </div>
-      <div id="scholarshipMilestonesBar" class="scholarship-milestones-bar" role="region" aria-label="צ'קפוינטים להשלמת מלגה" aria-live="polite"></div>
+      <section id="scholarshipMilestonesBar" class="scholarship-milestones-bar" aria-label="צ'קפוינטים להשלמת מלגה" aria-live="polite"></section>
       <div class="actions">
         <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
         <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
@@ -578,11 +578,11 @@
       <p class="status" id="scholarshipReportStatus" role="status"></p>
       <p class="status" id="scholarshipCsvStatus" role="status"></p>
       <p class="status" id="scholarshipConfirmationStatus" role="status"></p>
-      <div id="scholarshipReportOut" role="region" aria-live="polite" aria-label="דוח שעות מלגה"></div>
+      <section id="scholarshipReportOut" aria-live="polite" aria-label="דוח שעות מלגה"></section>
     </div>
     <div class="card">
       <h2>סיכום לרשות — ספירות בלבד</h2>
-      <div id="sessionSummary" role="region" aria-live="polite" aria-label="סיכום לרשות"></div>
+      <section id="sessionSummary" aria-live="polite" aria-label="סיכום לרשות"></section>
       <!-- The export is CSV text, not a file: it opens in the read-only box below, selected, and the
            clipboard is tried on top of that; nothing lands in the device's files. The hint said "כקובץ CSV"
            a card away from "הורד זוגות (CSV)", which does save a file, so a coordinator looked for the
@@ -590,20 +590,20 @@
       <p class="hint">הייצוא הוא אותן ספירות כטקסט CSV: מדד, קוד, כמות. הוא נפתח בתיבה למטה מסומן להעתקה, ולא
         יורד כקובץ. אין בו שורות של היומן, אין שעה, אין מי לימד את מי. אפשר להדביק אותו ישירות בגיליון.</p>
       <div class="actions"><button type="button" class="ghost" id="exportReport" aria-label="ייצא דוח ספירות לרשות בפורמט CSV" aria-expanded="false" aria-controls="reportBox reportStatus" aria-describedby="reportStatus">ייצא דוח CSV</button></div>
-      <div id="reportBox" hidden role="region" aria-live="polite" aria-label="דוח ספירות לרשות">
+      <section id="reportBox" hidden aria-live="polite" aria-label="דוח ספירות לרשות">
         <label for="reportText">הדוח (לקריאה בלבד)</label>
         <textarea id="reportText" readonly dir="ltr" spellcheck="false" aria-describedby="reportStatus"></textarea>
-      </div>
+      </section>
       <p class="status" id="reportStatus" role="status"></p>
     </div>
     <div class="card">
       <h2>היומן</h2>
-      <div id="sessionList" role="region" aria-live="polite" aria-label="יומן השיעורים"></div>
+      <section id="sessionList" aria-live="polite" aria-label="יומן השיעורים"></section>
     </div>
-  </section>
+  </div>
 
   <!-- ============ מדריך ============ -->
-  <section role="tabpanel" id="tab-guide" aria-labelledby="nav-guide" tabindex="-1" hidden>
+  <div role="tabpanel" id="tab-guide" aria-labelledby="nav-guide" tabindex="-1" hidden>
     <div class="card">
       <h2>מדריך הרכז</h2>
       <label for="guideSearch">חיפוש במדריך</label>
@@ -611,7 +611,7 @@
       <div class="actions"><button type="button" class="act" id="guideSearchBtn" aria-describedby="guideStatus">חפש</button>
         <button type="button" class="ghost" id="guideAllBtn" aria-describedby="guideStatus">כל המדריך</button></div>
       <p class="status" id="guideStatus" role="status"></p>
-      <div id="guideList" role="region" aria-live="polite" aria-label="פרקי המדריך"></div>
+      <section id="guideList" aria-live="polite" aria-label="פרקי המדריך"></section>
     </div>
     <div class="card" id="aiTopicsSummaryCard">
       <h2 id="aiTopicsSummaryHeading">פילוח נושאי בינה מלאכותית</h2>
@@ -753,10 +753,10 @@
       </div>
       <p class="status" id="cycleTrendsStatus" role="status" aria-live="polite"></p>
     </div>
-  </section>
+  </div>
 
   <!-- ============ דוחות ============ -->
-  <section role="tabpanel" id="tab-reports" aria-labelledby="nav-reports" tabindex="-1" hidden>
+  <div role="tabpanel" id="tab-reports" aria-labelledby="nav-reports" tabindex="-1" hidden>
     <div class="card">
       <h2>דוחות רכז</h2>
       <p class="hint">הדוח נבנה מהלוח האחרון שחושב במסך השידוך. בוחרים את תאריך תחילת התקופה של הלוח; מזהים פנימיים בלבד, בלי פרטים אישיים. יומן השיעורים לא שומר תאריכים, לכן הוא לא נספר כאן.</p>
@@ -770,19 +770,19 @@
         <button type="button" class="ghost" id="dlReportIcs" aria-describedby="report2Status">הורד ICS</button>
         <button type="button" class="ghost" id="printReport" aria-describedby="report2Status">הדפס / PDF</button></div>
       <p class="status" id="report2Status" role="status"></p>
-      <div id="reportOut" role="region" aria-live="polite" aria-label="תוצאת הדוח"></div>
+      <section id="reportOut" aria-live="polite" aria-label="תוצאת הדוח"></section>
     </div>
-  </section>
+  </div>
 
   <!-- ============ קשר (src/lib/contact.js) ============ -->
-  <div class="card" id="contactBox" hidden role="region" aria-labelledby="contactTitle">
+  <section class="card" id="contactBox" hidden aria-labelledby="contactTitle">
     <h2 id="contactTitle">רוצים לנסות בסבב השיבוץ שלכם?</h2>
-    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank" aria-describedby="contactNote"></a></p>
+    <p class="hint"><a id="contactLink" rel="noopener noreferrer" target="_blank" aria-describedby="contactNote" href="#contactNote">​</a></p>
     <p class="hint" id="contactNote"></p>
-  </div>
+  </section>
 </main>
 
-<nav role="tablist" aria-label="ניווט">
+<div role="tablist" aria-label="ניווט">
   <button role="tab" type="button" id="nav-people" aria-controls="tab-people" aria-selected="true" tabindex="0">אנשים</button>
   <button role="tab" type="button" id="nav-match" aria-controls="tab-match" aria-selected="false" tabindex="-1">שידוך</button>
   <button role="tab" type="button" id="nav-text" aria-controls="tab-text" aria-selected="false" tabindex="-1">פרטיות</button>
@@ -790,7 +790,7 @@
   <button role="tab" type="button" id="nav-sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">שיעורים</button>
   <button role="tab" type="button" id="nav-guide" aria-controls="tab-guide" aria-selected="false" tabindex="-1">מדריך</button>
   <button role="tab" type="button" id="nav-reports" aria-controls="tab-reports" aria-selected="false" tabindex="-1">דוחות</button>
-</nav>
+</div>
 
 <script>
   // Each inlined module below is wrapped so its require() finds the ones before it. Same files the tests run.
@@ -806,7 +806,6 @@
 /* ===== src/lib/i18n.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 // PeerEd — i18n Internationalization Strings Module (Refs #325, PE-410)
 // Supports Hebrew (default, RTL), Arabic (RTL), and Russian (LTR).
 // Translations in Arabic and Russian are marked as needing native-speaker review.
@@ -1208,7 +1207,6 @@
 /* ===== src/lib/regions.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - geographic region codes for the first municipality-scale deployment.
 // CommonJS on purpose (see PURPOSE.md). No clock, no randomness, no network, no personal data.
@@ -1238,7 +1236,6 @@ module.exports = { REGIONS, isRegion, getValidRegions, normalizeRegion };
 /* ===== src/lib/retention.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd — explicit, immutable retention limits per data category (days). No category is retained indefinitely.
 
@@ -1260,7 +1257,6 @@ module.exports = {
 /* ===== src/lib/audit-report.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd — Hebrew privacy / retention statement for institutional audits and regulatory review.
 
@@ -1329,7 +1325,6 @@ module.exports = {
 /* ===== src/lib/cycle-manager.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - the end of a cycle: drop every stored row that has outlived its retention window.
 //
@@ -1456,7 +1451,6 @@ module.exports = {
 /* ===== src/lib/profile.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - the ONLY record shape the system stores. It is impossible to store personal data of a minor:
 // any key outside the accepted fields is rejected, even with an empty value.
@@ -1851,7 +1845,6 @@ module.exports = {
 /* ===== src/lib/match.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
@@ -2487,7 +2480,6 @@ module.exports = {
 /* ===== src/lib/match2.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - multi-criteria matching (stage 1). Global optimum, never greedy: the assignment maximises
 // pair count first and total score second, via deterministic min-cost max-flow. No clock/random/network.
@@ -2496,7 +2488,7 @@ module.exports = {
 
 const { shared, hasParentConsent, findNearMissCandidates, suggestScheduleShift } = require('./match.js');
 const { isRegion } = require('./regions.js');
-const { SUBJECTS, normalizeSlot, getWeeklyOverlapSlots, AI_LEVELS, computeWeeklyAvailabilityHeatmap } = require('./profile.js');
+const { SUBJECTS, getWeeklyOverlapSlots, AI_LEVELS, computeWeeklyAvailabilityHeatmap } = require('./profile.js');
 const LANG_CODES = Object.freeze(['HE', 'AR', 'RU', 'EN']); // closed list: raw caller strings never reach output
 const AI_TOPIC_KEY_RE = /^[A-Z0-9_]+$/;
 const AI_TOPIC_WEIGHT = 20;
@@ -2723,7 +2715,9 @@ function match2(students, pupils, opts) {
   });
   pairs.sort((a, b) => (a.studentIndex - b.studentIndex) || (a.pupilIndex - b.pupilIndex));
   const pairedP = new Set(pairs.map((x) => x.pupilIndex)); const countS = new Map();
-  pairs.forEach((x) => countS.set(x.studentIndex, (countS.get(x.studentIndex) || 0) + 1));
+  pairs.forEach(x => {
+    countS.set(x.studentIndex, (countS.get(x.studentIndex) || 0) + 1);
+  });
   const unmatchedPupils = P.map((p, i) => i).filter((i) => !pairedP.has(i)).map((i) => ({ pupilIndex: i, reason: !hasParentConsent(P[i]) ? 'NO_PARENT_CONSENT' : 'NO_FEASIBLE_PAIR' }));
   const unmatchedStudents = S.map((s, i) => i).filter((i) => (countS.get(i) || 0) < capacityOf(S[i], o)).map((i) => ({ studentIndex: i, reason: 'NO_FEASIBLE_PAIR' }));
   return { pairs, unmatchedPupils, unmatchedStudents, totalScore: pairs.reduce((a, x) => a + x.score, 0), weights: w };
@@ -2785,7 +2779,6 @@ module.exports = { match2, rematchPartial, scorePair, explainHe, explainAiTopics
 /* ===== src/lib/capacity.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - capacity vs demand (stage 2). Counts only: codes and numbers, never personal data.
 // Deterministic, no clock/randomness/network.
@@ -2834,7 +2827,6 @@ module.exports = { analyzeCapacity };
 /* ===== src/lib/schedule.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - weekly multi-week scheduling (stage 2). Deterministic: pairs in input order, slots in
 // canonical day/hour order. No clock, no randomness, no network. Internal indexes only.
@@ -2861,8 +2853,6 @@ function buildSchedule(pairs, opts) {
   const durationMinutes = intOr(o.durationMinutes, 60, 15, 180);
   const weeks = intOr(o.weeks, 1, 1, 52);
   const maxPupil = intOr(o.maxSessionsPerPupilWeek, 2, 1, 14);
-  const students = Array.isArray(o.students) ? o.students : [];
-  const pupils = Array.isArray(o.pupils) ? o.pupils : [];
   const sessions = []; const waitlist = []; const unscheduled = [];
   const studentSlot = new Set(); // studentIndex|week|slot
   const pupilSlot = new Set();
@@ -2932,7 +2922,6 @@ module.exports = { buildSchedule, findConflicts, suggestAlternatives, sortSlots 
 /* ===== src/lib/semester.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - semester calendar (stage 3). Static Israeli school-holiday table (major breaks, 2025-2027);
 // the coordinator may pass an explicit holidays list which replaces it. Dates are caller-passed
@@ -3020,7 +3009,6 @@ function cancelSession(session, semester) {
 function planMakeup(cancelled, semester, opts) {
   const limit = opts && Number.isInteger(opts.limit) ? Math.min(3, Math.max(0, opts.limit)) : 3;
   const out = []; if (!cancelled || !cancelled.date) return out;
-  const wd = weekday(cancelled.date);
   for (let i = 7; i <= 56 && out.length < limit; i += 7) { const d = addDays(cancelled.date, i); if (isTeachingDay(semester, d) && diffDays(d, semester.endDate) >= 0) out.push(d); }
   return out;
 }
@@ -3032,7 +3020,6 @@ module.exports = { makeSemester, isTeachingDay, expandSessions, cancelSession, p
 /* ===== src/lib/attendance.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 // PeerEd - attendance (stage 3): held / missed / postponed / cancelled per pair and date.
 // Immutable log, internal pair indexes only. No clock: every date is passed in.
 
@@ -3608,8 +3595,6 @@ function computePairReport(pIdx, cleanRecords, target) {
  * Builds an anonymous scholarship report by pairs and overall summary.
  * Zero PII.
  *
- * @param {Array<Object>|Object} records Attendance records or log
- * @param {Array<Object>} pairs Matched pairs list
  * @param {number} targetHours Target scholarship hours (default 30)
  * @returns {Object} Report containing pairs list, byPair lookup, and summary
  */
@@ -5052,7 +5037,6 @@ module.exports = {
 /* ===== src/lib/reports.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - coordinator reports (stage 4): weekly / monthly / semester, SVG bars, CSV / ICS / print.
 // Internal identifiers only (pairIndex, region/subject codes). Every date/stamp is caller-passed.
@@ -5100,9 +5084,15 @@ function semesterReport(data, semester) {
 function reportToCsv(report) {
   const lines = ['measure,code,count'];
   lines.push('scheduled,,' + report.scheduled);
-  ['held', 'missed', 'postponed', 'cancelled'].forEach((s) => lines.push('status_' + s + ',,' + report.byStatus[s]));
-  Object.keys(report.bySubject).sort().forEach((k) => lines.push('subject,' + k + ',' + report.bySubject[k]));
-  Object.keys(report.byRegion).sort().forEach((k) => lines.push('region,' + k + ',' + report.byRegion[k]));
+  ['held', 'missed', 'postponed', 'cancelled'].forEach(s => {
+    lines.push('status_' + s + ',,' + report.byStatus[s]);
+  });
+  Object.keys(report.bySubject).sort().forEach(k => {
+    lines.push('subject,' + k + ',' + report.bySubject[k]);
+  });
+  Object.keys(report.byRegion).sort().forEach(k => {
+    lines.push('region,' + k + ',' + report.byRegion[k]);
+  });
   lines.push('stale_pairs,,' + report.stale.length);
   return lines.join('\n') + '\n';
 }
@@ -5155,7 +5145,6 @@ module.exports = { weeklyReport, monthlyReport, semesterReport, reportToCsv, rep
 /* ===== src/lib/validator.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - the gate for FREE TEXT (enrichment units, messages). The structured-field gate is
 // src/lib/profile.js; this one refuses text that carries personal data or offensive language before
@@ -5245,7 +5234,7 @@ function assertUserId(id) {
 var DEFAULT_MAX_LENGTH = 4000;
 var DEFAULT_MIN_LENGTH = 1;
 // every C0 control character except \t (09) and \n (0a), plus DEL
-var CONTROL_RE = /[\x00-\x08\x0b-\x1f\x7f]/g;
+var CONTROL_RE = new RegExp("[\\u0000-\\u0008\\u000b-\\u001f\\u007f]", "g");
 // Characters that take no space on the screen: soft hyphen, zero-width space/joiners, the bidi marks a
 // Hebrew keyboard or WhatsApp drops into text (RLM, LRM, embeddings, isolates), word joiner, BOM. A
 // reader does not see them, so "050<RLM>1234567" is a phone number to a reader and to nobody else.
@@ -5298,19 +5287,26 @@ var SPELLED_RE = new RegExp('(?<!' + LETTER + ')' + LETTER + '([-.*_\\u00b7\\s])
 var SPELLED_MIN_LETTERS = 4;
 
 function findSpelledProfanity(text) {
-  var whole = new RegExp('^' + HEBREW_PREFIX + '(?:' + profanityAlternatives() + ')$', 'i');
-  var re = new RegExp(SPELLED_RE.source, 'g');
-  var hits = [];
-  var m;
-  while ((m = re.exec(text)) !== null) {
-    var run = m[0];
-    // the position of every letter in the run: letters sit at even offsets, one mark between each two
-    var letters = [];
-    for (var k = 0; k < run.length; k += 2) letters.push(k);
-    for (var i = 0; i + SPELLED_MIN_LETTERS <= letters.length; i++) {
-      for (var j = letters.length; j - i >= SPELLED_MIN_LETTERS; j--) {
-        var word = '';
-        for (var n = i; n < j; n++) word += run.charAt(letters[n]);
+  var whole, re, hits, m, run, letters, k, i, j, word, n;
+  whole = new RegExp('^' + HEBREW_PREFIX + '(?:' + profanityAlternatives() + ')$', 'i');
+  re = new RegExp(SPELLED_RE.source, 'g');
+  hits = [];
+
+  while (true) {
+    m = re.exec(text);
+
+    if (!(m !== null))
+      break;
+
+    run = m[0];
+    letters = [];
+    for (k = 0; k < run.length; k += 2)
+      letters.push(k);
+    for (i = 0; i + SPELLED_MIN_LETTERS <= letters.length; i++) {
+      for (j = letters.length; j - i >= SPELLED_MIN_LETTERS; j--) {
+        word = '';
+        for (n = i; n < j; n++)
+          word += run.charAt(letters[n]);
         if (!whole.test(word)) continue;
         // a cleared word ("מזונות") takes its letters with it, so the "זונות" inside is not tried next
         if (!NOT_PROFANITY_RE.test(word)) hits.push({ kind: 'profanity', match: run.slice(letters[i], letters[j - 1] + 1), index: m.index + letters[i] });
@@ -5319,17 +5315,25 @@ function findSpelledProfanity(text) {
       }
     }
   }
+
   return hits;
 }
 
 function findProfanity(text) {
-  var re = profanityRegex();
-  var hits = [];
-  var m;
-  while ((m = re.exec(text)) !== null) {
+  var re, hits, m;
+  re = profanityRegex();
+  hits = [];
+
+  while (true) {
+    m = re.exec(text);
+
+    if (!(m !== null))
+      break;
+
     if (NOT_PROFANITY_RE.test(m[0])) continue;
     hits.push({ kind: 'profanity', match: m[0], index: m.index });
   }
+
   return hits.concat(findSpelledProfanity(text)).sort(function (a, b) { return a.index - b.index; });
 }
 
@@ -5350,17 +5354,24 @@ function contains(outer, inner) {
 // Each index is a position in the text as typed, since the check screen shows it as "תו N" next to that
 // text: with niqqud or an RLM before the hit, the folded position pointed at an earlier character.
 function findPersonalData(text) {
+  var typed, toTyped, raw, kept;
   if (typeof text !== 'string') return [];
-  var typed = text;
+  typed = text;
   text = text.replace(INVISIBLE_RE, '').normalize('NFKC').replace(HEBREW_POINT_RE, '')
     .replace(OTHER_DIGIT_RE, asciiDigit);
   if (text === '') return [];
-  var toTyped = typedPositions(typed, text);
-  var raw = findProfanity(text);
+  toTyped = typedPositions(typed, text);
+  raw = findProfanity(text);
   Object.keys(PATTERNS).forEach(function (kind) {
-    var re = new RegExp(PATTERNS[kind].source, 'g');
-    var m;
-    while ((m = re.exec(text)) !== null) {
+    var re, m;
+    re = new RegExp(PATTERNS[kind].source, 'g');
+
+    while (true) {
+      m = re.exec(text);
+
+      if (!(m !== null))
+        break;
+
       if (m[0] === '') { re.lastIndex += 1; continue; }
       raw.push({ kind: kind, match: m[0], index: m.index });
     }
@@ -5370,12 +5381,16 @@ function findPersonalData(text) {
     return (a.index - b.index) || (b.match.length - a.match.length) ||
       (a.kind < b.kind ? -1 : (a.kind > b.kind ? 1 : 0));
   });
-  var kept = [];
+  kept = [];
   raw.forEach(function (hit) {
-    var swallowed = kept.some(function (k) {
-      var sameSpan = k.index === hit.index && k.match.length === hit.match.length;
+    var swallowed;
+
+    swallowed = kept.some(function (k) {
+      var sameSpan;
+      sameSpan = k.index === hit.index && k.match.length === hit.match.length;
       return !sameSpan && contains(k, hit);
     });
+
     if (!swallowed) kept.push(hit);
   });
   kept.sort(function (a, b) {
@@ -5389,14 +5404,17 @@ function findPersonalData(text) {
 // redone one character at a time; when NFKC joins characters across a boundary (a letter and a
 // combining accent) that no longer gives the same text, and null keeps the folded positions.
 function typedPositions(typed, folded) {
-  var out = '';
-  var map = [];
-  var at = 0;
-  var invisible = new RegExp(INVISIBLE_RE.source);
+  var out, map, at, invisible;
+  out = '';
+  map = [];
+  at = 0;
+  invisible = new RegExp(INVISIBLE_RE.source);
   Array.from(typed).forEach(function (ch) {
+    var f, k;
     if (!invisible.test(ch)) {
-      var f = ch.normalize('NFKC').replace(HEBREW_POINT_RE, '').replace(OTHER_DIGIT_RE, asciiDigit);
-      for (var k = 0; k < f.length; k += 1) map.push(at);
+      f = ch.normalize('NFKC').replace(HEBREW_POINT_RE, '').replace(OTHER_DIGIT_RE, asciiDigit);
+      for (k = 0; k < f.length; k += 1)
+        map.push(at);
       out += f;
     }
     at += ch.length;
@@ -5410,10 +5428,11 @@ function assertSafeText(text) {
 }
 
 function cleanText(text) {
-  var s = String(text == null ? '' : text);
+  var s;
+  s = String(text == null ? '' : text);
   // A line break pasted from Windows (CR LF) or an old Mac (CR alone) is a line break, and a vertical tab
   // or form feed is a space. Stripped as control characters they glued the words on both sides together.
-  s = s.replace(/\r\n?/g, '\n').replace(/[\x0b\x0c]/g, ' ');
+  s = s.replace(/\r\n?/g, '\n').replace(new RegExp("[\\u000b\\u000c]", "g"), ' ');
   s = s.replace(CONTROL_RE, '');
   s = s.replace(/[^\S\n]+/g, ' ');   // collapse horizontal whitespace, keep newlines
   s = s.replace(/ *\n */g, '\n');    // no padding around a newline
@@ -5430,11 +5449,12 @@ function charCount(text) {
 }
 
 function assertCleanText(text, opts) {
+  var maxLength, minLength, cleaned, hits;
   opts = opts || {};
-  var maxLength = typeof opts.maxLength === 'number' ? opts.maxLength : DEFAULT_MAX_LENGTH;
-  var minLength = typeof opts.minLength === 'number' ? opts.minLength : DEFAULT_MIN_LENGTH;
-  var cleaned = cleanText(text);
-  var hits = findPersonalData(cleaned);
+  maxLength = typeof opts.maxLength === 'number' ? opts.maxLength : DEFAULT_MAX_LENGTH;
+  minLength = typeof opts.minLength === 'number' ? opts.minLength : DEFAULT_MIN_LENGTH;
+  cleaned = cleanText(text);
+  hits = findPersonalData(cleaned);
   // Both refuse the text. Personal data is named first because exposing it cannot be taken back,
   // so when a message carries both, that is the reason the writer is told about.
   if (hits.some(function (h) { return h.kind !== 'profanity'; })) throw new Error(PERSONAL_DATA_ERROR);
@@ -5459,33 +5479,35 @@ var RESPONSE_TO_REPORT_FIELDS = Object.freeze(['reportIndex', 'detail']);
 var RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH = 300;
 
 function makeReportEvent(input) {
+  var keys, i, userId, detail;
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('report event input must be an object with userId, detail');
   }
-  var keys = Object.keys(input);
-  for (var i = 0; i < keys.length; i += 1) {
+  keys = Object.keys(input);
+  for (i = 0; i < keys.length; i += 1) {
     if (REPORT_EVENT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   if (typeof input.detail !== 'string') throw new Error('invalid detail: expected a string');
-  var userId = assertUserId(input.userId);
-  var detail = assertCleanText(input.detail, { maxLength: REPORT_EVENT_DETAIL_MAX_LENGTH });
+  userId = assertUserId(input.userId);
+  detail = assertCleanText(input.detail, { maxLength: REPORT_EVENT_DETAIL_MAX_LENGTH });
   return Object.freeze({ userId: userId, detail: detail });
 }
 
 function makeResponseToReport(input) {
+  var keys, i, reportIndex, detail;
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('response to report input must be an object with reportIndex, detail');
   }
-  var keys = Object.keys(input);
-  for (var i = 0; i < keys.length; i += 1) {
+  keys = Object.keys(input);
+  for (i = 0; i < keys.length; i += 1) {
     if (RESPONSE_TO_REPORT_FIELDS.indexOf(keys[i]) === -1) throw new Error(PERSONAL_DATA_ERROR);
   }
   if (typeof input.detail !== 'string') throw new Error('invalid detail: expected a string');
-  var reportIndex = input.reportIndex;
+  reportIndex = input.reportIndex;
   if (!Number.isInteger(reportIndex) || reportIndex < 0) {
     throw new Error('invalid reportIndex: expected a non-negative integer');
   }
-  var detail = assertCleanText(input.detail, { maxLength: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH });
+  detail = assertCleanText(input.detail, { maxLength: RESPONSE_TO_REPORT_DETAIL_MAX_LENGTH });
   return Object.freeze({ reportIndex: reportIndex, detail: detail });
 }
 
@@ -5493,7 +5515,7 @@ const PILOT_ROLES = Object.freeze(['student', 'pupil']);
 const PILOT_REGIONS = Object.freeze(['NORTH', 'HAIFA', 'CENTER', 'TEL_AVIV', 'JERUSALEM', 'SOUTH']);
 const PILOT_AI_TOPICS = Object.freeze(['AI_LIT_PROMPT', 'AI_CREATIVE', 'AI_STEM_CODE', 'AI_ETHICS_SEC']);
 
-const PII_KEY_RE = /(?:name|email|mail|phone|tel|mobile|id_?number|tz|zehut|address)/i;
+const PII_KEY_RE = /name|email|mail|phone|tel|mobile|id_?number|tz|zehut|address/i;
 const EMAIL_CHECK_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/i;
 const PHONE_CHECK_RE = /(?:(?:\+|00)?972[-\s.]?\(?0?|\(?0)(?:5\d|7[2-9]|[23489])\)?[-\s.–—]?(?:\d{3}[-\s.–—]?\d{4}|\d{3}[-\s.–—]?\d{2}[-\s.–—]?\d{2}|\d{2}[-\s.–—]?\d{2}[-\s.–—]?\d{3})/i;
 const ID_CHECK_RE = /(?<!\d)(?:\d{9}|\d{8}[-–]\d|\d{3}-\d{3}-\d{3})(?!\d)/i;
@@ -5823,7 +5845,6 @@ function commitPilotCsvBatch(state, validRows) {
 /* ===== src/lib/curriculum.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - lesson content: engineering students (mentors) teach children AI (stage 10).
 // Two tracks, about 12 lessons each, 45 minutes a lesson. Hebrew first; every lesson title
@@ -6620,7 +6641,6 @@ module.exports = {
 /* ===== src/lib/unit.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - an enrichment unit: the short, text-only lesson a teacher submits for approval (MVP item 4).
 // Its id is a hash of title + subject + duration, so the same unit submitted twice gets the same id and
@@ -6740,7 +6760,6 @@ module.exports = {
 /* ===== src/lib/approval.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - the approval flow (MVP item 5): nothing reaches a pupil until the approver has read it.
 // The approver is a role, not a person: the owner's decision (7.9.2026) is that Aviran approves every
@@ -7018,7 +7037,6 @@ module.exports = {
 /* ===== src/lib/session.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - the session log (MVP item 6): the record of a text session set for a pair - held, missed or
 // cut short - with nothing in it that points at a person. A session is logged for a pair from matchPairs,
@@ -7259,7 +7277,6 @@ module.exports = {
 /* ===== src/lib/import-availability.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - paste import of availability (stage 5). The whole paste passes the free-text privacy gate
 // BEFORE parsing: one email/phone/id anywhere refuses everything, and nothing is partially stored.
@@ -7310,7 +7327,6 @@ module.exports = { parseAvailabilityCsv };
 /* ===== src/lib/wizard-link.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - anonymous weekly availability wizard link (stage 5). No server: the student's answers ride
 // in the URL fragment as base64url JSON plus an FNV-1a integrity check. The check is NOT encryption and
@@ -7363,7 +7379,6 @@ module.exports = { encodeAvailabilityLink, decodeAvailabilityLink, fnv1a };
 /* ===== src/lib/pwa.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - offline PWA pieces for the single file (stage 6). Strings only: the shell serves the
 // manifest inline and registers the worker from the source below; this module itself loads nothing,
@@ -7403,7 +7418,6 @@ module.exports = { manifestJson, swSource };
 /* ===== src/lib/backup.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - encrypted backup envelope (stage 6). The crypto primitives are INJECTED by the caller
 // (browser: WebCrypto-derived key + AES-GCM; tests: node:crypto), because this single file may not
@@ -7460,7 +7474,6 @@ module.exports = { makeBackupEnvelope, openBackupEnvelope, backupFilename, MIN_I
 /* ===== src/lib/modes.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - routine / emergency modes (stage 11). Pure data only: no names of children, no exact
 // addresses, no network, no clock, no randomness. Routine groups children by school + grade;
@@ -7667,7 +7680,9 @@ function emptyModeState() { return Object.freeze({ mode: 'routine', groups: Obje
 function groupReport(groups, assignment) {
   const assigned = new Map();
   (assignment && Array.isArray(assignment.assignments) ? assignment.assignments : [])
-    .forEach((a) => assigned.set(a.key + '|' + a.part, a.students));
+    .forEach(a => {
+    assigned.set(a.key + '|' + a.part, a.students);
+  });
   const byKey = new Map();
   (Array.isArray(groups) ? groups : []).forEach((g) => {
     if (!byKey.has(g.key)) byKey.set(g.key, { key: g.key, mode: g.mode, children: 0, groups: 0, students: 0 });
@@ -7704,7 +7719,6 @@ module.exports = {
 /* ===== src/lib/lang-he.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - Hebrew strings for the NEW coordinator screens (stage 7). Separate dictionaries because
 // the i18n mechanism of PR #358 is not merged; key parity with lang-ar/lang-ru is test-enforced.
@@ -7779,7 +7793,6 @@ module.exports = Object.freeze({
 /* ===== src/lib/lang-ar.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - Arabic strings for the NEW coordinator screens (stage 7). Needs native-speaker review.
 module.exports = Object.freeze({
@@ -7853,7 +7866,6 @@ module.exports = Object.freeze({
 /* ===== src/lib/lang-ru.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - Russian strings for the NEW coordinator screens (stage 7). Needs native-speaker review.
 module.exports = Object.freeze({
@@ -7927,7 +7939,6 @@ module.exports = Object.freeze({
 /* ===== src/lib/lang-extra.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - lookup + parity for the new-screen dictionaries (stage 7). Separate from i18n.js (PR #358
 // is not merged, so nothing here touches it). Fallback: Hebrew, then the key itself.
@@ -7960,7 +7971,6 @@ module.exports = { getExtraKeys, tExtra, verifyExtraParity };
 /* ===== src/lib/flow.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - the coordinator flow end to end (stage 8): import -> match -> schedule -> semester ->
 // attendance -> report export. Pure composition of the stage modules; a failure names its stage and
@@ -8037,7 +8047,6 @@ module.exports = { runCoordinatorFlow, A11Y_SCREENS, A11Y_FEATURES, A11Y_REQUIRE
 /* ===== src/lib/guide-he.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - the coordinator guide, in Hebrew, inside the app (stage 9). Content only: sections the
 // help screen renders. Examples use codes only (SUN_16, MATH) - the guide itself holds no personal
@@ -8079,7 +8088,6 @@ module.exports = { GUIDE_SECTIONS, guideToc, guideSection, guideText, searchGuid
 /* ===== src/lib/store.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 // PeerEd - local-only storage (MVP item 7). The whole app state - roster, approval queue, session log -
 // is one JSON document under one key in a key-value backend such as the browser's localStorage. There
 // is no server and no network call anywhere in this file or in the modules it stores: the app opens
@@ -8719,7 +8727,6 @@ module.exports = {
 /* ===== src/lib/tabnav.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - keyboard navigation of the bottom tab bar. The WAI-ARIA tabs pattern says a tab list is one
 // tab stop: the selected tab is focusable, the others are not, and the arrow keys move between them.
@@ -8756,7 +8763,6 @@ module.exports = { DIRECTIONS, KEYS, stepTab };
 /* ===== src/lib/contact.js ===== */
 (function () {
   var module = { exports: {} };
-  var exports = module.exports;
 'use strict';
 // PeerEd - the ONE place for a contact channel. Nothing here is invented.
 //   CONTACT     an email (name@host.tld) or an https link to a form. Empty = use ISSUE_FORM. Since 28.9
@@ -8799,7 +8805,8 @@ module.exports = {
 })();
 </script>
 
-<script>
+<script>// biome-ignore-all lint/correctness/noInnerDeclarations: function-scoped var in this page script
+
 (function () {
   'use strict';
   var regions = __registry.regions, profile = __registry.profile,
@@ -9880,7 +9887,7 @@ module.exports = {
     // The file names everyone who was on the list when it went down, so deleting one of them - the last
     // one too, who moves nobody - leaves a number in the file for someone no longer here: the next one
     // added takes that number on the screen, and a pair in the file may still hold the deleted one.
-    var fileNo = filePeople ? filePeople.indexOf(gone) + 1 : 0;
+    fileNo = filePeople ? filePeople.indexOf(gone) + 1 : 0;
     var filePair = null;
     (filePairs || []).forEach(function (fp) { if (fileNo && (fp.pupil === fileNo || fp.student === fileNo)) filePair = fp; });
     // Someone the file does not pair may be in its cross-region section, offered to someone in another region.

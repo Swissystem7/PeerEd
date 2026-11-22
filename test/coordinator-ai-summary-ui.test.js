@@ -13,7 +13,7 @@ test("card and heading exist inside #tab-guide and app.html contains the card", 
 	const html = fs.readFileSync(path.join(ROOT, "app.html"), "utf8");
 	const guideIndex = html.indexOf('id="tab-guide"');
 	assert.ok(guideIndex !== -1, "#tab-guide should exist in app.html");
-	const guideEndIndex = html.indexOf("</section>", guideIndex);
+	const guideEndIndex = html.indexOf('id="tab-', guideIndex + 10);
 	assert.ok(guideEndIndex !== -1, "#tab-guide section should have closing tag");
 	const guideSection = html.slice(guideIndex, guideEndIndex);
 

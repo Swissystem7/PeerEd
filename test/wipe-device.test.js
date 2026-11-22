@@ -17,6 +17,7 @@ const { DEFAULT_KEY } = require('../src/lib/store.js');
 
 const ROOT = path.join(__dirname, '..');
 const shell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
+// nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
 const app = shell.slice(shell.lastIndexOf('<script>'));
 const TAB_IDS = ['nav-people', 'nav-match', 'nav-text', 'nav-units', 'nav-sessions'];
 
@@ -27,6 +28,7 @@ function scriptBlocks(html) {
     const open = html.indexOf('<script>', at);
     if (open === -1) return out;
     const close = html.indexOf('</script>', open);
+    // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
     out.push(html.slice(open + '<script>'.length, close));
     at = close + '</script>'.length;
   }
@@ -41,11 +43,15 @@ function fakeElement(id) {
     checked: false, disabled: false, tabIndex: 0, children: [],
     getAttribute(name) { return name in attrs ? attrs[name] : null; },
     setAttribute(name, value) { attrs[name] = String(value); },
-    addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    addEventListener(type, fn) {
+      if (!listeners[type]) listeners[type] = [];
+      listeners[type].push(fn);
+    },
     focus() {}, select() {},
     click(target) {
       const ev = { target: target || this, preventDefault() {} };
-      (listeners.click || []).forEach((fn) => fn.call(this, ev));
+      const handlers = listeners.click || [];
+      for (const fn of handlers) fn.call(this, ev);
     }
   };
 }
@@ -56,7 +62,7 @@ function fakeStorage(opts = {}) {
   const items = {};
   return {
     items,
-    getItem(key) { return Object.prototype.hasOwnProperty.call(items, key) ? items[key] : null; },
+    getItem(key) { return Object.hasOwn(items, key) ? items[key] : null; },
     setItem(key, value) { items[key] = String(value); },
     removeItem(key) {
       if (opts.refuseRemove) throw new Error('storage is locked');
@@ -67,8 +73,11 @@ function fakeStorage(opts = {}) {
 
 function runApp(storage) {
   const elements = {};
-  const byId = (id) => elements[id] || (elements[id] = fakeElement(id));
-  TAB_IDS.forEach((id) => { byId(id).setAttribute('aria-controls', id.replace('nav-', 'tab-')); });
+  const byId = (id) => {
+    if (!elements[id]) elements[id] = fakeElement(id);
+    return elements[id];
+  };
+  for (const id of TAB_IDS) { byId(id).setAttribute('aria-controls', id.replace('nav-', 'tab-')); }
   const document = {
     documentElement: { dir: 'rtl' },
     getElementById: byId,
@@ -89,7 +98,10 @@ function runApp(storage) {
   };
   context.window.document = document;
   vm.createContext(context);
-  scriptBlocks(build()).forEach((code, i) => vm.runInContext(code, context, { filename: 'app.html#' + i }));
+  const blocks = scriptBlocks(build());
+  for (let i = 0; i < blocks.length; i += 1) {
+    vm.runInContext(blocks[i], context, { filename: 'app.html#' + i });
+  }
   return { $: byId, context };
 }
 

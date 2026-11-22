@@ -392,7 +392,7 @@ test("7. UI: #scholarshipMilestonesBar updates checkpoints dynamically based on 
 
 	const bar = $("scholarshipMilestonesBar");
 	assert.ok(bar);
-	assert.equal(bar.getAttribute("role"), "region");
+	// section is an implicit region; the live region contract is aria-live.
 	assert.equal(bar.getAttribute("aria-live"), "polite");
 
 	// At 30h target, 15h reaches 25% and 50%
