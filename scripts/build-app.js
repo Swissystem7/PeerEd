@@ -1,4 +1,4 @@
-'use strict';
+
 // Build app.html: the shell plus every tested module inlined, so the app is ONE file that opens from a
 // phone or a static host with no bundler and no second copy of the logic. The modules are the same files
 // the test suite runs; test/app-build.test.js fails if app.html is stale.
@@ -12,7 +12,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 // dependency order: a module may only require one listed before it
 const ORDER = ['i18n', 'regions', 'retention', 'audit-report', 'cycle-manager', 'profile', 'match', 'match2', 'capacity', 'schedule', 'semester', 'attendance', 'reports', 'validator', 'curriculum', 'unit', 'approval', 'session', 'import-availability', 'wizard-link', 'pwa', 'backup', 'modes', 'lang-he', 'lang-ar', 'lang-ru', 'lang-extra', 'flow', 'guide-he', 'store', 'tabnav', 'contact'];
-const MARKER = '<!--MODULES-->';
+const MARKER = '/*MODULES*/';
 
 // Every input is normalized to LF before it is joined. On a Windows checkout (git autocrlf) the shell and
 // the modules arrive with CRLF while the blocks are joined with LF, so the build was a mixed-ending file

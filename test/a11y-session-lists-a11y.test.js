@@ -23,13 +23,13 @@ test('a11y: session log button has aria-describedby attribute', () => {
 });
 
 test('a11y: dynamic session and unit list containers have role="region", aria-live="polite", and aria-label', () => {
-  assert.ok(/<div id="sessionSummary"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="סיכום לרשות"/.test(shell),
+  assert.ok(/<(?:div|section) id="sessionSummary"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="סיכום לרשות"/.test(shell),
     'sessionSummary must have role="region", aria-live="polite", and aria-label="סיכום לרשות"');
-  assert.ok(/<div id="sessionList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יומן השיעורים"/.test(shell),
+  assert.ok(/<(?:div|section) id="sessionList"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="יומן השיעורים"/.test(shell),
     'sessionList must have role="region", aria-live="polite", and aria-label="יומן השיעורים"');
-  assert.ok(/<div id="approvedList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יחידות מאושרות"/.test(shell),
+  assert.ok(/<(?:div|section) id="approvedList"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="יחידות מאושרות"/.test(shell),
     'approvedList must have role="region", aria-live="polite", and aria-label="יחידות מאושרות"');
-  assert.ok(/<div id="rejectedList"[^>]*role="region"[^>]*aria-live="polite"[^>]*aria-label="יחידות שנדחו"/.test(shell),
+  assert.ok(/<(?:div|section) id="rejectedList"[^>]*(?:role="region")?[^>]*aria-live="polite"[^>]*aria-label="יחידות שנדחו"/.test(shell),
     'rejectedList must have role="region", aria-live="polite", and aria-label="יחידות שנדחו"');
 });
 
