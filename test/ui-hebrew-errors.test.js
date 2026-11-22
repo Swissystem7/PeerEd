@@ -140,6 +140,6 @@ test('every Hebrew line in the shell answers a message some module still throws'
   const keys = [...table.matchAll(/^\s*\['([^']+)', '/gm)].map((m) => m[1]);
   assert.ok(keys.length >= 40, 'found ' + keys.length + ' lines');
   for (const key of keys) {
-    assert.ok(lib.includes("'" + key), 'no module throws a message starting with: ' + key);
+    assert.ok(lib.includes("'" + key) || lib.includes("`" + key), 'no module throws a message starting with: ' + key);
   }
 });

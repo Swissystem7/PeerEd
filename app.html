@@ -1457,7 +1457,7 @@ module.exports = {
 (function () {
   var module = { exports: {} };
   var exports = module.exports;
-'use strict';
+
 // PeerEd - the ONLY record shape the system stores. It is impossible to store personal data of a minor:
 // any key outside the accepted fields is rejected, even with an empty value.
 
@@ -1509,7 +1509,7 @@ function parsedSlot(slot) {
 function normalizeSlot(slot) {
   const parsed = parsedSlot(slot);
   if (parsed === null) return null;
-  return parsed.day + '_' + String(parsed.hour);
+  return `${parsed.day}_${String(parsed.hour)}`;
 }
 
 function isSlot(slot) {
@@ -1566,7 +1566,7 @@ function unique(list) {
 
 function getSlotHour(slot) {
   const parsed = parsedSlot(slot);
-  if (parsed === null) throw new Error('invalid slot: ' + String(slot));
+  if (parsed === null) throw new Error(`invalid slot: ${String(slot)}`);
   return parsed.hour;
 }
 
@@ -1608,14 +1608,14 @@ function normalizedAvailability(availability) {
   const slots = [];
   for (let i = 0; i < availability.length; i += 1) {
     const slot = normalizeSlot(availability[i]);
-    if (slot === null) throw new Error('invalid availability slot: ' + String(availability[i]));
+    if (slot === null) throw new Error(`invalid availability slot: ${String(availability[i])}`);
     slots.push(slot);
   }
   return unique(slots);
 }
 
 function invalidSubject(subject) {
-  return new Error('invalid subjects entry: ' + String(subject));
+  return new Error(`invalid subjects entry: ${String(subject)}`);
 }
 
 function assertSubject(subject) {
@@ -1853,7 +1853,7 @@ function addAvailabilityCounts(dMap, sMap, p) {
 }
 
 function slotKeyOf(day, hour) {
-  return day + '_' + hour;
+  return `${day}_${hour}`;
 }
 
 function heatmapSlot(day, hour, demand, supply) {
@@ -1947,7 +1947,7 @@ module.exports = {
 (function () {
   var module = { exports: {} };
   var exports = module.exports;
-'use strict';
+
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
 const { getRetentionPolicy } = require('./retention.js');
@@ -2125,7 +2125,7 @@ function invalidRecordedAt() {
 function parseIsoDay(value) {
   const m = typeof value === 'string' ? ISO_DATE.exec(value) : null;
   if (m === null) throw invalidRecordedAt();
-  const written = new Date(m[1] + 'T00:00:00Z');
+  const written = new Date(`${m[1]}T00:00:00Z`);
   if (Number.isNaN(written.getTime()) || written.toISOString().slice(0, 10) !== m[1]) throw invalidRecordedAt();
   return new Date(value);
 }
@@ -2343,11 +2343,11 @@ function missingByRegionSubject(shortPupils) {
   const counts = {};
   shortPupils.forEach((x) => {
     if (!x || x.reason === 'NO_PARENT_CONSENT') return;
-    const p = x.e && x.e.person;
+    const p = x.e?.person;
     if (!p) return;
     const reg = p.region || 'UNKNOWN';
     (Array.isArray(p.subjects) ? p.subjects : []).forEach((sub) => {
-      const code = reg + '_' + sub;
+      const code = `${reg}_${sub}`;
       counts[code] = (counts[code] || 0) + 1;
     });
   });
@@ -2358,9 +2358,9 @@ function consentGapCounts(shortPupils, students) {
   let noConsent = 0;
   let noConsentNoStudent = 0;
   shortPupils.forEach((x) => {
-    if (!x || x.reason !== 'NO_PARENT_CONSENT') return;
+    if (x?.reason !== 'NO_PARENT_CONSENT') return;
     noConsent += 1;
-    const me = x.e && x.e.person;
+    const me = x.e?.person;
     if (me && !hasFittingStudent(students, me)) noConsentNoStudent += 1;
   });
   return { noConsent: noConsent, noConsentNoStudent: noConsentNoStudent, noConsentFits: noConsent - noConsentNoStudent };
@@ -2394,18 +2394,18 @@ function matchSummaryCsv(m, people) {
   const s = summarizeMatch(m, people);
   const lines = [
     MATCH_REPORT_HEADER,
-    'pairs,,' + s.pairs,
-    'pupils_without_student,,' + s.pupilsWithoutStudent,
-    'students_without_pupil,,' + s.studentsWithoutPupil,
-    'cross_region_pairs,,' + s.crossRegionPairs,
-    'waiting_parent_consent_fits,,' + s.waitingConsentFits,
-    'waiting_parent_consent_no_student,,' + s.waitingConsentNoStudent
+    `pairs,,${s.pairs}`,
+    `pupils_without_student,,${s.pupilsWithoutStudent}`,
+    `students_without_pupil,,${s.studentsWithoutPupil}`,
+    `cross_region_pairs,,${s.crossRegionPairs}`,
+    `waiting_parent_consent_fits,,${s.waitingConsentFits}`,
+    `waiting_parent_consent_no_student,,${s.waitingConsentNoStudent}`
   ];
   const missingCodes = Object.keys(s.missingByRegionSubject).sort();
   for (let i = 0; i < missingCodes.length; i += 1) {
-    lines.push('missing_student,' + missingCodes[i] + ',' + s.missingByRegionSubject[missingCodes[i]]);
+    lines.push(`missing_student,${missingCodes[i]},${s.missingByRegionSubject[missingCodes[i]]}`);
   }
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 const DAY_LABELS = Object.freeze({
@@ -2475,7 +2475,7 @@ function getCleanTopics(x) {
 }
 
 function getLevel(x) {
-  const n = x && x.level;
+  const n = x?.level;
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
 }
 
@@ -2516,7 +2516,7 @@ function closestSlotPair(slotsA, slotsB) {
 
 function dayLabel(lang, day) {
   const labels = DAY_LABELS[lang];
-  return (labels && labels[day]) || day;
+  return (labels?.[day]) || day;
 }
 
 function zeroShiftExplanation(dayHe, dayAr, dayRu, best) {
@@ -6129,7 +6129,7 @@ function commitPilotCsvBatch(state, validRows) {
 (function () {
   var module = { exports: {} };
   var exports = module.exports;
-'use strict';
+
 // PeerEd - lesson content: engineering students (mentors) teach children AI (stage 10).
 // Two tracks, about 12 lessons each, 45 minutes a lesson. Hebrew first; every lesson title
 // also has an i18n key (cur.*) translated in lang-he/lang-ar/lang-ru for ar/ru. Content only:
@@ -6141,13 +6141,13 @@ const { AI_TOPIC_KEYS } = require('./attendance.js');
 
 const TRACKS = Object.freeze(['elementary', 'middle']);
 const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
-const LESSON_MINUTES = 45;
+const _LESSON_MINUTES = 45;
 
 function lesson(track, spec) {
   const { index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe } = spec;
   return Object.freeze({
-    id: track + '-' + slug, track, index,
-    titleKey: 'cur.' + track + '.' + slug, titleHe,
+    id: `${track}-${slug}`, track, index,
+    titleKey: `cur.${track}.${slug}`, titleHe,
     goalsHe: Object.freeze(goalsHe.slice()),
     flowHe: Object.freeze(flowHe.map((f) => Object.freeze({ minutes: f[0], stepHe: f[1] }))),
     activityHe, unpluggedHe,
@@ -6441,7 +6441,7 @@ function trackForGrade(grade) {
 }
 function lessonsForTrack(track) { return BY_TRACK[assertTrack(track)]; }
 function invalidLessonIndex(track) {
-  return new Error('invalid lesson index for track ' + track);
+  return new Error(`invalid lesson index for track ${track}`);
 }
 
 function assertLessonIndex(index, list, track) {
@@ -6480,7 +6480,7 @@ function timelineStep(f, i) {
   const hasTitle = cut > 0 && cut <= 28;
   return Object.freeze({
     minutes: f.minutes,
-    titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
+    titleHe: hasTitle ? f.stepHe.slice(0, cut) : `שלב ${i + 1}`,
     bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
   });
 }
@@ -6497,7 +6497,7 @@ function resolveTrack(trackByPair, pairIndex) {
   let track;
   if (typeof trackByPair === 'function') track = trackByPair(pairIndex);
   else if (trackByPair && typeof trackByPair === 'object') track = trackByPair[pairIndex];
-  if (track === undefined || track === null) throw new Error('missing track for pair ' + pairIndex);
+  if (track === undefined || track === null) throw new Error(`missing track for pair ${pairIndex}`);
   return assertTrack(track);
 }
 function sessionOrderKey(s) {
@@ -6562,7 +6562,7 @@ function todayLesson(assigned, pairIndex, delivered) {
   return Object.freeze({ pairIndex, lesson: lessonById(pick.lessonId), assigned: pick, delivered: !next });
 }
 function makeDeliveryLog() { return Object.freeze({ delivered: Object.freeze([]) }); }
-function deliveryKeyOf(pairIndex, lessonId, cycle) { return pairIndex + '|' + lessonId + '|' + (Number.isInteger(cycle) ? cycle : 1); }
+function deliveryKeyOf(pairIndex, lessonId, cycle) { return `${pairIndex}|${lessonId}|${Number.isInteger(cycle) ? cycle : 1}`; }
 function deliveryKey(session) { return deliveryKeyOf(session.pairIndex, session.lessonId, session.cycle); }
 function assertLog(log) { if (!log || !Array.isArray(log.delivered)) throw new Error('invalid delivery log'); }
 function setDelivered(log, input, delivered) {
@@ -6595,9 +6595,9 @@ function lessonProgress(assigned, log) {
 function progressToCsv(progress) {
   const lines = ['pair,track,total,delivered,percent,next_lesson'];
   (progress && Array.isArray(progress.byPair) ? progress.byPair : []).forEach((r) => {
-    lines.push(r.pairIndex + ',' + r.track + ',' + r.total + ',' + r.delivered + ',' + (r.percent === null ? '' : r.percent) + ',' + (r.nextLessonId || ''));
+    lines.push(`${r.pairIndex},${r.track},${r.total},${r.delivered},${r.percent === null ? '' : r.percent},${r.nextLessonId || ''}`);
   });
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 const VALID_AI_TOPICS = Object.freeze(AI_TOPIC_KEYS ? AI_TOPIC_KEYS.slice() : [

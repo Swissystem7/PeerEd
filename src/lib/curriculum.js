@@ -1,4 +1,4 @@
-'use strict';
+
 // PeerEd - lesson content: engineering students (mentors) teach children AI (stage 10).
 // Two tracks, about 12 lessons each, 45 minutes a lesson. Hebrew first; every lesson title
 // also has an i18n key (cur.*) translated in lang-he/lang-ar/lang-ru for ar/ru. Content only:
@@ -10,13 +10,13 @@ const { AI_TOPIC_KEYS } = require('./attendance.js');
 
 const TRACKS = Object.freeze(['elementary', 'middle']);
 const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
-const LESSON_MINUTES = 45;
+const _LESSON_MINUTES = 45;
 
 function lesson(track, spec) {
   const { index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe } = spec;
   return Object.freeze({
-    id: track + '-' + slug, track, index,
-    titleKey: 'cur.' + track + '.' + slug, titleHe,
+    id: `${track}-${slug}`, track, index,
+    titleKey: `cur.${track}.${slug}`, titleHe,
     goalsHe: Object.freeze(goalsHe.slice()),
     flowHe: Object.freeze(flowHe.map((f) => Object.freeze({ minutes: f[0], stepHe: f[1] }))),
     activityHe, unpluggedHe,
@@ -310,7 +310,7 @@ function trackForGrade(grade) {
 }
 function lessonsForTrack(track) { return BY_TRACK[assertTrack(track)]; }
 function invalidLessonIndex(track) {
-  return new Error('invalid lesson index for track ' + track);
+  return new Error(`invalid lesson index for track ${track}`);
 }
 
 function assertLessonIndex(index, list, track) {
@@ -349,7 +349,7 @@ function timelineStep(f, i) {
   const hasTitle = cut > 0 && cut <= 28;
   return Object.freeze({
     minutes: f.minutes,
-    titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
+    titleHe: hasTitle ? f.stepHe.slice(0, cut) : `שלב ${i + 1}`,
     bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
   });
 }
@@ -366,7 +366,7 @@ function resolveTrack(trackByPair, pairIndex) {
   let track;
   if (typeof trackByPair === 'function') track = trackByPair(pairIndex);
   else if (trackByPair && typeof trackByPair === 'object') track = trackByPair[pairIndex];
-  if (track === undefined || track === null) throw new Error('missing track for pair ' + pairIndex);
+  if (track === undefined || track === null) throw new Error(`missing track for pair ${pairIndex}`);
   return assertTrack(track);
 }
 function sessionOrderKey(s) {
@@ -431,7 +431,7 @@ function todayLesson(assigned, pairIndex, delivered) {
   return Object.freeze({ pairIndex, lesson: lessonById(pick.lessonId), assigned: pick, delivered: !next });
 }
 function makeDeliveryLog() { return Object.freeze({ delivered: Object.freeze([]) }); }
-function deliveryKeyOf(pairIndex, lessonId, cycle) { return pairIndex + '|' + lessonId + '|' + (Number.isInteger(cycle) ? cycle : 1); }
+function deliveryKeyOf(pairIndex, lessonId, cycle) { return `${pairIndex}|${lessonId}|${Number.isInteger(cycle) ? cycle : 1}`; }
 function deliveryKey(session) { return deliveryKeyOf(session.pairIndex, session.lessonId, session.cycle); }
 function assertLog(log) { if (!log || !Array.isArray(log.delivered)) throw new Error('invalid delivery log'); }
 function setDelivered(log, input, delivered) {
@@ -464,9 +464,9 @@ function lessonProgress(assigned, log) {
 function progressToCsv(progress) {
   const lines = ['pair,track,total,delivered,percent,next_lesson'];
   (progress && Array.isArray(progress.byPair) ? progress.byPair : []).forEach((r) => {
-    lines.push(r.pairIndex + ',' + r.track + ',' + r.total + ',' + r.delivered + ',' + (r.percent === null ? '' : r.percent) + ',' + (r.nextLessonId || ''));
+    lines.push(`${r.pairIndex},${r.track},${r.total},${r.delivered},${r.percent === null ? '' : r.percent},${r.nextLessonId || ''}`);
   });
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 const VALID_AI_TOPICS = Object.freeze(AI_TOPIC_KEYS ? AI_TOPIC_KEYS.slice() : [

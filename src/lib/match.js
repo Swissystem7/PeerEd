@@ -1,4 +1,4 @@
-'use strict';
+
 // PeerEd - deterministic matching. Same input -> same output. No clock, no randomness, no network.
 
 const { getRetentionPolicy } = require('./retention.js');
@@ -176,7 +176,7 @@ function invalidRecordedAt() {
 function parseIsoDay(value) {
   const m = typeof value === 'string' ? ISO_DATE.exec(value) : null;
   if (m === null) throw invalidRecordedAt();
-  const written = new Date(m[1] + 'T00:00:00Z');
+  const written = new Date(`${m[1]}T00:00:00Z`);
   if (Number.isNaN(written.getTime()) || written.toISOString().slice(0, 10) !== m[1]) throw invalidRecordedAt();
   return new Date(value);
 }
@@ -394,11 +394,11 @@ function missingByRegionSubject(shortPupils) {
   const counts = {};
   shortPupils.forEach((x) => {
     if (!x || x.reason === 'NO_PARENT_CONSENT') return;
-    const p = x.e && x.e.person;
+    const p = x.e?.person;
     if (!p) return;
     const reg = p.region || 'UNKNOWN';
     (Array.isArray(p.subjects) ? p.subjects : []).forEach((sub) => {
-      const code = reg + '_' + sub;
+      const code = `${reg}_${sub}`;
       counts[code] = (counts[code] || 0) + 1;
     });
   });
@@ -409,9 +409,9 @@ function consentGapCounts(shortPupils, students) {
   let noConsent = 0;
   let noConsentNoStudent = 0;
   shortPupils.forEach((x) => {
-    if (!x || x.reason !== 'NO_PARENT_CONSENT') return;
+    if (x?.reason !== 'NO_PARENT_CONSENT') return;
     noConsent += 1;
-    const me = x.e && x.e.person;
+    const me = x.e?.person;
     if (me && !hasFittingStudent(students, me)) noConsentNoStudent += 1;
   });
   return { noConsent: noConsent, noConsentNoStudent: noConsentNoStudent, noConsentFits: noConsent - noConsentNoStudent };
@@ -445,18 +445,18 @@ function matchSummaryCsv(m, people) {
   const s = summarizeMatch(m, people);
   const lines = [
     MATCH_REPORT_HEADER,
-    'pairs,,' + s.pairs,
-    'pupils_without_student,,' + s.pupilsWithoutStudent,
-    'students_without_pupil,,' + s.studentsWithoutPupil,
-    'cross_region_pairs,,' + s.crossRegionPairs,
-    'waiting_parent_consent_fits,,' + s.waitingConsentFits,
-    'waiting_parent_consent_no_student,,' + s.waitingConsentNoStudent
+    `pairs,,${s.pairs}`,
+    `pupils_without_student,,${s.pupilsWithoutStudent}`,
+    `students_without_pupil,,${s.studentsWithoutPupil}`,
+    `cross_region_pairs,,${s.crossRegionPairs}`,
+    `waiting_parent_consent_fits,,${s.waitingConsentFits}`,
+    `waiting_parent_consent_no_student,,${s.waitingConsentNoStudent}`
   ];
   const missingCodes = Object.keys(s.missingByRegionSubject).sort();
   for (let i = 0; i < missingCodes.length; i += 1) {
-    lines.push('missing_student,' + missingCodes[i] + ',' + s.missingByRegionSubject[missingCodes[i]]);
+    lines.push(`missing_student,${missingCodes[i]},${s.missingByRegionSubject[missingCodes[i]]}`);
   }
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 const DAY_LABELS = Object.freeze({
@@ -526,7 +526,7 @@ function getCleanTopics(x) {
 }
 
 function getLevel(x) {
-  const n = x && x.level;
+  const n = x?.level;
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
 }
 
@@ -567,7 +567,7 @@ function closestSlotPair(slotsA, slotsB) {
 
 function dayLabel(lang, day) {
   const labels = DAY_LABELS[lang];
-  return (labels && labels[day]) || day;
+  return (labels?.[day]) || day;
 }
 
 function zeroShiftExplanation(dayHe, dayAr, dayRu, best) {

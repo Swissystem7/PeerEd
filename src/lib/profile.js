@@ -1,4 +1,4 @@
-'use strict';
+
 // PeerEd - the ONLY record shape the system stores. It is impossible to store personal data of a minor:
 // any key outside the accepted fields is rejected, even with an empty value.
 
@@ -50,7 +50,7 @@ function parsedSlot(slot) {
 function normalizeSlot(slot) {
   const parsed = parsedSlot(slot);
   if (parsed === null) return null;
-  return parsed.day + '_' + String(parsed.hour);
+  return `${parsed.day}_${String(parsed.hour)}`;
 }
 
 function isSlot(slot) {
@@ -107,7 +107,7 @@ function unique(list) {
 
 function getSlotHour(slot) {
   const parsed = parsedSlot(slot);
-  if (parsed === null) throw new Error('invalid slot: ' + String(slot));
+  if (parsed === null) throw new Error(`invalid slot: ${String(slot)}`);
   return parsed.hour;
 }
 
@@ -149,14 +149,14 @@ function normalizedAvailability(availability) {
   const slots = [];
   for (let i = 0; i < availability.length; i += 1) {
     const slot = normalizeSlot(availability[i]);
-    if (slot === null) throw new Error('invalid availability slot: ' + String(availability[i]));
+    if (slot === null) throw new Error(`invalid availability slot: ${String(availability[i])}`);
     slots.push(slot);
   }
   return unique(slots);
 }
 
 function invalidSubject(subject) {
-  return new Error('invalid subjects entry: ' + String(subject));
+  return new Error(`invalid subjects entry: ${String(subject)}`);
 }
 
 function assertSubject(subject) {
@@ -394,7 +394,7 @@ function addAvailabilityCounts(dMap, sMap, p) {
 }
 
 function slotKeyOf(day, hour) {
-  return day + '_' + hour;
+  return `${day}_${hour}`;
 }
 
 function heatmapSlot(day, hour, demand, supply) {
