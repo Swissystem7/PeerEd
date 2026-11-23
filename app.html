@@ -753,6 +753,28 @@
       </div>
       <p class="status" id="cycleTrendsStatus" role="status" aria-live="polite"></p>
     </div>
+    <div class="card" id="pilotToolsCard">
+      <h2 id="pilotToolsHeading">כלי AI חינמיים ומוכנות פיילוט</h2>
+      <p class="hint" id="pilotToolsHint">קטלוג כלי AI חינמיים ובטוחים לכיתה ובדיקת מוכנות בית ספרית ללא פרטים מזהים.</p>
+      <div style="margin-bottom: 1rem;">
+        <label for="pilotToolsTopicFilter" id="pilotToolsTopicFilterLabel">מסנן נושא:</label>
+        <select id="pilotToolsTopicFilter" class="form-control" style="width: auto;" aria-describedby="pilotReadinessStatus">
+          <option value="all">כל הנושאים</option>
+          <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+          <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+          <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+          <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+        </select>
+      </div>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic pilot tools list -->
+      <div id="pilotToolsList" role="region" aria-live="polite" aria-label="רשימת כלי AI חינמיים"></div>
+      <div class="actions" style="margin-top: 1rem;">
+        <button type="button" class="act" id="checkPilotReadinessBtn" aria-describedby="pilotReadinessStatus">בדוק מוכנות פיילוט</button>
+      </div>
+      <p class="status" id="pilotReadinessStatus" role="status" aria-live="polite"></p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic pilot readiness results -->
+      <div id="pilotReadinessOut" role="region" aria-live="polite" aria-label="תוצאות מוכנות פיילוט"></div>
+    </div>
   </div>
 
   <!-- ============ דוחות ============ -->
@@ -7002,13 +7024,252 @@ function generateChallengeCertificateText(entry, rank, lang) {
   return formatCertificateByLang(info);
 }
 
+const APPROVED_FREE_AI_TOOLS = Object.freeze({
+  AI_LIT_PROMPT: Object.freeze([
+    Object.freeze({
+      id: 'prompt-playground',
+      name: 'AI Prompt Playground',
+      title: 'AI Prompt Playground',
+      toolTitle: 'AI Prompt Playground',
+      topic: 'AI_LIT_PROMPT',
+      aiTopic: 'AI_LIT_PROMPT',
+      description: Object.freeze({
+        he: 'סביבת תרגול חינמית לניסוח הנחיות מובנות ולמידת פרומפטים בטוחים לכיתה.',
+        ar: 'بيئة تدريب مجانية لصياغة التوجيهات المنظمة وتعلم هندسة الأوامر الآمنة للفصل الدراسي.',
+        ru: 'Бесплатная среда для практики составления структурированных промптов в классе.'
+      }),
+      descriptionHe: 'סביבת תרגול חינמית לניסוח הנחיות מובנות ולמידת פרומפטים בטוחים לכיתה.',
+      descriptionAr: 'بيئة تدريب مجانية لصياغة التوجيهات المنظمة وتعلم هندسة الأوامر الآمنة للفصل الدراسي.',
+      descriptionRu: 'Бесплатная среда для практики составления структурированных промптов в классе.',
+      zeroPiiNote: Object.freeze({
+        he: 'שימוש אנונימי (Zero-PII): אין להזין שמות תלמידים, מספרי טלפון או מידע אישי מזהה.',
+        ar: 'استخدام مجهول الهوية (Zero-PII): يمنع إدخال أسماء الطلاب أو أرقام الهواتف أو معلومات شخصية.',
+        ru: 'Анонимное использование (Zero-PII): запрещено вводить имена учеников, телефоны или ПДн.'
+      }),
+      zeroPiiNoteHe: 'שימוש אנונימי (Zero-PII): אין להזין שמות תלמידים, מספרי טלפון או מידע אישי מזהה.',
+      zeroPiiNoteAr: 'استخدام مجهول الهوية (Zero-PII): يمنع إدخال أسماء الطلاب أو أرقام الهواتف أو معلومات شخصية.',
+      zeroPiiNoteRu: 'Анонимное использование (Zero-PII): запрещено вводить имена учеников, телефоны или ПДн.'
+    }),
+    Object.freeze({
+      id: 'prompt-tutor',
+      name: 'Prompt Tutor',
+      title: 'Prompt Tutor',
+      toolTitle: 'Prompt Tutor',
+      topic: 'AI_LIT_PROMPT',
+      aiTopic: 'AI_LIT_PROMPT',
+      description: Object.freeze({
+        he: 'עוזר למידה חינוכי המנתח בהירות שאלות ומציע שיפורי ניסוח ללא הזדהות.',
+        ar: 'مساعد تعليمي يحلل وضوح الأسئلة ويقترح تحسينات في الصياغة دون الحاجة للتعريف.',
+        ru: 'Образовательный помощник, анализирующий четкость вопросов без авторизации.'
+      }),
+      descriptionHe: 'עוזר למידה חינוכי המנתח בהירות שאלות ומציע שיפורי ניסוח ללא הזדהות.',
+      descriptionAr: 'עוזר למידה חינוכי המנתח בהירות שאלות ומציע שיפורי ניסוח ללא הזדהות.',
+      descriptionRu: 'Образовательный помощник, анализирующий четкость вопросов без авторизации.',
+      zeroPiiNote: Object.freeze({
+        he: 'הגנה על פרטיות: שאלות ותרגילים נמחקים מיד בסיום ההפעלה.',
+        ar: 'حماية الخصوصية: يتم حذف الأسئلة والتمارين فور انتهاء الجلسة.',
+        ru: 'Защита конфиденциальности: вопросы и упражнения удаляются сразу после сеанса.'
+      }),
+      zeroPiiNoteHe: 'הגנה על פרטיות: שאלות ותרגילים נמחקים מיד בסיום ההפעלה.',
+      zeroPiiNoteAr: 'حماية الخصوصية: يتم حذف الأسئلة والتمارين فور انتهاء الجلسة.',
+      zeroPiiNoteRu: 'Защита конфиденциальности: вопросы и упражнения удаляются сразу после сеанса.'
+    })
+  ]),
+  AI_CREATIVE: Object.freeze([
+    Object.freeze({
+      id: 'autodraw',
+      name: 'AutoDraw',
+      title: 'AutoDraw',
+      toolTitle: 'AutoDraw',
+      topic: 'AI_CREATIVE',
+      aiTopic: 'AI_CREATIVE',
+      description: Object.freeze({
+        he: 'כלי ציור מהיר מבוסס בינה מלאכותית המזהה שרבוטים ומציע איורים מקצועיים.',
+        ar: 'أداة رسم سريعة بالذكاء الاصطناعي تتعرف على الخربشات وتقترح رسومات احترافية.',
+        ru: 'Инструмент быстрого рисования на базе ИИ, распознающий наброски.'
+      }),
+      descriptionHe: 'כלי ציור מהיר מבוסס בינה מלאכותית המזהה שרבוטים ומציע איורים מקצועיים.',
+      descriptionAr: 'أداة رسم سريعة بالذكاء الاصطناعي تتعرف على الخربشات وتقترح رسومات احترافية.',
+      descriptionRu: 'Инструмент быстрого рисования на базе ИИ, распознающий наброски.',
+      zeroPiiNote: Object.freeze({
+        he: 'ללא שמירת פרטים אישיים: פעילות יצירה חופשית ללא פתיחת חשבון.',
+        ar: 'بدون حفظ بيانات شخصية: نشاط إبداعي مجاني دون الحاجة لفتح حساب.',
+        ru: 'Без сохранения личных данных: свободное творчество без регистрации.'
+      }),
+      zeroPiiNoteHe: 'ללא שמירת פרטים אישיים: פעילות יצירה חופשית ללא פתיחת חשבון.',
+      zeroPiiNoteAr: 'بدون حفظ بيانات شخصية: نشاط إبداعي مجاني دون الحاجة لفتح حساب.',
+      zeroPiiNoteRu: 'Без сохранения личных данных: свободное творчество без регистрации.'
+    }),
+    Object.freeze({
+      id: 'quick-draw',
+      name: 'Quick Draw',
+      title: 'Quick Draw',
+      toolTitle: 'Quick Draw',
+      topic: 'AI_CREATIVE',
+      aiTopic: 'AI_CREATIVE',
+      description: Object.freeze({
+        he: 'משחק למידת מכונה שבו רשת עצבית מנחשת ציורי תלמידים תוך 20 שניות.',
+        ar: 'لعبة تعلم الآلة حيث تخمن الشبكة العصبية رسومات الطلاب في 20 ثانية.',
+        ru: 'Игра машинного обучения, где нейросеть угадывает рисунки за 20 секунд.'
+      }),
+      descriptionHe: 'משחק למידת מכונה שבו רשת עצבית מנחשת ציורי תלמידים תוך 20 שניות.',
+      descriptionAr: 'لعبة تعلم الآلة حيث تخمن الشبكة العصبية رسومات الطلاب في 20 ثانية.',
+      descriptionRu: 'Игра машинного обучения, где нейросеть угадывает рисунки за 20 секунд.',
+      zeroPiiNote: Object.freeze({
+        he: 'משחק בטוח: שרבוטי צורות גנריות בלבד ללא שום פרט מזהה של התלמיד.',
+        ar: 'لعبة آمنة: خربشات لأشكال عامة فقط دون أي تفاصيل تعريفية للطالب.',
+        ru: 'Безопасная игра: только наброски предметов без персональной информации.'
+      }),
+      zeroPiiNoteHe: 'משחק בטוח: שרבוטי צורות גנריות בלבד ללא שום פרט מזהה של התלמיד.',
+      zeroPiiNoteAr: 'لعبة آمنة: خربشات لأشكال عامة فقط دون أي تفاصيل تعريفية للطالب.',
+      zeroPiiNoteRu: 'Безопасная игра: только наброски предметов без персональной информации.'
+    })
+  ]),
+  AI_STEM_CODE: Object.freeze([
+    Object.freeze({
+      id: 'teachable-machine',
+      name: 'Teachable Machine',
+      title: 'Teachable Machine',
+      toolTitle: 'Teachable Machine',
+      topic: 'AI_STEM_CODE',
+      aiTopic: 'AI_STEM_CODE',
+      description: Object.freeze({
+        he: 'אימון מודלי סיווג תמונות, קולות ותנוחות באופן חזותי ונגיש בדפדפן.',
+        ar: 'تدريب نماذج تصنيف الصور والأصوات والحركات بصرياً وبسهولة في المتصفح.',
+        ru: 'Визуальное обучение моделей классификации изображений, звуков и поз в браузере.'
+      }),
+      descriptionHe: 'אימון מודלי סיווג תמונות, קולות ותנוחות באופן חזותי ונגיש בדפדפן.',
+      descriptionAr: 'تدريب نماذج تصنيف الصور والأصوات والحركات بصرياً وبسهولة في المتصفح.',
+      descriptionRu: 'Визуальное обучение моделей классификации изображений, звуков и поз в браузере.',
+      zeroPiiNote: Object.freeze({
+        he: 'כל האימון מתבצע מקומית בדפדפן: אין להשתמש בתמונות פנים או נתונים אישיים.',
+        ar: 'يتم التدريب محلياً في المتصفح: يمنع استخدام صور الوجوه أو البيانات الشخصية.',
+        ru: 'Обучение локально в браузере: запрещено использовать лица или личные фото.'
+      }),
+      zeroPiiNoteHe: 'כל האימון מתבצע מקומית בדפדפן: אין להשתמש בתמונות פנים או נתונים אישיים.',
+      zeroPiiNoteAr: 'يتم التدريب محلياً في المتصفح: يمنع استخدام صور الوجوه أو البيانات الشخصية.',
+      zeroPiiNoteRu: 'Обучение локально в браузере: запрещено использовать лица или личные фото.'
+    }),
+    Object.freeze({
+      id: 'blockly-ai',
+      name: 'Blockly AI',
+      title: 'Blockly AI',
+      toolTitle: 'Blockly AI',
+      topic: 'AI_STEM_CODE',
+      aiTopic: 'AI_STEM_CODE',
+      description: Object.freeze({
+        he: 'סביבת תכנות בלוקים לתרגול אלגוריתמים והפעלת פקודות למידת מכונה פשוטות.',
+        ar: 'بيئة برمجة كتلية لممارسة الخوارزميات وتطبيق أوامر تعلم الآلة البسيطة.',
+        ru: 'Блочное программирование для изучения алгоритмов и простого машинного обучения.'
+      }),
+      descriptionHe: 'סביבת תכנות בלוקים לתרגול אלגוריתמים והפעלת פקודות למידת מכונה פשוטות.',
+      descriptionAr: 'بيئة برمجة كتلية لممارسة الخوارزميات وتطبيق أوامر تعلم الآلة البسيطة.',
+      descriptionRu: 'Блочное программирование для изучения алгоритмов и простого машинного обучения.',
+      zeroPiiNote: Object.freeze({
+        he: 'סביבה סגורה: קוד התלמיד נשמר מקומית בלבד ללא שיתוף ברשת.',
+        ar: 'بيئة مغلقة: يتم حفظ كود الطالب محلياً فقط دون مشاركته على الشبكة.',
+        ru: 'Закрытая среда: код сохраняется локально без передачи по сети.'
+      }),
+      zeroPiiNoteHe: 'סביבה סגורה: קוד התלמיד נשמר מקומית בלבד ללא שיתוף ברשת.',
+      zeroPiiNoteAr: 'بيئة مغلقة: يتم حفظ كود الطالب محلياً فقط دون مشاركته على الشبكة.',
+      zeroPiiNoteRu: 'Закрытая среда: код сохраняется локально без передачи по сети.'
+    })
+  ]),
+  AI_ETHICS_SEC: Object.freeze([
+    Object.freeze({
+      id: 'ai-bias-detective',
+      name: 'AI Bias Detective',
+      title: 'AI Bias Detective',
+      toolTitle: 'AI Bias Detective',
+      topic: 'AI_ETHICS_SEC',
+      aiTopic: 'AI_ETHICS_SEC',
+      description: Object.freeze({
+        he: 'סימולטור אינטראקטיבי לזיהוי הטיות נתונים והבנת עקרונות הוגנות במודלים.',
+        ar: 'محاكي تفاعلي لاكتشاف الانحياز في البيانات وفهم مبادئ العدالة في النماذج.',
+        ru: 'Интерактивный симулятор для выявления смещений в данных и проверки справедливости.'
+      }),
+      descriptionHe: 'סימולטור אינטראקטיבי לזיהוי הטיות נתונים והבנת עקרונות הוגנות במודלים.',
+      descriptionAr: 'מחאקי تفاعلي لاكتشاف الانحياز في البيانات وفهم مبادئ العدالة في النماذج.',
+      descriptionRu: 'Интерактивный симулятор для выявления смещений в данных и проверки справедливости.',
+      zeroPiiNote: Object.freeze({
+        he: 'אימון סינתטי בלבד: כל הדוגמאות מומצאות ואינן מכילות שום מידע אמיתי.',
+        ar: 'تدريب اصطناعي فقط: جميع الأمثلة افتراضية ولا تحتوي على أي معلومات حقيقية.',
+        ru: 'Только синтетические данные: примеры вымышлены и не содержат реальных данных.'
+      }),
+      zeroPiiNoteHe: 'אימון סינתטי בלבד: כל הדוגמאות מומצאות ואינן מכילות שום מידע אמיתי.',
+      zeroPiiNoteAr: 'تدريب اصطناعي فقط: جميع الأمثلة افتراضية ولا تحتوي على أي معلومات حقيقية.',
+      zeroPiiNoteRu: 'Только синтетические данные: примеры вымышлены и не содержат реальных данных.'
+    }),
+    Object.freeze({
+      id: 'privacy-guard-sim',
+      name: 'Privacy Guard Simulator',
+      title: 'Privacy Guard Simulator',
+      toolTitle: 'Privacy Guard Simulator',
+      topic: 'AI_ETHICS_SEC',
+      aiTopic: 'AI_ETHICS_SEC',
+      description: Object.freeze({
+        he: 'סדנת סימולציה לזיהוי דליפת מידע אישי ואימון הגנת פרטיות במערכות בינה מלאכותית.',
+        ar: 'ورشة محاكاة لاكتشاف تسريب البيانات الشخصية وتدريب حماية الخصوصية في أنظمة الذكاء الاصطناعي.',
+        ru: 'Симулятор для обнаружения утечек персональных данных и защиты приватности в ИИ.'
+      }),
+      descriptionHe: 'סדנת סימולציה לזיהוי דליפת מידע אישי ואימון הגנת פרטיות במערכות בינה מלאכותית.',
+      descriptionAr: 'ورشة محاكاة لاكتشاف تسريب البيانات الشخصية وتדريب حماية الخصوصية في أنظمة الذكاء الاصطناعي.',
+      descriptionRu: 'Симулятор для обнаружения утечек персональных данных и защиты приватности в ИИ.',
+      zeroPiiNote: Object.freeze({
+        he: 'משחק בדיקה בטוח: לא מזינים נתוני אמת של משתמשים בשום שלב.',
+        ar: 'لعبة فحص آمنة: لا يتم إدخال بيانات حقيقية للمستخدمين في أي مرحلة.',
+        ru: 'Безопасная игра-тест: реальные данные пользователей никогда не вводятся.'
+      }),
+      zeroPiiNoteHe: 'משחק בדיקה בטוח: לא מזינים נתוני אמת של משתמשים בשום שלב.',
+      zeroPiiNoteAr: 'لعبة فحص آمنة: لا يتم إدخال بيانات حقيقية للمستخدمين في أي مرحلة.',
+      zeroPiiNoteRu: 'Безопасная игра-тест: реальные данные пользователей никогда не вводятся.'
+    })
+  ])
+});
+
+function getRecommendedToolsForTopics(topics) {
+  if (topics === undefined || topics === null || topics === 'all') {
+    const all = [];
+    const topicKeys = Object.keys(APPROVED_FREE_AI_TOOLS);
+    for (let k = 0; k < topicKeys.length; k += 1) {
+      const list = APPROVED_FREE_AI_TOOLS[topicKeys[k]];
+      if (Array.isArray(list)) {
+        for (let i = 0; i < list.length; i += 1) {
+          all.push(list[i]);
+        }
+      }
+    }
+    return Object.freeze(all);
+  }
+  const listToFilter = Array.isArray(topics) ? topics : [topics];
+  const out = [];
+  const seenIds = Object.create(null);
+  for (let tIdx = 0; tIdx < listToFilter.length; tIdx += 1) {
+    const t = listToFilter[tIdx];
+    if (typeof t === 'string' && Object.prototype.hasOwnProperty.call(APPROVED_FREE_AI_TOOLS, t)) {
+      const tools = APPROVED_FREE_AI_TOOLS[t];
+      if (Array.isArray(tools)) {
+        for (let j = 0; j < tools.length; j += 1) {
+          const tool = tools[j];
+          if (tool && tool.id && !seenIds[tool.id]) {
+            seenIds[tool.id] = true;
+            out.push(tool);
+          }
+        }
+      }
+    }
+  }
+  return Object.freeze(out);
+}
+
 module.exports = {
   TRACKS, TRACK_GRADES, ALL_LESSONS,
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
   VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary,
   AI_CHALLENGE_TEMPLATES, generateChallengeCertificateText,
-  addJudgeEvaluation, selectChallengeFinalists, VALID_JUDGE_ROLES, JUDGE_ROLE_WEIGHTS
+  addJudgeEvaluation, selectChallengeFinalists, VALID_JUDGE_ROLES, JUDGE_ROLE_WEIGHTS,
+  APPROVED_FREE_AI_TOOLS, getRecommendedToolsForTopics
 };
   __registry["curriculum"] = module.exports;
 })();
@@ -8481,6 +8742,7 @@ const {
 } = require("./profile.js");
 const {
 	PROFANITY_ERROR,
+	findPersonalData,
 	validateBatchImportZeroPii,
 } = require("./validator.js");
 const { emptyQueue, loadQueue } = require("./approval.js");
@@ -9075,6 +9337,194 @@ function buildImpactOverviewReport(state, lang) {
 	return Object.freeze(report);
 }
 
+const PII_KEY_REGEX = /(?:name|first_?name|last_?name|email|mail|phone|tel|mobile|id_?number|tz|zehut|address)/i;
+
+function checkValueZeroPii(val) {
+	if (val === null || val === undefined) return true;
+	if (typeof val === "string") {
+		const hits = findPersonalData(val);
+		for (let i = 0; i < hits.length; i += 1) {
+			if (hits[i].kind !== "profanity") return false;
+		}
+		if (/@/.test(val)) return false;
+		if (/(?:^|[^\d])05\d[- ]?\d{7}(?:[^\d]|$)/.test(val)) return false;
+		return true;
+	}
+	if (Array.isArray(val)) {
+		for (let i = 0; i < val.length; i += 1) {
+			if (!checkValueZeroPii(val[i])) return false;
+		}
+		return true;
+	}
+	if (typeof val === "object") {
+		const keys = Object.keys(val);
+		for (let k = 0; k < keys.length; k += 1) {
+			if (PII_KEY_REGEX.test(keys[k])) return false;
+			if (!checkValueZeroPii(val[keys[k]])) return false;
+		}
+		return true;
+	}
+	return true;
+}
+
+function isPersonZeroPii(person) {
+	if (!person || typeof person !== "object") return false;
+	const keys = Object.keys(person);
+	for (let i = 0; i < keys.length; i += 1) {
+		if (PII_KEY_REGEX.test(keys[i])) return false;
+	}
+	return checkValueZeroPii(person);
+}
+
+function evaluatePilotReadiness(state) {
+	const s = state || emptyState();
+	const people = Array.isArray(s.people) ? s.people : [];
+
+	let zeroPii = true;
+	for (let i = 0; i < people.length; i += 1) {
+		if (!isPersonZeroPii(people[i])) {
+			zeroPii = false;
+			break;
+		}
+	}
+
+	let activeTopics = [];
+	if (Array.isArray(s.activeTopics) && s.activeTopics.length > 0) {
+		activeTopics = s.activeTopics.filter((t) => typeof t === "string" && AI_TOPIC_KEYS.includes(t));
+	} else if (Array.isArray(s.activeAiTopics) && s.activeAiTopics.length > 0) {
+		activeTopics = s.activeAiTopics.filter((t) => typeof t === "string" && AI_TOPIC_KEYS.includes(t));
+	} else {
+		const pupilsWithTopics = people.filter((p) => p && p.role === "pupil" && Array.isArray(p.target_ai_topics));
+		const topicSet = new Set();
+		for (let i = 0; i < pupilsWithTopics.length; i += 1) {
+			const tList = pupilsWithTopics[i].target_ai_topics;
+			for (let j = 0; j < tList.length; j += 1) {
+				if (typeof tList[j] === "string" && AI_TOPIC_KEYS.includes(tList[j])) {
+					topicSet.add(tList[j]);
+				}
+			}
+		}
+		if (topicSet.size > 0) {
+			activeTopics = Array.from(topicSet);
+		} else {
+			for (let i = 0; i < people.length; i += 1) {
+				const p = people[i];
+				if (p && Array.isArray(p.target_ai_topics)) {
+					for (let j = 0; j < p.target_ai_topics.length; j += 1) {
+						if (typeof p.target_ai_topics[j] === "string" && AI_TOPIC_KEYS.includes(p.target_ai_topics[j])) {
+							topicSet.add(p.target_ai_topics[j]);
+						}
+					}
+				}
+			}
+			activeTopics = topicSet.size > 0 ? Array.from(topicSet) : AI_TOPIC_KEYS.slice();
+		}
+	}
+
+	const students = people.filter((p) => p && p.role === "student");
+	const pupils = people.filter((p) => p && p.role === "pupil");
+
+	const coveredTopics = activeTopics.filter((topic) =>
+		students.some((s) => Array.isArray(s.target_ai_topics) && s.target_ai_topics.includes(topic))
+	);
+	const uncoveredTopics = activeTopics.filter((topic) => !coveredTopics.includes(topic));
+	const mentorCoverage = Boolean(students.length > 0 && activeTopics.length > 0 && uncoveredTopics.length === 0);
+
+	let pairsCount = 0;
+	if (Array.isArray(s.pairs)) {
+		pairsCount = s.pairs.length;
+	} else if (s.pairs && typeof s.pairs === "object" && Array.isArray(s.pairs.pairs)) {
+		pairsCount = s.pairs.pairs.length;
+	} else if (Array.isArray(s.matchedPairs)) {
+		pairsCount = s.matchedPairs.length;
+	} else {
+		try {
+			const matchLib = require("./match.js");
+			if (students.length > 0 && pupils.length > 0) {
+				const computed = matchLib.matchPairs(students, pupils);
+				pairsCount = computed.length;
+			}
+		} catch (_e) {
+			pairsCount = 0;
+		}
+	}
+	const hasPairs = pairsCount > 0;
+
+	const ready = Boolean(zeroPii && mentorCoverage && hasPairs);
+
+	const reasonsHe = [];
+	const reasonsAr = [];
+	const reasonsRu = [];
+
+	if (!zeroPii) {
+		reasonsHe.push("זוהו פרטים אישיים (הפרת Zero-PII)");
+		reasonsAr.push("تم العثور على بيانات شخصية (انتهاك Zero-PII)");
+		reasonsRu.push("Обнаружены персональные данные (нарушение Zero-PII)");
+	}
+	if (!mentorCoverage) {
+		if (students.length === 0) {
+			reasonsHe.push("אין מדריכים (סטודנטים) ברשימה");
+			reasonsAr.push("لا يوجد مرشدون في القائمة");
+			reasonsRu.push("В списке нет наставников");
+		} else if (uncoveredTopics.length > 0) {
+			reasonsHe.push("חסר כיסוי מדריכים לנושאים: " + uncoveredTopics.join(", "));
+			reasonsAr.push("نقص في تغطية المرشدين للمواضيع: " + uncoveredTopics.join(", "));
+			reasonsRu.push("Отсутствует покрытие наставников для тем: " + uncoveredTopics.join(", "));
+		} else {
+			reasonsHe.push("אין נושאי AI פעילים מוגדרים");
+			reasonsAr.push("لا توجد مواضيع ذكاء اصطناعي نشطة محددة");
+			reasonsRu.push("Нет активных тем ИИ");
+		}
+	}
+	if (!hasPairs) {
+		reasonsHe.push("אין זוגות משובצים לפיילוט");
+		reasonsAr.push("لا توجد أزواج مطابقة للبرنامج التجريبي");
+		reasonsRu.push("Нет сформированных пар для пилота");
+	}
+
+	const summaryHe = ready
+		? `מוכן לפיילוט: אפס פרטים מזהים (Zero-PII), כיסוי מלא של ${coveredTopics.length} נושאי AI פעילים, ו-${pairsCount} זוגות משובצים.`
+		: `הפיילוט אינו מוכן: ${reasonsHe.join("; ")}.`;
+	const summaryAr = ready
+		? `جاهز للبرنامج التجريبي: صفر بيانات شخصية (Zero-PII)، تغطية كاملة لـ ${coveredTopics.length} مواضيع ذكاء اصطناعي نشطة، و${pairsCount} أزواج مطابقة.`
+		: `البرنامج التجريبي غير جاهز: ${reasonsAr.join("; ")}.`;
+	const summaryRu = ready
+		? `Готов к пилоту: ноль персональных данных (Zero-PII), полное покрытие ${coveredTopics.length} активных тем ИИ и ${pairsCount} сформированных пар.`
+		: `Пилотный проект не готов: ${reasonsRu.join("; ")}.`;
+
+	return Object.freeze({
+		ready,
+		checks: Object.freeze({
+			zeroPii,
+			hasZeroPii: zeroPii,
+			zeroPiiPassed: zeroPii,
+			mentorCoverage,
+			topicCoverage: mentorCoverage,
+			aiTopicCoverage: mentorCoverage,
+			pairs: hasPairs,
+			hasPairs,
+			pairsExist: hasPairs,
+			pairsCount,
+			mentorCount: students.length,
+			pupilCount: pupils.length,
+			activeTopics: Object.freeze(activeTopics.slice()),
+			coveredTopics: Object.freeze(coveredTopics.slice()),
+			uncoveredTopics: Object.freeze(uncoveredTopics.slice()),
+			reasons: Object.freeze(reasonsHe.slice())
+		}),
+		summary: Object.freeze({
+			he: summaryHe,
+			ar: summaryAr,
+			ru: summaryRu,
+			text: summaryHe,
+			ready,
+			toString() {
+				return this.he;
+			}
+		})
+	});
+}
+
 module.exports = {
 	SCHEMA,
 	DEFAULT_KEY,
@@ -9094,6 +9544,7 @@ module.exports = {
 	buildImpactOverviewReport,
 	compareArchiveCycles,
 	computeMentorRetentionStats,
+	evaluatePilotReadiness,
 	filterParticipantsByAITopic
 };
   __registry["store"] = module.exports;
@@ -13243,6 +13694,128 @@ module.exports = {
     });
   }
 
+  // ---------- Pilot Free AI Tools & Readiness Module (#tab-guide) ----------
+  var lastPilotReadinessResult = null;
+
+  var S_PILOT_TOOLS_HEADING = {
+    he: 'כלי AI חינמיים ומוכנות פיילוט',
+    ar: 'أدوات الذكاء الاصطناعي المجانية وجاهزية البرنامج التجريبي',
+    ru: 'Бесплатные инструменты ИИ и готовность к пилоту'
+  };
+  var S_PILOT_TOOLS_HINT = {
+    he: 'קטלוג כלי AI חינמיים ובטוחים לכיתה ובדיקת מוכנות בית ספרית ללא פרטים מזהים.',
+    ar: 'كتالوج أدوات الذكاء الاصطناعي المجانية والآمنة للفصل الدراسي وفحص جاهزية المدرسة بدون بيانات شخصية.',
+    ru: 'Каталог бесплатных безопасных инструментов ИИ для классов и проверка готовности школы без ПДн.'
+  };
+  var S_PILOT_TOPIC_FILTER_LABEL = {
+    he: 'מסנן נושא:',
+    ar: 'تصفية حسب الموضوع:',
+    ru: 'Фильтр по теме:'
+  };
+  var S_CHECK_READINESS_BTN = {
+    he: 'בדוק מוכנות פיילוט',
+    ar: 'فحص جاهزية البرنامج التجريبي',
+    ru: 'Проверить готовность к пилоту'
+  };
+  var S_ALL_TOPICS = {
+    he: 'כל הנושאים',
+    ar: 'جميع المواضيع',
+    ru: 'Все темы'
+  };
+
+  function renderPilotTools() {
+    var filterEl = $('pilotToolsTopicFilter');
+    var listEl = $('pilotToolsList');
+    if (!listEl) return;
+    var topic = (filterEl && filterEl.value) || 'all';
+    var curLib = (typeof curriculumLib !== 'undefined' ? curriculumLib : null);
+    if (!curLib && typeof require === 'function') {
+      try { curLib = require('./curriculum.js'); } catch (_e) { curLib = null; }
+    }
+    var tools = [];
+    if (curLib && typeof curLib.getRecommendedToolsForTopics === 'function') {
+      tools = curLib.getRecommendedToolsForTopics(topic === 'all' ? undefined : [topic]);
+    }
+    if (!tools || !tools.length) {
+      var noToolsMsg = currentLang === 'ar' ? 'لا توجد أدوات مطابقة' : (currentLang === 'ru' ? 'Нет подходящих инструментов' : 'לא נמצאו כלים מתאימים');
+      listEl.innerHTML = '<p class="empty">' + esc(noToolsMsg) + '</p>';
+      return;
+    }
+    var html = tools.map(function (t) {
+      var name = t.name || t.title || t.toolTitle || '';
+      var topicKey = t.topic || t.aiTopic || '';
+      var topicLabel = (AI_TOPICS && AI_TOPICS[topicKey] && (AI_TOPICS[topicKey][currentLang] || AI_TOPICS[topicKey].he)) || topicKey;
+      var desc = (t.description && (t.description[currentLang] || t.description.he)) || t.descriptionHe || '';
+      var zeroPii = (t.zeroPiiNote && (t.zeroPiiNote[currentLang] || t.zeroPiiNote.he)) || t.zeroPiiNoteHe || '';
+      return '<div class="row" style="margin-bottom: 0.75rem; padding: 0.5rem; border: 1px solid var(--border, #ccc); border-radius: 4px;">' +
+        '<div style="flex: 1 1 100%;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+            '<strong>' + esc(name) + '</strong>' +
+            '<span class="badge">' + esc(topicLabel) + '</span>' +
+          '</div>' +
+          '<p style="margin: 0.25rem 0 0.5rem 0; font-size: 0.9rem;">' + esc(desc) + '</p>' +
+          '<p class="hint" style="margin: 0; font-size: 0.85rem; color: var(--success, green);"><strong>Zero-PII:</strong> ' + esc(zeroPii) + '</p>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    listEl.innerHTML = html;
+  }
+
+  function renderPilotReadinessOutput(res) {
+    var outEl = $('pilotReadinessOut');
+    var statusEl = $('pilotReadinessStatus');
+    if (!res) return;
+    var ready = Boolean(res.ready);
+    var lang = currentLang || 'he';
+    var summaryText = (res.summary && (res.summary[lang] || res.summary.he || res.summary.text)) || (typeof res.summary === 'string' ? res.summary : '');
+    if (statusEl) {
+      statusEl.textContent = summaryText;
+      statusEl.className = 'status' + (ready ? ' ok' : ' bad');
+    }
+    if (outEl) {
+      var checks = res.checks || {};
+      var vZero = checks.zeroPii ? '✓' : '✗';
+      var vCov = checks.mentorCoverage ? '✓' : '✗';
+      var vPairs = checks.pairs ? '✓' : '✗';
+
+      var labelPii = lang === 'ar' ? 'فحص صفر بيانات شخصية (Zero-PII): ' : (lang === 'ru' ? 'Проверка отсутствия ПДн (Zero-PII): ' : 'אימות אפס פרטים מזהים (Zero-PII): ');
+      var labelCov = lang === 'ar' ? 'تغطية مواضيع الذكاء الاصطناعي بواسطة المرشدين: ' : (lang === 'ru' ? 'Покрытие тем ИИ наставниками: ' : 'כיסוי נושאי AI ע״י מדריכים: ');
+      var labelPairs = lang === 'ar' ? 'أزواج مطابقة نشطة: ' : (lang === 'ru' ? 'Активные сформированные пары: ' : 'זוגות משובצים פעילים: ');
+
+      var pairsNum = checks.pairsCount !== undefined ? checks.pairsCount : 0;
+      var covInfo = (checks.coveredTopics ? checks.coveredTopics.length : 0) + ' / ' + (checks.activeTopics ? checks.activeTopics.length : 0);
+
+      outEl.innerHTML = '<div style="margin-top: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #ccc); border-radius: 4px;">' +
+        '<div style="margin-bottom: 0.25rem;"><strong>' + esc(labelPii) + '</strong><span class="badge">' + vZero + '</span></div>' +
+        '<div style="margin-bottom: 0.25rem;"><strong>' + esc(labelCov) + '</strong><span class="badge">' + vCov + ' (' + esc(covInfo) + ')</span></div>' +
+        '<div style="margin-bottom: 0.25rem;"><strong>' + esc(labelPairs) + '</strong><span class="badge">' + vPairs + ' (' + pairsNum + ')</span></div>' +
+        '<p style="margin-top: 0.5rem; font-size: 0.9rem;">' + esc(summaryText) + '</p>' +
+      '</div>';
+    }
+  }
+
+  function handleCheckPilotReadiness() {
+    var stLib = (typeof storeLib !== 'undefined' ? storeLib : null);
+    if (!stLib && typeof require === 'function') {
+      try { stLib = require('./store.js'); } catch (_e) { stLib = null; }
+    }
+    if (stLib && typeof stLib.evaluatePilotReadiness === 'function') {
+      var curState = Object.assign({}, state);
+      if (lastMatch2 && Array.isArray(lastMatch2.pairs) && lastMatch2.pairs.length) {
+        curState.pairs = lastMatch2.pairs;
+      }
+      lastPilotReadinessResult = stLib.evaluatePilotReadiness(curState);
+      renderPilotReadinessOutput(lastPilotReadinessResult);
+    }
+  }
+
+  if ($('pilotToolsTopicFilter')) {
+    $('pilotToolsTopicFilter').addEventListener('change', renderPilotTools);
+  }
+  if ($('checkPilotReadinessBtn')) {
+    $('checkPilotReadinessBtn').addEventListener('click', handleCheckPilotReadiness);
+  }
+
   var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
   var lockedKeys = {};
   function rosterSplit() {
@@ -13885,6 +14458,9 @@ module.exports = {
   renderCycleTrends();
   renderChallengeForm();
   renderChallengeLeaderboard();
+  if (typeof renderPilotTools === 'function') {
+    renderPilotTools();
+  }
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
@@ -14061,6 +14637,39 @@ module.exports = {
     if (typeof renderPilotBatchStatus === 'function') {
       renderPilotBatchStatus();
     }
+    if ($('pilotToolsHeading')) {
+      $('pilotToolsHeading').textContent = S_PILOT_TOOLS_HEADING[currentLang] || S_PILOT_TOOLS_HEADING.he;
+    }
+    if ($('pilotToolsHint')) {
+      $('pilotToolsHint').textContent = S_PILOT_TOOLS_HINT[currentLang] || S_PILOT_TOOLS_HINT.he;
+    }
+    if ($('pilotToolsTopicFilterLabel')) {
+      $('pilotToolsTopicFilterLabel').textContent = S_PILOT_TOPIC_FILTER_LABEL[currentLang] || S_PILOT_TOPIC_FILTER_LABEL.he;
+    }
+    if ($('checkPilotReadinessBtn')) {
+      var chkTxt = S_CHECK_READINESS_BTN[currentLang] || S_CHECK_READINESS_BTN.he;
+      $('checkPilotReadinessBtn').textContent = chkTxt;
+    }
+    var ptFilter = $('pilotToolsTopicFilter');
+    if (ptFilter) {
+      var prevVal = ptFilter.value || 'all';
+      var allTxt = S_ALL_TOPICS[currentLang] || S_ALL_TOPICS.he;
+      var fOpts = '<option value="all"' + (prevVal === 'all' ? ' selected' : '') + '>' + esc(allTxt) + '</option>';
+      if (AI_TOPICS) {
+        Object.keys(AI_TOPICS).forEach(function (k) {
+          var tLabel = (AI_TOPICS[k] && (AI_TOPICS[k][currentLang] || AI_TOPICS[k].he)) || k;
+          fOpts += '<option value="' + esc(k) + '"' + (prevVal === k ? ' selected' : '') + '>' + esc(tLabel) + '</option>';
+        });
+      }
+      ptFilter.innerHTML = fOpts;
+      ptFilter.value = prevVal;
+    }
+    if (typeof renderPilotTools === 'function') {
+      renderPilotTools();
+    }
+    if (lastPilotReadinessResult && typeof renderPilotReadinessOutput === 'function') {
+      renderPilotReadinessOutput(lastPilotReadinessResult);
+    }
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
@@ -14084,6 +14693,10 @@ module.exports = {
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
     window.renderBackupMatches = renderBackupMatches;
     window.toggleBackupMatches = toggleBackupMatches;
+    window.renderPilotTools = renderPilotTools;
+    window.handleCheckPilotReadiness = handleCheckPilotReadiness;
+    window.evaluatePilotReadiness = (storeLib && storeLib.evaluatePilotReadiness);
+    window.getRecommendedToolsForTopics = (curriculumLib && curriculumLib.getRecommendedToolsForTopics);
   }
 })();
 </script>

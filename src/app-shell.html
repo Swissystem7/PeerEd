@@ -753,6 +753,28 @@
       </div>
       <p class="status" id="cycleTrendsStatus" role="status" aria-live="polite"></p>
     </div>
+    <div class="card" id="pilotToolsCard">
+      <h2 id="pilotToolsHeading">כלי AI חינמיים ומוכנות פיילוט</h2>
+      <p class="hint" id="pilotToolsHint">קטלוג כלי AI חינמיים ובטוחים לכיתה ובדיקת מוכנות בית ספרית ללא פרטים מזהים.</p>
+      <div style="margin-bottom: 1rem;">
+        <label for="pilotToolsTopicFilter" id="pilotToolsTopicFilterLabel">מסנן נושא:</label>
+        <select id="pilotToolsTopicFilter" class="form-control" style="width: auto;" aria-describedby="pilotReadinessStatus">
+          <option value="all">כל הנושאים</option>
+          <option value="AI_LIT_PROMPT">אוריינות בינה מלאכותית והנחיה</option>
+          <option value="AI_CREATIVE">יצירתיות ובינה יוצרת</option>
+          <option value="AI_STEM_CODE">מדעים, טכנולוגיה ותכנות</option>
+          <option value="AI_ETHICS_SEC">אתיקה, פרטיות ובטיחות</option>
+        </select>
+      </div>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic pilot tools list -->
+      <div id="pilotToolsList" role="region" aria-live="polite" aria-label="רשימת כלי AI חינמיים"></div>
+      <div class="actions" style="margin-top: 1rem;">
+        <button type="button" class="act" id="checkPilotReadinessBtn" aria-describedby="pilotReadinessStatus">בדוק מוכנות פיילוט</button>
+      </div>
+      <p class="status" id="pilotReadinessStatus" role="status" aria-live="polite"></p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: accessible region container for dynamic pilot readiness results -->
+      <div id="pilotReadinessOut" role="region" aria-live="polite" aria-label="תוצאות מוכנות פיילוט"></div>
+    </div>
   </div>
 
   <!-- ============ דוחות ============ -->
@@ -4868,6 +4890,128 @@
     });
   }
 
+  // ---------- Pilot Free AI Tools & Readiness Module (#tab-guide) ----------
+  var lastPilotReadinessResult = null;
+
+  var S_PILOT_TOOLS_HEADING = {
+    he: 'כלי AI חינמיים ומוכנות פיילוט',
+    ar: 'أدوات الذكاء الاصطناعي المجانية وجاهزية البرنامج التجريبي',
+    ru: 'Бесплатные инструменты ИИ и готовность к пилоту'
+  };
+  var S_PILOT_TOOLS_HINT = {
+    he: 'קטלוג כלי AI חינמיים ובטוחים לכיתה ובדיקת מוכנות בית ספרית ללא פרטים מזהים.',
+    ar: 'كتالوج أدوات الذكاء الاصطناعي المجانية والآمنة للفصل الدراسي وفحص جاهزية المدرسة بدون بيانات شخصية.',
+    ru: 'Каталог бесплатных безопасных инструментов ИИ для классов и проверка готовности школы без ПДн.'
+  };
+  var S_PILOT_TOPIC_FILTER_LABEL = {
+    he: 'מסנן נושא:',
+    ar: 'تصفية حسب الموضوع:',
+    ru: 'Фильтр по теме:'
+  };
+  var S_CHECK_READINESS_BTN = {
+    he: 'בדוק מוכנות פיילוט',
+    ar: 'فحص جاهزية البرنامج التجريبي',
+    ru: 'Проверить готовность к пилоту'
+  };
+  var S_ALL_TOPICS = {
+    he: 'כל הנושאים',
+    ar: 'جميع المواضيع',
+    ru: 'Все темы'
+  };
+
+  function renderPilotTools() {
+    var filterEl = $('pilotToolsTopicFilter');
+    var listEl = $('pilotToolsList');
+    if (!listEl) return;
+    var topic = (filterEl && filterEl.value) || 'all';
+    var curLib = (typeof curriculumLib !== 'undefined' ? curriculumLib : null);
+    if (!curLib && typeof require === 'function') {
+      try { curLib = require('./curriculum.js'); } catch (_e) { curLib = null; }
+    }
+    var tools = [];
+    if (curLib && typeof curLib.getRecommendedToolsForTopics === 'function') {
+      tools = curLib.getRecommendedToolsForTopics(topic === 'all' ? undefined : [topic]);
+    }
+    if (!tools || !tools.length) {
+      var noToolsMsg = currentLang === 'ar' ? 'لا توجد أدوات مطابقة' : (currentLang === 'ru' ? 'Нет подходящих инструментов' : 'לא נמצאו כלים מתאימים');
+      listEl.innerHTML = '<p class="empty">' + esc(noToolsMsg) + '</p>';
+      return;
+    }
+    var html = tools.map(function (t) {
+      var name = t.name || t.title || t.toolTitle || '';
+      var topicKey = t.topic || t.aiTopic || '';
+      var topicLabel = (AI_TOPICS && AI_TOPICS[topicKey] && (AI_TOPICS[topicKey][currentLang] || AI_TOPICS[topicKey].he)) || topicKey;
+      var desc = (t.description && (t.description[currentLang] || t.description.he)) || t.descriptionHe || '';
+      var zeroPii = (t.zeroPiiNote && (t.zeroPiiNote[currentLang] || t.zeroPiiNote.he)) || t.zeroPiiNoteHe || '';
+      return '<div class="row" style="margin-bottom: 0.75rem; padding: 0.5rem; border: 1px solid var(--border, #ccc); border-radius: 4px;">' +
+        '<div style="flex: 1 1 100%;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">' +
+            '<strong>' + esc(name) + '</strong>' +
+            '<span class="badge">' + esc(topicLabel) + '</span>' +
+          '</div>' +
+          '<p style="margin: 0.25rem 0 0.5rem 0; font-size: 0.9rem;">' + esc(desc) + '</p>' +
+          '<p class="hint" style="margin: 0; font-size: 0.85rem; color: var(--success, green);"><strong>Zero-PII:</strong> ' + esc(zeroPii) + '</p>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    listEl.innerHTML = html;
+  }
+
+  function renderPilotReadinessOutput(res) {
+    var outEl = $('pilotReadinessOut');
+    var statusEl = $('pilotReadinessStatus');
+    if (!res) return;
+    var ready = Boolean(res.ready);
+    var lang = currentLang || 'he';
+    var summaryText = (res.summary && (res.summary[lang] || res.summary.he || res.summary.text)) || (typeof res.summary === 'string' ? res.summary : '');
+    if (statusEl) {
+      statusEl.textContent = summaryText;
+      statusEl.className = 'status' + (ready ? ' ok' : ' bad');
+    }
+    if (outEl) {
+      var checks = res.checks || {};
+      var vZero = checks.zeroPii ? '✓' : '✗';
+      var vCov = checks.mentorCoverage ? '✓' : '✗';
+      var vPairs = checks.pairs ? '✓' : '✗';
+
+      var labelPii = lang === 'ar' ? 'فحص صفر بيانات شخصية (Zero-PII): ' : (lang === 'ru' ? 'Проверка отсутствия ПДн (Zero-PII): ' : 'אימות אפס פרטים מזהים (Zero-PII): ');
+      var labelCov = lang === 'ar' ? 'تغطية مواضيع الذكاء الاصطناعي بواسطة المرشدين: ' : (lang === 'ru' ? 'Покрытие тем ИИ наставниками: ' : 'כיסוי נושאי AI ע״י מדריכים: ');
+      var labelPairs = lang === 'ar' ? 'أزواج مطابقة نشطة: ' : (lang === 'ru' ? 'Активные сформированные пары: ' : 'זוגות משובצים פעילים: ');
+
+      var pairsNum = checks.pairsCount !== undefined ? checks.pairsCount : 0;
+      var covInfo = (checks.coveredTopics ? checks.coveredTopics.length : 0) + ' / ' + (checks.activeTopics ? checks.activeTopics.length : 0);
+
+      outEl.innerHTML = '<div style="margin-top: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #ccc); border-radius: 4px;">' +
+        '<div style="margin-bottom: 0.25rem;"><strong>' + esc(labelPii) + '</strong><span class="badge">' + vZero + '</span></div>' +
+        '<div style="margin-bottom: 0.25rem;"><strong>' + esc(labelCov) + '</strong><span class="badge">' + vCov + ' (' + esc(covInfo) + ')</span></div>' +
+        '<div style="margin-bottom: 0.25rem;"><strong>' + esc(labelPairs) + '</strong><span class="badge">' + vPairs + ' (' + pairsNum + ')</span></div>' +
+        '<p style="margin-top: 0.5rem; font-size: 0.9rem;">' + esc(summaryText) + '</p>' +
+      '</div>';
+    }
+  }
+
+  function handleCheckPilotReadiness() {
+    var stLib = (typeof storeLib !== 'undefined' ? storeLib : null);
+    if (!stLib && typeof require === 'function') {
+      try { stLib = require('./store.js'); } catch (_e) { stLib = null; }
+    }
+    if (stLib && typeof stLib.evaluatePilotReadiness === 'function') {
+      var curState = Object.assign({}, state);
+      if (lastMatch2 && Array.isArray(lastMatch2.pairs) && lastMatch2.pairs.length) {
+        curState.pairs = lastMatch2.pairs;
+      }
+      lastPilotReadinessResult = stLib.evaluatePilotReadiness(curState);
+      renderPilotReadinessOutput(lastPilotReadinessResult);
+    }
+  }
+
+  if ($('pilotToolsTopicFilter')) {
+    $('pilotToolsTopicFilter').addEventListener('change', renderPilotTools);
+  }
+  if ($('checkPilotReadinessBtn')) {
+    $('checkPilotReadinessBtn').addEventListener('click', handleCheckPilotReadiness);
+  }
+
   var lastMatch2 = null, lastSchedule = null, lastReport = null, lastReportSessions = [];
   var lockedKeys = {};
   function rosterSplit() {
@@ -5510,6 +5654,9 @@
   renderCycleTrends();
   renderChallengeForm();
   renderChallengeLeaderboard();
+  if (typeof renderPilotTools === 'function') {
+    renderPilotTools();
+  }
   function applyLanguage(lang) {
     if (!i18n) return;
     currentLang = i18n.STRINGS[lang] ? lang : i18n.DEFAULT_LANGUAGE;
@@ -5686,6 +5833,39 @@
     if (typeof renderPilotBatchStatus === 'function') {
       renderPilotBatchStatus();
     }
+    if ($('pilotToolsHeading')) {
+      $('pilotToolsHeading').textContent = S_PILOT_TOOLS_HEADING[currentLang] || S_PILOT_TOOLS_HEADING.he;
+    }
+    if ($('pilotToolsHint')) {
+      $('pilotToolsHint').textContent = S_PILOT_TOOLS_HINT[currentLang] || S_PILOT_TOOLS_HINT.he;
+    }
+    if ($('pilotToolsTopicFilterLabel')) {
+      $('pilotToolsTopicFilterLabel').textContent = S_PILOT_TOPIC_FILTER_LABEL[currentLang] || S_PILOT_TOPIC_FILTER_LABEL.he;
+    }
+    if ($('checkPilotReadinessBtn')) {
+      var chkTxt = S_CHECK_READINESS_BTN[currentLang] || S_CHECK_READINESS_BTN.he;
+      $('checkPilotReadinessBtn').textContent = chkTxt;
+    }
+    var ptFilter = $('pilotToolsTopicFilter');
+    if (ptFilter) {
+      var prevVal = ptFilter.value || 'all';
+      var allTxt = S_ALL_TOPICS[currentLang] || S_ALL_TOPICS.he;
+      var fOpts = '<option value="all"' + (prevVal === 'all' ? ' selected' : '') + '>' + esc(allTxt) + '</option>';
+      if (AI_TOPICS) {
+        Object.keys(AI_TOPICS).forEach(function (k) {
+          var tLabel = (AI_TOPICS[k] && (AI_TOPICS[k][currentLang] || AI_TOPICS[k].he)) || k;
+          fOpts += '<option value="' + esc(k) + '"' + (prevVal === k ? ' selected' : '') + '>' + esc(tLabel) + '</option>';
+        });
+      }
+      ptFilter.innerHTML = fOpts;
+      ptFilter.value = prevVal;
+    }
+    if (typeof renderPilotTools === 'function') {
+      renderPilotTools();
+    }
+    if (lastPilotReadinessResult && typeof renderPilotReadinessOutput === 'function') {
+      renderPilotReadinessOutput(lastPilotReadinessResult);
+    }
   }
   var langSelEl = $('langSelect');
   if (langSelEl) { langSelEl.value = currentLang; langSelEl.addEventListener('change', function () { applyLanguage(langSelEl.value); }); }
@@ -5709,6 +5889,10 @@
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
     window.renderBackupMatches = renderBackupMatches;
     window.toggleBackupMatches = toggleBackupMatches;
+    window.renderPilotTools = renderPilotTools;
+    window.handleCheckPilotReadiness = handleCheckPilotReadiness;
+    window.evaluatePilotReadiness = (storeLib && storeLib.evaluatePilotReadiness);
+    window.getRecommendedToolsForTopics = (curriculumLib && curriculumLib.getRecommendedToolsForTopics);
   }
 })();
 </script>
