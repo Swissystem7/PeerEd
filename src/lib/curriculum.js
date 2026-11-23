@@ -1167,7 +1167,9 @@ function getRecommendedToolsForTopics(topics) {
   const listToFilter = Array.isArray(topics) ? topics : [topics];
   const out = [];
   const seenIds = Object.create(null);
-  listToFilter.forEach((topic) => addUniqueTools(out, seenIds, toolsForTopic(topic)));
+  listToFilter.forEach((topic) => {
+    addUniqueTools(out, seenIds, toolsForTopic(topic));
+  });
   return Object.freeze(out);
 }
 
