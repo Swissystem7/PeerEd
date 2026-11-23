@@ -1,4 +1,4 @@
-'use strict';
+
 // The wipe button on the people screen: everything the app holds - roster, approval queue, session log -
 // sits under one key of the browser's storage, and ending a pilot or handing the phone on means that key
 // is removed, not overwritten with an empty document. The screen asks twice (a second click on the same
@@ -100,14 +100,14 @@ function runApp(storage) {
   vm.createContext(context);
   const blocks = scriptBlocks(build());
   for (let i = 0; i < blocks.length; i += 1) {
-    vm.runInContext(blocks[i], context, { filename: 'app.html#' + i });
+    vm.runInContext(blocks[i], context, { filename: `app.html#${i}` });
   }
   return { $: byId, context };
 }
 
 function attrValue(html, name) {
-  const at = html.indexOf(name + '="');
-  assert.notEqual(at, -1, name + ' is in the html');
+  const at = html.indexOf(`${name}="`);
+  assert.notEqual(at, -1, `${name} is in the html`);
   const from = at + name.length + 2;
   return html.slice(from, html.indexOf('"', from));
 }
@@ -225,7 +225,7 @@ test('wipe: a change after arming disarms it, so the second click never deletes 
   assert.equal(typeof storage.items[DEFAULT_KEY], 'string', 'nothing was deleted');
   assert.equal($('wipeBtn').textContent, 'כן, מחק הכול');
   const people = $('peopleList').innerHTML.split('<div class="item">').length - 1;
-  assert.equal($('wipeStatus').textContent.indexOf('יימחקו ' + people + ' משתתפים') === 0, true, $('wipeStatus').textContent);
+  assert.equal($('wipeStatus').textContent.indexOf(`יימחקו ${people} משתתפים`) === 0, true, $('wipeStatus').textContent);
 });
 
 test('wipe: a storage that refuses to remove the key still loses the screen, and the status says so', () => {

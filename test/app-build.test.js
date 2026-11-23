@@ -1,4 +1,4 @@
-'use strict';
+
 // app.html is generated. A stale build means the app quietly runs old logic, so that is a test failure.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -25,10 +25,10 @@ test('the build is byte-identical whether its inputs arrive with LF or CRLF', ()
 test('every module is inlined exactly once, in dependency order', () => {
   const built = build();
   for (const name of ORDER) {
-    const marker = '/* ===== src/lib/' + name + '.js ===== */';
-    assert.equal(built.split(marker).length - 1, 1, name + ' should appear exactly once');
+    const marker = `/* ===== src/lib/${name}.js ===== */`;
+    assert.equal(built.split(marker).length - 1, 1, `${name} should appear exactly once`);
   }
-  const positions = ORDER.map((n) => built.indexOf('/* ===== src/lib/' + n + '.js ===== */'));
+  const positions = ORDER.map((n) => built.indexOf(`/* ===== src/lib/${n}.js ===== */`));
   assert.deepEqual(positions, positions.slice().sort((a, b) => a - b));
   assert.equal(built.indexOf(MARKER), -1);
 });
@@ -59,7 +59,7 @@ test('the app sends nothing anywhere: no network call, no third-party asset', ()
   // PeerEd handles data about minors. Anything that leaves the device would break that promise.
   for (const forbidden of ['http://', 'https://', 'fetch(', 'XMLHttpRequest', 'sendBeacon',
     'cdn.', 'googleapis', 'unpkg', 'jsdelivr', 'analytics', 'gtag(']) {
-    assert.equal(built.includes(forbidden), false, 'app.html must not contain ' + forbidden);
+    assert.equal(built.includes(forbidden), false, `app.html must not contain ${forbidden}`);
   }
 });
 
@@ -71,7 +71,7 @@ test('the app stores no name, no contact detail and no free text', () => {
   const stores = built.match(/\.setItem\([^)]*\)/g) || [];
   assert.ok(stores.length > 0, 'the app does save something');
   for (const call of stores) {
-    assert.equal(/name|email|phone|note/i.test(call), false, 'must not store personal text: ' + call);
+    assert.equal(/name|email|phone|note/i.test(call), false, `must not store personal text: ${call}`);
   }
   assert.ok(stores.some((call) => /setItem\(storageKey, text\)/.test(call)), 'the store writes serialize() output');
   assert.ok(built.indexOf('__registry["store"] = module.exports') !== -1, 'store.js is inlined');
@@ -84,4 +84,3 @@ test('the build eliminates unused exports variable and dead symbols flagged by Q
   assert.equal(built.includes('const { SUBJECTS, normalizeSlot,'), false, 'unused normalizeSlot in match2 should be omitted');
   assert.equal(built.includes('const PII_KEY_RE = /(?:name|'), false, 'unnecessary non-capturing group in PII_KEY_RE should be cleaned');
 });
-
