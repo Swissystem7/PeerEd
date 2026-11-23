@@ -560,6 +560,10 @@
           </select>
         </div>
         <div>
+          <label for="remainingWeeksInput" id="remainingWeeksLabel">שבועות נותרים</label>
+          <input type="number" id="remainingWeeksInput" min="0" max="52" step="1" value="8" aria-describedby="paceForecastBadge attestationStatus">
+        </div>
+        <div>
           <label for="sessionStartDate" id="sessionStartDateLabel">מתאריך</label>
           <input type="date" id="sessionStartDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
         </div>
@@ -568,16 +572,21 @@
           <input type="date" id="sessionEndDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
         </div>
       </div>
+      <div class="row pace-forecast-row">
+        <span id="paceForecastBadge" class="pill pace-forecast-badge" role="status" aria-live="polite">תחזית עמידה ביעד: בחישוב...</span>
+      </div>
       <section id="scholarshipMilestonesBar" class="scholarship-milestones-bar" aria-label="צ'קפוינטים להשלמת מלגה" aria-live="polite"></section>
       <div class="actions">
         <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
         <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
         <button type="button" class="ghost" id="exportScholarshipCsvBtn" aria-label="ייצוא CSV אנונימי" aria-describedby="scholarshipCsvStatus">ייצוא CSV אנונימי</button>
         <button type="button" class="ghost" id="confirmPairHoursBtn" aria-label="אישור שעות" aria-describedby="scholarshipConfirmationStatus">אישור שעות</button>
+        <button type="button" class="ghost" id="copyAttestationBtn" aria-label="העתקת אישור הגשה" aria-describedby="attestationStatus">העתקת אישור הגשה</button>
       </div>
       <p class="status" id="scholarshipReportStatus" role="status"></p>
       <p class="status" id="scholarshipCsvStatus" role="status"></p>
       <p class="status" id="scholarshipConfirmationStatus" role="status"></p>
+      <p class="status" id="attestationStatus" role="status"></p>
       <section id="scholarshipReportOut" aria-live="polite" aria-label="דוח שעות מלגה"></section>
     </div>
     <div class="card">
@@ -3231,6 +3240,84 @@
     }
     return records;
   }
+
+  var S_COPY_ATTESTATION_BTN = Object.freeze({
+    he: 'העתקת אישור הגשה',
+    ar: 'نسخ إفادة التقديم',
+    ru: 'Копировать подтверждение'
+  });
+
+  var S_REMAINING_WEEKS_LABEL = Object.freeze({
+    he: 'שבועות נותרים',
+    ar: 'الأسابيع المتبقية',
+    ru: 'Осталось недель'
+  });
+
+  var S_ATTESTATION_STATUS_COPIED = Object.freeze({
+    he: 'אישור הגשה אנונימי הועתק ללוח.',
+    ar: 'تم نسخ إفادة التقديم إلى الحافظة.',
+    ru: 'Анонимное подтверждение скопировано в буфер обмена.'
+  });
+
+  var S_PACE_BADGE_COMPLETED = Object.freeze({
+    he: function (done, target) { return 'יעד הושלם (' + done + '/' + target + ' שעות)'; },
+    ar: function (done, target) { return 'تم إكمال الهدف (' + done + '/' + target + ' س)'; },
+    ru: function (done, target) { return 'Цель достигнута (' + done + '/' + target + ' ч)'; }
+  });
+
+  var S_PACE_BADGE_ON_TRACK = Object.freeze({
+    he: function (pace, forecast, target) { return 'במסלול להשלמה: קצב ' + pace + ' שעות/שבוע · צפי ' + forecast + '/' + target + ' שעות'; },
+    ar: function (pace, forecast, target) { return 'على المسار: المعدل ' + pace + ' س/أسبوع · التوقع ' + forecast + '/' + target + ' س'; },
+    ru: function (pace, forecast, target) { return 'По графику: темп ' + pace + ' ч/нед · прогноз ' + forecast + '/' + target + ' ч'; }
+  });
+
+  var S_PACE_BADGE_AT_RISK = Object.freeze({
+    he: function (pace, forecast, target) { return 'בסיכון ליעד: קצב ' + pace + ' שעות/שבוע · צפי ' + forecast + '/' + target + ' שעות'; },
+    ar: function (pace, forecast, target) { return 'في خطر: المعدل ' + pace + ' س/أسبوع · التوقع ' + forecast + '/' + target + ' س'; },
+    ru: function (pace, forecast, target) { return 'В зоне риска: темп ' + pace + ' ч/нед · прогноз ' + forecast + '/' + target + ' ч'; }
+  });
+
+  function updatePaceForecastUI() {
+    var badge = $('paceForecastBadge');
+    if (!badge) return;
+    var targetSelect = $('scholarshipTargetSelect');
+    var targetHours = targetSelect ? (Number(targetSelect.value) || 30) : 30;
+    var weeksInput = $('remainingWeeksInput');
+    var rawWeeks = weeksInput ? (weeksInput.value !== '' && weeksInput.value != null ? weeksInput.value : weeksInput.getAttribute('value')) : '8';
+    var remainingWeeks = rawWeeks != null && rawWeeks !== '' ? Number(rawWeeks) : 8;
+    if (isNaN(remainingWeeks) || remainingWeeks < 0) remainingWeeks = 0;
+    var pairIndex = activeSessionPairIndex();
+    if (pairIndex == null) pairIndex = 0;
+    var records = getFilteredAttendanceRecords();
+    var forecast = attendance && typeof attendance.computeWeeklyPaceForecast === 'function'
+      ? attendance.computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks)
+      : (session && typeof session.computeWeeklyPaceForecast === 'function'
+        ? session.computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks)
+        : null);
+
+    if (!forecast) {
+      badge.textContent = '';
+      return;
+    }
+
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var text = '';
+    if (forecast.status === 'completed') {
+      var fmtDone = S_PACE_BADGE_COMPLETED[lang] || S_PACE_BADGE_COMPLETED.he;
+      text = fmtDone(forecast.completedHours, forecast.targetHours);
+    } else if (forecast.status === 'on_track') {
+      var fmtTrack = S_PACE_BADGE_ON_TRACK[lang] || S_PACE_BADGE_ON_TRACK.he;
+      text = fmtTrack(forecast.averagePace, forecast.finalForecast, forecast.targetHours);
+    } else {
+      var fmtRisk = S_PACE_BADGE_AT_RISK[lang] || S_PACE_BADGE_AT_RISK.he;
+      text = fmtRisk(forecast.averagePace, forecast.finalForecast, forecast.targetHours);
+    }
+
+    badge.textContent = text;
+    badge.setAttribute('data-status', forecast.status);
+    badge.className = 'pill pace-forecast-badge pace-status-' + forecast.status;
+  }
+
   function updatePairTotalHoursBadge() {
     var el = $('pairTotalHoursBadge');
     if (!el) return;
@@ -3265,6 +3352,7 @@
       lab.textContent = fmt(pct);
     }
     renderScholarshipMilestonesBar();
+    updatePaceForecastUI();
   }
 
 
@@ -3454,6 +3542,7 @@
   function onSessionDateRangeChange() {
     updatePairTotalHoursBadge();
     generateScholarshipReport();
+    updatePaceForecastUI();
   }
   if ($('sessionStartDate')) {
     $('sessionStartDate').addEventListener('input', onSessionDateRangeChange);
@@ -3467,6 +3556,7 @@
     $('scholarshipTargetSelect').addEventListener('change', function () {
       generateScholarshipReport();
       renderScholarshipMilestonesBar();
+      updatePaceForecastUI();
     });
   }
 
@@ -3611,6 +3701,52 @@
       var lang = typeof currentLang === 'string' ? currentLang : 'he';
       var msg = S_CONFIRM_PAIR_HOURS_STATUS[lang] || S_CONFIRM_PAIR_HOURS_STATUS.he;
       say('scholarshipConfirmationStatus', msg);
+    });
+  }
+
+  if ($('remainingWeeksInput')) {
+    if (!$('remainingWeeksInput').value) {
+      $('remainingWeeksInput').value = $('remainingWeeksInput').getAttribute('value') || '8';
+    }
+    $('remainingWeeksInput').addEventListener('input', updatePaceForecastUI);
+    $('remainingWeeksInput').addEventListener('change', updatePaceForecastUI);
+  }
+
+  if ($('copyAttestationBtn')) {
+    $('copyAttestationBtn').addEventListener('click', function () {
+      var pairIndex = activeSessionPairIndex();
+      if (pairIndex == null) pairIndex = 0;
+      var targetSelect = $('scholarshipTargetSelect');
+      var targetHours = targetSelect ? (Number(targetSelect.value) || 30) : 30;
+      var weeksInput = $('remainingWeeksInput');
+      var remainingWeeks = weeksInput && weeksInput.value !== '' ? Number(weeksInput.value) : 8;
+      var records = getFilteredAttendanceRecords();
+      var forecast = attendance && typeof attendance.computeWeeklyPaceForecast === 'function'
+        ? attendance.computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks)
+        : (session && typeof session.computeWeeklyPaceForecast === 'function'
+          ? session.computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks)
+          : null);
+      var report = attendance && typeof attendance.buildScholarshipReport === 'function'
+        ? attendance.buildScholarshipReport(records, currentPairs(), targetHours)
+        : null;
+      var reportRow = (report && report.byPair && report.byPair[pairIndex]) ||
+        (report && Array.isArray(report.pairs) && report.pairs.find(function (p) { return p.pairIndex === pairIndex; })) ||
+        { pairIndex: pairIndex, totalHours: forecast ? forecast.completedHours : 0, targetHours: targetHours };
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      var formatFn = (attendance && typeof attendance.formatScholarshipAttestationText === 'function')
+        ? attendance.formatScholarshipAttestationText
+        : (session && typeof session.formatScholarshipAttestationText === 'function'
+          ? session.formatScholarshipAttestationText
+          : null);
+      var textToCopy = formatFn ? formatFn(reportRow, forecast, lang) : '';
+      var copiedMsg = S_ATTESTATION_STATUS_COPIED[lang] || S_ATTESTATION_STATUS_COPIED.he;
+      var readyMsg = lang === 'ar' ? 'إفادة التقديم جاهزة للنسخ.' : (lang === 'ru' ? 'Подтверждение готово к копированию.' : 'אישור הגשה אנונימי מוכן להעתקה.');
+      say('attestationStatus', copiedMsg);
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).catch(function () {
+          say('attestationStatus', readyMsg);
+        });
+      }
     });
   }
 
@@ -5749,7 +5885,20 @@
     if (confStatus && confStatus.textContent) {
       confStatus.textContent = S_CONFIRM_PAIR_HOURS_STATUS[currentLang] || S_CONFIRM_PAIR_HOURS_STATUS.he;
     }
+    if ($('copyAttestationBtn')) {
+      var attBtnText = S_COPY_ATTESTATION_BTN[currentLang] || S_COPY_ATTESTATION_BTN.he;
+      $('copyAttestationBtn').textContent = attBtnText;
+      $('copyAttestationBtn').setAttribute('aria-label', attBtnText);
+    }
+    if ($('remainingWeeksLabel')) {
+      $('remainingWeeksLabel').textContent = S_REMAINING_WEEKS_LABEL[currentLang] || S_REMAINING_WEEKS_LABEL.he;
+    }
+    var attStatus = $('attestationStatus');
+    if (attStatus && attStatus.textContent) {
+      attStatus.textContent = S_ATTESTATION_STATUS_COPIED[currentLang] || S_ATTESTATION_STATUS_COPIED.he;
+    }
     renderScholarshipMilestonesBar();
+    updatePaceForecastUI();
     var aiLevelSel = $('participantAiLevelSelect');
     if (aiLevelSel) {
       var noneTxt = AI_LEVEL_FIELD_LABELS.none[currentLang] || AI_LEVEL_FIELD_LABELS.none.he;
@@ -5886,6 +6035,7 @@
     window.compareArchiveCycles = (attendance && attendance.compareArchiveCycles) || (storeLib && storeLib.compareArchiveCycles);
     window.computeMentorRetentionStats = (attendance && attendance.computeMentorRetentionStats) || (storeLib && storeLib.computeMentorRetentionStats);
     window.renderScholarshipMilestonesBar = renderScholarshipMilestonesBar;
+    window.updatePaceForecastUI = updatePaceForecastUI;
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
     window.renderBackupMatches = renderBackupMatches;
     window.toggleBackupMatches = toggleBackupMatches;

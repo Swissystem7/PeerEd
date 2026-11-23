@@ -560,6 +560,10 @@
           </select>
         </div>
         <div>
+          <label for="remainingWeeksInput" id="remainingWeeksLabel">שבועות נותרים</label>
+          <input type="number" id="remainingWeeksInput" min="0" max="52" step="1" value="8" aria-describedby="paceForecastBadge attestationStatus">
+        </div>
+        <div>
           <label for="sessionStartDate" id="sessionStartDateLabel">מתאריך</label>
           <input type="date" id="sessionStartDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
         </div>
@@ -568,16 +572,21 @@
           <input type="date" id="sessionEndDate" aria-describedby="scholarshipReportStatus scholarshipCsvStatus">
         </div>
       </div>
+      <div class="row pace-forecast-row">
+        <span id="paceForecastBadge" class="pill pace-forecast-badge" role="status" aria-live="polite">תחזית עמידה ביעד: בחישוב...</span>
+      </div>
       <section id="scholarshipMilestonesBar" class="scholarship-milestones-bar" aria-label="צ'קפוינטים להשלמת מלגה" aria-live="polite"></section>
       <div class="actions">
         <button type="button" class="act" id="generateScholarshipReportBtn" aria-label="הפק דוח שעות מלגה" aria-describedby="scholarshipReportStatus">הפק דוח שעות מלגה</button>
         <button type="button" class="ghost" id="copyScholarshipReportBtn" aria-label="העתק דוח" aria-describedby="scholarshipReportStatus">העתק דוח</button>
         <button type="button" class="ghost" id="exportScholarshipCsvBtn" aria-label="ייצוא CSV אנונימי" aria-describedby="scholarshipCsvStatus">ייצוא CSV אנונימי</button>
         <button type="button" class="ghost" id="confirmPairHoursBtn" aria-label="אישור שעות" aria-describedby="scholarshipConfirmationStatus">אישור שעות</button>
+        <button type="button" class="ghost" id="copyAttestationBtn" aria-label="העתקת אישור הגשה" aria-describedby="attestationStatus">העתקת אישור הגשה</button>
       </div>
       <p class="status" id="scholarshipReportStatus" role="status"></p>
       <p class="status" id="scholarshipCsvStatus" role="status"></p>
       <p class="status" id="scholarshipConfirmationStatus" role="status"></p>
+      <p class="status" id="attestationStatus" role="status"></p>
       <section id="scholarshipReportOut" aria-live="polite" aria-label="דוח שעות מלגה"></section>
     </div>
     <div class="card">
@@ -3281,7 +3290,7 @@ module.exports = { makeSemester, isTeachingDay, expandSessions, cancelSession, p
 // PeerEd - attendance (stage 3): held / missed / postponed / cancelled per pair and date.
 // Immutable log, internal pair indexes only. No clock: every date is passed in.
 
-const { diffDays, parseDate } = require("./semester.js");
+const { diffDays, parseDate, addDays } = require("./semester.js");
 const { PERSONAL_DATA_ERROR } = require("./profile.js");
 
 const ATTENDANCE_STATUSES = Object.freeze([
@@ -4187,6 +4196,203 @@ function exportScholarshipCsv(records, pairs, targetHours) {
 		);
 	}
 	return `${lines.join("\n")}\n`;
+}
+
+function resolveRemainingWeeks(remainingWeeks) {
+	if (typeof remainingWeeks === "number" && Number.isFinite(remainingWeeks)) {
+		return Math.max(0, remainingWeeks);
+	}
+	if (typeof remainingWeeks === "string") {
+		const parsed = Number.parseFloat(remainingWeeks);
+		if (Number.isFinite(parsed)) return Math.max(0, parsed);
+	}
+	return 8;
+}
+
+/**
+ * Computes weekly pace, final projected hours, and forecast status ('on_track', 'at_risk', 'completed')
+ * for a pair towards their scholarship target hours.
+ * Zero PII.
+ *
+ * @param {Array<Object>|Object} records Attendance records or log
+ * @param {number} pairIndex Pair index
+ * @param {number} targetHours Target scholarship hours (default 30)
+ * @param {number} remainingWeeks Number of remaining weeks (default 8)
+ * @returns {Object} Pace forecast object
+ */
+function computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks) {
+	const clean = getCleanAttendanceRecords(records);
+	const pIdx = (typeof pairIndex === "number" && Number.isInteger(pairIndex) && pairIndex >= 0) ? pairIndex : 0;
+	const target = resolveScholarshipTarget(targetHours);
+	const remWeeks = resolveRemainingWeeks(remainingWeeks);
+	const completedHours = calculatePairHours(clean, pIdx);
+
+	const pairHeld = clean.filter((r) => isHeldPairRecord(r, pIdx));
+	const distinctWeeks = new Set();
+	for (const r of pairHeld) {
+		if (typeof r.date === "string") {
+			try {
+				const d = parseDate(r.date);
+				const sundayISO = addDays(r.date, -d.getUTCDay());
+				distinctWeeks.add(sundayISO);
+			} catch {}
+		}
+	}
+
+	let elapsedWeeks = 0;
+	if (distinctWeeks.size > 0) {
+		const sorted = Array.from(distinctWeeks).sort();
+		const minW = sorted[0];
+		const maxW = sorted[sorted.length - 1];
+		const span = Math.round(diffDays(minW, maxW) / 7) + 1;
+		elapsedWeeks = Math.max(1, span);
+	} else if (pairHeld.length > 0) {
+		elapsedWeeks = 1;
+	}
+
+	const averagePace = elapsedWeeks > 0
+		? Math.round((completedHours / elapsedWeeks) * 100) / 100
+		: 0;
+
+	const additionalHours = Math.round((averagePace * remWeeks) * 100) / 100;
+	const projectedHours = Math.round((completedHours + additionalHours) * 100) / 100;
+
+	let status = "at_risk";
+	if (completedHours >= target) {
+		status = "completed";
+	} else if (projectedHours >= target) {
+		status = "on_track";
+	}
+
+	return Object.freeze({
+		pairIndex: pIdx,
+		completedHours,
+		totalHours: completedHours,
+		targetHours: target,
+		remainingWeeks: remWeeks,
+		elapsedWeeks,
+		averagePace,
+		weeklyPace: averagePace,
+		projectedHours,
+		finalForecast: projectedHours,
+		projectedTotalHours: projectedHours,
+		hoursRemaining: Math.max(0, Math.round((target - completedHours) * 100) / 100),
+		requiredPace: remWeeks > 0 ? Math.round((Math.max(0, target - completedHours) / remWeeks) * 100) / 100 : 0,
+		status,
+	});
+}
+
+/**
+ * Formats an anonymous scholarship hours attestation text for copying (zero PII).
+ * Supports he, ar, ru languages.
+ *
+ * @param {Object} reportRow Pair scholarship report row
+ * @param {Object} paceForecast Weekly pace forecast object
+ * @param {string} lang Language code ('he' | 'ar' | 'ru')
+ * @returns {string} Anonymous attestation text
+ */
+function formatScholarshipAttestationText(reportRow, paceForecast, lang = "he") {
+	const currentLang = (typeof lang === "string" && ["he", "ar", "ru"].includes(lang)) ? lang : "he";
+	const isAr = currentLang === "ar";
+	const isRu = currentLang === "ru";
+
+	const pIdx = (paceForecast && typeof paceForecast.pairIndex === "number")
+		? paceForecast.pairIndex
+		: (reportRow && typeof reportRow.pairIndex === "number" ? reportRow.pairIndex : 0);
+
+	const totalHours = (paceForecast && typeof paceForecast.completedHours === "number")
+		? paceForecast.completedHours
+		: (paceForecast && typeof paceForecast.totalHours === "number"
+			? paceForecast.totalHours
+			: (reportRow && typeof reportRow.totalHours === "number" ? reportRow.totalHours : 0));
+
+	const targetHours = (paceForecast && typeof paceForecast.targetHours === "number")
+		? paceForecast.targetHours
+		: (reportRow && typeof reportRow.targetHours === "number" ? reportRow.targetHours : 30);
+
+	const completionPercent = (reportRow && typeof reportRow.completionPercent === "number")
+		? reportRow.completionPercent
+		: (targetHours > 0 ? Math.round((totalHours / targetHours) * 100) : 0);
+
+	const remainingWeeks = (paceForecast && typeof paceForecast.remainingWeeks === "number")
+		? paceForecast.remainingWeeks
+		: 8;
+
+	const pace = (paceForecast && typeof paceForecast.averagePace === "number")
+		? paceForecast.averagePace
+		: (paceForecast && typeof paceForecast.weeklyPace === "number" ? paceForecast.weeklyPace : 0);
+
+	const finalForecast = (paceForecast && typeof paceForecast.finalForecast === "number")
+		? paceForecast.finalForecast
+		: (paceForecast && typeof paceForecast.projectedHours === "number" ? paceForecast.projectedHours : totalHours);
+
+	const status = (paceForecast && typeof paceForecast.status === "string")
+		? paceForecast.status
+		: (totalHours >= targetHours ? "completed" : "on_track");
+
+	const heldSessions =
+		typeof reportRow?.heldSessions === "number"
+			? reportRow.heldSessions
+			: typeof reportRow?.statusCounts?.held === "number"
+				? reportRow.statusCounts.held
+				: undefined;
+
+	const statusLabels = {
+		on_track: {
+			he: "במסלול להשלמה",
+			ar: "على المسار الصحيح",
+			ru: "по графику",
+		},
+		at_risk: {
+			he: "בסיכון ליעד",
+			ar: "في خطر",
+			ru: "в зоне риска",
+		},
+		completed: {
+			he: "היעד הושלם",
+			ar: "مكتمل",
+			ru: "завершено",
+		},
+	};
+	const statusLabel = statusLabels[status]?.[currentLang] || status;
+
+	const lines = [];
+	if (isAr) {
+		lines.push("--- إفادة ساعات المنحة (مجهولة الهوية) ---");
+		lines.push(`معرف الزوج: #${pIdx}`);
+		lines.push(`الساعات المنجزة: ${totalHours} / ${targetHours} ساعة (${completionPercent}%)`);
+		if (heldSessions !== undefined) {
+			lines.push(`اللقاءات المنعقدة: ${heldSessions}`);
+		}
+		lines.push(`المعدل الأسبوعي: ${pace} ساعة/أسبوع`);
+		lines.push(`الأسابيع المتبقية: ${remainingWeeks}`);
+		lines.push(`التوقع النهائي: ${finalForecast} ساعة`);
+		lines.push(`حالة التوقع: ${statusLabel}`);
+	} else if (isRu) {
+		lines.push("--- Подтверждение часов стипендии (анонимное) ---");
+		lines.push(`Идентификатор пары: #${pIdx}`);
+		lines.push(`Выполнено часов: ${totalHours} / ${targetHours} ч (${completionPercent}%)`);
+		if (heldSessions !== undefined) {
+			lines.push(`Состоявшихся занятий: ${heldSessions}`);
+		}
+		lines.push(`Средний недельный темп: ${pace} ч/нед`);
+		lines.push(`Осталось недель: ${remainingWeeks}`);
+		lines.push(`Итоговый прогноз: ${finalForecast} ч`);
+		lines.push(`Статус прогноза: ${statusLabel}`);
+	} else {
+		lines.push("--- אישור שעות מלגה (אנונימי) ---");
+		lines.push(`מזהה זוג: #${pIdx}`);
+		lines.push(`שעות שבוצעו: ${totalHours} / ${targetHours} שעות (${completionPercent}%)`);
+		if (heldSessions !== undefined) {
+			lines.push(`מפגשים שהתקיימו: ${heldSessions}`);
+		}
+		lines.push(`קצב שבועי ממוצע: ${pace} שעות/שבוע`);
+		lines.push(`שבועות נותרים: ${remainingWeeks}`);
+		lines.push(`תחזית סופית: ${finalForecast} שעות`);
+		lines.push(`סטטוס תחזית: ${statusLabel}`);
+	}
+
+	return lines.join("\n");
 }
 
 const TOPIC_PASTEL_PALETTE = Object.freeze([
@@ -5288,6 +5494,8 @@ module.exports = {
 	computeRegionalSupplyDemand,
 	computeScholarshipMilestones,
 	recordPairHoursConfirmation,
+	computeWeeklyPaceForecast,
+	formatScholarshipAttestationText,
 };
   __registry["attendance"] = module.exports;
 })();
@@ -7684,7 +7892,12 @@ module.exports = {
 const { isRegion } = require('./regions.js');
 const { isSlot, normalizeSlot, SUBJECTS, PERSONAL_DATA_ERROR } = require('./profile.js');
 const { statusOf } = require('./approval.js');
-const { filterAttendanceByDateRange, exportScholarshipCsv } = require('./attendance.js');
+const {
+  filterAttendanceByDateRange,
+  exportScholarshipCsv,
+  computeWeeklyPaceForecast,
+  formatScholarshipAttestationText
+} = require('./attendance.js');
 
 const OUTCOMES = Object.freeze(['held', 'missed', 'cut_short']);
 const ACCEPTED_FIELDS = Object.freeze(['slot', 'subject', 'unitId', 'outcome']);
@@ -7905,7 +8118,9 @@ module.exports = {
   REPORT_HEADER,
   loadLog,
   filterAttendanceByDateRange,
-  exportScholarshipCsv
+  exportScholarshipCsv,
+  computeWeeklyPaceForecast,
+  formatScholarshipAttestationText
 };
   __registry["session"] = module.exports;
 })();
@@ -12035,6 +12250,84 @@ module.exports = {
     }
     return records;
   }
+
+  var S_COPY_ATTESTATION_BTN = Object.freeze({
+    he: 'העתקת אישור הגשה',
+    ar: 'نسخ إفادة التقديم',
+    ru: 'Копировать подтверждение'
+  });
+
+  var S_REMAINING_WEEKS_LABEL = Object.freeze({
+    he: 'שבועות נותרים',
+    ar: 'الأسابيع المتبقية',
+    ru: 'Осталось недель'
+  });
+
+  var S_ATTESTATION_STATUS_COPIED = Object.freeze({
+    he: 'אישור הגשה אנונימי הועתק ללוח.',
+    ar: 'تم نسخ إفادة التقديم إلى الحافظة.',
+    ru: 'Анонимное подтверждение скопировано в буфер обмена.'
+  });
+
+  var S_PACE_BADGE_COMPLETED = Object.freeze({
+    he: function (done, target) { return 'יעד הושלם (' + done + '/' + target + ' שעות)'; },
+    ar: function (done, target) { return 'تم إكمال الهدف (' + done + '/' + target + ' س)'; },
+    ru: function (done, target) { return 'Цель достигнута (' + done + '/' + target + ' ч)'; }
+  });
+
+  var S_PACE_BADGE_ON_TRACK = Object.freeze({
+    he: function (pace, forecast, target) { return 'במסלול להשלמה: קצב ' + pace + ' שעות/שבוע · צפי ' + forecast + '/' + target + ' שעות'; },
+    ar: function (pace, forecast, target) { return 'على المسار: المعدل ' + pace + ' س/أسبوع · التوقع ' + forecast + '/' + target + ' س'; },
+    ru: function (pace, forecast, target) { return 'По графику: темп ' + pace + ' ч/нед · прогноз ' + forecast + '/' + target + ' ч'; }
+  });
+
+  var S_PACE_BADGE_AT_RISK = Object.freeze({
+    he: function (pace, forecast, target) { return 'בסיכון ליעד: קצב ' + pace + ' שעות/שבוע · צפי ' + forecast + '/' + target + ' שעות'; },
+    ar: function (pace, forecast, target) { return 'في خطر: المعدل ' + pace + ' س/أسبوع · التوقع ' + forecast + '/' + target + ' س'; },
+    ru: function (pace, forecast, target) { return 'В зоне риска: темп ' + pace + ' ч/нед · прогноз ' + forecast + '/' + target + ' ч'; }
+  });
+
+  function updatePaceForecastUI() {
+    var badge = $('paceForecastBadge');
+    if (!badge) return;
+    var targetSelect = $('scholarshipTargetSelect');
+    var targetHours = targetSelect ? (Number(targetSelect.value) || 30) : 30;
+    var weeksInput = $('remainingWeeksInput');
+    var rawWeeks = weeksInput ? (weeksInput.value !== '' && weeksInput.value != null ? weeksInput.value : weeksInput.getAttribute('value')) : '8';
+    var remainingWeeks = rawWeeks != null && rawWeeks !== '' ? Number(rawWeeks) : 8;
+    if (isNaN(remainingWeeks) || remainingWeeks < 0) remainingWeeks = 0;
+    var pairIndex = activeSessionPairIndex();
+    if (pairIndex == null) pairIndex = 0;
+    var records = getFilteredAttendanceRecords();
+    var forecast = attendance && typeof attendance.computeWeeklyPaceForecast === 'function'
+      ? attendance.computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks)
+      : (session && typeof session.computeWeeklyPaceForecast === 'function'
+        ? session.computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks)
+        : null);
+
+    if (!forecast) {
+      badge.textContent = '';
+      return;
+    }
+
+    var lang = typeof currentLang === 'string' ? currentLang : 'he';
+    var text = '';
+    if (forecast.status === 'completed') {
+      var fmtDone = S_PACE_BADGE_COMPLETED[lang] || S_PACE_BADGE_COMPLETED.he;
+      text = fmtDone(forecast.completedHours, forecast.targetHours);
+    } else if (forecast.status === 'on_track') {
+      var fmtTrack = S_PACE_BADGE_ON_TRACK[lang] || S_PACE_BADGE_ON_TRACK.he;
+      text = fmtTrack(forecast.averagePace, forecast.finalForecast, forecast.targetHours);
+    } else {
+      var fmtRisk = S_PACE_BADGE_AT_RISK[lang] || S_PACE_BADGE_AT_RISK.he;
+      text = fmtRisk(forecast.averagePace, forecast.finalForecast, forecast.targetHours);
+    }
+
+    badge.textContent = text;
+    badge.setAttribute('data-status', forecast.status);
+    badge.className = 'pill pace-forecast-badge pace-status-' + forecast.status;
+  }
+
   function updatePairTotalHoursBadge() {
     var el = $('pairTotalHoursBadge');
     if (!el) return;
@@ -12069,6 +12362,7 @@ module.exports = {
       lab.textContent = fmt(pct);
     }
     renderScholarshipMilestonesBar();
+    updatePaceForecastUI();
   }
 
 
@@ -12258,6 +12552,7 @@ module.exports = {
   function onSessionDateRangeChange() {
     updatePairTotalHoursBadge();
     generateScholarshipReport();
+    updatePaceForecastUI();
   }
   if ($('sessionStartDate')) {
     $('sessionStartDate').addEventListener('input', onSessionDateRangeChange);
@@ -12271,6 +12566,7 @@ module.exports = {
     $('scholarshipTargetSelect').addEventListener('change', function () {
       generateScholarshipReport();
       renderScholarshipMilestonesBar();
+      updatePaceForecastUI();
     });
   }
 
@@ -12415,6 +12711,52 @@ module.exports = {
       var lang = typeof currentLang === 'string' ? currentLang : 'he';
       var msg = S_CONFIRM_PAIR_HOURS_STATUS[lang] || S_CONFIRM_PAIR_HOURS_STATUS.he;
       say('scholarshipConfirmationStatus', msg);
+    });
+  }
+
+  if ($('remainingWeeksInput')) {
+    if (!$('remainingWeeksInput').value) {
+      $('remainingWeeksInput').value = $('remainingWeeksInput').getAttribute('value') || '8';
+    }
+    $('remainingWeeksInput').addEventListener('input', updatePaceForecastUI);
+    $('remainingWeeksInput').addEventListener('change', updatePaceForecastUI);
+  }
+
+  if ($('copyAttestationBtn')) {
+    $('copyAttestationBtn').addEventListener('click', function () {
+      var pairIndex = activeSessionPairIndex();
+      if (pairIndex == null) pairIndex = 0;
+      var targetSelect = $('scholarshipTargetSelect');
+      var targetHours = targetSelect ? (Number(targetSelect.value) || 30) : 30;
+      var weeksInput = $('remainingWeeksInput');
+      var remainingWeeks = weeksInput && weeksInput.value !== '' ? Number(weeksInput.value) : 8;
+      var records = getFilteredAttendanceRecords();
+      var forecast = attendance && typeof attendance.computeWeeklyPaceForecast === 'function'
+        ? attendance.computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks)
+        : (session && typeof session.computeWeeklyPaceForecast === 'function'
+          ? session.computeWeeklyPaceForecast(records, pairIndex, targetHours, remainingWeeks)
+          : null);
+      var report = attendance && typeof attendance.buildScholarshipReport === 'function'
+        ? attendance.buildScholarshipReport(records, currentPairs(), targetHours)
+        : null;
+      var reportRow = (report && report.byPair && report.byPair[pairIndex]) ||
+        (report && Array.isArray(report.pairs) && report.pairs.find(function (p) { return p.pairIndex === pairIndex; })) ||
+        { pairIndex: pairIndex, totalHours: forecast ? forecast.completedHours : 0, targetHours: targetHours };
+      var lang = typeof currentLang === 'string' ? currentLang : 'he';
+      var formatFn = (attendance && typeof attendance.formatScholarshipAttestationText === 'function')
+        ? attendance.formatScholarshipAttestationText
+        : (session && typeof session.formatScholarshipAttestationText === 'function'
+          ? session.formatScholarshipAttestationText
+          : null);
+      var textToCopy = formatFn ? formatFn(reportRow, forecast, lang) : '';
+      var copiedMsg = S_ATTESTATION_STATUS_COPIED[lang] || S_ATTESTATION_STATUS_COPIED.he;
+      var readyMsg = lang === 'ar' ? 'إفادة التقديم جاهزة للنسخ.' : (lang === 'ru' ? 'Подтверждение готово к копированию.' : 'אישור הגשה אנונימי מוכן להעתקה.');
+      say('attestationStatus', copiedMsg);
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).catch(function () {
+          say('attestationStatus', readyMsg);
+        });
+      }
     });
   }
 
@@ -14553,7 +14895,20 @@ module.exports = {
     if (confStatus && confStatus.textContent) {
       confStatus.textContent = S_CONFIRM_PAIR_HOURS_STATUS[currentLang] || S_CONFIRM_PAIR_HOURS_STATUS.he;
     }
+    if ($('copyAttestationBtn')) {
+      var attBtnText = S_COPY_ATTESTATION_BTN[currentLang] || S_COPY_ATTESTATION_BTN.he;
+      $('copyAttestationBtn').textContent = attBtnText;
+      $('copyAttestationBtn').setAttribute('aria-label', attBtnText);
+    }
+    if ($('remainingWeeksLabel')) {
+      $('remainingWeeksLabel').textContent = S_REMAINING_WEEKS_LABEL[currentLang] || S_REMAINING_WEEKS_LABEL.he;
+    }
+    var attStatus = $('attestationStatus');
+    if (attStatus && attStatus.textContent) {
+      attStatus.textContent = S_ATTESTATION_STATUS_COPIED[currentLang] || S_ATTESTATION_STATUS_COPIED.he;
+    }
     renderScholarshipMilestonesBar();
+    updatePaceForecastUI();
     var aiLevelSel = $('participantAiLevelSelect');
     if (aiLevelSel) {
       var noneTxt = AI_LEVEL_FIELD_LABELS.none[currentLang] || AI_LEVEL_FIELD_LABELS.none.he;
@@ -14690,6 +15045,7 @@ module.exports = {
     window.compareArchiveCycles = (attendance && attendance.compareArchiveCycles) || (storeLib && storeLib.compareArchiveCycles);
     window.computeMentorRetentionStats = (attendance && attendance.computeMentorRetentionStats) || (storeLib && storeLib.computeMentorRetentionStats);
     window.renderScholarshipMilestonesBar = renderScholarshipMilestonesBar;
+    window.updatePaceForecastUI = updatePaceForecastUI;
     window.buildImpactOverviewReport = storeLib && storeLib.buildImpactOverviewReport;
     window.renderBackupMatches = renderBackupMatches;
     window.toggleBackupMatches = toggleBackupMatches;
