@@ -12,7 +12,8 @@ const TRACKS = Object.freeze(['elementary', 'middle']);
 const TRACK_GRADES = Object.freeze({ elementary: Object.freeze([3, 4, 5, 6]), middle: Object.freeze([7, 8, 9]) });
 const LESSON_MINUTES = 45;
 
-function lesson(track, index, slug, titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe) {
+function lesson(track, index, slug, ...details) {
+  const [titleHe, goalsHe, flowHe, activityHe, unpluggedHe, materialsHe, wrapUpHe] = details;
   return Object.freeze({
     id: track + '-' + slug, track, index,
     titleKey: 'cur.' + track + '.' + slug, titleHe,
@@ -212,9 +213,16 @@ function trackForGrade(grade) {
   throw new Error('invalid grade: expected an integer 3..9');
 }
 function lessonsForTrack(track) { return BY_TRACK[assertTrack(track)]; }
+function isValidLessonIndex(index, max) {
+  if (!Number.isInteger(index)) return false;
+  return index >= 0 && index < max;
+}
+
 function getLesson(track, index) {
   const list = lessonsForTrack(track);
-  if (!Number.isInteger(index) || index < 0 || index >= list.length) throw new Error('invalid lesson index for track ' + track);
+  if (!isValidLessonIndex(index, list.length)) {
+    throw new Error('invalid lesson index for track ' + track);
+  }
   return list[index];
 }
 function lessonById(id) {
@@ -224,25 +232,42 @@ function lessonById(id) {
 }
 function flowMinutes(lesson) { return lesson.flowHe.reduce((sum, f) => sum + f.minutes, 0); }
 
+function isValidMinutes(m) {
+  return Number.isInteger(m) && m > 0;
+}
+
+function assertValidFlowStep(f) {
+  if (!f || !isValidMinutes(f.minutes)) {
+    throw new Error('invalid lesson: flowHe');
+  }
+  if (typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
+    throw new Error('invalid lesson: flowHe');
+  }
+}
+
+function parseFlowStep(f, i) {
+  assertValidFlowStep(f);
+  const cut = f.stepHe.indexOf(': ');
+  const hasTitle = cut > 0 && cut <= 28;
+  return Object.freeze({
+    minutes: f.minutes,
+    titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
+    bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
+  });
+}
+
+function hasFlowSteps(lesson) {
+  return Boolean(lesson && Array.isArray(lesson.flowHe) && lesson.flowHe.length > 0);
+}
+
 // The 45-minute flow as timeline steps for the lesson screen: a short title, the
 // duration and the body of each step. Steps are written "title: body"; a step
 // without that prefix keeps its whole text as the body under a numbered title.
 function flowTimeline(lesson) {
-  if (!lesson || !Array.isArray(lesson.flowHe) || lesson.flowHe.length === 0) {
+  if (!hasFlowSteps(lesson)) {
     throw new Error('invalid lesson: flowHe');
   }
-  return Object.freeze(lesson.flowHe.map((f, i) => {
-    if (!f || !Number.isInteger(f.minutes) || f.minutes <= 0 || typeof f.stepHe !== 'string' || f.stepHe.trim() === '') {
-      throw new Error('invalid lesson: flowHe');
-    }
-    const cut = f.stepHe.indexOf(': ');
-    const hasTitle = cut > 0 && cut <= 28;
-    return Object.freeze({
-      minutes: f.minutes,
-      titleHe: hasTitle ? f.stepHe.slice(0, cut) : 'שלב ' + (i + 1),
-      bodyHe: hasTitle ? f.stepHe.slice(cut + 2) : f.stepHe
-    });
-  }));
+  return Object.freeze(lesson.flowHe.map(parseFlowStep));
 }
 
 function resolveTrack(trackByPair, pairIndex) {
@@ -255,29 +280,72 @@ function resolveTrack(trackByPair, pairIndex) {
 function sessionOrderKey(s) {
   return [Number.isInteger(s.week) ? s.week : 0, typeof s.slot === 'string' ? s.slot : '', typeof s.date === 'string' ? s.date : ''];
 }
+
+function isValidPairIndex(idx) {
+  return Number.isInteger(idx) && idx >= 0;
+}
+
+function assertValidSessionList(list) {
+  for (let i = 0; i < list.length; i += 1) {
+    const s = list[i];
+    if (!s || !isValidPairIndex(s.pairIndex)) {
+      throw new Error('invalid session: pairIndex');
+    }
+  }
+}
+
+function groupSessionIndexesByPair(list) {
+  const byPair = new Map();
+  for (let i = 0; i < list.length; i += 1) {
+    const pIdx = list[i].pairIndex;
+    let arr = byPair.get(pIdx);
+    if (!arr) {
+      arr = [];
+      byPair.set(pIdx, arr);
+    }
+    arr.push(i);
+  }
+  return byPair;
+}
+
+function compareSessionOrders(sA, sB, idxA, idxB) {
+  const ka = sessionOrderKey(sA);
+  const kb = sessionOrderKey(sB);
+  for (let k = 0; k < ka.length; k += 1) {
+    if (ka[k] < kb[k]) return -1;
+    if (ka[k] > kb[k]) return 1;
+  }
+  return idxA - idxB;
+}
+
+function assignTrackLessons(indexes, ctx, out) {
+  const { list, lessons, track } = ctx;
+  const ordered = indexes.slice().sort((a, b) => compareSessionOrders(list[a], list[b], a, b));
+  for (let pos = 0; pos < ordered.length; pos += 1) {
+    const sessionIdx = ordered[pos];
+    const lessonIndex = pos % lessons.length;
+    out[sessionIdx] = Object.freeze(Object.assign({}, list[sessionIdx], {
+      track,
+      sessionIndex: pos,
+      cycle: Math.floor(pos / lessons.length) + 1,
+      lessonIndex,
+      lessonId: lessons[lessonIndex].id,
+      titleKey: lessons[lessonIndex].titleKey
+    }));
+  }
+}
+
 // Each session gets the next lesson of its group's track, in session order within the group.
 // More sessions than lessons start a new cycle (cycle 2 repeats the track from lesson 1).
 function assignLessons(sessions, trackByPair) {
   const list = Array.isArray(sessions) ? sessions : [];
-  list.forEach((s) => { if (!s || !Number.isInteger(s.pairIndex) || s.pairIndex < 0) throw new Error('invalid session: pairIndex'); });
-  const byPair = new Map();
-  list.forEach((s, i) => { if (!byPair.has(s.pairIndex)) byPair.set(s.pairIndex, []); byPair.get(s.pairIndex).push(i); });
+  assertValidSessionList(list);
+  const byPair = groupSessionIndexesByPair(list);
   const out = new Array(list.length);
   byPair.forEach((indexes, pairIndex) => {
     const track = resolveTrack(trackByPair, pairIndex);
     const lessons = lessonsForTrack(track);
-    const ordered = indexes.slice().sort((a, b) => {
-      const ka = sessionOrderKey(list[a]); const kb = sessionOrderKey(list[b]);
-      for (let k = 0; k < ka.length; k += 1) { if (ka[k] < kb[k]) return -1; if (ka[k] > kb[k]) return 1; }
-      return a - b;
-    });
-    ordered.forEach((sessionIdx, pos) => {
-      const lessonIndex = pos % lessons.length;
-      out[sessionIdx] = Object.freeze(Object.assign({}, list[sessionIdx], {
-        track, sessionIndex: pos, cycle: Math.floor(pos / lessons.length) + 1,
-        lessonIndex, lessonId: lessons[lessonIndex].id, titleKey: lessons[lessonIndex].titleKey
-      }));
-    });
+    assignTrackLessons(indexes, { list, lessons, track }, out);
   });
   return Object.freeze(out);
 }
@@ -363,11 +431,20 @@ const JUDGE_ROLE_WEIGHTS = Object.freeze({
   industry_guest: 0.3
 });
 
-function submitChallengeEntry(entries, entry) {
-  if (entries !== undefined && entries !== null && !Array.isArray(entries)) {
+function isPlainObject(obj) {
+  if (obj === null || typeof obj !== 'object') return false;
+  return !Array.isArray(obj);
+}
+
+function assertValidEntries(entries) {
+  if (entries != null && !Array.isArray(entries)) {
     throw new Error('invalid entries: expected array');
   }
-  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+}
+
+function assertValidChallengeShape(entries, entry) {
+  assertValidEntries(entries);
+  if (!isPlainObject(entry)) {
     throw new Error('invalid challenge entry: expected an object');
   }
   const keys = Object.keys(entry);
@@ -376,7 +453,10 @@ function submitChallengeEntry(entries, entry) {
       throw new Error('personal data is not accepted');
     }
   }
-  if (!Number.isInteger(entry.pairIndex) || entry.pairIndex < 0) {
+}
+
+function assertValidChallengeFields(entry) {
+  if (!isValidPairIndex(entry.pairIndex)) {
     throw new Error('invalid pairIndex: expected non-negative integer');
   }
   if (typeof entry.aiTopic !== 'string' || VALID_AI_TOPICS.indexOf(entry.aiTopic) === -1) {
@@ -385,18 +465,25 @@ function submitChallengeEntry(entries, entry) {
   if (typeof entry.toolTitle !== 'string') {
     throw new Error('invalid toolTitle: expected string');
   }
-  const cleanTitle = assertCleanText(entry.toolTitle, { minLength: 1, maxLength: 80 });
+}
 
+function isScoreInRange(val) {
+  return Number.isInteger(val) && val >= 1 && val <= 5;
+}
+
+function assertValidChallengeScores(entry) {
   for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
     const val = entry[scoreKey];
-    if (!Number.isInteger(val) || val < 1 || val > 5) {
+    if (!isScoreInRange(val)) {
       throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
     }
   }
+}
 
+function createChallengeRecord(entry, cleanTitle) {
   const totalScore = entry.innovation + entry.usefulness + entry.safety;
   const averageScore = Math.round((totalScore / 3) * 100) / 100;
-  const record = Object.freeze({
+  return Object.freeze({
     pairIndex: entry.pairIndex,
     aiTopic: entry.aiTopic,
     toolTitle: cleanTitle,
@@ -407,75 +494,80 @@ function submitChallengeEntry(entries, entry) {
     averageScore: averageScore,
     score: totalScore
   });
+}
+
+function submitChallengeEntry(entries, entry) {
+  assertValidChallengeShape(entries, entry);
+  assertValidChallengeFields(entry);
+  const cleanTitle = assertCleanText(entry.toolTitle, { minLength: 1, maxLength: 80 });
+  assertValidChallengeScores(entry);
+  const record = createChallengeRecord(entry, cleanTitle);
 
   const prev = Array.isArray(entries) ? entries : [];
   const idx = prev.findIndex((e) => e && e.pairIndex === record.pairIndex);
-  let next;
   if (idx >= 0) {
-    next = prev.slice();
+    const next = prev.slice();
     next[idx] = record;
-  } else {
-    next = prev.concat([record]);
+    return Object.freeze(next);
   }
-  return Object.freeze(next);
+  return Object.freeze(prev.concat([record]));
 }
 
-function addJudgeEvaluation(entries, entryIndex, evaluation) {
+function searchTargetEntryIndex(entries, entryIndex) {
+  if (entryIndex < entries.length && entries[entryIndex]) {
+    return entryIndex;
+  }
+  return entries.findIndex((e) => e && e.pairIndex === entryIndex);
+}
+
+function findTargetEntryIndex(entries, entryIndex) {
   if (!Array.isArray(entries)) {
     throw new Error('invalid entries: expected array');
   }
-  if (!Number.isInteger(entryIndex) || entryIndex < 0) {
+  if (!isValidPairIndex(entryIndex)) {
     throw new Error('invalid entryIndex: expected non-negative integer');
   }
-  let targetIdx = -1;
-  if (entryIndex < entries.length && entries[entryIndex]) {
-    targetIdx = entryIndex;
-  } else {
-    targetIdx = entries.findIndex((e) => e && e.pairIndex === entryIndex);
-  }
-  if (targetIdx === -1) {
+  const idx = searchTargetEntryIndex(entries, entryIndex);
+  if (idx === -1) {
     throw new Error('entry not found');
   }
+  return idx;
+}
 
-  if (!evaluation || typeof evaluation !== 'object' || Array.isArray(evaluation)) {
-    throw new Error('invalid evaluation: expected an object');
-  }
-
+function assertEvaluationKeys(evaluation) {
   const keys = Object.keys(evaluation);
   for (let i = 0; i < keys.length; i += 1) {
     if (ALLOWED_JUDGE_EVAL_KEYS.indexOf(keys[i]) === -1) {
       throw new Error('personal data is not accepted');
     }
   }
+}
 
-  if (typeof evaluation.judgeRole !== 'string' || VALID_JUDGE_ROLES.indexOf(evaluation.judgeRole) === -1) {
+function assertEvaluationRole(role) {
+  if (typeof role !== 'string' || VALID_JUDGE_ROLES.indexOf(role) === -1) {
     throw new Error("invalid judgeRole: expected 'coordinator', 'mentor_peer', or 'industry_guest'");
   }
+}
 
+function assertEvaluationScores(evaluation) {
   for (const scoreKey of ['innovation', 'usefulness', 'safety']) {
     const val = evaluation[scoreKey];
-    if (!Number.isInteger(val) || val < 1 || val > 5) {
+    if (!isScoreInRange(val)) {
       throw new Error(`invalid ${scoreKey}: expected integer 1..5`);
     }
   }
+}
 
-  const currentEntry = entries[targetIdx];
-  const prevEvals = Array.isArray(currentEntry.evaluations) ? currentEntry.evaluations : [];
-  if (prevEvals.some((ev) => ev && ev.judgeRole === evaluation.judgeRole)) {
-    throw new Error(`duplicate judgeRole: evaluation already exists for role '${evaluation.judgeRole}'`);
+function assertValidEvaluationShape(evaluation) {
+  if (!isPlainObject(evaluation)) {
+    throw new Error('invalid evaluation: expected an object');
   }
+  assertEvaluationKeys(evaluation);
+  assertEvaluationRole(evaluation.judgeRole);
+  assertEvaluationScores(evaluation);
+}
 
-  const evalRecord = Object.freeze({
-    judgeRole: evaluation.judgeRole,
-    innovation: evaluation.innovation,
-    usefulness: evaluation.usefulness,
-    safety: evaluation.safety,
-    totalScore: evaluation.innovation + evaluation.usefulness + evaluation.safety,
-    averageScore: Math.round(((evaluation.innovation + evaluation.usefulness + evaluation.safety) / 3) * 100) / 100
-  });
-
-  const nextEvals = prevEvals.concat([evalRecord]);
-
+function computeWeightedScores(nextEvals) {
   let totalWeight = 0;
   let weightedInnoSum = 0;
   let weightedUseSum = 0;
@@ -495,14 +587,42 @@ function addJudgeEvaluation(entries, entryIndex, evaluation) {
   const weightedSafe = Math.round((weightedSafeSum / totalWeight) * 100) / 100;
   const totalScore = Math.round((weightedInno + weightedUse + weightedSafe) * 100) / 100;
   const averageScore = Math.round((totalScore / 3) * 100) / 100;
+  return { weightedInno, weightedUse, weightedSafe, totalScore, averageScore };
+}
+
+function createJudgeRecord(evaluation) {
+  const sum = evaluation.innovation + evaluation.usefulness + evaluation.safety;
+  return Object.freeze({
+    judgeRole: evaluation.judgeRole,
+    innovation: evaluation.innovation,
+    usefulness: evaluation.usefulness,
+    safety: evaluation.safety,
+    totalScore: sum,
+    averageScore: Math.round((sum / 3) * 100) / 100
+  });
+}
+
+function addJudgeEvaluation(entries, entryIndex, evaluation) {
+  const targetIdx = findTargetEntryIndex(entries, entryIndex);
+  assertValidEvaluationShape(evaluation);
+
+  const currentEntry = entries[targetIdx];
+  const prevEvals = Array.isArray(currentEntry.evaluations) ? currentEntry.evaluations : [];
+  if (prevEvals.some((ev) => ev && ev.judgeRole === evaluation.judgeRole)) {
+    throw new Error(`duplicate judgeRole: evaluation already exists for role '${evaluation.judgeRole}'`);
+  }
+
+  const evalRecord = createJudgeRecord(evaluation);
+  const nextEvals = prevEvals.concat([evalRecord]);
+  const scores = computeWeightedScores(nextEvals);
 
   const updatedEntry = Object.freeze(Object.assign({}, currentEntry, {
-    innovation: weightedInno,
-    usefulness: weightedUse,
-    safety: weightedSafe,
-    totalScore: totalScore,
-    averageScore: averageScore,
-    score: totalScore,
+    innovation: scores.weightedInno,
+    usefulness: scores.weightedUse,
+    safety: scores.weightedSafe,
+    totalScore: scores.totalScore,
+    averageScore: scores.averageScore,
+    score: scores.totalScore,
     evaluations: Object.freeze(nextEvals),
     judgeCount: nextEvals.length
   }));
@@ -512,39 +632,48 @@ function addJudgeEvaluation(entries, entryIndex, evaluation) {
   return Object.freeze(nextEntries);
 }
 
+function computeEntryScores(e, innovation, usefulness, safety) {
+  const totalScore = e.totalScore !== undefined
+    ? Math.round(Number(e.totalScore) * 100) / 100
+    : Math.round((innovation + usefulness + safety) * 100) / 100;
+  const averageScore = e.averageScore !== undefined
+    ? Math.round(Number(e.averageScore) * 100) / 100
+    : Math.round((totalScore / 3) * 100) / 100;
+  return { totalScore, averageScore };
+}
+
+function parseLeaderboardEntry(e) {
+  if (!isPlainObject(e)) {
+    throw new Error('invalid challenge entry in leaderboard');
+  }
+  const pairIndex = Number(e.pairIndex);
+  const innovation = Number(e.innovation);
+  const usefulness = Number(e.usefulness);
+  const safety = Number(e.safety);
+  const { totalScore, averageScore } = computeEntryScores(e, innovation, usefulness, safety);
+  const evals = Array.isArray(e.evaluations) ? e.evaluations : Object.freeze([]);
+  const judgeCount = Number.isInteger(e.judgeCount) ? e.judgeCount : evals.length;
+
+  return {
+    pairIndex,
+    aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
+    toolTitle: typeof e.toolTitle === 'string' ? e.toolTitle : '',
+    innovation,
+    usefulness,
+    safety,
+    totalScore,
+    averageScore,
+    score: totalScore,
+    evaluations: evals,
+    judgeCount
+  };
+}
+
 function rankChallengeLeaderboard(entries) {
-  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+  if (!Array.isArray(entries) || entries.length === 0) {
     return Object.freeze([]);
   }
-  const items = entries.map((e) => {
-    if (!e || typeof e !== 'object' || Array.isArray(e)) {
-      throw new Error('invalid challenge entry in leaderboard');
-    }
-    const pairIndex = Number(e.pairIndex);
-    const innovation = Number(e.innovation);
-    const usefulness = Number(e.usefulness);
-    const safety = Number(e.safety);
-    const totalScore = e.totalScore !== undefined
-      ? Math.round(Number(e.totalScore) * 100) / 100
-      : Math.round((innovation + usefulness + safety) * 100) / 100;
-    const averageScore = e.averageScore !== undefined
-      ? Math.round(Number(e.averageScore) * 100) / 100
-      : Math.round((totalScore / 3) * 100) / 100;
-    return {
-      pairIndex: pairIndex,
-      aiTopic: typeof e.aiTopic === 'string' ? e.aiTopic : '',
-      toolTitle: typeof e.toolTitle === 'string' ? e.toolTitle : '',
-      innovation: innovation,
-      usefulness: usefulness,
-      safety: safety,
-      totalScore: totalScore,
-      averageScore: averageScore,
-      score: totalScore,
-      evaluations: Array.isArray(e.evaluations) ? e.evaluations : Object.freeze([]),
-      judgeCount: Number.isInteger(e.judgeCount) ? e.judgeCount : (Array.isArray(e.evaluations) ? e.evaluations.length : 0)
-    };
-  });
-
+  const items = entries.map(parseLeaderboardEntry);
   items.sort((a, b) => {
     if (b.totalScore !== a.totalScore) {
       return b.totalScore - a.totalScore;
@@ -552,24 +681,11 @@ function rankChallengeLeaderboard(entries) {
     return a.pairIndex - b.pairIndex;
   });
 
-  return Object.freeze(items.map((item, index) => Object.freeze({
-    rank: index + 1,
-    pairIndex: item.pairIndex,
-    aiTopic: item.aiTopic,
-    toolTitle: item.toolTitle,
-    innovation: item.innovation,
-    usefulness: item.usefulness,
-    safety: item.safety,
-    totalScore: item.totalScore,
-    averageScore: item.averageScore,
-    score: item.score,
-    evaluations: item.evaluations,
-    judgeCount: item.judgeCount
-  })));
+  return Object.freeze(items.map((item, index) => Object.freeze(Object.assign({ rank: index + 1 }, item))));
 }
 
 function selectChallengeFinalists(entries, topN) {
-  if (!entries || !Array.isArray(entries) || entries.length === 0) {
+  if (!Array.isArray(entries) || entries.length === 0) {
     return Object.freeze([]);
   }
   const n = (topN !== undefined && Number.isInteger(topN)) ? Math.max(0, topN) : 3;
@@ -731,23 +847,38 @@ const AI_CHALLENGE_TEMPLATES = Object.freeze([
   })
 ]);
 
-function generateChallengeCertificateText(entry, rank, lang) {
-  if (!entry || typeof entry !== 'object') {
-    return '';
+const SUPPORTED_CERT_LANGS = Object.freeze(['he', 'ar', 'ru']);
+
+function normalizeTargetRankAndLang(rank, lang) {
+  if (typeof rank === 'string' && SUPPORTED_CERT_LANGS.indexOf(rank) !== -1) {
+    return { targetLang: rank, targetRank: undefined };
   }
-  let targetLang = lang;
-  let targetRank = rank;
-  if (typeof rank === 'string' && (rank === 'he' || rank === 'ar' || rank === 'ru')) {
-    targetLang = rank;
-    targetRank = undefined;
-  }
-  const l = (targetLang === 'ar' || targetLang === 'ru' || targetLang === 'he') ? targetLang : 'he';
-  const actualRank = targetRank != null ? targetRank : (entry.rank != null ? entry.rank : 1);
+  return { targetLang: lang, targetRank: rank };
+}
+
+function resolveRank(targetRank, entryRank) {
+  if (targetRank != null) return targetRank;
+  return entryRank != null ? entryRank : 1;
+}
+
+function resolveScore(totalScore, score) {
+  if (totalScore != null) return totalScore;
+  return score != null ? score : 0;
+}
+
+function resolveCertificateParams(entry, rank, lang) {
+  const { targetLang, targetRank } = normalizeTargetRankAndLang(rank, lang);
+  const l = SUPPORTED_CERT_LANGS.indexOf(targetLang) !== -1 ? targetLang : 'he';
+  const actualRank = resolveRank(targetRank, entry.rank);
   const pairIndex = entry.pairIndex !== undefined ? entry.pairIndex : '';
   const toolTitle = entry.toolTitle || '';
   const aiTopic = entry.aiTopic || entry.topic || '';
-  const totalScore = entry.totalScore != null ? entry.totalScore : (entry.score != null ? entry.score : 0);
+  const totalScore = resolveScore(entry.totalScore, entry.score);
+  return { l, actualRank, pairIndex, toolTitle, aiTopic, totalScore };
+}
 
+function formatCertificateByLang(info) {
+  const { l, actualRank, pairIndex, toolTitle, aiTopic, totalScore } = info;
   if (l === 'ar') {
     return [
       'شهادة تقدير ومشاركة - تحدي أدوات الذكاء الاصطناعي',
@@ -780,11 +911,258 @@ function generateChallengeCertificateText(entry, rank, lang) {
   ].join('\n');
 }
 
+function generateChallengeCertificateText(entry, rank, lang) {
+  if (!entry || typeof entry !== 'object') {
+    return '';
+  }
+  const info = resolveCertificateParams(entry, rank, lang);
+  return formatCertificateByLang(info);
+}
+
+const APPROVED_FREE_AI_TOOLS = Object.freeze({
+  AI_LIT_PROMPT: Object.freeze([
+    Object.freeze({
+      id: 'prompt-playground',
+      name: 'AI Prompt Playground',
+      title: 'AI Prompt Playground',
+      toolTitle: 'AI Prompt Playground',
+      topic: 'AI_LIT_PROMPT',
+      aiTopic: 'AI_LIT_PROMPT',
+      description: Object.freeze({
+        he: 'סביבת תרגול חינמית לניסוח הנחיות מובנות ולמידת פרומפטים בטוחים לכיתה.',
+        ar: 'بيئة تدريب مجانية لصياغة التوجيهات المنظمة وتعلم هندسة الأوامر الآمنة للفصل الدراسي.',
+        ru: 'Бесплатная среда для практики составления структурированных промптов в классе.'
+      }),
+      descriptionHe: 'סביבת תרגול חינמית לניסוח הנחיות מובנות ולמידת פרומפטים בטוחים לכיתה.',
+      descriptionAr: 'بيئة تدريب مجانية لصياغة التوجيهات المنظمة وتعلم هندسة الأوامر الآمنة للفصل الدراسي.',
+      descriptionRu: 'Бесплатная среда для практики составления структурированных промптов в классе.',
+      zeroPiiNote: Object.freeze({
+        he: 'שימוש אנונימי (Zero-PII): אין להזין שמות תלמידים, מספרי טלפון או מידע אישי מזהה.',
+        ar: 'استخدام مجهول الهوية (Zero-PII): يمنع إدخال أسماء الطلاب أو أرقام الهواتف أو معلومات شخصية.',
+        ru: 'Анонимное использование (Zero-PII): запрещено вводить имена учеников, телефоны или ПДн.'
+      }),
+      zeroPiiNoteHe: 'שימוש אנונימי (Zero-PII): אין להזין שמות תלמידים, מספרי טלפון או מידע אישי מזהה.',
+      zeroPiiNoteAr: 'استخدام مجهول الهوية (Zero-PII): يمنع إدخال أسماء الطلاب أو أرقام الهواتف أو معلومات شخصية.',
+      zeroPiiNoteRu: 'Анонимное использование (Zero-PII): запрещено вводить имена учеников, телефоны или ПДн.'
+    }),
+    Object.freeze({
+      id: 'prompt-tutor',
+      name: 'Prompt Tutor',
+      title: 'Prompt Tutor',
+      toolTitle: 'Prompt Tutor',
+      topic: 'AI_LIT_PROMPT',
+      aiTopic: 'AI_LIT_PROMPT',
+      description: Object.freeze({
+        he: 'עוזר למידה חינוכי המנתח בהירות שאלות ומציע שיפורי ניסוח ללא הזדהות.',
+        ar: 'مساعد تعليمي يحلل وضوح الأسئلة ويقترح تحسينات في الصياغة دون الحاجة للتعريف.',
+        ru: 'Образовательный помощник, анализирующий четкость вопросов без авторизации.'
+      }),
+      descriptionHe: 'עוזר למידה חינוכי המנתח בהירות שאלות ומציע שיפורי ניסוח ללא הזדהות.',
+      descriptionAr: 'עוזר למידה חינוכי המנתח בהירות שאלות ומציע שיפורי ניסוח ללא הזדהות.',
+      descriptionRu: 'Образовательный помощник, анализирующий четкость вопросов без авторизации.',
+      zeroPiiNote: Object.freeze({
+        he: 'הגנה על פרטיות: שאלות ותרגילים נמחקים מיד בסיום ההפעלה.',
+        ar: 'حماية الخصوصية: يتم حذف الأسئلة والتمارين فور انتهاء الجلسة.',
+        ru: 'Защита конфиденциальности: вопросы и упражнения удаляются сразу после сеанса.'
+      }),
+      zeroPiiNoteHe: 'הגנה על פרטיות: שאלות ותרגילים נמחקים מיד בסיום ההפעלה.',
+      zeroPiiNoteAr: 'حماية الخصوصية: يتم حذف الأسئلة والتمارين فور انتهاء الجلسة.',
+      zeroPiiNoteRu: 'Защита конфиденциальности: вопросы и упражнения удаляются сразу после сеанса.'
+    })
+  ]),
+  AI_CREATIVE: Object.freeze([
+    Object.freeze({
+      id: 'autodraw',
+      name: 'AutoDraw',
+      title: 'AutoDraw',
+      toolTitle: 'AutoDraw',
+      topic: 'AI_CREATIVE',
+      aiTopic: 'AI_CREATIVE',
+      description: Object.freeze({
+        he: 'כלי ציור מהיר מבוסס בינה מלאכותית המזהה שרבוטים ומציע איורים מקצועיים.',
+        ar: 'أداة رسم سريعة بالذكاء الاصطناعي تتعرف على الخربشات وتقترح رسومات احترافية.',
+        ru: 'Инструмент быстрого рисования на базе ИИ, распознающий наброски.'
+      }),
+      descriptionHe: 'כלי ציור מהיר מבוסס בינה מלאכותית המזהה שרבוטים ומציע איורים מקצועיים.',
+      descriptionAr: 'أداة رسم سريعة بالذكاء الاصطناعي تتعرف على الخربشات وتقترح رسومات احترافية.',
+      descriptionRu: 'Инструмент быстрого рисования на базе ИИ, распознающий наброски.',
+      zeroPiiNote: Object.freeze({
+        he: 'ללא שמירת פרטים אישיים: פעילות יצירה חופשית ללא פתיחת חשבון.',
+        ar: 'بدون حفظ بيانات شخصية: نشاط إبداعي مجاني دون الحاجة لفتح حساب.',
+        ru: 'Без сохранения личных данных: свободное творчество без регистрации.'
+      }),
+      zeroPiiNoteHe: 'ללא שמירת פרטים אישיים: פעילות יצירה חופשית ללא פתיחת חשבון.',
+      zeroPiiNoteAr: 'بدون حفظ بيانات شخصية: نشاط إبداعي مجاني دون الحاجة لفتح حساب.',
+      zeroPiiNoteRu: 'Без сохранения личных данных: свободное творчество без регистрации.'
+    }),
+    Object.freeze({
+      id: 'quick-draw',
+      name: 'Quick Draw',
+      title: 'Quick Draw',
+      toolTitle: 'Quick Draw',
+      topic: 'AI_CREATIVE',
+      aiTopic: 'AI_CREATIVE',
+      description: Object.freeze({
+        he: 'משחק למידת מכונה שבו רשת עצבית מנחשת ציורי תלמידים תוך 20 שניות.',
+        ar: 'لعبة تعلم الآلة حيث تخمن الشبكة العصبية رسومات الطلاب في 20 ثانية.',
+        ru: 'Игра машинного обучения, где нейросеть угадывает рисунки за 20 секунд.'
+      }),
+      descriptionHe: 'משחק למידת מכונה שבו רשת עצבית מנחשת ציורי תלמידים תוך 20 שניות.',
+      descriptionAr: 'لعبة تعلم الآلة حيث تخمن الشبكة العصبية رسومات الطلاب في 20 ثانية.',
+      descriptionRu: 'Игра машинного обучения, где нейросеть угадывает рисунки за 20 секунд.',
+      zeroPiiNote: Object.freeze({
+        he: 'משחק בטוח: שרבוטי צורות גנריות בלבד ללא שום פרט מזהה של התלמיד.',
+        ar: 'لعبة آمنة: خربشات لأشكال عامة فقط دون أي تفاصيل تعريفية للطالب.',
+        ru: 'Безопасная игра: только наброски предметов без персональной информации.'
+      }),
+      zeroPiiNoteHe: 'משחק בטוח: שרבוטי צורות גנריות בלבד ללא שום פרט מזהה של התלמיד.',
+      zeroPiiNoteAr: 'لعبة آمنة: خربشات لأشكال عامة فقط دون أي تفاصيل تعريفية للطالب.',
+      zeroPiiNoteRu: 'Безопасная игра: только наброски предметов без персональной информации.'
+    })
+  ]),
+  AI_STEM_CODE: Object.freeze([
+    Object.freeze({
+      id: 'teachable-machine',
+      name: 'Teachable Machine',
+      title: 'Teachable Machine',
+      toolTitle: 'Teachable Machine',
+      topic: 'AI_STEM_CODE',
+      aiTopic: 'AI_STEM_CODE',
+      description: Object.freeze({
+        he: 'אימון מודלי סיווג תמונות, קולות ותנוחות באופן חזותי ונגיש בדפדפן.',
+        ar: 'تدريب نماذج تصنيف الصور والأصوات والحركات بصرياً وبسهولة في المتصفح.',
+        ru: 'Визуальное обучение моделей классификации изображений, звуков и поз в браузере.'
+      }),
+      descriptionHe: 'אימון מודלי סיווג תמונות, קולות ותנוחות באופן חזותי ונגיש בדפדפן.',
+      descriptionAr: 'تدريب نماذج تصنيف الصور والأصوات والحركات بصرياً وبسهولة في المتصفح.',
+      descriptionRu: 'Визуальное обучение моделей классификации изображений, звуков и поз в браузере.',
+      zeroPiiNote: Object.freeze({
+        he: 'כל האימון מתבצע מקומית בדפדפן: אין להשתמש בתמונות פנים או נתונים אישיים.',
+        ar: 'يتم التدريب محلياً في المتصفح: يمنع استخدام صور الوجوه أو البيانات الشخصية.',
+        ru: 'Обучение локально в браузере: запрещено использовать лица или личные фото.'
+      }),
+      zeroPiiNoteHe: 'כל האימון מתבצע מקומית בדפדפן: אין להשתמש בתמונות פנים או נתונים אישיים.',
+      zeroPiiNoteAr: 'يتم التدريب محلياً في المتصفح: يمنع استخدام صور الوجوه أو البيانات الشخصية.',
+      zeroPiiNoteRu: 'Обучение локально в браузере: запрещено использовать лица или личные фото.'
+    }),
+    Object.freeze({
+      id: 'blockly-ai',
+      name: 'Blockly AI',
+      title: 'Blockly AI',
+      toolTitle: 'Blockly AI',
+      topic: 'AI_STEM_CODE',
+      aiTopic: 'AI_STEM_CODE',
+      description: Object.freeze({
+        he: 'סביבת תכנות בלוקים לתרגול אלגוריתמים והפעלת פקודות למידת מכונה פשוטות.',
+        ar: 'بيئة برمجة كتلية لممارسة الخوارزميات وتطبيق أوامر تعلم الآلة البسيطة.',
+        ru: 'Блочное программирование для изучения алгоритмов и простого машинного обучения.'
+      }),
+      descriptionHe: 'סביבת תכנות בלוקים לתרגול אלגוריתמים והפעלת פקודות למידת מכונה פשוטות.',
+      descriptionAr: 'بيئة برمجة كتلية لممارسة الخوارزميات وتطبيق أوامر تعلم الآلة البسيطة.',
+      descriptionRu: 'Блочное программирование для изучения алгоритмов и простого машинного обучения.',
+      zeroPiiNote: Object.freeze({
+        he: 'סביבה סגורה: קוד התלמיד נשמר מקומית בלבד ללא שיתוף ברשת.',
+        ar: 'بيئة مغلقة: يتم حفظ كود الطالب محلياً فقط دون مشاركته على الشبكة.',
+        ru: 'Закрытая среда: код сохраняется локально без передачи по сети.'
+      }),
+      zeroPiiNoteHe: 'סביבה סגורה: קוד התלמיד נשמר מקומית בלבד ללא שיתוף ברשת.',
+      zeroPiiNoteAr: 'بيئة مغلقة: يتم حفظ كود الطالب محلياً فقط دون مشاركته على الشبكة.',
+      zeroPiiNoteRu: 'Закрытая среда: код сохраняется локально без передачи по сети.'
+    })
+  ]),
+  AI_ETHICS_SEC: Object.freeze([
+    Object.freeze({
+      id: 'ai-bias-detective',
+      name: 'AI Bias Detective',
+      title: 'AI Bias Detective',
+      toolTitle: 'AI Bias Detective',
+      topic: 'AI_ETHICS_SEC',
+      aiTopic: 'AI_ETHICS_SEC',
+      description: Object.freeze({
+        he: 'סימולטור אינטראקטיבי לזיהוי הטיות נתונים והבנת עקרונות הוגנות במודלים.',
+        ar: 'محاكي تفاعلي لاكتشاف الانحياز في البيانات وفهم مبادئ العدالة في النماذج.',
+        ru: 'Интерактивный симулятор для выявления смещений в данных и проверки справедливости.'
+      }),
+      descriptionHe: 'סימולטור אינטראקטיבי לזיהוי הטיות נתונים והבנת עקרונות הוגנות במודלים.',
+      descriptionAr: 'מחאקי تفاعلي لاكتشاف الانحياز في البيانات وفهم مبادئ العدالة في النماذج.',
+      descriptionRu: 'Интерактивный симулятор для выявления смещений в данных и проверки справедливости.',
+      zeroPiiNote: Object.freeze({
+        he: 'אימון סינתטי בלבד: כל הדוגמאות מומצאות ואינן מכילות שום מידע אמיתי.',
+        ar: 'تدريب اصطناعي فقط: جميع الأمثلة افتراضية ولا تحتوي على أي معلومات حقيقية.',
+        ru: 'Только синтетические данные: примеры вымышлены и не содержат реальных данных.'
+      }),
+      zeroPiiNoteHe: 'אימון סינתטי בלבד: כל הדוגמאות מומצאות ואינן מכילות שום מידע אמיתי.',
+      zeroPiiNoteAr: 'تدريب اصطناعي فقط: جميع الأمثلة افتراضية ولا تحتوي على أي معلومات حقيقية.',
+      zeroPiiNoteRu: 'Только синтетические данные: примеры вымышлены и не содержат реальных данных.'
+    }),
+    Object.freeze({
+      id: 'privacy-guard-sim',
+      name: 'Privacy Guard Simulator',
+      title: 'Privacy Guard Simulator',
+      toolTitle: 'Privacy Guard Simulator',
+      topic: 'AI_ETHICS_SEC',
+      aiTopic: 'AI_ETHICS_SEC',
+      description: Object.freeze({
+        he: 'סדנת סימולציה לזיהוי דליפת מידע אישי ואימון הגנת פרטיות במערכות בינה מלאכותית.',
+        ar: 'ورشة محاكاة لاكتشاف تسريب البيانات الشخصية وتدريب حماية الخصوصية في أنظمة الذكاء الاصطناعي.',
+        ru: 'Симулятор для обнаружения утечек персональных данных и защиты приватности в ИИ.'
+      }),
+      descriptionHe: 'סדנת סימולציה לזיהוי דליפת מידע אישי ואימון הגנת פרטיות במערכות בינה מלאכותית.',
+      descriptionAr: 'ورشة محاكاة لاكتشاف تسريب البيانات الشخصية وتדريب حماية الخصوصية في أنظمة الذكاء الاصطناعي.',
+      descriptionRu: 'Симулятор для обнаружения утечек персональных данных и защиты приватности в ИИ.',
+      zeroPiiNote: Object.freeze({
+        he: 'משחק בדיקה בטוח: לא מזינים נתוני אמת של משתמשים בשום שלב.',
+        ar: 'لعبة فحص آمنة: لا يتم إدخال بيانات حقيقية للمستخدمين في أي مرحلة.',
+        ru: 'Безопасная игра-тест: реальные данные пользователей никогда не вводятся.'
+      }),
+      zeroPiiNoteHe: 'משחק בדיקה בטוח: לא מזינים נתוני אמת של משתמשים בשום שלב.',
+      zeroPiiNoteAr: 'لعبة فحص آمنة: لا يتم إدخال بيانات حقيقية للمستخدمين في أي مرحلة.',
+      zeroPiiNoteRu: 'Безопасная игра-тест: реальные данные пользователей никогда не вводятся.'
+    })
+  ])
+});
+
+function getRecommendedToolsForTopics(topics) {
+  if (topics === undefined || topics === null || topics === 'all') {
+    const all = [];
+    const topicKeys = Object.keys(APPROVED_FREE_AI_TOOLS);
+    for (let k = 0; k < topicKeys.length; k += 1) {
+      const list = APPROVED_FREE_AI_TOOLS[topicKeys[k]];
+      if (Array.isArray(list)) {
+        for (let i = 0; i < list.length; i += 1) {
+          all.push(list[i]);
+        }
+      }
+    }
+    return Object.freeze(all);
+  }
+  const listToFilter = Array.isArray(topics) ? topics : [topics];
+  const out = [];
+  const seenIds = Object.create(null);
+  for (let tIdx = 0; tIdx < listToFilter.length; tIdx += 1) {
+    const t = listToFilter[tIdx];
+    if (typeof t === 'string' && Object.prototype.hasOwnProperty.call(APPROVED_FREE_AI_TOOLS, t)) {
+      const tools = APPROVED_FREE_AI_TOOLS[t];
+      if (Array.isArray(tools)) {
+        for (let j = 0; j < tools.length; j += 1) {
+          const tool = tools[j];
+          if (tool && tool.id && !seenIds[tool.id]) {
+            seenIds[tool.id] = true;
+            out.push(tool);
+          }
+        }
+      }
+    }
+  }
+  return Object.freeze(out);
+}
+
 module.exports = {
   TRACKS, TRACK_GRADES, ALL_LESSONS,
   lessonsForTrack, getLesson, lessonById, trackForGrade, flowMinutes, flowTimeline,
   assignLessons, todayLesson, makeDeliveryLog, setDelivered, isDelivered, deliveryKey, lessonProgress, progressToCsv,
   VALID_AI_TOPICS, submitChallengeEntry, rankChallengeLeaderboard, filterChallengeEntriesByTopic, buildChallengeWinnersSummary,
   AI_CHALLENGE_TEMPLATES, generateChallengeCertificateText,
-  addJudgeEvaluation, selectChallengeFinalists, VALID_JUDGE_ROLES, JUDGE_ROLE_WEIGHTS
+  addJudgeEvaluation, selectChallengeFinalists, VALID_JUDGE_ROLES, JUDGE_ROLE_WEIGHTS,
+  APPROVED_FREE_AI_TOOLS, getRecommendedToolsForTopics
 };

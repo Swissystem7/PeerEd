@@ -15,10 +15,10 @@ const LATIN = /[A-Za-z]/;
 
 test('a11y: tabpanel sections have role="tabpanel", aria-labelledby and roving tabindex', () => {
   const currentShell = fs.readFileSync(path.join(ROOT, 'src', 'app-shell.html'), 'utf8');
-  assert.ok(/<section role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">/.test(currentShell),
+  assert.ok(/<div role="tabpanel" id="tab-people" aria-labelledby="nav-people" tabindex="0">/.test(currentShell),
     'tab-people must start with tabindex="0"');
   for (const id of ['tab-match', 'tab-text', 'tab-units', 'tab-sessions']) {
-    const pattern = new RegExp('<section role="tabpanel" id="' + id + '" aria-labelledby="nav-' + id.replace('tab-', '') + '" tabindex="-1" hidden>');
+    const pattern = new RegExp('<div role="tabpanel" id="' + id + '" aria-labelledby="nav-' + id.replace('tab-', '') + '" tabindex="-1" hidden>');
     assert.ok(pattern.test(currentShell), id + ' must start with tabindex="-1" and hidden');
   }
 });

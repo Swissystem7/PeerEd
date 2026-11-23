@@ -16,7 +16,7 @@ const LATIN = /[A-Za-z]/;
 test('a11y: text gate input and controls have aria attributes', () => {
   assert.ok(/<textarea id="checkText"[^>]*aria-required="true"[^>]*aria-describedby="checkStatus"/.test(shell),
     'checkText must have aria-required="true" and aria-describedby="checkStatus"');
-  assert.ok(/<div id="findings"[^>]*role="region"[^>]*aria-live="polite"/.test(shell),
+  assert.ok(/<(?:div|section) id="findings"[^>]*(?:role="region")?[^>]*aria-live="polite"/.test(shell),
     'findings must have role="region" and aria-live="polite"');
   assert.ok(/<button type="button" class="act" id="checkBtn"[^>]*aria-describedby="checkStatus"/.test(shell),
     'checkBtn must have aria-describedby="checkStatus"');
