@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title-fin desc-fin">
+  <title id="title-fin">אות גמר: פיינליסט אתגר PeerEd</title>
+  <desc id="desc-fin">העפלה לשלב הגמר באתגר הלמידה והחונכות השנתי</desc>
+  <defs>
+    <linearGradient id="ruby-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#991B1B" />
+      <stop offset="50%" stop-color="#DC2626" />
+      <stop offset="100%" stop-color="#F43F5E" />
+    </linearGradient>
+    <linearGradient id="gold-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#FDE047" />
+    </linearGradient>
+    <filter id="shadow-fin" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#991B1B" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Diamond / Decagon Laurel Frame -->
+  <polygon points="60,10 75,20 95,20 102,38 114,54 106,72 108,92 90,98 80,112 60,106 40,112 30,98 12,92 14,72 6,54 18,38 25,20 45,20" fill="#450A0A" stroke="url(#gold-border)" stroke-width="2.5" filter="url(#shadow-fin)" />
+
+  <!-- Inner Ruby Medallion -->
+  <circle cx="60" cy="60" r="36" fill="url(#ruby-grad)" />
+
+  <!-- Big Central Star with Ribbon -->
+  <polygon points="60,38 64.5,49 76,49.5 67,56.5 70.5,68 60,61 49.5,68 53,56.5 44,49.5 55.5,49" fill="#FEF08A" stroke="#B45309" stroke-width="1.2" stroke-linejoin="round" />
+  
+  <!-- Ribbon Tails below star -->
+  <polygon points="52,68 46,84 54,80 58,70" fill="#F59E0B" />
+  <polygon points="68,68 74,84 66,80 62,70" fill="#F59E0B" />
+
+  <!-- Banner -->
+  <rect x="30" y="82" width="60" height="19" rx="9.5" fill="#1C1917" stroke="#FDE047" stroke-width="1.2" />
+  <text x="60" y="95" fill="#FEF08A" font-family="system-ui, -apple-system, Rubik, sans-serif" font-size="9" font-weight="900" text-anchor="middle">פיינליסט אתגר</text>
+</svg>

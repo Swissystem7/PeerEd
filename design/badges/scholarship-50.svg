@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title-sch50 desc-sch50">
+  <title id="title-sch50">אות מלגה: 50% שעות</title>
+  <desc id="desc-sch50">אמצע הדרך במלגת ההתנדבות - השלמת 50 אחוזים ממכסת השעות</desc>
+  <defs>
+    <linearGradient id="grad-sch50" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+    <filter id="shadow-sch50" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#2563EB" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Base Circle -->
+  <circle cx="60" cy="60" r="52" fill="#EFF6FF" stroke="#DBEAFE" stroke-width="4" filter="url(#shadow-sch50)" />
+  
+  <!-- Progress Arc (50%) -->
+  <circle cx="60" cy="60" r="46" fill="none" stroke="#E2E8F0" stroke-width="6" stroke-linecap="round" />
+  <circle cx="60" cy="60" r="46" fill="none" stroke="url(#grad-sch50)" stroke-width="6" stroke-dasharray="289" stroke-dashoffset="144.5" stroke-linecap="round" transform="rotate(-90 60 60)" />
+
+  <!-- Inner Badge Plate -->
+  <circle cx="60" cy="60" r="36" fill="url(#grad-sch50)" />
+
+  <!-- Icon: Open Book / Knowledge Milestone -->
+  <path d="M60 48v16M60 48c-3-2-7-3-12-3s-7 1-7 1v15s2-1 7-1 9 2 12 3M60 48c3-2 7-3 12-3s7 1 7 1v15s-2-1-7-1-9 2-12 3" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  <polygon points="60,40 62,44 66,44 63,47 64,51 60,49 56,51 57,47 54,44 58,44" fill="#FDE047" />
+
+  <!-- Label 50% -->
+  <rect x="38" y="78" width="44" height="18" rx="9" fill="#1E3A8A" />
+  <text x="60" y="91" fill="#FFFFFF" font-family="system-ui, -apple-system, Rubik, sans-serif" font-size="11" font-weight="800" text-anchor="middle">50%</text>
+
+  <!-- Accent stars -->
+  <circle cx="60" cy="22" r="3" fill="#38BDF8" />
+</svg>

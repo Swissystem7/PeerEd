@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title-sch75 desc-sch75">
+  <title id="title-sch75">אות מלגה: 75% שעות</title>
+  <desc id="desc-sch75">ישורת אחרונה בהתנדבות - השלמת 75 אחוזים משעות המלגה</desc>
+  <defs>
+    <linearGradient id="grad-sch75" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4338CA" />
+      <stop offset="100%" stop-color="#818CF8" />
+    </linearGradient>
+    <filter id="shadow-sch75" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#4338CA" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Base Circle -->
+  <circle cx="60" cy="60" r="52" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="4" filter="url(#shadow-sch75)" />
+  
+  <!-- Progress Arc (75%) -->
+  <circle cx="60" cy="60" r="46" fill="none" stroke="#E2E8F0" stroke-width="6" stroke-linecap="round" />
+  <circle cx="60" cy="60" r="46" fill="none" stroke="url(#grad-sch75)" stroke-width="6" stroke-dasharray="289" stroke-dashoffset="72.25" stroke-linecap="round" transform="rotate(-90 60 60)" />
+
+  <!-- Inner Badge Plate -->
+  <circle cx="60" cy="60" r="36" fill="url(#grad-sch75)" />
+
+  <!-- Icon: Torch / Flame of Dedication -->
+  <path d="M54 62h12l-2 10h-8l-2-10z" fill="#C7D2FE" />
+  <path d="M52 62c0-2 2-3 8-3s8 1 8 3H52z" fill="#EEF2FF" />
+  <path d="M60 40c4 4 6 7 6 11 0 4-3 7-6 7s-6-3-6-7c0-4 2-7 6-11z" fill="#FBBF24" />
+  <path d="M60 45c2 2 3 4 3 6 0 2-1 4-3 4s-3-2-3-4c0-2 1-4 3-6z" fill="#F59E0B" />
+
+  <!-- Label 75% -->
+  <rect x="38" y="78" width="44" height="18" rx="9" fill="#312E81" />
+  <text x="60" y="91" fill="#FFFFFF" font-family="system-ui, -apple-system, Rubik, sans-serif" font-size="11" font-weight="800" text-anchor="middle">75%</text>
+
+  <!-- Accent stars -->
+  <circle cx="60" cy="22" r="3" fill="#818CF8" />
+</svg>
