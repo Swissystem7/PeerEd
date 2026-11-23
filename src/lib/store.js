@@ -16,6 +16,7 @@ const {
 } = require("./profile.js");
 const {
 	PROFANITY_ERROR,
+	findPersonalData,
 	validateBatchImportZeroPii,
 } = require("./validator.js");
 const { emptyQueue, loadQueue } = require("./approval.js");
@@ -610,6 +611,194 @@ function buildImpactOverviewReport(state, lang) {
 	return Object.freeze(report);
 }
 
+const PII_KEY_REGEX = /(?:name|first_?name|last_?name|email|mail|phone|tel|mobile|id_?number|tz|zehut|address)/i;
+
+function checkValueZeroPii(val) {
+	if (val === null || val === undefined) return true;
+	if (typeof val === "string") {
+		const hits = findPersonalData(val);
+		for (let i = 0; i < hits.length; i += 1) {
+			if (hits[i].kind !== "profanity") return false;
+		}
+		if (/@/.test(val)) return false;
+		if (/(?:^|[^\d])05\d[- ]?\d{7}(?:[^\d]|$)/.test(val)) return false;
+		return true;
+	}
+	if (Array.isArray(val)) {
+		for (let i = 0; i < val.length; i += 1) {
+			if (!checkValueZeroPii(val[i])) return false;
+		}
+		return true;
+	}
+	if (typeof val === "object") {
+		const keys = Object.keys(val);
+		for (let k = 0; k < keys.length; k += 1) {
+			if (PII_KEY_REGEX.test(keys[k])) return false;
+			if (!checkValueZeroPii(val[keys[k]])) return false;
+		}
+		return true;
+	}
+	return true;
+}
+
+function isPersonZeroPii(person) {
+	if (!person || typeof person !== "object") return false;
+	const keys = Object.keys(person);
+	for (let i = 0; i < keys.length; i += 1) {
+		if (PII_KEY_REGEX.test(keys[i])) return false;
+	}
+	return checkValueZeroPii(person);
+}
+
+function evaluatePilotReadiness(state) {
+	const s = state || emptyState();
+	const people = Array.isArray(s.people) ? s.people : [];
+
+	let zeroPii = true;
+	for (let i = 0; i < people.length; i += 1) {
+		if (!isPersonZeroPii(people[i])) {
+			zeroPii = false;
+			break;
+		}
+	}
+
+	let activeTopics = [];
+	if (Array.isArray(s.activeTopics) && s.activeTopics.length > 0) {
+		activeTopics = s.activeTopics.filter((t) => typeof t === "string" && AI_TOPIC_KEYS.includes(t));
+	} else if (Array.isArray(s.activeAiTopics) && s.activeAiTopics.length > 0) {
+		activeTopics = s.activeAiTopics.filter((t) => typeof t === "string" && AI_TOPIC_KEYS.includes(t));
+	} else {
+		const pupilsWithTopics = people.filter((p) => p && p.role === "pupil" && Array.isArray(p.target_ai_topics));
+		const topicSet = new Set();
+		for (let i = 0; i < pupilsWithTopics.length; i += 1) {
+			const tList = pupilsWithTopics[i].target_ai_topics;
+			for (let j = 0; j < tList.length; j += 1) {
+				if (typeof tList[j] === "string" && AI_TOPIC_KEYS.includes(tList[j])) {
+					topicSet.add(tList[j]);
+				}
+			}
+		}
+		if (topicSet.size > 0) {
+			activeTopics = Array.from(topicSet);
+		} else {
+			for (let i = 0; i < people.length; i += 1) {
+				const p = people[i];
+				if (p && Array.isArray(p.target_ai_topics)) {
+					for (let j = 0; j < p.target_ai_topics.length; j += 1) {
+						if (typeof p.target_ai_topics[j] === "string" && AI_TOPIC_KEYS.includes(p.target_ai_topics[j])) {
+							topicSet.add(p.target_ai_topics[j]);
+						}
+					}
+				}
+			}
+			activeTopics = topicSet.size > 0 ? Array.from(topicSet) : AI_TOPIC_KEYS.slice();
+		}
+	}
+
+	const students = people.filter((p) => p && p.role === "student");
+	const pupils = people.filter((p) => p && p.role === "pupil");
+
+	const coveredTopics = activeTopics.filter((topic) =>
+		students.some((s) => Array.isArray(s.target_ai_topics) && s.target_ai_topics.includes(topic))
+	);
+	const uncoveredTopics = activeTopics.filter((topic) => !coveredTopics.includes(topic));
+	const mentorCoverage = Boolean(students.length > 0 && activeTopics.length > 0 && uncoveredTopics.length === 0);
+
+	let pairsCount = 0;
+	if (Array.isArray(s.pairs)) {
+		pairsCount = s.pairs.length;
+	} else if (s.pairs && typeof s.pairs === "object" && Array.isArray(s.pairs.pairs)) {
+		pairsCount = s.pairs.pairs.length;
+	} else if (Array.isArray(s.matchedPairs)) {
+		pairsCount = s.matchedPairs.length;
+	} else {
+		try {
+			const matchLib = require("./match.js");
+			if (students.length > 0 && pupils.length > 0) {
+				const computed = matchLib.matchPairs(students, pupils);
+				pairsCount = computed.length;
+			}
+		} catch (_e) {
+			pairsCount = 0;
+		}
+	}
+	const hasPairs = pairsCount > 0;
+
+	const ready = Boolean(zeroPii && mentorCoverage && hasPairs);
+
+	const reasonsHe = [];
+	const reasonsAr = [];
+	const reasonsRu = [];
+
+	if (!zeroPii) {
+		reasonsHe.push("זוהו פרטים אישיים (הפרת Zero-PII)");
+		reasonsAr.push("تم العثور على بيانات شخصية (انتهاك Zero-PII)");
+		reasonsRu.push("Обнаружены персональные данные (нарушение Zero-PII)");
+	}
+	if (!mentorCoverage) {
+		if (students.length === 0) {
+			reasonsHe.push("אין מדריכים (סטודנטים) ברשימה");
+			reasonsAr.push("لا يوجد مرشدون في القائمة");
+			reasonsRu.push("В списке нет наставников");
+		} else if (uncoveredTopics.length > 0) {
+			reasonsHe.push("חסר כיסוי מדריכים לנושאים: " + uncoveredTopics.join(", "));
+			reasonsAr.push("نقص في تغطية المرشدين للمواضيع: " + uncoveredTopics.join(", "));
+			reasonsRu.push("Отсутствует покрытие наставников для тем: " + uncoveredTopics.join(", "));
+		} else {
+			reasonsHe.push("אין נושאי AI פעילים מוגדרים");
+			reasonsAr.push("لا توجد مواضيع ذكاء اصطناعي نشطة محددة");
+			reasonsRu.push("Нет активных тем ИИ");
+		}
+	}
+	if (!hasPairs) {
+		reasonsHe.push("אין זוגות משובצים לפיילוט");
+		reasonsAr.push("لا توجد أزواج مطابقة للبرنامج التجريبي");
+		reasonsRu.push("Нет сформированных пар для пилота");
+	}
+
+	const summaryHe = ready
+		? `מוכן לפיילוט: אפס פרטים מזהים (Zero-PII), כיסוי מלא של ${coveredTopics.length} נושאי AI פעילים, ו-${pairsCount} זוגות משובצים.`
+		: `הפיילוט אינו מוכן: ${reasonsHe.join("; ")}.`;
+	const summaryAr = ready
+		? `جاهز للبرنامج التجريبي: صفر بيانات شخصية (Zero-PII)، تغطية كاملة لـ ${coveredTopics.length} مواضيع ذكاء اصطناعي نشطة، و${pairsCount} أزواج مطابقة.`
+		: `البرنامج التجريبي غير جاهز: ${reasonsAr.join("; ")}.`;
+	const summaryRu = ready
+		? `Готов к пилоту: ноль персональных данных (Zero-PII), полное покрытие ${coveredTopics.length} активных тем ИИ и ${pairsCount} сформированных пар.`
+		: `Пилотный проект не готов: ${reasonsRu.join("; ")}.`;
+
+	return Object.freeze({
+		ready,
+		checks: Object.freeze({
+			zeroPii,
+			hasZeroPii: zeroPii,
+			zeroPiiPassed: zeroPii,
+			mentorCoverage,
+			topicCoverage: mentorCoverage,
+			aiTopicCoverage: mentorCoverage,
+			pairs: hasPairs,
+			hasPairs,
+			pairsExist: hasPairs,
+			pairsCount,
+			mentorCount: students.length,
+			pupilCount: pupils.length,
+			activeTopics: Object.freeze(activeTopics.slice()),
+			coveredTopics: Object.freeze(coveredTopics.slice()),
+			uncoveredTopics: Object.freeze(uncoveredTopics.slice()),
+			reasons: Object.freeze(reasonsHe.slice())
+		}),
+		summary: Object.freeze({
+			he: summaryHe,
+			ar: summaryAr,
+			ru: summaryRu,
+			text: summaryHe,
+			ready,
+			toString() {
+				return this.he;
+			}
+		})
+	});
+}
+
 module.exports = {
 	SCHEMA,
 	DEFAULT_KEY,
@@ -629,5 +818,6 @@ module.exports = {
 	buildImpactOverviewReport,
 	compareArchiveCycles,
 	computeMentorRetentionStats,
+	evaluatePilotReadiness,
 	filterParticipantsByAITopic
 };
