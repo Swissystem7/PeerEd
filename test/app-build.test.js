@@ -52,11 +52,17 @@ test('no module in src/lib can be forgotten', () => {
 
 test('the app sends nothing anywhere: no network call, no third-party asset', () => {
   let built = fs.readFileSync(path.join(ROOT, 'app.html'), 'utf8');
-  // The one exception is the contact channel from src/lib/contact.js: a link the user clicks, which
-  // carries nothing from the list. Exactly those configured strings are removed before the scan.
+  // Two strings are allowed, and then removed before the scan. The contact channel is a link the
+  // user clicks. The Sentry CDN address is loaded only after a deploy replaces __SENTRY_DSN__;
+  // the committed placeholder must still be here, once, with no real DSN.
   const contact = require('../src/lib/contact.js');
-  for (const allowed of [contact.ISSUE_FORM, contact.CONTACT].filter(Boolean)) built = built.split(allowed).join('');
-  // PeerEd handles data about minors. Anything that leaves the device would break that promise.
+  const sentry = require('../src/lib/sentry.js');
+  assert.equal((built.match(/__SENTRY_DSN__/g) || []).length, 1);
+  assert.equal(sentry.resolveDsn('__SENTRY_DSN__'), '');
+  for (const allowed of [contact.ISSUE_FORM, contact.CONTACT, sentry.SDK_SRC].filter(Boolean)) {
+    built = built.split(allowed).join('');
+  }
+  // PeerEd handles data about minors. Anything else that leaves the device would break that promise.
   for (const forbidden of ['http://', 'https://', 'fetch(', 'XMLHttpRequest', 'sendBeacon',
     'cdn.', 'googleapis', 'unpkg', 'jsdelivr', 'analytics', 'gtag(']) {
     assert.equal(built.includes(forbidden), false, 'app.html must not contain ' + forbidden);

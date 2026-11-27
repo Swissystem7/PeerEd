@@ -29,10 +29,12 @@ npm run doctor                # test + check:deadcode + check:size + check:html 
 npm run test:e2e              # Chromium checks in e2e/ (needs: npm i --no-save playwright@1.64.1 && npx playwright install chromium; skipped without it, local only)
 ```
 
-To run the app, open `app.html` in a browser. It is a single self-contained file with no external
-requests, so opening it straight from disk (`file://`) works; no server and no build are needed, because
-the committed `app.html` is already built. After any change under `src/lib/` or to `src/app-shell.html`,
-run `npm run build` and commit the regenerated `app.html`.
+To run the app, open `app.html` in a browser. It is a single self-contained file. The committed
+build makes no external request. Sentry error reporting stays off until a deploy replaces
+`__SENTRY_DSN__` (see `src/lib/sentry.js`). Opening the file straight from disk (`file://`) works;
+no server and no build are needed, because the committed `app.html` is already built. After any
+change under `src/lib/` or to `src/app-shell.html`, run `npm run build` and commit the regenerated
+`app.html`.
 
 ## What works today
 
@@ -84,6 +86,7 @@ never who) and a municipality sees counts only; a guide tab ("מדריך") with 
 | `src/lib/store.js` | Local-only storage (MVP item 7). The whole state (roster, approval queue, session log) is one JSON document under one key in the browser's localStorage, or an in-memory fallback when storage is blocked. Loading re-validates everything (`makeProfile`, `loadQueue`, `loadLog`), so a record edited in devtools cannot bring a name or a forged status in; a document that fails comes back as an empty state plus the reason, and before anything can write over it, it is copied as is under a second key, the first one plus `:rejected` (`peered_app_v1:rejected`), so the first save of the empty state does not erase the refused roster, queue and log. No screen reads that copy back; it stays until the wipe, and `clear()` removes both keys. A document refused on a later visit is copied to the next free slot (`peered_app_v1:rejected:2`, `:3`, ...), never over an earlier copy, and `clear()` removes those too. `test/offline.test.js` is a static check that no module and neither HTML file can reach the network. |
 | `src/lib/tabnav.js` | Keyboard navigation of the tab bar, the WAI-ARIA tabs pattern: the bar is one tab stop, and `stepTab` says which tab an arrow key lands on. The screen is right-to-left, so ArrowLeft goes forward and ArrowRight back, both wrap, Home and End are the ends, and any other key is left to the browser. The shell only asks the module and moves focus. |
 | `src/lib/contact.js` | The one place for a contact channel. Since 28.9 `CONTACT` is the Google Form "משוב על האפליקציות", pre-filled with PeerEd. If emptied, the app links to the Hebrew issue form `.github/ISSUE_TEMPLATE/pilot.yml`; the repo is private, so only people given access to it can open that form, and the note under the link says so. |
+| `src/lib/sentry.js` | Optional browser error reporting. Off unless a deploy replaces the `__SENTRY_DSN__` placeholder with a DSN from a project in the aviran-eg Sentry organization. It then loads the Sentry CDN errors-only bundle (no tracing, no Session Replay). `sendDefaultPii` stays false, and `beforeSend` drops the user and any name, contact, id or address field. The committed app does not request the CDN. |
 
 On screen: add participants (or load a sample), compute the match, see who is left out and why, download
 the pairs as CSV (people by list number, never by name, to line up with the coordinator's sheet: each pair with its
